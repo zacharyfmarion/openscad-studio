@@ -58,6 +58,8 @@ pub struct RenderPreviewRequest {
     pub view: Option<ViewMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<Size>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub render_mesh: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

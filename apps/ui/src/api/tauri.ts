@@ -22,6 +22,7 @@ export interface RenderPreviewRequest {
   backend?: BackendType;
   view?: ViewMode;
   size?: Size;
+  render_mesh?: boolean;
 }
 
 export interface RenderPreviewResponse {

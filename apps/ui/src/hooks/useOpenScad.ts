@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { renderPreview, locateOpenScad, type Diagnostic, type RenderPreviewResponse } from '../api/tauri';
+import { renderPreview, locateOpenScad, type Diagnostic, type RenderPreviewResponse, type RenderKind } from '../api/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
 export function useOpenScad() {
   const [source, setSource] = useState<string>('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
   const [openscadPath, setOpenscadPath] = useState<string>('');
   const [previewSrc, setPreviewSrc] = useState<string>('');
+  const [previewKind, setPreviewKind] = useState<RenderKind>('png');
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   const [isRendering, setIsRendering] = useState(false);
   const [error, setError] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'fast' | 'interactive'>('fast');
   const debounceTimerRef = useRef<number>();
 
   // Locate OpenSCAD on mount
@@ -24,7 +26,7 @@ export function useOpenScad() {
       });
   }, []);
 
-  const doRender = useCallback(async (code: string) => {
+  const doRender = useCallback(async (code: string, useMesh = false) => {
     if (!openscadPath) {
       setError('OpenSCAD path not set');
       return;
@@ -38,9 +40,11 @@ export function useOpenScad() {
         source: code,
         view: '3d',
         size: { w: 800, h: 600 },
+        render_mesh: useMesh,
       });
 
       setDiagnostics(result.diagnostics);
+      setPreviewKind(result.kind);
 
       // Convert file path to asset URL that Tauri can serve
       // Add timestamp to bust browser cache
@@ -64,16 +68,23 @@ export function useOpenScad() {
       clearTimeout(debounceTimerRef.current);
     }
 
-    // Debounce render (300ms)
+    // Debounce render (300ms) - always use fast mode for auto-updates
     debounceTimerRef.current = window.setTimeout(() => {
-      doRender(newSource);
+      doRender(newSource, false);
     }, 300);
   }, [doRender]);
+
+  // Toggle between fast (PNG) and interactive (STL) modes
+  const toggleViewMode = useCallback(() => {
+    const newMode = viewMode === 'fast' ? 'interactive' : 'fast';
+    setViewMode(newMode);
+    doRender(source, newMode === 'interactive');
+  }, [viewMode, source, doRender]);
 
   // Initial render when OpenSCAD path is found
   useEffect(() => {
     if (openscadPath && source) {
-      doRender(source);
+      doRender(source, false);
     }
   }, [openscadPath]); // Only run when openscadPath is set
 
@@ -81,11 +92,14 @@ export function useOpenScad() {
     source,
     updateSource,
     previewSrc,
+    previewKind,
     diagnostics,
     isRendering,
     error,
     openscadPath,
     setOpenscadPath,
-    manualRender: () => doRender(source),
+    viewMode,
+    toggleViewMode,
+    manualRender: () => doRender(source, viewMode === 'interactive'),
   };
 }

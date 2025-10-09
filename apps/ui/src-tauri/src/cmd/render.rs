@@ -23,11 +23,17 @@ pub async fn render_preview(
     std::fs::write(&scad_path, &request.source)
         .map_err(|e| format!("Failed to write temp .scad file: {}", e))?;
 
-    // Determine output file and kind based on view mode
+    // Determine output file and kind based on view mode and mesh flag
     let view = request.view.as_ref().unwrap_or(&ViewMode::ThreeD);
-    let (out_path, kind) = match view {
-        ViewMode::TwoD => (app_dir.join("preview.svg"), RenderKind::Svg),
-        ViewMode::ThreeD => (app_dir.join("preview.png"), RenderKind::Png),
+    let render_mesh = request.render_mesh.unwrap_or(false);
+
+    let (out_path, kind) = if render_mesh && matches!(view, ViewMode::ThreeD) {
+        (app_dir.join("preview.stl"), RenderKind::Mesh)
+    } else {
+        match view {
+            ViewMode::TwoD => (app_dir.join("preview.svg"), RenderKind::Svg),
+            ViewMode::ThreeD => (app_dir.join("preview.png"), RenderKind::Png),
+        }
     };
 
     // Build command arguments
@@ -47,20 +53,25 @@ pub async fn render_preview(
         }
     }
 
-    // Add render settings based on view mode
-    match view {
-        ViewMode::ThreeD => {
-            // Add image size if specified
-            if let Some(size) = &request.size {
-                args.push(format!("--imgsize={},{}", size.w, size.h));
-            } else {
-                args.push("--imgsize=800,600".to_string());
+    // Add render settings based on view mode and output type
+    if render_mesh {
+        // For STL export, we don't need --preview or --imgsize
+        // OpenSCAD will do a full render automatically
+    } else {
+        match view {
+            ViewMode::ThreeD => {
+                // Add image size if specified
+                if let Some(size) = &request.size {
+                    args.push(format!("--imgsize={},{}", size.w, size.h));
+                } else {
+                    args.push("--imgsize=800,600".to_string());
+                }
+                // Force render for preview (faster, lower quality)
+                args.push("--preview".to_string());
             }
-            // Force render for preview (faster, lower quality)
-            args.push("--preview".to_string());
-        }
-        ViewMode::TwoD => {
-            // 2D mode - SVG output, no special render flags needed
+            ViewMode::TwoD => {
+                // 2D mode - SVG output, no special render flags needed
+            }
         }
     }
 

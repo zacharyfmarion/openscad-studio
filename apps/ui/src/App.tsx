@@ -8,10 +8,13 @@ function App() {
     source,
     updateSource,
     previewSrc,
+    previewKind,
     diagnostics,
     isRendering,
     error,
     openscadPath,
+    viewMode,
+    toggleViewMode,
     manualRender,
   } = useOpenScad();
 
@@ -28,6 +31,14 @@ function App() {
           )}
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={toggleViewMode}
+            disabled={isRendering || !openscadPath}
+            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-medium transition-colors"
+            title={viewMode === 'fast' ? 'Switch to Interactive 3D' : 'Switch to Fast Preview'}
+          >
+            {viewMode === 'fast' ? '🖼️ Fast' : '🎮 3D'}
+          </button>
           <button
             onClick={manualRender}
             disabled={isRendering || !openscadPath}
@@ -54,7 +65,7 @@ function App() {
 
         {/* Preview - right half */}
         <div className="w-1/2">
-          <Preview src={previewSrc} isRendering={isRendering} error={error} />
+          <Preview src={previewSrc} kind={previewKind} isRendering={isRendering} error={error} />
         </div>
       </div>
 

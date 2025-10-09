@@ -1,10 +1,14 @@
+import { ThreeViewer } from './ThreeViewer';
+import type { RenderKind } from '../api/tauri';
+
 interface PreviewProps {
   src: string;
+  kind: RenderKind;
   isRendering: boolean;
   error?: string;
 }
 
-export function Preview({ src, isRendering, error }: PreviewProps) {
+export function Preview({ src, kind, isRendering, error }: PreviewProps) {
   return (
     <div className="h-full bg-gray-900 flex items-center justify-center relative">
       {error ? (
@@ -18,12 +22,16 @@ export function Preview({ src, isRendering, error }: PreviewProps) {
           <p>Rendering...</p>
         </div>
       ) : src ? (
-        <img
-          src={src}
-          alt="OpenSCAD Preview"
-          className="max-w-full max-h-full object-contain"
-          key={src} // Force re-render when src changes
-        />
+        kind === 'mesh' ? (
+          <ThreeViewer stlPath={src} />
+        ) : (
+          <img
+            src={src}
+            alt="OpenSCAD Preview"
+            className="max-w-full max-h-full object-contain"
+            key={src} // Force re-render when src changes
+          />
+        )
       ) : (
         <p className="text-gray-500">No preview available</p>
       )}
