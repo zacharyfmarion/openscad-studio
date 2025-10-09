@@ -1,11 +1,13 @@
 use crate::types::{BackendType, RenderKind, RenderPreviewRequest, RenderPreviewResponse, ViewMode};
 use crate::utils::parser::parse_openscad_stderr;
+use crate::utils::cache::RenderCache;
 use std::process::Command;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
 
 #[tauri::command]
 pub async fn render_preview(
     app: AppHandle,
+    state: State<'_, crate::AppState>,
     openscad_path: String,
     request: RenderPreviewRequest,
 ) -> Result<RenderPreviewResponse, String> {
@@ -18,21 +20,53 @@ pub async fn render_preview(
     // Ensure temp directory exists
     std::fs::create_dir_all(&app_dir).map_err(|e| format!("Failed to create cache directory: {}", e))?;
 
+    // Determine render parameters
+    let view = request.view.as_ref().unwrap_or(&ViewMode::ThreeD);
+    let render_mesh = request.render_mesh.unwrap_or(false);
+    let backend = request.backend.as_ref().unwrap_or(&BackendType::Auto);
+
+    // Generate cache key
+    let view_str = match view {
+        ViewMode::ThreeD => "3d",
+        ViewMode::TwoD => "2d",
+    };
+    let backend_str = match backend {
+        BackendType::Manifold => "manifold",
+        BackendType::Cgal => "cgal",
+        BackendType::Auto => "auto",
+    };
+    let cache_key = RenderCache::generate_key(&request.source, backend_str, view_str, render_mesh);
+
+    // Check cache
+    if let Some(cached_entry) = state.render_cache.get(&cache_key) {
+        println!("Cache HIT for key: {}", cache_key);
+        return Ok(RenderPreviewResponse {
+            kind: match cached_entry.kind.as_str() {
+                "mesh" => RenderKind::Mesh,
+                "png" => RenderKind::Png,
+                "svg" => RenderKind::Svg,
+                _ => RenderKind::Png,
+            },
+            path: cached_entry.output_path.to_string_lossy().to_string(),
+            diagnostics: vec![], // Cached results have no new diagnostics
+        });
+    }
+
+    println!("Cache MISS for key: {}", cache_key);
+
     // Write source to temp file
     let scad_path = app_dir.join("preview.scad");
     std::fs::write(&scad_path, &request.source)
         .map_err(|e| format!("Failed to write temp .scad file: {}", e))?;
 
     // Determine output file and kind based on view mode and mesh flag
-    let view = request.view.as_ref().unwrap_or(&ViewMode::ThreeD);
-    let render_mesh = request.render_mesh.unwrap_or(false);
-
+    // Use cache key in filename to avoid overwriting cached files
     let (out_path, kind) = if render_mesh && matches!(view, ViewMode::ThreeD) {
-        (app_dir.join("preview.stl"), RenderKind::Mesh)
+        (app_dir.join(format!("render_{}.stl", &cache_key[..16])), RenderKind::Mesh)
     } else {
         match view {
-            ViewMode::TwoD => (app_dir.join("preview.svg"), RenderKind::Svg),
-            ViewMode::ThreeD => (app_dir.join("preview.png"), RenderKind::Png),
+            ViewMode::TwoD => (app_dir.join(format!("render_{}.svg", &cache_key[..16])), RenderKind::Svg),
+            ViewMode::ThreeD => (app_dir.join(format!("render_{}.png", &cache_key[..16])), RenderKind::Png),
         }
     };
 
@@ -101,6 +135,14 @@ pub async fn render_preview(
             return Err("OpenSCAD failed to create output file for unknown reasons.".to_string());
         }
     }
+
+    // Store successful render in cache
+    let kind_str = match kind {
+        RenderKind::Mesh => "mesh",
+        RenderKind::Png => "png",
+        RenderKind::Svg => "svg",
+    };
+    state.render_cache.set(cache_key, out_path.clone(), kind_str.to_string());
 
     Ok(RenderPreviewResponse {
         kind,

@@ -49,6 +49,36 @@ openscad-tauri/
 
 **Goal:** Interactive 3D mesh viewing and optimized rendering pipeline
 
+### ✅ Checkpoint 2.2: Interactive 3D Mesh Viewer (COMPLETED)
+- [x] Implement STL export path in `render_preview`
+- [x] Add Three.js STL loader (via three-stdlib)
+- [x] Build 3D viewer component with:
+  - [x] OrbitControls for rotation/zoom
+  - [x] Proper lighting setup (ambient + directional)
+  - [x] Grid helper with fade distance
+- [x] Toggle between PNG (fast) and STL (interactive) modes
+- [x] Default to mesh rendering for instant 3D feedback
+- [x] Fixed viewer dimensions to fill right panel completely
+
+### ✅ Checkpoint 2.4: Performance Optimizations (COMPLETED)
+- [x] Content-hash caching (SHA-256 of source + parameters → artifact path)
+- [x] Cache hit/miss logging for debugging
+- [x] Global AppState with RenderCache instance
+- [x] Cache validation (checks if file still exists before returning)
+- [x] Timestamp tracking for future cache eviction policies
+- [ ] Resolution scaling (deferred):
+  - [ ] Low-res (400x400) while typing
+  - [ ] High-res (1200x900) on idle/manual render
+- [ ] Progress indicator for slow renders (deferred)
+
+**Next Checkpoints:**
+
+### Checkpoint 2.5: Export Functionality
+- [ ] Implement `render_exact` command
+- [ ] Support formats: STL, OBJ, AMF, 3MF, PNG, SVG, DXF
+- [ ] Export dialog with format picker and save location
+- [ ] Export with backend selection
+
 ### Checkpoint 2.1: Backend Detection & Configuration
 - [ ] Implement full `detect_backend` logic (test Manifold vs CGAL)
 - [ ] Add settings modal for:
@@ -57,33 +87,10 @@ openscad-tauri/
   - [ ] Preview resolution settings
 - [ ] Store settings in Tauri plugin-store
 
-### Checkpoint 2.2: Interactive 3D Mesh Viewer
-- [ ] Implement STL export path in `render_preview`
-- [ ] Add Three.js STL loader
-- [ ] Build 3D viewer component with:
-  - [ ] OrbitControls for rotation/zoom
-  - [ ] Proper lighting setup
-  - [ ] Grid/axes helpers
-- [ ] Toggle between PNG (fast) and STL (interactive) modes
-
 ### Checkpoint 2.3: 2D SVG Mode
 - [ ] Add SVG export path for 2D designs
 - [ ] Inline SVG viewer with pan/zoom
 - [ ] View mode toggle (3D/2D) in UI
-
-### Checkpoint 2.4: Performance Optimizations
-- [ ] Content-hash caching (SHA-256 of source → artifact path)
-- [ ] Debounce coalescing (same source within N ms → return cached)
-- [ ] Resolution scaling:
-  - [ ] Low-res (400x400) while typing
-  - [ ] High-res (1200x900) on idle/manual render
-- [ ] Progress indicator for slow renders
-
-### Checkpoint 2.5: Export Functionality
-- [ ] Implement `render_exact` command
-- [ ] Support formats: STL, OBJ, AMF, 3MF, PNG, SVG, DXF
-- [ ] Export dialog with format picker and save location
-- [ ] Export with backend selection
 
 **Estimated Duration:** 3-4 days
 
@@ -297,4 +304,4 @@ See individual phase checkpoints above for task breakdown. Each checkpoint shoul
 
 **Last Updated:** 2025-10-09
 **Current Phase:** Phase 2 (Advanced Rendering)
-**Next Milestone:** Interactive 3D mesh viewer
+**Next Milestone:** Export functionality (Checkpoint 2.5)

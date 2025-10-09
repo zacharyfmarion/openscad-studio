@@ -3,10 +3,21 @@ mod types;
 mod utils;
 
 use cmd::{detect_backend, locate_openscad, render_preview};
+use std::sync::Arc;
+use utils::cache::RenderCache;
+
+pub struct AppState {
+    pub render_cache: Arc<RenderCache>,
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let app_state = AppState {
+        render_cache: Arc::new(RenderCache::new()),
+    };
+
     tauri::Builder::default()
+        .manage(app_state)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![

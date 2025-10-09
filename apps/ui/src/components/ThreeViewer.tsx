@@ -31,7 +31,12 @@ function STLModel({ url }: { url: string }) {
   }, [url]);
 
   return (
-    <mesh ref={meshRef} castShadow receiveShadow>
+    <mesh
+      ref={meshRef}
+      castShadow
+      receiveShadow
+      rotation={[-Math.PI / 2, 0, 0]}
+    >
       <meshStandardMaterial color="#f0b429" />
     </mesh>
   );
