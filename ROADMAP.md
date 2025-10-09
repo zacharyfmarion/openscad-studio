@@ -71,13 +71,15 @@ openscad-tauri/
   - [ ] High-res (1200x900) on idle/manual render
 - [ ] Progress indicator for slow renders (deferred)
 
-**Next Checkpoints:**
+### ✅ Checkpoint 2.5: Export Functionality (COMPLETED)
+- [x] Implement `render_exact` command
+- [x] Support formats: STL, OBJ, AMF, 3MF, PNG, SVG, DXF
+- [x] Export dialog with format picker and save location
+- [x] Export with backend selection (optional parameter)
+- [x] Native file save dialog integration
+- [x] Styled dropdown to match dark theme
 
-### Checkpoint 2.5: Export Functionality
-- [ ] Implement `render_exact` command
-- [ ] Support formats: STL, OBJ, AMF, 3MF, PNG, SVG, DXF
-- [ ] Export dialog with format picker and save location
-- [ ] Export with backend selection
+**Next Checkpoints:**
 
 ### Checkpoint 2.1: Backend Detection & Configuration
 - [ ] Implement full `detect_backend` logic (test Manifold vs CGAL)
@@ -304,4 +306,4 @@ See individual phase checkpoints above for task breakdown. Each checkpoint shoul
 
 **Last Updated:** 2025-10-09
 **Current Phase:** Phase 2 (Advanced Rendering)
-**Next Milestone:** Export functionality (Checkpoint 2.5)
+**Next Milestone:** Backend configuration (Checkpoint 2.1)
