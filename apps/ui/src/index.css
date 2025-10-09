@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply m-0 p-0 w-full h-screen overflow-hidden;
+    font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  }
+
+  #root {
+    @apply w-full h-full;
+  }
+}

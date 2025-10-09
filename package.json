@@ -1,0 +1,19 @@
+{
+  "name": "openscad-copilot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Modern OpenSCAD editor with LLM copilot",
+  "packageManager": "pnpm@10.12.4",
+  "scripts": {
+    "dev": "cd apps/ui && pnpm dev",
+    "build": "cd apps/ui && pnpm build",
+    "tauri:dev": "cd apps/ui && pnpm tauri dev",
+    "tauri:build": "cd apps/ui && pnpm tauri build",
+    "lint": "pnpm -r lint",
+    "type-check": "pnpm -r type-check"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
