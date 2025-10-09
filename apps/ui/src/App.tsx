@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Editor } from './components/Editor';
 import { Preview } from './components/Preview';
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
+import { ExportDialog } from './components/ExportDialog';
 import { useOpenScad } from './hooks/useOpenScad';
 
 function App() {
@@ -17,6 +19,8 @@ function App() {
     toggleViewMode,
     manualRender,
   } = useOpenScad();
+
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   return (
     <div className="h-screen flex flex-col bg-gray-900 text-gray-100">
@@ -46,6 +50,13 @@ function App() {
           >
             Render (⌘↵)
           </button>
+          <button
+            onClick={() => setShowExportDialog(true)}
+            disabled={isRendering || !openscadPath}
+            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-medium transition-colors"
+          >
+            Export...
+          </button>
           <span className="text-xs text-gray-500">
             {openscadPath ? `OpenSCAD: ${openscadPath.split('/').pop()}` : 'OpenSCAD not found'}
           </span>
@@ -73,6 +84,14 @@ function App() {
       <div className="h-32 border-t border-gray-700">
         <DiagnosticsPanel diagnostics={diagnostics} />
       </div>
+
+      {/* Export dialog */}
+      <ExportDialog
+        isOpen={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        source={source}
+        openscadPath={openscadPath}
+      />
     </div>
   );
 }

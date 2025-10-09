@@ -2,7 +2,9 @@ use crate::types::{LocateOpenScadRequest, LocateOpenScadResponse};
 use std::process::Command;
 
 #[tauri::command]
-pub async fn locate_openscad(request: LocateOpenScadRequest) -> Result<LocateOpenScadResponse, String> {
+pub async fn locate_openscad(
+    request: LocateOpenScadRequest,
+) -> Result<LocateOpenScadResponse, String> {
     // If user provided an explicit path, validate it
     if let Some(path) = request.explicit_path {
         if std::path::Path::new(&path).exists() {
@@ -54,10 +56,7 @@ pub async fn locate_openscad(request: LocateOpenScadRequest) -> Result<LocateOpe
                     "C:\\Program Files (x86)\\OpenSCAD\\openscad.exe",
                 ]
             } else {
-                vec![
-                    "/usr/bin/openscad",
-                    "/usr/local/bin/openscad",
-                ]
+                vec!["/usr/bin/openscad", "/usr/local/bin/openscad"]
             };
 
             for path in common_paths {

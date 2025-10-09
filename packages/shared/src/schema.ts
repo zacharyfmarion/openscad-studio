@@ -42,6 +42,7 @@ export const RenderPreviewRequestSchema = z.object({
   backend: BackendTypeSchema.optional(),
   view: ViewModeSchema.optional(),
   size: SizeSchema.optional(),
+  render_mesh: z.boolean().optional(),
 });
 
 export type RenderPreviewRequest = z.infer<typeof RenderPreviewRequestSchema>;

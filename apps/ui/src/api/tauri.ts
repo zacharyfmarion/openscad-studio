@@ -11,6 +11,7 @@ export interface Diagnostic {
 export type BackendType = 'manifold' | 'cgal' | 'auto';
 export type ViewMode = '3d' | '2d';
 export type RenderKind = 'png' | 'svg' | 'mesh';
+export type ExportFormat = 'stl' | 'obj' | 'amf' | '3mf' | 'png' | 'svg' | 'dxf';
 
 export interface Size {
   w: number;
@@ -65,4 +66,26 @@ export async function detectBackend(
   openscadPath: string
 ): Promise<DetectBackendResponse> {
   return await invoke('detect_backend', { openscadPath });
+}
+
+export interface RenderExactRequest {
+  source: string;
+  backend?: BackendType;
+  format: ExportFormat;
+  out_path: string;
+}
+
+export interface RenderExactResponse {
+  path: string;
+  diagnostics: Diagnostic[];
+}
+
+export async function renderExact(
+  openscadPath: string,
+  request: RenderExactRequest
+): Promise<RenderExactResponse> {
+  return await invoke('render_exact', {
+    openscadPath,
+    request
+  });
 }

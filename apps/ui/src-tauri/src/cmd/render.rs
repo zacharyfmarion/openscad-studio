@@ -1,6 +1,8 @@
-use crate::types::{BackendType, RenderKind, RenderPreviewRequest, RenderPreviewResponse, ViewMode};
-use crate::utils::parser::parse_openscad_stderr;
+use crate::types::{
+    BackendType, RenderKind, RenderPreviewRequest, RenderPreviewResponse, ViewMode,
+};
 use crate::utils::cache::RenderCache;
+use crate::utils::parser::parse_openscad_stderr;
 use std::process::Command;
 use tauri::{AppHandle, Manager, State};
 
@@ -18,7 +20,8 @@ pub async fn render_preview(
         .map_err(|e| format!("Failed to get app cache directory: {}", e))?;
 
     // Ensure temp directory exists
-    std::fs::create_dir_all(&app_dir).map_err(|e| format!("Failed to create cache directory: {}", e))?;
+    std::fs::create_dir_all(&app_dir)
+        .map_err(|e| format!("Failed to create cache directory: {}", e))?;
 
     // Determine render parameters
     let view = request.view.as_ref().unwrap_or(&ViewMode::ThreeD);
@@ -62,11 +65,20 @@ pub async fn render_preview(
     // Determine output file and kind based on view mode and mesh flag
     // Use cache key in filename to avoid overwriting cached files
     let (out_path, kind) = if render_mesh && matches!(view, ViewMode::ThreeD) {
-        (app_dir.join(format!("render_{}.stl", &cache_key[..16])), RenderKind::Mesh)
+        (
+            app_dir.join(format!("render_{}.stl", &cache_key[..16])),
+            RenderKind::Mesh,
+        )
     } else {
         match view {
-            ViewMode::TwoD => (app_dir.join(format!("render_{}.svg", &cache_key[..16])), RenderKind::Svg),
-            ViewMode::ThreeD => (app_dir.join(format!("render_{}.png", &cache_key[..16])), RenderKind::Png),
+            ViewMode::TwoD => (
+                app_dir.join(format!("render_{}.svg", &cache_key[..16])),
+                RenderKind::Svg,
+            ),
+            ViewMode::ThreeD => (
+                app_dir.join(format!("render_{}.png", &cache_key[..16])),
+                RenderKind::Png,
+            ),
         }
     };
 
@@ -113,7 +125,12 @@ pub async fn render_preview(
     let output = Command::new(&openscad_path)
         .args(&args)
         .output()
-        .map_err(|e| format!("Failed to execute OpenSCAD: {}. Is OpenSCAD installed at {}?", e, openscad_path))?;
+        .map_err(|e| {
+            format!(
+                "Failed to execute OpenSCAD: {}. Is OpenSCAD installed at {}?",
+                e, openscad_path
+            )
+        })?;
 
     // Parse diagnostics from stderr
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -122,12 +139,9 @@ pub async fn render_preview(
     // Check if output file was created
     if !out_path.exists() {
         // Check if there were any errors in diagnostics
-        let has_errors = diagnostics.iter().any(|d| {
-            matches!(
-                d.severity,
-                crate::types::DiagnosticSeverity::Error
-            )
-        });
+        let has_errors = diagnostics
+            .iter()
+            .any(|d| matches!(d.severity, crate::types::DiagnosticSeverity::Error));
 
         if has_errors {
             return Err("OpenSCAD failed to render due to errors in your code. Check diagnostics for details.".to_string());
@@ -142,7 +156,9 @@ pub async fn render_preview(
         RenderKind::Png => "png",
         RenderKind::Svg => "svg",
     };
-    state.render_cache.set(cache_key, out_path.clone(), kind_str.to_string());
+    state
+        .render_cache
+        .set(cache_key, out_path.clone(), kind_str.to_string());
 
     Ok(RenderPreviewResponse {
         kind,
@@ -152,7 +168,113 @@ pub async fn render_preview(
 }
 
 #[tauri::command]
-pub async fn detect_backend(openscad_path: String) -> Result<crate::types::DetectBackendResponse, String> {
+pub async fn render_exact(
+    app: AppHandle,
+    openscad_path: String,
+    request: crate::types::RenderExactRequest,
+) -> Result<crate::types::RenderExactResponse, String> {
+    // Get temporary directory for temp .scad file
+    let app_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| format!("Failed to get app cache directory: {}", e))?;
+
+    // Ensure temp directory exists
+    std::fs::create_dir_all(&app_dir)
+        .map_err(|e| format!("Failed to create cache directory: {}", e))?;
+
+    // Write source to temp file
+    let scad_path = app_dir.join("export.scad");
+    std::fs::write(&scad_path, &request.source)
+        .map_err(|e| format!("Failed to write temp .scad file: {}", e))?;
+
+    // Determine file extension from format
+    let extension = match request.format {
+        crate::types::ExportFormat::Stl => "stl",
+        crate::types::ExportFormat::Obj => "obj",
+        crate::types::ExportFormat::Amf => "amf",
+        crate::types::ExportFormat::ThreeMf => "3mf",
+        crate::types::ExportFormat::Png => "png",
+        crate::types::ExportFormat::Svg => "svg",
+        crate::types::ExportFormat::Dxf => "dxf",
+    };
+
+    // Validate output path has correct extension
+    let out_path = std::path::PathBuf::from(&request.out_path);
+    if !request.out_path.ends_with(&format!(".{}", extension)) {
+        return Err(format!(
+            "Output path must end with .{} for this format",
+            extension
+        ));
+    }
+
+    // Ensure output directory exists
+    if let Some(parent) = out_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create output directory: {}", e))?;
+    }
+
+    // Build command arguments
+    let mut args: Vec<String> = vec![
+        "-o".to_string(),
+        request.out_path.clone(),
+        scad_path.to_string_lossy().to_string(),
+        "--hardwarnings".to_string(),
+    ];
+
+    // Add backend flag if specified
+    if let Some(backend) = &request.backend {
+        match backend {
+            crate::types::BackendType::Manifold => args.push("--backend=manifold".to_string()),
+            crate::types::BackendType::Cgal => args.push("--backend=cgal".to_string()),
+            crate::types::BackendType::Auto => {} // Let OpenSCAD choose
+        }
+    }
+
+    // For image exports, add size (high quality default)
+    if matches!(request.format, crate::types::ExportFormat::Png) {
+        args.push("--imgsize=1920,1440".to_string());
+        args.push("--preview".to_string());
+    }
+
+    // Execute OpenSCAD (full render, no --preview for 3D formats)
+    let output = Command::new(&openscad_path)
+        .args(&args)
+        .output()
+        .map_err(|e| {
+            format!(
+                "Failed to execute OpenSCAD: {}. Is OpenSCAD installed at {}?",
+                e, openscad_path
+            )
+        })?;
+
+    // Parse diagnostics from stderr
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let diagnostics = parse_openscad_stderr(&stderr);
+
+    // Check if output file was created
+    if !out_path.exists() {
+        let has_errors = diagnostics
+            .iter()
+            .any(|d| matches!(d.severity, crate::types::DiagnosticSeverity::Error));
+
+        if has_errors {
+            return Err("OpenSCAD failed to render due to errors in your code. Check diagnostics for details.".to_string());
+        } else {
+            return Err("OpenSCAD failed to create output file for unknown reasons.".to_string());
+        }
+    }
+
+    Ok(crate::types::RenderExactResponse {
+        path: request.out_path,
+        diagnostics,
+    })
+}
+
+#[tauri::command]
+pub async fn detect_backend(
+    openscad_path: String,
+) -> Result<crate::types::DetectBackendResponse, String> {
     // First, get version
     let version_output = Command::new(&openscad_path)
         .arg("--version")
@@ -160,11 +282,7 @@ pub async fn detect_backend(openscad_path: String) -> Result<crate::types::Detec
         .map_err(|e| format!("Failed to execute OpenSCAD: {}", e))?;
 
     let version_str = String::from_utf8_lossy(&version_output.stdout);
-    let version = version_str
-        .lines()
-        .next()
-        .unwrap_or("unknown")
-        .to_string();
+    let version = version_str.lines().next().unwrap_or("unknown").to_string();
 
     // Try to detect Manifold support by checking if --backend=manifold is accepted
     // We'll do a dry run with a trivial file

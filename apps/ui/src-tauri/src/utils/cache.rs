@@ -85,10 +85,7 @@ impl RenderCache {
     pub fn stats(&self) -> (usize, usize) {
         if let Ok(entries) = self.entries.lock() {
             let total = entries.len();
-            let valid = entries
-                .values()
-                .filter(|e| e.output_path.exists())
-                .count();
+            let valid = entries.values().filter(|e| e.output_path.exists()).count();
             (total, valid)
         } else {
             (0, 0)

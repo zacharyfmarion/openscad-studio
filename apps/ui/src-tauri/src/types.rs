@@ -44,6 +44,19 @@ pub enum RenderKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ExportFormat {
+    Stl,
+    Obj,
+    Amf,
+    #[serde(rename = "3mf")]
+    ThreeMf,
+    Png,
+    Svg,
+    Dxf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Size {
     pub w: u32,
     pub h: u32,
@@ -84,4 +97,19 @@ pub struct LocateOpenScadRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocateOpenScadResponse {
     pub exe_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RenderExactRequest {
+    pub source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backend: Option<BackendType>,
+    pub format: ExportFormat,
+    pub out_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RenderExactResponse {
+    pub path: String,
+    pub diagnostics: Vec<Diagnostic>,
 }

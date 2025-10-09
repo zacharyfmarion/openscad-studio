@@ -1,14 +1,11 @@
 use crate::types::{Diagnostic, DiagnosticSeverity};
-use regex::Regex;
 use once_cell::sync::Lazy;
+use regex::Regex;
 
-static ERROR_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?i)^(ERROR|WARNING|ECHO):\s*(.*)").unwrap()
-});
+static ERROR_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)^(ERROR|WARNING|ECHO):\s*(.*)").unwrap());
 
-static LINE_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"line\s+(\d+)").unwrap()
-});
+static LINE_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"line\s+(\d+)").unwrap());
 
 /// Parse OpenSCAD stderr output into structured diagnostics
 pub fn parse_openscad_stderr(stderr: &str) -> Vec<Diagnostic> {
@@ -70,7 +67,10 @@ mod tests {
 
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].line, Some(5));
-        assert!(matches!(diagnostics[0].severity, DiagnosticSeverity::Warning));
+        assert!(matches!(
+            diagnostics[0].severity,
+            DiagnosticSeverity::Warning
+        ));
     }
 
     #[test]
