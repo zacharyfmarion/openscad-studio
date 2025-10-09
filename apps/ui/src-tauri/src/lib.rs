@@ -5,7 +5,7 @@ mod utils;
 use cmd::{detect_backend, locate_openscad, render_exact, render_preview};
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
-use tauri::menu::{MenuBuilder, SubmenuBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use utils::cache::RenderCache;
 
 pub struct AppState {
@@ -44,23 +44,37 @@ pub fn run() {
 
             // Create File menu
             let file_menu = SubmenuBuilder::new(app, "File")
-                .text("new", "New")
-                .text("open", "Open...")
-                .text("save", "Save")
-                .text("save_as", "Save As...")
+                .item(&MenuItemBuilder::with_id("new", "New").accelerator("CmdOrCtrl+N").build(app)?)
+                .item(&MenuItemBuilder::with_id("open", "Open...").accelerator("CmdOrCtrl+O").build(app)?)
                 .separator()
-                .text("export_stl", "Export as STL...")
-                .text("export_obj", "Export as OBJ...")
-                .text("export_amf", "Export as AMF...")
-                .text("export_3mf", "Export as 3MF...")
-                .text("export_png", "Export as PNG...")
-                .text("export_svg", "Export as SVG...")
-                .text("export_dxf", "Export as DXF...")
+                .item(&MenuItemBuilder::with_id("save", "Save").accelerator("CmdOrCtrl+S").build(app)?)
+                .item(&MenuItemBuilder::with_id("save_as", "Save As...").accelerator("CmdOrCtrl+Shift+S").build(app)?)
+                .separator()
+                .item(&MenuItemBuilder::with_id("export_stl", "Export as STL...").build(app)?)
+                .item(&MenuItemBuilder::with_id("export_obj", "Export as OBJ...").build(app)?)
+                .item(&MenuItemBuilder::with_id("export_amf", "Export as AMF...").build(app)?)
+                .item(&MenuItemBuilder::with_id("export_3mf", "Export as 3MF...").build(app)?)
+                .item(&MenuItemBuilder::with_id("export_png", "Export as PNG...").build(app)?)
+                .item(&MenuItemBuilder::with_id("export_svg", "Export as SVG...").build(app)?)
+                .item(&MenuItemBuilder::with_id("export_dxf", "Export as DXF...").build(app)?)
+                .build()?;
+
+            // Create Edit menu
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .separator()
+                .select_all()
                 .build()?;
 
             let menu = MenuBuilder::new(app)
                 .item(&app_menu)
                 .item(&file_menu)
+                .item(&edit_menu)
                 .build()?;
 
             app.set_menu(menu)?;

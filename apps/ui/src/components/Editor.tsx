@@ -47,6 +47,27 @@ export function Editor({ value, onChange, diagnostics }: EditorProps) {
 
     // Register OpenSCAD language (basic syntax highlighting)
     monaco.languages.register({ id: 'openscad' });
+
+    // Register comment configuration for OpenSCAD
+    // This enables Cmd+/ to work automatically
+    monaco.languages.setLanguageConfiguration('openscad', {
+      comments: {
+        lineComment: '//',
+        blockComment: ['/*', '*/'],
+      },
+      brackets: [
+        ['{', '}'],
+        ['[', ']'],
+        ['(', ')']
+      ],
+      autoClosingPairs: [
+        { open: '{', close: '}' },
+        { open: '[', close: ']' },
+        { open: '(', close: ')' },
+        { open: '"', close: '"' },
+      ],
+    });
+
     monaco.languages.setMonarchTokensProvider('openscad', {
       keywords: [
         'module', 'function', 'if', 'else', 'for', 'let', 'echo', 'assert',
