@@ -6,11 +6,11 @@ export function useOpenScad() {
   const [source, setSource] = useState<string>('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
   const [openscadPath, setOpenscadPath] = useState<string>('');
   const [previewSrc, setPreviewSrc] = useState<string>('');
-  const [previewKind, setPreviewKind] = useState<RenderKind>('png');
+  const [previewKind, setPreviewKind] = useState<RenderKind>('mesh');
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   const [isRendering, setIsRendering] = useState(false);
   const [error, setError] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'fast' | 'interactive'>('fast');
+  const [viewMode, setViewMode] = useState<'fast' | 'interactive'>('interactive');
   const debounceTimerRef = useRef<number>();
 
   // Locate OpenSCAD on mount
@@ -68,11 +68,11 @@ export function useOpenScad() {
       clearTimeout(debounceTimerRef.current);
     }
 
-    // Debounce render (300ms) - always use fast mode for auto-updates
+    // Debounce render (300ms) - use current view mode for auto-updates
     debounceTimerRef.current = window.setTimeout(() => {
-      doRender(newSource, false);
+      doRender(newSource, viewMode === 'interactive');
     }, 300);
-  }, [doRender]);
+  }, [doRender, viewMode]);
 
   // Toggle between fast (PNG) and interactive (STL) modes
   const toggleViewMode = useCallback(() => {
@@ -84,7 +84,7 @@ export function useOpenScad() {
   // Initial render when OpenSCAD path is found
   useEffect(() => {
     if (openscadPath && source) {
-      doRender(source, false);
+      doRender(source, true); // Default to mesh rendering
     }
   }, [openscadPath]); // Only run when openscadPath is set
 
