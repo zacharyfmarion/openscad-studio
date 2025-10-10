@@ -285,3 +285,83 @@ impl Drop for AgentSidecar {
         }
     }
 }
+
+// Global state for managing the sidecar
+pub struct AgentSidecarState {
+    pub sidecar: Arc<Mutex<Option<AgentSidecar>>>,
+}
+
+impl AgentSidecarState {
+    pub fn new() -> Self {
+        Self {
+            sidecar: Arc::new(Mutex::new(None)),
+        }
+    }
+}
+
+/// Start the Agent SDK sidecar process
+#[tauri::command]
+pub async fn start_agent_sidecar(
+    app: AppHandle,
+    api_key: String,
+    state: State<'_, AgentSidecarState>,
+) -> Result<(), String> {
+    let mut sidecar_guard = state.sidecar.lock().await;
+
+    // Don't start if already running
+    if sidecar_guard.is_some() {
+        return Ok(());
+    }
+
+    let sidecar = AgentSidecar::spawn(&app, api_key).await?;
+    *sidecar_guard = Some(sidecar);
+
+    Ok(())
+}
+
+/// Stop the Agent SDK sidecar process
+#[tauri::command]
+pub async fn stop_agent_sidecar(state: State<'_, AgentSidecarState>) -> Result<(), String> {
+    let mut sidecar_guard = state.sidecar.lock().await;
+
+    if let Some(sidecar) = sidecar_guard.take() {
+        sidecar.shutdown().await?;
+    }
+
+    Ok(())
+}
+
+/// Send a query to the AI agent
+#[tauri::command]
+pub async fn send_agent_query(
+    prompt: String,
+    mode: String,
+    state: State<'_, AgentSidecarState>,
+) -> Result<(), String> {
+    let sidecar_guard = state.sidecar.lock().await;
+
+    if sidecar_guard.is_none() {
+        return Err("Sidecar not running. Call start_agent_sidecar first.".to_string());
+    }
+
+    // TODO: Send query to sidecar via stdin
+    // For now, just log it
+    println!("[Sidecar] Sending query (mode: {}): {}", mode, prompt);
+
+    Ok(())
+}
+
+/// Cancel ongoing AI stream
+#[tauri::command]
+pub async fn cancel_agent_stream(state: State<'_, AgentSidecarState>) -> Result<(), String> {
+    let sidecar_guard = state.sidecar.lock().await;
+
+    if sidecar_guard.is_none() {
+        return Ok(()); // Nothing to cancel
+    }
+
+    // TODO: Send cancellation signal to sidecar
+    println!("[Sidecar] Canceling stream");
+
+    Ok(())
+}
