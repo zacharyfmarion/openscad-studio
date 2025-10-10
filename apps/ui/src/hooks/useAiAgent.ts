@@ -58,8 +58,8 @@ export function useAiAgent() {
               setState((prev) => ({
                 ...prev,
                 proposedDiff: {
-                  diff: payload.diff,
-                  rationale: payload.rationale,
+                  diff: payload.diff!,
+                  rationale: payload.rationale!,
                 },
                 isStreaming: false,
               }));

@@ -4,7 +4,11 @@ import { Editor } from './components/Editor';
 import { Preview } from './components/Preview';
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
 import { ExportDialog } from './components/ExportDialog';
+import { AiPromptPanel } from './components/AiPromptPanel';
+import { DiffViewer } from './components/DiffViewer';
+import { SettingsDialog } from './components/SettingsDialog';
 import { useOpenScad } from './hooks/useOpenScad';
+import { useAiAgent } from './hooks/useAiAgent';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { save, open } from '@tauri-apps/plugin-dialog';
@@ -34,8 +38,24 @@ function App() {
     clearPreview,
   } = useOpenScad(workingDir);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [savedContent, setSavedContent] = useState('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
+
+  // AI Agent state
+  const {
+    isStreaming,
+    streamingResponse,
+    proposedDiff,
+    error: aiError,
+    isApplyingDiff,
+    submitPrompt,
+    cancelStream,
+    acceptDiff,
+    rejectDiff,
+    clearError: clearAiError,
+  } = useAiAgent();
 
   // Use refs to avoid stale closures in event listeners
   const currentFilePathRef = useRef<string | null>(null);
@@ -318,6 +338,25 @@ function App() {
     appWindow.setTitle(`${dirtyIndicator}${fileName} - OpenSCAD Copilot`);
   }, [currentFilePath, isDirty]);
 
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ⌘K or Ctrl+K to toggle AI panel
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowAiPanel((prev) => !prev);
+      }
+      // ⌘, or Ctrl+, to open settings
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setShowSettingsDialog(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <div className="h-screen flex flex-col bg-gray-900 text-gray-100">
       {/* Header */}
@@ -348,6 +387,24 @@ function App() {
           >
             Export...
           </button>
+          <button
+            onClick={() => setShowAiPanel(!showAiPanel)}
+            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              showAiPanel
+                ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+            }`}
+            title="Toggle AI Copilot (⌘K)"
+          >
+            🤖 AI {showAiPanel ? '✓' : ''}
+          </button>
+          <button
+            onClick={() => setShowSettingsDialog(true)}
+            className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-sm font-medium transition-colors"
+            title="Settings (⌘,)"
+          >
+            ⚙️
+          </button>
           <span className="text-xs text-gray-500">
             {openscadPath ? `OpenSCAD: ${openscadPath.split('/').pop()}` : 'OpenSCAD not found'}
           </span>
@@ -368,13 +425,33 @@ function App() {
             </Panel>
             <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-gray-600 transition-colors" />
             <Panel defaultSize={50} minSize={20}>
-              <Preview src={previewSrc} kind={previewKind} isRendering={isRendering} error={error} />
+              {proposedDiff ? (
+                <DiffViewer
+                  oldCode={source}
+                  newCode={source} // TODO: Apply diff to show new code
+                  onAccept={acceptDiff}
+                  onReject={rejectDiff}
+                  isApplying={isApplyingDiff}
+                />
+              ) : (
+                <Preview src={previewSrc} kind={previewKind} isRendering={isRendering} error={error} />
+              )}
             </Panel>
           </PanelGroup>
         </Panel>
         <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-gray-600 transition-colors" />
         <Panel defaultSize={25} minSize={10} maxSize={50}>
-          <DiagnosticsPanel diagnostics={diagnostics} />
+          {showAiPanel ? (
+            <AiPromptPanel
+              onSubmit={submitPrompt}
+              isStreaming={isStreaming}
+              streamingResponse={streamingResponse}
+              onCancel={cancelStream}
+              diagnostics={diagnostics}
+            />
+          ) : (
+            <DiagnosticsPanel diagnostics={diagnostics} />
+          )}
         </Panel>
       </PanelGroup>
 
@@ -386,6 +463,30 @@ function App() {
         openscadPath={openscadPath}
         workingDir={workingDir}
       />
+
+      {/* Settings dialog */}
+      <SettingsDialog
+        isOpen={showSettingsDialog}
+        onClose={() => setShowSettingsDialog(false)}
+      />
+
+      {/* AI Error notification */}
+      {aiError && (
+        <div className="fixed bottom-4 right-4 bg-red-900/90 border border-red-700 text-red-100 px-4 py-3 rounded-lg shadow-lg max-w-md z-50">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="font-semibold mb-1">AI Error</div>
+              <div className="text-sm">{aiError}</div>
+            </div>
+            <button
+              onClick={clearAiError}
+              className="text-red-300 hover:text-red-100 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
