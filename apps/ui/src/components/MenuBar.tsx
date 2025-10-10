@@ -80,7 +80,7 @@ export function MenuBar({ source, onSourceChange, currentFilePath, onFilePathCha
 
       if (!selected) return; // User cancelled
 
-      const filePath = typeof selected === 'string' ? selected : selected.path;
+      const filePath = typeof selected === 'string' ? selected : (selected as { path: string }).path;
 
       // Read file using Tauri's fs
       const { readTextFile } = await import('@tauri-apps/plugin-fs');

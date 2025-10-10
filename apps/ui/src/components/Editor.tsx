@@ -13,6 +13,12 @@ interface EditorProps {
 export function Editor({ value, onChange, diagnostics, onManualRender }: EditorProps) {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof Monaco | null>(null);
+  const onManualRenderRef = useRef(onManualRender);
+
+  // Keep ref in sync with prop
+  useEffect(() => {
+    onManualRenderRef.current = onManualRender;
+  }, [onManualRender]);
 
   // Update markers when diagnostics change
   useEffect(() => {
@@ -47,11 +53,11 @@ export function Editor({ value, onChange, diagnostics, onManualRender }: EditorP
     monacoRef.current = monaco;
 
     // Add keyboard shortcut for manual render (Cmd+Enter / Ctrl+Enter)
-    if (onManualRender) {
-      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-        onManualRender();
-      });
-    }
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+      if (onManualRenderRef.current) {
+        onManualRenderRef.current();
+      }
+    });
 
     // Register OpenSCAD language (basic syntax highlighting)
     monaco.languages.register({ id: 'openscad' });

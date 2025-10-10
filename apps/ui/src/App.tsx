@@ -45,7 +45,10 @@ function App() {
   const sourceRef = useRef<string>(source);
   const openscadPathRef = useRef<string>(openscadPath);
   const workingDirRef = useRef<string | null>(workingDir);
+  const isDirtyRef = useRef<boolean>(isDirty);
+  const savedContentRef = useRef<string>(savedContent);
 
+  // Keep refs in sync with state
   useEffect(() => {
     currentFilePathRef.current = currentFilePath;
   }, [currentFilePath]);
@@ -61,6 +64,14 @@ function App() {
   useEffect(() => {
     workingDirRef.current = workingDir;
   }, [workingDir]);
+
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  useEffect(() => {
+    savedContentRef.current = savedContent;
+  }, [savedContent]);
 
   // Track if content has changed
   useEffect(() => {
@@ -85,8 +96,10 @@ function App() {
       setCurrentFilePath(savePath);
       setSavedContent(currentSource);
       setIsDirty(false);
-      // Trigger render on save
-      renderOnSave();
+      // Trigger render on save (only if OpenSCAD is available)
+      if (openscadPathRef.current) {
+        renderOnSave();
+      }
       return true;
     } catch (err) {
       console.error('Save failed:', err);
@@ -97,8 +110,10 @@ function App() {
 
   // Helper function to check for unsaved changes before destructive operations
   // Returns: true if ok to proceed, false if user wants to cancel
-  const checkUnsavedChanges = useCallback(async (): Promise<boolean> => {
-    if (!isDirty) return true;
+  const checkUnsavedChangesRef = useRef<() => Promise<boolean>>();
+
+  checkUnsavedChangesRef.current = async (): Promise<boolean> => {
+    if (!isDirtyRef.current) return true;
 
     const { ask, confirm } = await import('@tauri-apps/plugin-dialog');
 
@@ -129,16 +144,21 @@ function App() {
       );
       return confirmDiscard; // true if they want to discard, false if they cancelled
     }
-  }, [isDirty, saveFile]);
+  };
 
   // Listen for menu events from native menu
+  // This effect only runs once on mount to avoid re-registering listeners
   useEffect(() => {
     let unlistenFns: Array<() => void> = [];
+    let isMounted = true;
 
     // Setup all listeners
     const setupListeners = async () => {
-      unlistenFns.push(await listen('menu:file:new', async () => {
-        const canProceed = await checkUnsavedChanges();
+      // File > New
+      const unlistenNew = await listen('menu:file:new', async () => {
+        if (!isMounted) return;
+
+        const canProceed = checkUnsavedChangesRef.current ? await checkUnsavedChangesRef.current() : true;
         if (!canProceed) return;
 
         clearPreview();
@@ -146,10 +166,14 @@ function App() {
         setCurrentFilePath(null);
         setSavedContent('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
         setIsDirty(false);
-      }));
+      });
+      if (isMounted) unlistenFns.push(unlistenNew);
 
-      unlistenFns.push(await listen('menu:file:open', async () => {
-        const canProceed = await checkUnsavedChanges();
+      // File > Open
+      const unlistenOpen = await listen('menu:file:open', async () => {
+        if (!isMounted) return;
+
+        const canProceed = checkUnsavedChangesRef.current ? await checkUnsavedChangesRef.current() : true;
         if (!canProceed) return;
 
         try {
@@ -157,9 +181,13 @@ function App() {
             filters: [{ name: 'OpenSCAD Files', extensions: ['scad'] }],
             multiple: false
           });
-          if (!selected) return;
-          const filePath = typeof selected === 'string' ? selected : selected.path;
+          if (!selected) return; // User cancelled
+
+          const filePath = typeof selected === 'string' ? selected : (selected as { path: string }).path;
           const contents = await readTextFile(filePath);
+
+          if (!isMounted) return;
+
           clearPreview();
           updateSource(contents);
           setCurrentFilePath(filePath);
@@ -167,19 +195,31 @@ function App() {
           setIsDirty(false);
         } catch (err) {
           console.error('Open failed:', err);
-          alert(`Failed to open file: ${err}`);
+          if (isMounted) {
+            alert(`Failed to open file: ${err}`);
+          }
         }
-      }));
+      });
+      if (isMounted) unlistenFns.push(unlistenOpen);
 
-      unlistenFns.push(await listen('menu:file:save', async () => {
+      // File > Save
+      const unlistenSave = await listen('menu:file:save', async () => {
+        if (!isMounted) return;
         await saveFile(false); // Save to current path, or prompt if no path
-      }));
+      });
+      if (isMounted) unlistenFns.push(unlistenSave);
 
-      unlistenFns.push(await listen('menu:file:save_as', async () => {
+      // File > Save As
+      const unlistenSaveAs = await listen('menu:file:save_as', async () => {
+        if (!isMounted) return;
         await saveFile(true); // Always prompt for new path
-      }));
+      });
+      if (isMounted) unlistenFns.push(unlistenSaveAs);
 
-      unlistenFns.push(await listen<ExportFormat>('menu:file:export', async (event) => {
+      // File > Export
+      const unlistenExport = await listen<ExportFormat>('menu:file:export', async (event) => {
+        if (!isMounted) return;
+
         try {
           const format = event.payload;
           const formatLabels: Record<ExportFormat, { label: string; ext: string }> = {
@@ -195,46 +235,63 @@ function App() {
           const savePath = await save({
             filters: [{ name: formatInfo.label, extensions: [formatInfo.ext] }]
           });
-          if (!savePath) return;
+          if (!savePath) return; // User cancelled
+
+          if (!isMounted) return;
+
           await renderExact(openscadPathRef.current, {
             source: sourceRef.current,
             format,
             out_path: savePath,
             working_dir: workingDirRef.current || undefined
           });
-          alert(`Exported successfully to ${savePath}`);
+
+          if (isMounted) {
+            alert(`Exported successfully to ${savePath}`);
+          }
         } catch (err) {
           console.error('Export failed:', err);
-          alert(`Export failed: ${err}`);
+          if (isMounted) {
+            alert(`Export failed: ${err}`);
+          }
         }
-      }));
+      });
+      if (isMounted) unlistenFns.push(unlistenExport);
     };
 
     setupListeners();
 
     return () => {
+      isMounted = false;
       unlistenFns.forEach(fn => fn());
     };
-  }, [updateSource, checkUnsavedChanges, saveFile, clearPreview]);
+  }, []); // Empty deps - only run once on mount
 
   // Handle window close with unsaved changes
   useEffect(() => {
     const appWindow = getCurrentWindow();
+    let unlisten: (() => void) | null = null;
 
-    const unlistenCloseRequested = appWindow.onCloseRequested(async (event) => {
-      if (isDirty) {
-        event.preventDefault();
-        const canClose = await checkUnsavedChanges();
-        if (canClose) {
-          await appWindow.close();
+    const setup = async () => {
+      unlisten = await appWindow.onCloseRequested(async (event) => {
+        if (isDirtyRef.current) {
+          event.preventDefault();
+          const canClose = checkUnsavedChangesRef.current ? await checkUnsavedChangesRef.current() : true;
+          if (canClose) {
+            await appWindow.close();
+          }
         }
-      }
-    });
+      });
+    };
+
+    setup();
 
     return () => {
-      unlistenCloseRequested.then(f => f());
+      if (unlisten) {
+        unlisten();
+      }
     };
-  }, [isDirty, checkUnsavedChanges]);
+  }, []); // Empty deps - only run once on mount
 
   // Update window title with unsaved indicator
   useEffect(() => {

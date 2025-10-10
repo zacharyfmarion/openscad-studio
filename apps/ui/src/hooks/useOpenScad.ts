@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { renderPreview, locateOpenScad, type Diagnostic, type RenderPreviewResponse, type RenderKind } from '../api/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
@@ -12,7 +12,6 @@ export function useOpenScad(workingDir?: string | null) {
   const [error, setError] = useState<string>('');
   const [viewMode, setViewMode] = useState<'fast' | 'interactive'>('interactive');
   const [dimensionMode, setDimensionMode] = useState<'2d' | '3d'>('3d');
-  const debounceTimerRef = useRef<number>();
 
   // Locate OpenSCAD on mount
   useEffect(() => {
