@@ -100,45 +100,137 @@ openscad-tauri/
 
 ---
 
-## 🎯 Phase 3: LLM Copilot Integration
+## 🎯 Phase 3: AI Copilot Integration (Claude Agent SDK + Sidecar)
 
-**Goal:** AI-assisted code generation with safe diff-based editing
+**Goal:** Cursor-like AI experience with secure sidecar architecture and diff-based code editing
 
-### Checkpoint 3.1: Backend LLM Infrastructure
-- [ ] Integrate `reqwest` for OpenAI/Anthropic APIs
-- [ ] Secure key storage using OS keychain (`keyring` crate)
-- [ ] Settings UI for:
-  - [ ] API key input
-  - [ ] Model selection (GPT-4, Claude 3.5, etc.)
-  - [ ] Temperature slider
-- [ ] Implement `llm_suggest` command
+### Architecture Overview
+- **Agent SDK Sidecar**: Node/Bun process running `@anthropic-ai/claude-agent-sdk`
+- **Security**: API key in OS keychain, injected to sidecar via env, never touches renderer
+- **Editing**: Diff-based only (unified diff format, max 120 lines), validated before apply
+- **Tools**: MCP server with OpenSCAD-specific tools (get code, screenshot, apply diff, diagnostics)
+- **Communication**: UI ↔ Tauri IPC ↔ Sidecar (stdio) ↔ Agent SDK ↔ Claude API
 
-### Checkpoint 3.2: Diff Generation & Application
-- [ ] Server-side unified diff generation
-- [ ] Frontend diff parser/applier (`diff` npm package)
-- [ ] Diff viewer component with syntax highlighting
-- [ ] Apply/Reject buttons
+### Checkpoint 3.1: Infrastructure - Sidecar + Keychain (2 days)
+- [ ] Add `keyring = "2"` to Cargo.toml
+- [ ] Create `src/cmd/ai.rs` with keychain commands:
+  - [ ] `store_api_key(key)` → OS keychain
+  - [ ] `get_api_key()` → retrieve from keychain
+  - [ ] `clear_api_key()` → remove from keychain
+- [ ] Create `src/agent_sidecar.rs` - sidecar process manager
+  - [ ] Spawn Node/Bun with API key in env
+  - [ ] JSON-RPC over stdio communication
+  - [ ] Graceful shutdown handling
+- [ ] Create sidecar workspace: `apps/sidecar/`
+  - [ ] Add `@anthropic-ai/claude-agent-sdk` dependency
+  - [ ] Setup esbuild for bundling
+  - [ ] Add to root build scripts
 
-### Checkpoint 3.3: Copilot UI/UX
-- [ ] Side panel for copilot interaction
-- [ ] Prompt input field
-- [ ] Rationale display area
-- [ ] Auto-rollback on compilation failure
-- [ ] Keyboard shortcut (⌘.)
+### Checkpoint 3.2: Diff-Based MCP Tools (2-3 days)
+- [ ] Create `apps/sidecar/src/agent-server.ts`:
+  - [ ] Define MCP tools using SDK's `tool()` API
+  - [ ] `get_current_code` - retrieve editor contents
+  - [ ] `get_preview_screenshot` - return preview file path
+  - [ ] `propose_diff` - validate unified diff format
+  - [ ] `apply_diff` - apply & test-compile diff
+  - [ ] `get_diagnostics` - retrieve current errors
+  - [ ] `trigger_render` - manually render preview
+  - [ ] Create MCP server with `createSdkMcpServer()`
+- [ ] Create `apps/ui/src-tauri/src/cmd/ai_tools.rs`:
+  - [ ] `validate_diff(diff)` - check size (≤120 lines), dry-run apply
+  - [ ] `apply_diff(diff)` - apply patch, test compile, rollback on errors
+  - [ ] `get_current_code()` - return editor buffer
+  - [ ] `get_preview_screenshot()` - return file:// path (not base64)
+  - [ ] `get_diagnostics()` - return diagnostic array
+- [ ] System prompt with Claude Code preset + OpenSCAD context
 
-### Checkpoint 3.4: Context-Aware Prompting
-- [ ] Send cursor position + selection to backend
-- [ ] Build system prompt template
-- [ ] Post-check: validate diff compiles before returning
-- [ ] Error feedback loop (retry with error context)
+### Checkpoint 3.3: Tauri IPC Bridge (1 day)
+- [ ] Extend `agent_sidecar.rs` with JSON-RPC bridge
+- [ ] Add Tauri commands:
+  - [ ] `agent_query_stream(prompt, mode)` - start agent session
+  - [ ] `agent_interrupt()` - cancel ongoing query
+  - [ ] `agent_status()` - get sidecar health
+- [ ] Stream SDK messages to frontend via Tauri events
+- [ ] Handle `SDKMessage` types: assistant, partial, result, system
 
-### Checkpoint 3.5: Prompt Modes
-- [ ] **Add mode**: Generate new geometry
-- [ ] **Modify mode**: Edit existing code
-- [ ] **Explain mode**: Document selection with comments
-- [ ] Mode selector in UI
+### Checkpoint 3.4: Frontend AI UI (2 days)
+- [ ] Create `AiPromptPanel.tsx`:
+  - [ ] Collapsible bottom panel (stacked with DiagnosticsPanel)
+  - [ ] Multi-line textarea for prompts
+  - [ ] Mode selector: Generate | Edit | Fix | Explain
+  - [ ] "Ask AI" button + ⌘K shortcut
+  - [ ] Cancel button for active streams
+  - [ ] Streaming response display with markdown
+- [ ] Create `DiffViewer.tsx`:
+  - [ ] Unified diff visualization with syntax highlighting
+  - [ ] Side-by-side or inline view toggle
+  - [ ] Accept/Reject buttons
+  - [ ] Show lines changed count
+- [ ] Create `SettingsDialog.tsx`:
+  - [ ] API key input (calls `store_api_key`)
+  - [ ] Model selection (Sonnet 4.5, 3.5 Sonnet fallback)
+  - [ ] Test connection button
+- [ ] Integrate into `App.tsx` layout
 
-**Estimated Duration:** 4-5 days
+### Checkpoint 3.5: Streaming + Error Handling (1 day)
+- [ ] Implement `useAiStream` hook:
+  - [ ] Listen to Tauri 'agent-message' events
+  - [ ] Handle `SDKPartialAssistantMessage` for typing animation
+  - [ ] Fallback to `SDKResultMessage.result` for missing text (streaming bug workaround)
+  - [ ] Accumulate conversation history (last 5 exchanges)
+- [ ] Error feedback loop:
+  - [ ] Auto-render after diff applied
+  - [ ] If new errors, send diagnostics back to agent in "fix" mode
+  - [ ] Rollback on validation failure
+- [ ] Tool call visualization in UI (show when agent uses tools)
+
+### Checkpoint 3.6: Polish + Testing (1 day)
+- [ ] Keyboard shortcuts:
+  - [ ] ⌘K / Ctrl+K → Focus AI prompt
+  - [ ] ⌘Enter → Submit prompt
+  - [ ] Escape → Cancel stream
+- [ ] Diff size enforcement (max 120 lines)
+- [ ] File whitelist (current editor file only)
+- [ ] Conversation history UI (clear button)
+- [ ] Loading states and error messages
+- [ ] Test end-to-end: Generate → Edit → Fix → Explain modes
+
+### Success Criteria
+- ✅ API key never exposed to renderer (keychain + sidecar env only)
+- ✅ All edits via unified diffs (≤120 lines, validated)
+- ✅ Agent can "see" preview screenshots
+- ✅ Diffs test-compiled before acceptance
+- ✅ Auto-rollback on compilation errors
+- ✅ Streaming with partial messages + result fallback
+- ✅ Accept/Reject diff workflow
+- ✅ Uses Claude Code preset system prompt
+- ✅ Multiple modes working
+
+**Estimated Duration:** 7-10 days
+
+### File Structure Changes
+```
+apps/
+├── sidecar/                  [NEW]
+│   ├── src/
+│   │   └── agent-server.ts   # Agent SDK + MCP tools
+│   ├── package.json
+│   └── tsconfig.json
+├── ui/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── AiPromptPanel.tsx     [NEW]
+│   │   │   ├── DiffViewer.tsx        [NEW]
+│   │   │   └── SettingsDialog.tsx    [NEW]
+│   │   └── hooks/
+│   │       └── useAiStream.ts        [NEW]
+│   └── src-tauri/
+│       └── src/
+│           ├── cmd/
+│           │   ├── ai.rs             [NEW - keychain]
+│           │   └── ai_tools.rs       [NEW - diff tools]
+│           └── agent_sidecar.rs      [NEW - sidecar manager]
+```
 
 ---
 
@@ -225,15 +317,17 @@ openscad-tauri/
    - ✅ No GPU required for basic editing
    - ⚠️ Not interactive until STL export
 
-3. **Server-side LLM**: API keys never touch frontend
+3. **Sidecar Agent SDK**: API keys never touch renderer
    - ✅ Secure key storage (OS keychain)
-   - ✅ Can add rate limiting/validation
+   - ✅ Node/Bun sidecar with env key injection
+   - ✅ Claude Agent SDK with MCP tools
    - ⚠️ Requires network for AI features
 
-4. **Diff-based edits**: LLM returns patches, not full files
-   - ✅ Atomic apply/rollback
-   - ✅ Smaller token usage
+4. **Diff-based edits**: Agent returns unified diffs, not full files
+   - ✅ Atomic apply/rollback with validation
+   - ✅ Smaller token usage (max 120 lines)
    - ✅ Preserves user code structure
+   - ✅ Test-compiled before acceptance
 
 5. **Monorepo with pnpm**: Shared types between frontend/backend
    - ✅ Type safety across IPC boundary
@@ -306,6 +400,6 @@ See individual phase checkpoints above for task breakdown. Each checkpoint shoul
 
 ---
 
-**Last Updated:** 2025-10-09
-**Current Phase:** Phase 2 (Advanced Rendering)
-**Next Milestone:** Backend configuration (Checkpoint 2.1)
+**Last Updated:** 2025-10-10
+**Current Phase:** Phase 3 (AI Copilot - Sidecar Architecture)
+**Next Milestone:** Checkpoint 3.1 - Infrastructure setup

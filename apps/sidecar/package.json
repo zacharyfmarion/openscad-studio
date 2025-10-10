@@ -1,0 +1,19 @@
+{
+  "name": "sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/agent-server.ts --bundle --platform=node --format=esm --outfile=dist/agent-server.js",
+    "dev": "esbuild src/agent-server.ts --bundle --platform=node --format=esm --outfile=dist/agent-server.js --watch"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "latest",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "esbuild": "^0.24.2",
+    "typescript": "~5.8.3"
+  }
+}

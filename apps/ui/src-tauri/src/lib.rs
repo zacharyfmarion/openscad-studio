@@ -2,7 +2,10 @@ mod cmd;
 mod types;
 mod utils;
 
-use cmd::{detect_backend, locate_openscad, render_exact, render_preview};
+use cmd::{
+    clear_api_key, detect_backend, get_api_key, has_api_key, locate_openscad, render_exact,
+    render_preview, store_api_key,
+};
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
@@ -29,6 +32,10 @@ pub fn run() {
             render_preview,
             render_exact,
             detect_backend,
+            store_api_key,
+            get_api_key,
+            clear_api_key,
+            has_api_key,
         ])
         .setup(|app| {
             // Create app menu (About, Hide, Quit, etc.)
