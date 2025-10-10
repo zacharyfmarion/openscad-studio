@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Editor } from './components/Editor';
 import { Preview } from './components/Preview';
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
@@ -257,27 +258,28 @@ function App() {
         </div>
       </header>
 
-      {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Editor - left half */}
-        <div className="w-1/2 border-r border-gray-700">
-          <Editor
-            value={source}
-            onChange={updateSource}
-            diagnostics={diagnostics}
-          />
-        </div>
-
-        {/* Preview - right half */}
-        <div className="w-1/2">
-          <Preview src={previewSrc} kind={previewKind} isRendering={isRendering} error={error} />
-        </div>
-      </div>
-
-      {/* Diagnostics panel - bottom */}
-      <div className="h-32 border-t border-gray-700">
-        <DiagnosticsPanel diagnostics={diagnostics} />
-      </div>
+      {/* Main content with resizable panels */}
+      <PanelGroup direction="vertical" className="flex-1">
+        <Panel defaultSize={75} minSize={30}>
+          <PanelGroup direction="horizontal">
+            <Panel defaultSize={50} minSize={20}>
+              <Editor
+                value={source}
+                onChange={updateSource}
+                diagnostics={diagnostics}
+              />
+            </Panel>
+            <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-gray-600 transition-colors" />
+            <Panel defaultSize={50} minSize={20}>
+              <Preview src={previewSrc} kind={previewKind} isRendering={isRendering} error={error} />
+            </Panel>
+          </PanelGroup>
+        </Panel>
+        <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-gray-600 transition-colors" />
+        <Panel defaultSize={25} minSize={10} maxSize={50}>
+          <DiagnosticsPanel diagnostics={diagnostics} />
+        </Panel>
+      </PanelGroup>
 
       {/* Export dialog */}
       <ExportDialog
