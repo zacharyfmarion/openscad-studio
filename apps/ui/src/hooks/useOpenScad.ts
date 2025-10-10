@@ -140,6 +140,13 @@ export function useOpenScad(workingDir?: string | null) {
     }
   }, [openscadPath]); // Only run when openscadPath is set
 
+  // Function to clear preview (for when opening new files)
+  const clearPreview = useCallback(() => {
+    setPreviewSrc('');
+    setDiagnostics([]);
+    setError('');
+  }, []);
+
   return {
     source,
     updateSource,
@@ -156,5 +163,6 @@ export function useOpenScad(workingDir?: string | null) {
     toggleDimensionMode,
     manualRender: () => doRender(source, dimensionMode === '3d' && viewMode === 'interactive', dimensionMode),
     renderOnSave: () => doRender(source, dimensionMode === '3d' && viewMode === 'interactive', dimensionMode),
+    clearPreview,
   };
 }

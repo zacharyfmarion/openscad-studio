@@ -34,6 +34,7 @@ function App() {
     toggleDimensionMode,
     manualRender,
     renderOnSave,
+    clearPreview,
   } = useOpenScad(workingDir);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -140,6 +141,7 @@ function App() {
         const canProceed = await checkUnsavedChanges();
         if (!canProceed) return;
 
+        clearPreview();
         updateSource('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
         setCurrentFilePath(null);
         setSavedContent('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
@@ -158,6 +160,7 @@ function App() {
           if (!selected) return;
           const filePath = typeof selected === 'string' ? selected : selected.path;
           const contents = await readTextFile(filePath);
+          clearPreview();
           updateSource(contents);
           setCurrentFilePath(filePath);
           setSavedContent(contents);
@@ -212,7 +215,7 @@ function App() {
     return () => {
       unlistenFns.forEach(fn => fn());
     };
-  }, [updateSource, checkUnsavedChanges, saveFile]);
+  }, [updateSource, checkUnsavedChanges, saveFile, clearPreview]);
 
   // Handle window close with unsaved changes
   useEffect(() => {
