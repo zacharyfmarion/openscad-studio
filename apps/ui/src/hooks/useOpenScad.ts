@@ -109,13 +109,6 @@ export function useOpenScad(workingDir?: string | null) {
     }
   }, [openscadPath, workingDir, setDimensionMode]);
 
-  // Toggle between 2D and 3D modes
-  const toggleDimensionMode = useCallback(() => {
-    const newMode = dimensionMode === '2d' ? '3d' : '2d';
-    setDimensionMode(newMode);
-    // For 2D mode, use SVG (no mesh). For 3D mode, always use mesh
-    doRender(source, newMode === '3d', newMode);
-  }, [dimensionMode, source, doRender]);
 
   const updateSource = useCallback((newSource: string) => {
     setSource(newSource);
@@ -157,7 +150,6 @@ export function useOpenScad(workingDir?: string | null) {
     openscadPath,
     setOpenscadPath,
     dimensionMode,
-    toggleDimensionMode,
     manualRender,
     renderOnSave,
     clearPreview,

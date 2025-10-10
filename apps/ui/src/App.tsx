@@ -29,7 +29,6 @@ function App() {
     error,
     openscadPath,
     dimensionMode,
-    toggleDimensionMode,
     manualRender,
     renderOnSave,
     clearPreview,
@@ -317,14 +316,9 @@ function App() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={toggleDimensionMode}
-            disabled={isRendering || !openscadPath}
-            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-medium transition-colors"
-            title={dimensionMode === '2d' ? 'Switch to 3D Mode' : 'Switch to 2D Mode'}
-          >
-            {dimensionMode === '2d' ? '📐 2D' : '📦 3D'}
-          </button>
+          <span className="text-xs text-gray-400 px-2 py-1 bg-gray-800 rounded">
+            {dimensionMode === '2d' ? '📐 2D Mode' : '📦 3D Mode'}
+          </span>
           <button
             onClick={manualRender}
             disabled={isRendering || !openscadPath}
