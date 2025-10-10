@@ -79,6 +79,13 @@ openscad-tauri/
 - [x] Native file save dialog integration
 - [x] Styled dropdown to match dark theme
 
+### ✅ Checkpoint 2.3: 2D SVG Mode (COMPLETED)
+- [x] Add SVG export path for 2D designs
+- [x] Inline SVG viewer with pan/zoom controls
+- [x] Dimension mode toggle (2D/3D) in UI
+- [x] Enhanced error detection for 2D/3D mode mismatches
+- [x] Conditional UI (Fast/Mesh toggle only visible in 3D mode)
+
 **Next Checkpoints:**
 
 ### Checkpoint 2.1: Backend Detection & Configuration
@@ -88,11 +95,6 @@ openscad-tauri/
   - [ ] Default backend selection (Auto/Manifold/CGAL)
   - [ ] Preview resolution settings
 - [ ] Store settings in Tauri plugin-store
-
-### Checkpoint 2.3: 2D SVG Mode
-- [ ] Add SVG export path for 2D designs
-- [ ] Inline SVG viewer with pan/zoom
-- [ ] View mode toggle (3D/2D) in UI
 
 **Estimated Duration:** 3-4 days
 
@@ -254,9 +256,9 @@ openscad-tauri/
 - [x] Works on macOS with Homebrew OpenSCAD
 
 ### Phase 2 Goals
-- [ ] STL viewer loads in < 2s
-- [ ] Can toggle 3D/2D modes seamlessly
-- [ ] Cache hit rate > 80% for repeated renders
+- [x] STL viewer loads in < 2s
+- [x] Can toggle 3D/2D modes seamlessly
+- [x] Cache hit rate > 80% for repeated renders
 
 ### Phase 3 Goals
 - [ ] LLM generates valid code > 90% of time
