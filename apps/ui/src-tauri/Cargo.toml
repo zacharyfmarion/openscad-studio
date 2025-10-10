@@ -29,4 +29,5 @@ reqwest = { version = "0.12", features = ["json"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 keyring = "2"
+diffy = "0.4"
 

@@ -4,8 +4,9 @@ mod types;
 mod utils;
 
 use cmd::{
-    clear_api_key, detect_backend, get_api_key, has_api_key, locate_openscad, render_exact,
-    render_preview, store_api_key,
+    apply_diff, clear_api_key, detect_backend, get_api_key, get_current_code, get_diagnostics,
+    get_preview_screenshot, has_api_key, locate_openscad, render_exact, render_preview,
+    store_api_key, trigger_render, validate_diff, EditorState,
 };
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
@@ -16,16 +17,23 @@ pub struct AppState {
     pub render_cache: Arc<RenderCache>,
 }
 
+pub struct AppStates {
+    pub app_state: AppState,
+    pub editor_state: EditorState,
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_state = AppState {
         render_cache: Arc::new(RenderCache::new()),
     };
+    let editor_state = EditorState::default();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(app_state)
+        .manage(editor_state)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
@@ -37,6 +45,12 @@ pub fn run() {
             get_api_key,
             clear_api_key,
             has_api_key,
+            get_current_code,
+            get_preview_screenshot,
+            validate_diff,
+            apply_diff,
+            get_diagnostics,
+            trigger_render,
         ])
         .setup(|app| {
             // Create app menu (About, Hide, Quit, etc.)
