@@ -62,13 +62,54 @@ export function useOpenScad(workingDir?: string | null) {
     } catch (err) {
       const errorMsg = typeof err === 'string' ? err : String(err);
       console.log('[doRender] Render error:', errorMsg);
-      setError(errorMsg);
-      setPreviewSrc(''); // Clear preview on error to avoid trying to load non-existent files
+
+      // Check if error is due to dimension mismatch and auto-retry with opposite mode
+      const is2DObjectIn3DMode = errorMsg.includes('2D object') && errorMsg.includes('3D mode');
+      const is3DObjectIn2DMode = errorMsg.includes('3D object') && errorMsg.includes('2D mode');
+
+      if (is2DObjectIn3DMode || is3DObjectIn2DMode) {
+        const newDimension = dimension === '2d' ? '3d' : '2d';
+        console.log(`[doRender] Auto-switching from ${dimension} to ${newDimension} mode`);
+
+        // Update dimension mode
+        setDimensionMode(newDimension);
+
+        // Retry render with new dimension
+        try {
+          const retryResult: RenderPreviewResponse = await renderPreview(openscadPath, {
+            source: code,
+            view: newDimension,
+            size: { w: 800, h: 600 },
+            render_mesh: useMesh && newDimension === '3d',
+            working_dir: workingDir || undefined,
+          });
+
+          console.log('[doRender] Auto-retry success:', { kind: retryResult.kind, path: retryResult.path });
+          setDiagnostics(retryResult.diagnostics);
+          setPreviewKind(retryResult.kind);
+
+          const assetUrl = convertFileSrc(retryResult.path);
+          const cacheBustedUrl = `${assetUrl}?t=${Date.now()}`;
+          setPreviewSrc(cacheBustedUrl);
+          setError(''); // Clear error on successful retry
+        } catch (retryErr) {
+          // Both modes failed - show error
+          const retryErrorMsg = typeof retryErr === 'string' ? retryErr : String(retryErr);
+          console.log('[doRender] Auto-retry also failed:', retryErrorMsg);
+          setError(`Failed to render in both 2D and 3D modes.\n\nOriginal error: ${errorMsg}\n\nRetry error: ${retryErrorMsg}`);
+          setPreviewSrc('');
+        }
+      } else {
+        // Not a dimension mismatch error - just show it
+        setError(errorMsg);
+        setPreviewSrc('');
+      }
+
       console.error('Render error:', err);
     } finally {
       setIsRendering(false);
     }
-  }, [openscadPath, workingDir]);
+  }, [openscadPath, workingDir, setDimensionMode]);
 
   // Toggle between 2D and 3D modes
   const toggleDimensionMode = useCallback(() => {
