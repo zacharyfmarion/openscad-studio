@@ -28,7 +28,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
           >
             <div className="flex items-start gap-2">
               <span
-                className={`inline-block px-2 py-0.5 text-xs font-semibold rounded ${
+                className={`flex-shrink-0 px-2 py-0.5 text-xs font-semibold rounded ${
                   diag.severity === 'error'
                     ? 'bg-red-900/40 text-red-400'
                     : diag.severity === 'warning'
@@ -39,10 +39,10 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
                 {diag.severity}
               </span>
               {diag.line && (
-                <span className="text-xs text-gray-500">Line {diag.line}</span>
+                <span className="flex-shrink-0 text-xs text-gray-500">Line {diag.line}:</span>
               )}
+              <p className="text-sm text-gray-300 flex-1 min-w-0">{diag.message}</p>
             </div>
-            <p className="text-sm text-gray-300 mt-1">{diag.message}</p>
           </div>
         ))}
       </div>
