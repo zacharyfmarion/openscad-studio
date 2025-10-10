@@ -146,22 +146,22 @@ pub async fn render_preview(
         if has_errors {
             return Err("OpenSCAD failed to render due to errors in your code. Check diagnostics for details.".to_string());
         } else {
-            // Include stderr output for debugging
-            let stderr_preview = if stderr.len() > 500 {
-                format!("{}...", &stderr[..500])
-            } else {
-                stderr.to_string()
-            };
-
-            // Check for common issues
-            let error_msg = if matches!(view, ViewMode::TwoD) && stderr.contains("3D object") {
+            // Check for common dimension mismatch issues
+            let error_msg = if matches!(view, ViewMode::TwoD) && (stderr.contains("3D object") || stderr.contains("not a 2D object")) {
                 "Cannot render 3D objects in 2D mode. Switch to 3D mode or use a 2D shape (e.g., square, circle, polygon).".to_string()
+            } else if matches!(view, ViewMode::ThreeD) && (stderr.contains("not a 3D object") || stderr.contains("2D object")) {
+                "Cannot render 2D objects in 3D mode. Switch to 2D mode or use a 3D shape (e.g., cube, sphere, cylinder).".to_string()
             } else if stderr.contains("WARNING: Can't convert") {
                 "OpenSCAD cannot convert this geometry. Try switching between 2D and 3D modes.".to_string()
             } else {
-                format!("OpenSCAD failed to create output file.\n\nCommand: {} {}\n\nOpenSCAD output:\n{}",
-                    openscad_path,
-                    args.join(" "),
+                // For debugging, include full stderr
+                let stderr_preview = if stderr.len() > 1000 {
+                    format!("{}...\n\n(Output truncated. Full output in console.)", &stderr[..1000])
+                } else {
+                    stderr.to_string()
+                };
+
+                format!("OpenSCAD failed to create output file.\n\nThis usually means the geometry doesn't match the current mode (2D/3D).\n\nOpenSCAD output:\n{}",
                     stderr_preview
                 )
             };
@@ -281,7 +281,33 @@ pub async fn render_exact(
         if has_errors {
             return Err("OpenSCAD failed to render due to errors in your code. Check diagnostics for details.".to_string());
         } else {
-            return Err("OpenSCAD failed to create output file for unknown reasons.".to_string());
+            // Check for dimension mismatch issues
+            let is_3d_format = matches!(
+                request.format,
+                crate::types::ExportFormat::Stl
+                    | crate::types::ExportFormat::Obj
+                    | crate::types::ExportFormat::Amf
+                    | crate::types::ExportFormat::ThreeMf
+            );
+            let is_2d_format = matches!(
+                request.format,
+                crate::types::ExportFormat::Svg | crate::types::ExportFormat::Dxf
+            );
+
+            let error_msg = if is_2d_format && (stderr.contains("3D object") || stderr.contains("not a 2D object")) {
+                format!("Cannot export 3D objects as {}. Use a 2D shape (e.g., square, circle, polygon) or choose a 3D export format (STL, OBJ, etc.).", extension.to_uppercase())
+            } else if is_3d_format && (stderr.contains("not a 3D object") || stderr.contains("2D object")) {
+                format!("Cannot export 2D objects as {}. Use a 3D shape (e.g., cube, sphere, cylinder) or choose a 2D export format (SVG, DXF).", extension.to_uppercase())
+            } else {
+                let stderr_preview = if stderr.len() > 1000 {
+                    format!("{}...\n\n(Output truncated)", &stderr[..1000])
+                } else {
+                    stderr.to_string()
+                };
+                format!("OpenSCAD failed to create output file.\n\nOpenSCAD output:\n{}", stderr_preview)
+            };
+
+            return Err(error_msg);
         }
     }
 
