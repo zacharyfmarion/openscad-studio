@@ -45,6 +45,7 @@ function App() {
   const isDirtyRef = useRef<boolean>(isDirty);
   const savedContentRef = useRef<string>(savedContent);
   const renderOnSaveRef = useRef(renderOnSave);
+  const manualRenderRef = useRef(manualRender);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -74,6 +75,10 @@ function App() {
   useEffect(() => {
     renderOnSaveRef.current = renderOnSave;
   }, [renderOnSave]);
+
+  useEffect(() => {
+    manualRenderRef.current = manualRender;
+  }, [manualRender]);
 
   // Track if content has changed
   useEffect(() => {
@@ -195,6 +200,16 @@ function App() {
           setCurrentFilePath(filePath);
           setSavedContent(contents);
           setIsDirty(false);
+
+          // Automatically render the opened file
+          if (openscadPathRef.current && manualRenderRef.current) {
+            // Small delay to ensure state updates have propagated
+            setTimeout(() => {
+              if (manualRenderRef.current) {
+                manualRenderRef.current();
+              }
+            }, 100);
+          }
         } catch (err) {
           console.error('Open failed:', err);
           if (isMounted) {
