@@ -1,4 +1,5 @@
 import { ThreeViewer } from './ThreeViewer';
+import { SvgViewer } from './SvgViewer';
 import type { RenderKind } from '../api/tauri';
 
 interface PreviewProps {
@@ -48,7 +49,16 @@ export function Preview({ src, kind, isRendering, error }: PreviewProps) {
     );
   }
 
-  // For images, center them
+  // For SVG, use SVG viewer with pan/zoom
+  if (kind === 'svg') {
+    return (
+      <div className="w-full h-full">
+        <SvgViewer src={src} />
+      </div>
+    );
+  }
+
+  // For PNG images, center them
   return (
     <div className="h-full bg-gray-900 flex items-center justify-center">
       <img

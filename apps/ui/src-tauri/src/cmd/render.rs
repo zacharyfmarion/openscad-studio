@@ -146,7 +146,27 @@ pub async fn render_preview(
         if has_errors {
             return Err("OpenSCAD failed to render due to errors in your code. Check diagnostics for details.".to_string());
         } else {
-            return Err("OpenSCAD failed to create output file for unknown reasons.".to_string());
+            // Include stderr output for debugging
+            let stderr_preview = if stderr.len() > 500 {
+                format!("{}...", &stderr[..500])
+            } else {
+                stderr.to_string()
+            };
+
+            // Check for common issues
+            let error_msg = if matches!(view, ViewMode::TwoD) && stderr.contains("3D object") {
+                "Cannot render 3D objects in 2D mode. Switch to 3D mode or use a 2D shape (e.g., square, circle, polygon).".to_string()
+            } else if stderr.contains("WARNING: Can't convert") {
+                "OpenSCAD cannot convert this geometry. Try switching between 2D and 3D modes.".to_string()
+            } else {
+                format!("OpenSCAD failed to create output file.\n\nCommand: {} {}\n\nOpenSCAD output:\n{}",
+                    openscad_path,
+                    args.join(" "),
+                    stderr_preview
+                )
+            };
+
+            return Err(error_msg);
         }
     }
 

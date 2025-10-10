@@ -22,6 +22,8 @@ function App() {
     openscadPath,
     viewMode,
     toggleViewMode,
+    dimensionMode,
+    toggleDimensionMode,
     manualRender,
   } = useOpenScad();
 
@@ -213,13 +215,23 @@ function App() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={toggleViewMode}
+            onClick={toggleDimensionMode}
             disabled={isRendering || !openscadPath}
-            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-medium transition-colors"
-            title={viewMode === 'fast' ? 'Switch to Interactive 3D' : 'Switch to Fast Preview'}
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-medium transition-colors"
+            title={dimensionMode === '2d' ? 'Switch to 3D Mode' : 'Switch to 2D Mode'}
           >
-            {viewMode === 'fast' ? '🖼️ Fast' : '🎮 3D'}
+            {dimensionMode === '2d' ? '📐 2D' : '📦 3D'}
           </button>
+          {dimensionMode === '3d' && (
+            <button
+              onClick={toggleViewMode}
+              disabled={isRendering || !openscadPath}
+              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-medium transition-colors"
+              title={viewMode === 'fast' ? 'Switch to Interactive 3D' : 'Switch to Fast Preview'}
+            >
+              {viewMode === 'fast' ? '🖼️ Fast' : '🎮 Mesh'}
+            </button>
+          )}
           <button
             onClick={manualRender}
             disabled={isRendering || !openscadPath}

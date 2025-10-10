@@ -11,6 +11,7 @@ export function useOpenScad() {
   const [isRendering, setIsRendering] = useState(false);
   const [error, setError] = useState<string>('');
   const [viewMode, setViewMode] = useState<'fast' | 'interactive'>('interactive');
+  const [dimensionMode, setDimensionMode] = useState<'2d' | '3d'>('3d');
   const debounceTimerRef = useRef<number>();
 
   // Locate OpenSCAD on mount
@@ -26,7 +27,7 @@ export function useOpenScad() {
       });
   }, []);
 
-  const doRender = useCallback(async (code: string, useMesh = false) => {
+  const doRender = useCallback(async (code: string, useMesh = false, dimension: '2d' | '3d' = '3d') => {
     if (!openscadPath) {
       setError('OpenSCAD path not set');
       return;
@@ -38,9 +39,9 @@ export function useOpenScad() {
     try {
       const result: RenderPreviewResponse = await renderPreview(openscadPath, {
         source: code,
-        view: '3d',
+        view: dimension,
         size: { w: 800, h: 600 },
-        render_mesh: useMesh,
+        render_mesh: useMesh && dimension === '3d', // Only use mesh for 3D mode
       });
 
       setDiagnostics(result.diagnostics);
@@ -60,6 +61,15 @@ export function useOpenScad() {
     }
   }, [openscadPath]);
 
+  // Toggle between 2D and 3D modes
+  const toggleDimensionMode = useCallback(() => {
+    const newMode = dimensionMode === '2d' ? '3d' : '2d';
+    setDimensionMode(newMode);
+    // For 2D mode, always use SVG (no mesh)
+    // For 3D mode, use current viewMode setting
+    doRender(source, newMode === '3d' && viewMode === 'interactive', newMode);
+  }, [dimensionMode, source, viewMode, doRender]);
+
   const updateSource = useCallback((newSource: string) => {
     setSource(newSource);
 
@@ -68,18 +78,19 @@ export function useOpenScad() {
       clearTimeout(debounceTimerRef.current);
     }
 
-    // Debounce render (300ms) - use current view mode for auto-updates
+    // Debounce render (300ms) - use current view mode and dimension for auto-updates
     debounceTimerRef.current = window.setTimeout(() => {
-      doRender(newSource, viewMode === 'interactive');
+      doRender(newSource, dimensionMode === '3d' && viewMode === 'interactive', dimensionMode);
     }, 300);
-  }, [doRender, viewMode]);
+  }, [doRender, viewMode, dimensionMode]);
 
-  // Toggle between fast (PNG) and interactive (STL) modes
+  // Toggle between fast (PNG) and interactive (STL) modes (only for 3D)
   const toggleViewMode = useCallback(() => {
+    if (dimensionMode === '2d') return; // No effect in 2D mode
     const newMode = viewMode === 'fast' ? 'interactive' : 'fast';
     setViewMode(newMode);
-    doRender(source, newMode === 'interactive');
-  }, [viewMode, source, doRender]);
+    doRender(source, newMode === 'interactive', '3d');
+  }, [viewMode, source, dimensionMode, doRender]);
 
   // Initial render when OpenSCAD path is found
   useEffect(() => {
@@ -100,6 +111,8 @@ export function useOpenScad() {
     setOpenscadPath,
     viewMode,
     toggleViewMode,
-    manualRender: () => doRender(source, viewMode === 'interactive'),
+    dimensionMode,
+    toggleDimensionMode,
+    manualRender: () => doRender(source, dimensionMode === '3d' && viewMode === 'interactive', dimensionMode),
   };
 }
