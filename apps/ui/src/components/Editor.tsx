@@ -7,9 +7,10 @@ interface EditorProps {
   value: string;
   onChange: (value: string) => void;
   diagnostics: Diagnostic[];
+  onManualRender?: () => void;
 }
 
-export function Editor({ value, onChange, diagnostics }: EditorProps) {
+export function Editor({ value, onChange, diagnostics, onManualRender }: EditorProps) {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof Monaco | null>(null);
 
@@ -44,6 +45,13 @@ export function Editor({ value, onChange, diagnostics }: EditorProps) {
   ) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+
+    // Add keyboard shortcut for manual render (Cmd+Enter / Ctrl+Enter)
+    if (onManualRender) {
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+        onManualRender();
+      });
+    }
 
     // Register OpenSCAD language (basic syntax highlighting)
     monaco.languages.register({ id: 'openscad' });

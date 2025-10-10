@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Editor } from './components/Editor';
 import { Preview } from './components/Preview';
@@ -33,10 +33,33 @@ function App() {
     dimensionMode,
     toggleDimensionMode,
     manualRender,
+    renderOnSave,
   } = useOpenScad(workingDir);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [savedContent, setSavedContent] = useState('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
+
+  // Use refs to avoid stale closures in event listeners
+  const currentFilePathRef = useRef<string | null>(null);
+  const sourceRef = useRef<string>(source);
+  const openscadPathRef = useRef<string>(openscadPath);
+  const workingDirRef = useRef<string | null>(workingDir);
+
+  useEffect(() => {
+    currentFilePathRef.current = currentFilePath;
+  }, [currentFilePath]);
+
+  useEffect(() => {
+    sourceRef.current = source;
+  }, [source]);
+
+  useEffect(() => {
+    openscadPathRef.current = openscadPath;
+  }, [openscadPath]);
+
+  useEffect(() => {
+    workingDirRef.current = workingDir;
+  }, [workingDir]);
 
   // Track if content has changed
   useEffect(() => {
@@ -46,7 +69,7 @@ function App() {
   // Helper function to save file to current path or prompt for new path
   const saveFile = useCallback(async (promptForPath: boolean = false): Promise<boolean> => {
     try {
-      let savePath = currentFilePath;
+      let savePath = currentFilePathRef.current;
 
       if (promptForPath || !savePath) {
         savePath = await save({
@@ -56,17 +79,20 @@ function App() {
         if (!savePath) return false; // User cancelled save dialog
       }
 
-      await writeTextFile(savePath, source);
+      const currentSource = sourceRef.current;
+      await writeTextFile(savePath, currentSource);
       setCurrentFilePath(savePath);
-      setSavedContent(source);
+      setSavedContent(currentSource);
       setIsDirty(false);
+      // Trigger render on save
+      renderOnSave();
       return true;
     } catch (err) {
       console.error('Save failed:', err);
       alert(`Failed to save file: ${err}`);
       return false;
     }
-  }, [currentFilePath, source]);
+  }, [renderOnSave]);
 
   // Helper function to check for unsaved changes before destructive operations
   // Returns: true if ok to proceed, false if user wants to cancel
@@ -106,79 +132,87 @@ function App() {
 
   // Listen for menu events from native menu
   useEffect(() => {
-    const unlistenNew = listen('menu:file:new', async () => {
-      const canProceed = await checkUnsavedChanges();
-      if (!canProceed) return;
+    let unlistenFns: Array<() => void> = [];
 
-      updateSource('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
-      setCurrentFilePath(null);
-      setSavedContent('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
-      setIsDirty(false);
-    });
+    // Setup all listeners
+    const setupListeners = async () => {
+      unlistenFns.push(await listen('menu:file:new', async () => {
+        const canProceed = await checkUnsavedChanges();
+        if (!canProceed) return;
 
-    const unlistenOpen = listen('menu:file:open', async () => {
-      const canProceed = await checkUnsavedChanges();
-      if (!canProceed) return;
-
-      try {
-        const selected = await open({
-          filters: [{ name: 'OpenSCAD Files', extensions: ['scad'] }],
-          multiple: false
-        });
-        if (!selected) return;
-        const filePath = typeof selected === 'string' ? selected : selected.path;
-        const contents = await readTextFile(filePath);
-        updateSource(contents);
-        setCurrentFilePath(filePath);
-        setSavedContent(contents);
+        updateSource('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
+        setCurrentFilePath(null);
+        setSavedContent('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
         setIsDirty(false);
-      } catch (err) {
-        console.error('Open failed:', err);
-        alert(`Failed to open file: ${err}`);
-      }
-    });
+      }));
 
-    const unlistenSave = listen('menu:file:save', async () => {
-      await saveFile(false); // Save to current path, or prompt if no path
-    });
+      unlistenFns.push(await listen('menu:file:open', async () => {
+        const canProceed = await checkUnsavedChanges();
+        if (!canProceed) return;
 
-    const unlistenSaveAs = listen('menu:file:save_as', async () => {
-      await saveFile(true); // Always prompt for new path
-    });
+        try {
+          const selected = await open({
+            filters: [{ name: 'OpenSCAD Files', extensions: ['scad'] }],
+            multiple: false
+          });
+          if (!selected) return;
+          const filePath = typeof selected === 'string' ? selected : selected.path;
+          const contents = await readTextFile(filePath);
+          updateSource(contents);
+          setCurrentFilePath(filePath);
+          setSavedContent(contents);
+          setIsDirty(false);
+        } catch (err) {
+          console.error('Open failed:', err);
+          alert(`Failed to open file: ${err}`);
+        }
+      }));
 
-    const unlistenExport = listen<ExportFormat>('menu:file:export', async (event) => {
-      try {
-        const format = event.payload;
-        const formatLabels: Record<ExportFormat, { label: string; ext: string }> = {
-          'stl': { label: 'STL (3D Model)', ext: 'stl' },
-          'obj': { label: 'OBJ (3D Model)', ext: 'obj' },
-          'amf': { label: 'AMF (3D Model)', ext: 'amf' },
-          '3mf': { label: '3MF (3D Model)', ext: '3mf' },
-          'png': { label: 'PNG (Image)', ext: 'png' },
-          'svg': { label: 'SVG (2D Vector)', ext: 'svg' },
-          'dxf': { label: 'DXF (2D CAD)', ext: 'dxf' },
-        };
-        const formatInfo = formatLabels[format];
-        const savePath = await save({
-          filters: [{ name: formatInfo.label, extensions: [formatInfo.ext] }]
-        });
-        if (!savePath) return;
-        await renderExact(openscadPath, { source, format, out_path: savePath, working_dir: workingDir || undefined });
-        alert(`Exported successfully to ${savePath}`);
-      } catch (err) {
-        console.error('Export failed:', err);
-        alert(`Export failed: ${err}`);
-      }
-    });
+      unlistenFns.push(await listen('menu:file:save', async () => {
+        await saveFile(false); // Save to current path, or prompt if no path
+      }));
+
+      unlistenFns.push(await listen('menu:file:save_as', async () => {
+        await saveFile(true); // Always prompt for new path
+      }));
+
+      unlistenFns.push(await listen<ExportFormat>('menu:file:export', async (event) => {
+        try {
+          const format = event.payload;
+          const formatLabels: Record<ExportFormat, { label: string; ext: string }> = {
+            'stl': { label: 'STL (3D Model)', ext: 'stl' },
+            'obj': { label: 'OBJ (3D Model)', ext: 'obj' },
+            'amf': { label: 'AMF (3D Model)', ext: 'amf' },
+            '3mf': { label: '3MF (3D Model)', ext: '3mf' },
+            'png': { label: 'PNG (Image)', ext: 'png' },
+            'svg': { label: 'SVG (2D Vector)', ext: 'svg' },
+            'dxf': { label: 'DXF (2D CAD)', ext: 'dxf' },
+          };
+          const formatInfo = formatLabels[format];
+          const savePath = await save({
+            filters: [{ name: formatInfo.label, extensions: [formatInfo.ext] }]
+          });
+          if (!savePath) return;
+          await renderExact(openscadPathRef.current, {
+            source: sourceRef.current,
+            format,
+            out_path: savePath,
+            working_dir: workingDirRef.current || undefined
+          });
+          alert(`Exported successfully to ${savePath}`);
+        } catch (err) {
+          console.error('Export failed:', err);
+          alert(`Export failed: ${err}`);
+        }
+      }));
+    };
+
+    setupListeners();
 
     return () => {
-      unlistenNew.then(f => f());
-      unlistenOpen.then(f => f());
-      unlistenSave.then(f => f());
-      unlistenSaveAs.then(f => f());
-      unlistenExport.then(f => f());
+      unlistenFns.forEach(fn => fn());
     };
-  }, [updateSource, openscadPath, checkUnsavedChanges, saveFile]);
+  }, [updateSource, checkUnsavedChanges, saveFile]);
 
   // Handle window close with unsaved changes
   useEffect(() => {
@@ -267,6 +301,7 @@ function App() {
                 value={source}
                 onChange={updateSource}
                 diagnostics={diagnostics}
+                onManualRender={manualRender}
               />
             </Panel>
             <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-gray-600 transition-colors" />

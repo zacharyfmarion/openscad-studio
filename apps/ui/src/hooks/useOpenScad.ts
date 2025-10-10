@@ -122,17 +122,8 @@ export function useOpenScad(workingDir?: string | null) {
 
   const updateSource = useCallback((newSource: string) => {
     setSource(newSource);
-
-    // Clear existing timer
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-
-    // Debounce render (300ms) - use current view mode and dimension for auto-updates
-    debounceTimerRef.current = window.setTimeout(() => {
-      doRender(newSource, dimensionMode === '3d' && viewMode === 'interactive', dimensionMode);
-    }, 300);
-  }, [doRender, viewMode, dimensionMode]);
+    // No auto-render - only render on save or manual render button press
+  }, []);
 
   // Toggle between fast (PNG) and interactive (STL) modes (only for 3D)
   const toggleViewMode = useCallback(() => {
@@ -164,5 +155,6 @@ export function useOpenScad(workingDir?: string | null) {
     dimensionMode,
     toggleDimensionMode,
     manualRender: () => doRender(source, dimensionMode === '3d' && viewMode === 'interactive', dimensionMode),
+    renderOnSave: () => doRender(source, dimensionMode === '3d' && viewMode === 'interactive', dimensionMode),
   };
 }
