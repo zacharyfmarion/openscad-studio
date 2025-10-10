@@ -28,8 +28,6 @@ function App() {
     isRendering,
     error,
     openscadPath,
-    viewMode,
-    toggleViewMode,
     dimensionMode,
     toggleDimensionMode,
     manualRender,
@@ -47,6 +45,7 @@ function App() {
   const workingDirRef = useRef<string | null>(workingDir);
   const isDirtyRef = useRef<boolean>(isDirty);
   const savedContentRef = useRef<string>(savedContent);
+  const renderOnSaveRef = useRef(renderOnSave);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -73,6 +72,10 @@ function App() {
     savedContentRef.current = savedContent;
   }, [savedContent]);
 
+  useEffect(() => {
+    renderOnSaveRef.current = renderOnSave;
+  }, [renderOnSave]);
+
   // Track if content has changed
   useEffect(() => {
     setIsDirty(source !== savedContent);
@@ -97,8 +100,8 @@ function App() {
       setSavedContent(currentSource);
       setIsDirty(false);
       // Trigger render on save (only if OpenSCAD is available)
-      if (openscadPathRef.current) {
-        renderOnSave();
+      if (openscadPathRef.current && renderOnSaveRef.current) {
+        renderOnSaveRef.current();
       }
       return true;
     } catch (err) {
@@ -106,7 +109,7 @@ function App() {
       alert(`Failed to save file: ${err}`);
       return false;
     }
-  }, [renderOnSave]);
+  }, []); // No dependencies - saveFile is now stable
 
   // Helper function to check for unsaved changes before destructive operations
   // Returns: true if ok to proceed, false if user wants to cancel
@@ -322,16 +325,6 @@ function App() {
           >
             {dimensionMode === '2d' ? '📐 2D' : '📦 3D'}
           </button>
-          {dimensionMode === '3d' && (
-            <button
-              onClick={toggleViewMode}
-              disabled={isRendering || !openscadPath}
-              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-medium transition-colors"
-              title={viewMode === 'fast' ? 'Switch to Interactive 3D' : 'Switch to Fast Preview'}
-            >
-              {viewMode === 'fast' ? '🖼️ Fast' : '🎮 Mesh'}
-            </button>
-          )}
           <button
             onClick={manualRender}
             disabled={isRendering || !openscadPath}

@@ -10,7 +10,6 @@ export function useOpenScad(workingDir?: string | null) {
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   const [isRendering, setIsRendering] = useState(false);
   const [error, setError] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'fast' | 'interactive'>('interactive');
   const [dimensionMode, setDimensionMode] = useState<'2d' | '3d'>('3d');
 
   // Locate OpenSCAD on mount
@@ -114,23 +113,14 @@ export function useOpenScad(workingDir?: string | null) {
   const toggleDimensionMode = useCallback(() => {
     const newMode = dimensionMode === '2d' ? '3d' : '2d';
     setDimensionMode(newMode);
-    // For 2D mode, always use SVG (no mesh)
-    // For 3D mode, use current viewMode setting
-    doRender(source, newMode === '3d' && viewMode === 'interactive', newMode);
-  }, [dimensionMode, source, viewMode, doRender]);
+    // For 2D mode, use SVG (no mesh). For 3D mode, always use mesh
+    doRender(source, newMode === '3d', newMode);
+  }, [dimensionMode, source, doRender]);
 
   const updateSource = useCallback((newSource: string) => {
     setSource(newSource);
     // No auto-render - only render on save or manual render button press
   }, []);
-
-  // Toggle between fast (PNG) and interactive (STL) modes (only for 3D)
-  const toggleViewMode = useCallback(() => {
-    if (dimensionMode === '2d') return; // No effect in 2D mode
-    const newMode = viewMode === 'fast' ? 'interactive' : 'fast';
-    setViewMode(newMode);
-    doRender(source, newMode === 'interactive', '3d');
-  }, [viewMode, source, dimensionMode, doRender]);
 
   // Initial render when OpenSCAD path is found
   useEffect(() => {
@@ -146,6 +136,16 @@ export function useOpenScad(workingDir?: string | null) {
     setError('');
   }, []);
 
+  // Manual render function (stable callback)
+  const manualRender = useCallback(() => {
+    doRender(source, dimensionMode === '3d', dimensionMode);
+  }, [source, dimensionMode, doRender]);
+
+  // Render on save function (stable callback)
+  const renderOnSave = useCallback(() => {
+    doRender(source, dimensionMode === '3d', dimensionMode);
+  }, [source, dimensionMode, doRender]);
+
   return {
     source,
     updateSource,
@@ -156,12 +156,10 @@ export function useOpenScad(workingDir?: string | null) {
     error,
     openscadPath,
     setOpenscadPath,
-    viewMode,
-    toggleViewMode,
     dimensionMode,
     toggleDimensionMode,
-    manualRender: () => doRender(source, dimensionMode === '3d' && viewMode === 'interactive', dimensionMode),
-    renderOnSave: () => doRender(source, dimensionMode === '3d' && viewMode === 'interactive', dimensionMode),
+    manualRender,
+    renderOnSave,
     clearPreview,
   };
 }
