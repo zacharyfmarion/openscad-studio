@@ -1,3 +1,4 @@
+mod agent_sidecar;
 mod cmd;
 mod types;
 mod utils;
