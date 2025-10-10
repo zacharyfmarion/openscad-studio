@@ -10,12 +10,18 @@ pub struct Diagnostic {
     pub message: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum DiagnosticSeverity {
     Error,
     Warning,
     Info,
+}
+
+impl DiagnosticSeverity {
+    pub fn is_error(&self) -> bool {
+        matches!(self, DiagnosticSeverity::Error)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -146,7 +146,7 @@ pub async fn apply_diff(
         .lock()
         .unwrap()
         .iter()
-        .filter(|d| d.severity == "error")
+        .filter(|d| d.severity.is_error())
         .count();
 
     let test_diagnostics = match test_compile(&new_code, &openscad_path, &app).await {
@@ -162,7 +162,7 @@ pub async fn apply_diff(
 
     let new_error_count = test_diagnostics
         .iter()
-        .filter(|d| d.severity == "error")
+        .filter(|d| d.severity.is_error())
         .count();
 
     // Check if new errors were introduced

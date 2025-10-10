@@ -10,7 +10,7 @@ use cmd::{
 };
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
-use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use utils::cache::RenderCache;
 
 pub struct AppState {
