@@ -1,7 +1,11 @@
+use crate::cmd::{
+    apply_diff, get_current_code, get_diagnostics, get_preview_screenshot, trigger_render,
+    validate_diff, EditorState,
+};
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
 use std::sync::Arc;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
@@ -18,12 +22,20 @@ struct JsonRpcRequest {
 struct JsonRpcResponse {
     jsonrpc: String,
     id: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<serde_json::Value>,
-    error: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<JsonRpcError>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct JsonRpcError {
+    code: i32,
+    message: String,
 }
 
 pub struct AgentSidecar {
-    child: Arc<Mutex<Child>>,
+    child: Arc<Mutex<Option<Child>>>,
 }
 
 impl AgentSidecar {
@@ -71,86 +83,193 @@ impl AgentSidecar {
             });
         }
 
+        // Handle stdout (JSON-RPC requests from sidecar)
+        let app = app_handle.clone();
+        if let Some(stdout) = child.stdout.take() {
+            let stdin_handle = child.stdin.take();
+            tokio::spawn(async move {
+                Self::handle_stdout(stdout, stdin_handle, app).await;
+            });
+        }
+
         println!("[Sidecar] Process spawned successfully");
 
         Ok(Self {
-            child: Arc::new(Mutex::new(child)),
+            child: Arc::new(Mutex::new(Some(child))),
         })
     }
 
-    pub async fn send_request(
-        &self,
-        method: &str,
-        params: serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
-        let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: chrono::Utc::now().timestamp_millis() as u64,
-            method: method.to_string(),
-            params,
-        };
+    /// Handle stdout from sidecar (JSON-RPC requests)
+    async fn handle_stdout(
+        stdout: tokio::process::ChildStdout,
+        stdin: Option<tokio::process::ChildStdin>,
+        app: AppHandle,
+    ) {
+        let reader = BufReader::new(stdout);
+        let mut lines = reader.lines();
+        let stdin = Arc::new(Mutex::new(stdin));
 
-        let request_json = serde_json::to_string(&request)
-            .map_err(|e| format!("Failed to serialize request: {}", e))?;
-
-        println!("[Sidecar] Sending request: {}", method);
-
-        let mut child = self.child.lock().await;
-
-        // Write request to stdin
-        if let Some(stdin) = child.stdin.as_mut() {
-            stdin
-                .write_all(request_json.as_bytes())
-                .await
-                .map_err(|e| format!("Failed to write to sidecar stdin: {}", e))?;
-            stdin
-                .write_all(b"\n")
-                .await
-                .map_err(|e| format!("Failed to write newline: {}", e))?;
-            stdin
-                .flush()
-                .await
-                .map_err(|e| format!("Failed to flush stdin: {}", e))?;
-        } else {
-            return Err("Sidecar stdin not available".to_string());
-        }
-
-        // Read response from stdout
-        if let Some(stdout) = child.stdout.as_mut() {
-            let mut reader = BufReader::new(stdout);
-            let mut response_line = String::new();
-
-            reader
-                .read_line(&mut response_line)
-                .await
-                .map_err(|e| format!("Failed to read from sidecar stdout: {}", e))?;
-
-            println!("[Sidecar] Received response: {}", response_line.trim());
-
-            let response: JsonRpcResponse = serde_json::from_str(&response_line)
-                .map_err(|e| format!("Failed to parse sidecar response: {}", e))?;
-
-            if let Some(error) = response.error {
-                return Err(format!("Sidecar returned error: {}", error));
+        while let Ok(Some(line)) = lines.next_line().await {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
             }
 
-            response
-                .result
-                .ok_or_else(|| "Sidecar response missing result".to_string())
-        } else {
-            Err("Sidecar stdout not available".to_string())
+            println!("[Sidecar] Received request: {}", line);
+
+            // Parse JSON-RPC request
+            let request: JsonRpcRequest = match serde_json::from_str(&line) {
+                Ok(req) => req,
+                Err(e) => {
+                    eprintln!("[Sidecar] Failed to parse request: {}", e);
+                    continue;
+                }
+            };
+
+            // Handle request and send response
+            let response = Self::handle_request(request, &app).await;
+            let response_json = serde_json::to_string(&response).unwrap();
+
+            println!("[Sidecar] Sending response: {}", response_json);
+
+            // Write response to sidecar stdin
+            if let Some(ref mut stdin_guard) = *stdin.lock().await {
+                let _ = stdin_guard.write_all(response_json.as_bytes()).await;
+                let _ = stdin_guard.write_all(b"\n").await;
+                let _ = stdin_guard.flush().await;
+            }
+        }
+
+        println!("[Sidecar] stdout closed");
+    }
+
+    /// Route JSON-RPC request to appropriate handler
+    async fn handle_request(request: JsonRpcRequest, app: &AppHandle) -> JsonRpcResponse {
+        let result = match request.method.as_str() {
+            "get_current_code" => {
+                let state: State<EditorState> = app.state();
+                match get_current_code(state) {
+                    Ok(code) => Ok(serde_json::to_value(code).unwrap()),
+                    Err(e) => Err(JsonRpcError {
+                        code: -32603,
+                        message: e,
+                    }),
+                }
+            }
+            "get_preview_screenshot" => {
+                let state: State<EditorState> = app.state();
+                match get_preview_screenshot(state) {
+                    Ok(path) => Ok(serde_json::to_value(path).unwrap()),
+                    Err(e) => Err(JsonRpcError {
+                        code: -32603,
+                        message: e,
+                    }),
+                }
+            }
+            "validate_diff" => {
+                let diff: String = match serde_json::from_value(
+                    request.params.get("diff").cloned().unwrap_or_default(),
+                ) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        return JsonRpcResponse {
+                            jsonrpc: "2.0".to_string(),
+                            id: request.id,
+                            result: None,
+                            error: Some(JsonRpcError {
+                                code: -32602,
+                                message: format!("Invalid params: {}", e),
+                            }),
+                        };
+                    }
+                };
+
+                let state: State<EditorState> = app.state();
+                match validate_diff(diff, state) {
+                    Ok(validation) => Ok(serde_json::to_value(validation).unwrap()),
+                    Err(e) => Err(JsonRpcError {
+                        code: -32603,
+                        message: e,
+                    }),
+                }
+            }
+            "apply_diff" => {
+                let diff: String = match serde_json::from_value(
+                    request.params.get("diff").cloned().unwrap_or_default(),
+                ) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        return JsonRpcResponse {
+                            jsonrpc: "2.0".to_string(),
+                            id: request.id,
+                            result: None,
+                            error: Some(JsonRpcError {
+                                code: -32602,
+                                message: format!("Invalid params: {}", e),
+                            }),
+                        };
+                    }
+                };
+
+                let state: State<EditorState> = app.state();
+                // TODO: Get openscad_path from app state or config
+                let openscad_path = "openscad".to_string();
+
+                match apply_diff(app.clone(), diff, state, openscad_path).await {
+                    Ok(result) => Ok(serde_json::to_value(result).unwrap()),
+                    Err(e) => Err(JsonRpcError {
+                        code: -32603,
+                        message: e,
+                    }),
+                }
+            }
+            "get_diagnostics" => {
+                let state: State<EditorState> = app.state();
+                match get_diagnostics(state) {
+                    Ok(diagnostics) => Ok(serde_json::to_value(diagnostics).unwrap()),
+                    Err(e) => Err(JsonRpcError {
+                        code: -32603,
+                        message: e,
+                    }),
+                }
+            }
+            "trigger_render" => match trigger_render(app.clone()).await {
+                Ok(_) => Ok(serde_json::Value::Null),
+                Err(e) => Err(JsonRpcError {
+                    code: -32603,
+                    message: e,
+                }),
+            },
+            _ => Err(JsonRpcError {
+                code: -32601,
+                message: format!("Method not found: {}", request.method),
+            }),
+        };
+
+        match result {
+            Ok(value) => JsonRpcResponse {
+                jsonrpc: "2.0".to_string(),
+                id: request.id,
+                result: Some(value),
+                error: None,
+            },
+            Err(error) => JsonRpcResponse {
+                jsonrpc: "2.0".to_string(),
+                id: request.id,
+                result: None,
+                error: Some(error),
+            },
         }
     }
 
     pub async fn shutdown(&self) -> Result<(), String> {
         println!("[Sidecar] Shutting down...");
-        let mut child = self.child.lock().await;
-
-        child
-            .kill()
-            .await
-            .map_err(|e| format!("Failed to kill sidecar process: {}", e))?;
-
+        if let Some(mut child) = self.child.lock().await.take() {
+            child
+                .kill()
+                .await
+                .map_err(|e| format!("Failed to kill sidecar process: {}", e))?;
+        }
         println!("[Sidecar] Shutdown complete");
         Ok(())
     }
@@ -159,29 +278,10 @@ impl AgentSidecar {
 impl Drop for AgentSidecar {
     fn drop(&mut self) {
         println!("[Sidecar] AgentSidecar dropped, cleaning up...");
-        // Note: Tokio runtime might not be available in Drop, so this is best-effort
-        if let Ok(mut child) = self.child.try_lock() {
-            let _ = child.start_kill();
-        }
-    }
-}
-
-// Add chrono for timestamp generation
-// This is a simple workaround - in production you might want a better ID generator
-mod chrono {
-    pub struct Utc;
-    impl Utc {
-        pub fn now() -> DateTime {
-            DateTime
-        }
-    }
-    pub struct DateTime;
-    impl DateTime {
-        pub fn timestamp_millis(&self) -> i64 {
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as i64
+        if let Ok(mut guard) = self.child.try_lock() {
+            if let Some(mut child) = guard.take() {
+                let _ = child.start_kill();
+            }
         }
     }
 }
