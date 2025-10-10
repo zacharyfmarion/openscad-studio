@@ -122,6 +122,207 @@ export function Editor({ value, onChange, diagnostics, onManualRender }: EditorP
         ]
       }
     });
+
+    // Register autocomplete provider for OpenSCAD
+    monaco.languages.registerCompletionItemProvider('openscad', {
+      provideCompletionItems: (model, position) => {
+        // Get the current word being typed
+        const word = model.getWordUntilPosition(position);
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn: word.endColumn,
+        };
+
+        const suggestions: Monaco.languages.CompletionItem[] = [
+          // 3D Primitives
+          {
+            label: 'cube',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'cube([${1:10}, ${2:10}, ${3:10}]);',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Creates a cube with specified dimensions [x, y, z]',
+            range,
+          },
+          {
+            label: 'sphere',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'sphere(r = ${1:10});',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Creates a sphere with specified radius',
+            range,
+          },
+          {
+            label: 'cylinder',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'cylinder(h = ${1:10}, r = ${2:5});',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Creates a cylinder with height h and radius r',
+            range,
+          },
+          // 2D Primitives
+          {
+            label: 'square',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'square([${1:10}, ${2:10}]);',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Creates a square with specified dimensions [x, y]',
+            range,
+          },
+          {
+            label: 'circle',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'circle(r = ${1:10});',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Creates a circle with specified radius',
+            range,
+          },
+          {
+            label: 'polygon',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'polygon(points = [${1:[0,0], [10,0], [5,10]}]);',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Creates a polygon from specified points',
+            range,
+          },
+          // Transformations
+          {
+            label: 'translate',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'translate([${1:0}, ${2:0}, ${3:0}]) {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Translates (moves) child objects by [x, y, z]',
+            range,
+          },
+          {
+            label: 'rotate',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'rotate([${1:0}, ${2:0}, ${3:0}]) {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Rotates child objects by angles [x, y, z]',
+            range,
+          },
+          {
+            label: 'scale',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'scale([${1:1}, ${2:1}, ${3:1}]) {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Scales child objects by factors [x, y, z]',
+            range,
+          },
+          {
+            label: 'mirror',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'mirror([${1:1}, ${2:0}, ${3:0}]) {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Mirrors child objects across a plane',
+            range,
+          },
+          {
+            label: 'color',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'color("${1:red}") {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Colors child objects',
+            range,
+          },
+          // Boolean Operations
+          {
+            label: 'union',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'union() {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Combines child objects',
+            range,
+          },
+          {
+            label: 'difference',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'difference() {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Subtracts later children from the first child',
+            range,
+          },
+          {
+            label: 'intersection',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'intersection() {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Creates intersection of child objects',
+            range,
+          },
+          // Advanced
+          {
+            label: 'hull',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'hull() {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Creates convex hull around child objects',
+            range,
+          },
+          {
+            label: 'minkowski',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'minkowski() {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Minkowski sum of child objects',
+            range,
+          },
+          {
+            label: 'linear_extrude',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'linear_extrude(height = ${1:10}) {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Extrudes 2D objects to 3D',
+            range,
+          },
+          {
+            label: 'rotate_extrude',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'rotate_extrude(angle = ${1:360}) {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Rotates 2D objects around the Z axis to create 3D objects',
+            range,
+          },
+          // Control Flow
+          {
+            label: 'module',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'module ${1:name}(${2:}) {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Defines a reusable module',
+            range,
+          },
+          {
+            label: 'function',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'function ${1:name}(${2:}) = ${3:};',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Defines a function',
+            range,
+          },
+          {
+            label: 'for',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'for (${1:i} = [${2:0}:${3:10}]) {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'For loop',
+            range,
+          },
+          {
+            label: 'if',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'if (${1:condition}) {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Conditional statement',
+            range,
+          },
+        ];
+
+        return { suggestions };
+      },
+    });
   };
 
   return (
@@ -140,6 +341,11 @@ export function Editor({ value, onChange, diagnostics, onManualRender }: EditorP
           roundedSelection: false,
           scrollBeyondLastLine: false,
           automaticLayout: true,
+          quickSuggestions: true,
+          suggestOnTriggerCharacters: true,
+          acceptSuggestionOnEnter: 'on',
+          tabCompletion: 'on',
+          wordBasedSuggestions: 'off',
         }}
       />
     </div>
