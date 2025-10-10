@@ -73,6 +73,8 @@ pub struct RenderPreviewRequest {
     pub size: Option<Size>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub render_mesh: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub working_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,6 +108,8 @@ pub struct RenderExactRequest {
     pub backend: Option<BackendType>,
     pub format: ExportFormat,
     pub out_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub working_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

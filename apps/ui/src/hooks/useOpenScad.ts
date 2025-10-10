@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { renderPreview, locateOpenScad, type Diagnostic, type RenderPreviewResponse, type RenderKind } from '../api/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
-export function useOpenScad() {
+export function useOpenScad(workingDir?: string | null) {
   const [source, setSource] = useState<string>('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
   const [openscadPath, setOpenscadPath] = useState<string>('');
   const [previewSrc, setPreviewSrc] = useState<string>('');
@@ -28,6 +28,8 @@ export function useOpenScad() {
   }, []);
 
   const doRender = useCallback(async (code: string, useMesh = false, dimension: '2d' | '3d' = '3d') => {
+    console.log('[doRender] Starting render:', { dimension, useMesh, codeLength: code.length });
+
     if (!openscadPath) {
       setError('OpenSCAD path not set');
       return;
@@ -35,15 +37,19 @@ export function useOpenScad() {
 
     setIsRendering(true);
     setError('');
+    setPreviewSrc(''); // Clear preview immediately when starting new render
 
     try {
+      console.log('[doRender] Calling renderPreview...');
       const result: RenderPreviewResponse = await renderPreview(openscadPath, {
         source: code,
         view: dimension,
         size: { w: 800, h: 600 },
         render_mesh: useMesh && dimension === '3d', // Only use mesh for 3D mode
+        working_dir: workingDir || undefined,
       });
 
+      console.log('[doRender] Render success:', { kind: result.kind, path: result.path, diagnostics: result.diagnostics.length });
       setDiagnostics(result.diagnostics);
       setPreviewKind(result.kind);
 
@@ -51,15 +57,18 @@ export function useOpenScad() {
       // Add timestamp to bust browser cache
       const assetUrl = convertFileSrc(result.path);
       const cacheBustedUrl = `${assetUrl}?t=${Date.now()}`;
+      console.log('[doRender] Setting preview src:', cacheBustedUrl);
       setPreviewSrc(cacheBustedUrl);
     } catch (err) {
       const errorMsg = typeof err === 'string' ? err : String(err);
+      console.log('[doRender] Render error:', errorMsg);
       setError(errorMsg);
+      setPreviewSrc(''); // Clear preview on error to avoid trying to load non-existent files
       console.error('Render error:', err);
     } finally {
       setIsRendering(false);
     }
-  }, [openscadPath]);
+  }, [openscadPath, workingDir]);
 
   // Toggle between 2D and 3D modes
   const toggleDimensionMode = useCallback(() => {

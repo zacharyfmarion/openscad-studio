@@ -24,6 +24,7 @@ export interface RenderPreviewRequest {
   view?: ViewMode;
   size?: Size;
   render_mesh?: boolean;
+  working_dir?: string;
 }
 
 export interface RenderPreviewResponse {
@@ -73,6 +74,7 @@ export interface RenderExactRequest {
   backend?: BackendType;
   format: ExportFormat;
   out_path: string;
+  working_dir?: string;
 }
 
 export interface RenderExactResponse {

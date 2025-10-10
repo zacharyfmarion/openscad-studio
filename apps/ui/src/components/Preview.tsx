@@ -10,18 +10,23 @@ interface PreviewProps {
 }
 
 export function Preview({ src, kind, isRendering, error }: PreviewProps) {
+  console.log('[Preview] Render:', { src: src?.substring(0, 80), kind, isRendering, hasError: !!error });
+
+  // Always show error first if present
   if (error) {
+    console.log('[Preview] Showing error:', error.substring(0, 100));
     return (
       <div className="h-full bg-gray-900 flex items-center justify-center">
-        <div className="text-red-400 px-4 py-2 bg-red-900/20 rounded border border-red-800">
+        <div className="text-red-400 px-4 py-2 bg-red-900/20 rounded border border-red-800 max-w-2xl">
           <p className="font-semibold">Render Error</p>
-          <p className="text-sm mt-1">{error}</p>
+          <p className="text-sm mt-1 whitespace-pre-wrap">{error}</p>
         </div>
       </div>
     );
   }
 
   if (isRendering) {
+    console.log('[Preview] Showing rendering state');
     return (
       <div className="h-full bg-gray-900 flex items-center justify-center">
         <div className="text-gray-400">
@@ -32,7 +37,9 @@ export function Preview({ src, kind, isRendering, error }: PreviewProps) {
     );
   }
 
+  // Don't render anything if no src
   if (!src) {
+    console.log('[Preview] No src, showing placeholder');
     return (
       <div className="h-full bg-gray-900 flex items-center justify-center">
         <p className="text-gray-500">No preview available</p>

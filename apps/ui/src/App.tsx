@@ -11,6 +11,13 @@ import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { renderExact, type ExportFormat } from './api/tauri';
 
 function App() {
+  const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
+
+  // Get working directory from current file path (for resolving relative imports)
+  const workingDir = currentFilePath
+    ? currentFilePath.substring(0, currentFilePath.lastIndexOf('/'))
+    : null;
+
   const {
     source,
     updateSource,
@@ -25,9 +32,7 @@ function App() {
     dimensionMode,
     toggleDimensionMode,
     manualRender,
-  } = useOpenScad();
-
-  const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
+  } = useOpenScad(workingDir);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [savedContent, setSavedContent] = useState('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
@@ -157,7 +162,7 @@ function App() {
           filters: [{ name: formatInfo.label, extensions: [formatInfo.ext] }]
         });
         if (!savePath) return;
-        await renderExact(openscadPath, { source, format, out_path: savePath });
+        await renderExact(openscadPath, { source, format, out_path: savePath, working_dir: workingDir || undefined });
         alert(`Exported successfully to ${savePath}`);
       } catch (err) {
         console.error('Export failed:', err);
@@ -280,6 +285,7 @@ function App() {
         onClose={() => setShowExportDialog(false)}
         source={source}
         openscadPath={openscadPath}
+        workingDir={workingDir}
       />
     </div>
   );

@@ -58,7 +58,14 @@ pub async fn render_preview(
     println!("Cache MISS for key: {}", cache_key);
 
     // Write source to temp file
-    let scad_path = app_dir.join("preview.scad");
+    // If working_dir is provided, write temp file there so relative imports work
+    let scad_path = if let Some(working_dir) = &request.working_dir {
+        let work_path = std::path::PathBuf::from(working_dir);
+        work_path.join(".openscad_temp_preview.scad")
+    } else {
+        app_dir.join("preview.scad")
+    };
+
     std::fs::write(&scad_path, &request.source)
         .map_err(|e| format!("Failed to write temp .scad file: {}", e))?;
 
@@ -87,7 +94,6 @@ pub async fn render_preview(
         "-o".to_string(),
         out_path.to_string_lossy().to_string(),
         scad_path.to_string_lossy().to_string(),
-        "--hardwarnings".to_string(),
     ];
 
     // Add backend flag if specified
@@ -121,9 +127,16 @@ pub async fn render_preview(
         }
     }
 
-    // Execute OpenSCAD
-    let output = Command::new(&openscad_path)
-        .args(&args)
+    // Execute OpenSCAD with working directory if provided
+    let mut command = Command::new(&openscad_path);
+    command.args(&args);
+
+    // Set working directory if provided (for resolving relative imports)
+    if let Some(working_dir) = &request.working_dir {
+        command.current_dir(working_dir);
+    }
+
+    let output = command
         .output()
         .map_err(|e| {
             format!(
@@ -144,7 +157,18 @@ pub async fn render_preview(
             .any(|d| matches!(d.severity, crate::types::DiagnosticSeverity::Error));
 
         if has_errors {
-            return Err("OpenSCAD failed to render due to errors in your code. Check diagnostics for details.".to_string());
+            // Build error message with diagnostic details
+            let mut error_msg = String::from("OpenSCAD failed to render due to errors:\n\n");
+            for diag in &diagnostics {
+                if matches!(diag.severity, crate::types::DiagnosticSeverity::Error) {
+                    if let Some(line) = diag.line {
+                        error_msg.push_str(&format!("Line {}: {}\n", line, diag.message));
+                    } else {
+                        error_msg.push_str(&format!("{}\n", diag.message));
+                    }
+                }
+            }
+            return Err(error_msg);
         } else {
             // Check for common dimension mismatch issues
             let error_msg = if matches!(view, ViewMode::TwoD) && (stderr.contains("3D object") || stderr.contains("not a 2D object")) {
@@ -193,18 +217,23 @@ pub async fn render_exact(
     openscad_path: String,
     request: crate::types::RenderExactRequest,
 ) -> Result<crate::types::RenderExactResponse, String> {
-    // Get temporary directory for temp .scad file
-    let app_dir = app
-        .path()
-        .app_cache_dir()
-        .map_err(|e| format!("Failed to get app cache directory: {}", e))?;
-
-    // Ensure temp directory exists
-    std::fs::create_dir_all(&app_dir)
-        .map_err(|e| format!("Failed to create cache directory: {}", e))?;
+    // Determine where to write temp file
+    // If working_dir is provided, write the temp file there so relative imports work
+    // Otherwise use cache directory
+    let scad_path = if let Some(working_dir) = &request.working_dir {
+        let work_path = std::path::PathBuf::from(working_dir);
+        work_path.join(".openscad_temp_export.scad")
+    } else {
+        let app_dir = app
+            .path()
+            .app_cache_dir()
+            .map_err(|e| format!("Failed to get app cache directory: {}", e))?;
+        std::fs::create_dir_all(&app_dir)
+            .map_err(|e| format!("Failed to create cache directory: {}", e))?;
+        app_dir.join("export.scad")
+    };
 
     // Write source to temp file
-    let scad_path = app_dir.join("export.scad");
     std::fs::write(&scad_path, &request.source)
         .map_err(|e| format!("Failed to write temp .scad file: {}", e))?;
 
@@ -239,7 +268,6 @@ pub async fn render_exact(
         "-o".to_string(),
         request.out_path.clone(),
         scad_path.to_string_lossy().to_string(),
-        "--hardwarnings".to_string(),
     ];
 
     // Add backend flag if specified
@@ -257,9 +285,24 @@ pub async fn render_exact(
         args.push("--preview".to_string());
     }
 
-    // Execute OpenSCAD (full render, no --preview for 3D formats)
-    let output = Command::new(&openscad_path)
-        .args(&args)
+    println!("[render_exact] Format: {:?}, Output: {}", request.format, request.out_path);
+    println!("[render_exact] Working dir: {:?}", request.working_dir);
+
+    // Execute OpenSCAD with working directory if provided
+    let mut command = Command::new(&openscad_path);
+    command.args(&args);
+
+    // Set working directory if provided (for resolving relative imports)
+    if let Some(working_dir) = &request.working_dir {
+        println!("[render_exact] Setting working directory to: {}", working_dir);
+        command.current_dir(working_dir);
+    } else {
+        println!("[render_exact] WARNING: No working directory provided!");
+    }
+
+    println!("[render_exact] Executing: {} {:?}", openscad_path, args);
+
+    let output = command
         .output()
         .map_err(|e| {
             format!(
@@ -270,6 +313,8 @@ pub async fn render_exact(
 
     // Parse diagnostics from stderr
     let stderr = String::from_utf8_lossy(&output.stderr);
+    println!("[render_exact] OpenSCAD stderr:\n{}", stderr);
+    println!("[render_exact] OpenSCAD exit status: {}", output.status);
     let diagnostics = parse_openscad_stderr(&stderr);
 
     // Check if output file was created
@@ -279,7 +324,18 @@ pub async fn render_exact(
             .any(|d| matches!(d.severity, crate::types::DiagnosticSeverity::Error));
 
         if has_errors {
-            return Err("OpenSCAD failed to render due to errors in your code. Check diagnostics for details.".to_string());
+            // Build error message with diagnostic details
+            let mut error_msg = String::from("OpenSCAD failed to render due to errors:\n\n");
+            for diag in &diagnostics {
+                if matches!(diag.severity, crate::types::DiagnosticSeverity::Error) {
+                    if let Some(line) = diag.line {
+                        error_msg.push_str(&format!("Line {}: {}\n", line, diag.message));
+                    } else {
+                        error_msg.push_str(&format!("{}\n", diag.message));
+                    }
+                }
+            }
+            return Err(error_msg);
         } else {
             // Check for dimension mismatch issues
             let is_3d_format = matches!(

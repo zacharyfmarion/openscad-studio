@@ -7,6 +7,7 @@ interface ExportDialogProps {
   onClose: () => void;
   source: string;
   openscadPath: string;
+  workingDir?: string | null;
 }
 
 const FORMAT_OPTIONS: { value: ExportFormat; label: string; ext: string }[] = [
@@ -19,7 +20,7 @@ const FORMAT_OPTIONS: { value: ExportFormat; label: string; ext: string }[] = [
   { value: 'dxf', label: 'DXF (2D CAD)', ext: 'dxf' },
 ];
 
-export function ExportDialog({ isOpen, onClose, source, openscadPath }: ExportDialogProps) {
+export function ExportDialog({ isOpen, onClose, source, openscadPath, workingDir }: ExportDialogProps) {
   const [format, setFormat] = useState<ExportFormat>('stl');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string>('');
@@ -53,6 +54,7 @@ export function ExportDialog({ isOpen, onClose, source, openscadPath }: ExportDi
         source,
         format,
         out_path: savePath,
+        working_dir: workingDir || undefined,
       });
 
       // Success - close dialog
