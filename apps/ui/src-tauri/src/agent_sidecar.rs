@@ -40,16 +40,41 @@ pub struct AgentSidecar {
 
 impl AgentSidecar {
     pub async fn spawn(app_handle: &AppHandle, api_key: String) -> Result<Self, String> {
-        // Get path to bundled sidecar executable
-        let resource_dir = app_handle
-            .path()
-            .resource_dir()
-            .map_err(|e| format!("Failed to get resource directory: {}", e))?;
+        // Get path to sidecar executable
+        // In dev mode, use source path. In production, use bundled resources.
+        let sidecar_path = if cfg!(debug_assertions) {
+            // Development mode: look in source tree
+            // Go up from target/debug/... to project root
+            let current_exe = std::env::current_exe()
+                .map_err(|e| format!("Failed to get current exe: {}", e))?;
 
-        let sidecar_path = resource_dir
-            .join("sidecar")
-            .join("dist")
-            .join("agent-server.js");
+            // Navigate to project root (from target/debug/openscad-copilot -> ../../..)
+            let project_root = current_exe
+                .parent() // target/debug
+                .and_then(|p| p.parent()) // target
+                .and_then(|p| p.parent()) // src-tauri
+                .and_then(|p| p.parent()) // ui
+                .and_then(|p| p.parent()) // apps
+                .and_then(|p| p.parent()) // project root
+                .ok_or_else(|| "Failed to determine project root".to_string())?;
+
+            project_root
+                .join("apps")
+                .join("sidecar")
+                .join("dist")
+                .join("agent-server.js")
+        } else {
+            // Production mode: use bundled resources
+            let resource_dir = app_handle
+                .path()
+                .resource_dir()
+                .map_err(|e| format!("Failed to get resource directory: {}", e))?;
+
+            resource_dir
+                .join("sidecar")
+                .join("dist")
+                .join("agent-server.js")
+        };
 
         println!("[Sidecar] Looking for agent server at: {:?}", sidecar_path);
 
