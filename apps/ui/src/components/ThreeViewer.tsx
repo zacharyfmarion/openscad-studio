@@ -1,34 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid, GizmoHelper, GizmoViewcube, GizmoViewport } from '@react-three/drei';
+import { CameraControls, Grid, GizmoHelper, GizmoViewcube, OrthographicCamera, PerspectiveCamera, ContactShadows, Environment, Wireframe as DreiWireframe } from '@react-three/drei';
 import { STLLoader } from 'three-stdlib';
 import * as THREE from 'three';
 import { loadSettings } from '../stores/settingsStore';
 import { getTheme } from '../themes';
-import { TbBox, TbBoxModel } from 'react-icons/tb';
+import { TbBox, TbBoxModel, TbSun, TbFocus2 } from 'react-icons/tb';
 
 interface ThreeViewerProps {
   stlPath: string;
   isLoading?: boolean;
 }
 
-function STLModel({ url, wireframe }: { url: string; wireframe: boolean }) {
-  const meshRef = useRef<THREE.Mesh>(null);
+function STLModel({ url, wireframe, meshRef }: { url: string; wireframe: boolean; meshRef: React.RefObject<THREE.Mesh> }) {
   const [modelColor, setModelColor] = useState(() => {
     const settings = loadSettings();
     const theme = getTheme(settings.appearance.theme);
     return theme.colors.accent.secondary;
   });
+  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
 
   useEffect(() => {
     const loader = new STLLoader();
     loader.load(
       url,
-      (geometry) => {
-        if (meshRef.current) {
-          geometry.computeVertexNormals();
-          meshRef.current.geometry = geometry;
-        }
+      (loadedGeometry) => {
+        loadedGeometry.computeVertexNormals();
+        setGeometry(loadedGeometry);
       },
       undefined,
       (error) => {
@@ -48,14 +46,37 @@ function STLModel({ url, wireframe }: { url: string; wireframe: boolean }) {
     return () => clearInterval(interval);
   }, []);
 
+  if (!geometry) {
+    return null;
+  }
+
   return (
     <mesh
       ref={meshRef}
+      geometry={geometry}
       castShadow
       receiveShadow
       rotation={[-Math.PI / 2, 0, 0]}
     >
-      <meshStandardMaterial color={modelColor} wireframe={wireframe} />
+      {wireframe ? (
+        <>
+          <meshBasicMaterial
+            color={modelColor}
+            transparent
+            opacity={0.2}
+            side={THREE.DoubleSide}
+          />
+          <DreiWireframe
+            geometry={geometry}
+            stroke={modelColor}
+            thickness={0.05}
+            fillOpacity={0}
+            strokeOpacity={0.9}
+          />
+        </>
+      ) : (
+        <meshStandardMaterial color={modelColor} metalness={0.3} roughness={0.4} />
+      )}
     </mesh>
   );
 }
@@ -74,6 +95,16 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
 
   const [orthographic, setOrthographic] = useState(false);
   const [wireframe, setWireframe] = useState(false);
+  const [showShadows, setShowShadows] = useState(true);
+  const cameraControlsRef = useRef<any>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  const handleFitToView = () => {
+    if (cameraControlsRef.current && meshRef.current) {
+      const box = new THREE.Box3().setFromObject(meshRef.current);
+      cameraControlsRef.current.fitToBox(box, true);
+    }
+  };
 
   // Update colors when theme changes (check periodically)
   useEffect(() => {
@@ -117,6 +148,19 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
       <div className="absolute top-2 right-2 z-10 flex gap-2">
         {/* Display Options */}
         <button
+          onClick={handleFitToView}
+          className="p-2 rounded transition-colors flex items-center justify-center"
+          style={{
+            backgroundColor: 'var(--bg-elevated)',
+            border: '1px solid var(--border-secondary)',
+            color: 'var(--text-secondary)'
+          }}
+          title="Fit to View"
+        >
+          <TbFocus2 size={18} />
+        </button>
+
+        <button
           onClick={() => setOrthographic(!orthographic)}
           className="p-2 rounded transition-colors flex items-center justify-center"
           style={{
@@ -141,23 +185,41 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
         >
           {wireframe ? <TbBox size={18} /> : <TbBoxModel size={18} />}
         </button>
+
+        <button
+          onClick={() => setShowShadows(!showShadows)}
+          className="p-2 rounded transition-colors flex items-center justify-center"
+          style={{
+            backgroundColor: showShadows ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+            border: '1px solid var(--border-secondary)',
+            color: showShadows ? 'var(--text-inverse)' : 'var(--text-secondary)'
+          }}
+          title="Toggle Shadows"
+        >
+          <TbSun size={18} />
+        </button>
       </div>
 
       <Canvas
-        camera={{ position: [30, 30, 30], fov: 50 }}
-        orthographic={orthographic}
         shadows
         style={{ width: '100%', height: '100%', background: themeColors.background }}
       >
+        {/* Camera */}
+        {orthographic ? (
+          <OrthographicCamera makeDefault position={[100, 100, 100]} zoom={2} near={-1000} far={2000} />
+        ) : (
+          <PerspectiveCamera makeDefault position={[100, 100, 100]} fov={50} near={0.1} far={2000} />
+        )}
+
         {/* Lighting */}
+        <Environment preset="city" />
         <ambientLight intensity={0.5} />
         <directionalLight
           position={[10, 10, 5]}
           intensity={1}
           castShadow
-          shadow-mapSize={[1024, 1024]}
+          shadow-mapSize={[2048, 2048]}
         />
-        <directionalLight position={[-10, -10, -5]} intensity={0.3} />
 
         {/* Grid */}
         <Grid
@@ -167,15 +229,28 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
           fadeDistance={500}
         />
 
-        {/* STL Model */}
-        <STLModel url={stlPath} wireframe={wireframe} />
+        {/* Contact Shadows */}
+        {showShadows && (
+          <ContactShadows
+            position={[0, 0, 0]}
+            opacity={0.3}
+            scale={200}
+            blur={2}
+            far={50}
+          />
+        )}
 
-        {/* Controls */}
-        <OrbitControls
-          enablePan={true}
-          enableZoom={true}
-          enableRotate={true}
+        {/* STL Model */}
+        <STLModel url={stlPath} wireframe={wireframe} meshRef={meshRef} />
+
+        {/* Camera Controls */}
+        <CameraControls
+          ref={cameraControlsRef}
           makeDefault
+          minDistance={5}
+          maxDistance={500}
+          dollySpeed={0.5}
+          truckSpeed={0.5}
         />
 
         {/* ViewCube Gizmo */}
