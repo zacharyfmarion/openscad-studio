@@ -39,7 +39,7 @@ function App() {
   } = useOpenScad(workingDir);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
-  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(true);
   const [isDirty, setIsDirty] = useState(false);
   const [savedContent, setSavedContent] = useState('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
 
@@ -50,11 +50,14 @@ function App() {
     proposedDiff,
     error: aiError,
     isApplyingDiff,
+    messages,
+    currentToolCalls,
     submitPrompt,
     cancelStream,
     acceptDiff,
     rejectDiff,
     clearError: clearAiError,
+    newConversation,
   } = useAiAgent();
 
   // Use refs to avoid stale closures in event listeners
@@ -176,7 +179,7 @@ function App() {
   // Listen for menu events from native menu
   // This effect only runs once on mount to avoid re-registering listeners
   useEffect(() => {
-    let unlistenFns: Array<() => void> = [];
+    const unlistenFns: Array<() => void> = [];
     let isMounted = true;
 
     // Setup all listeners
@@ -338,13 +341,42 @@ function App() {
     appWindow.setTitle(`${dirtyIndicator}${fileName} - OpenSCAD Copilot`);
   }, [currentFilePath, isDirty]);
 
+  // Listen for render requests from AI agent
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+
+    const setupListener = async () => {
+      console.log('[App] Setting up render-requested listener');
+      unlisten = await listen('render-requested', () => {
+        console.log('[App] ✅ Received render-requested event from AI');
+        console.log('[App] manualRenderRef.current exists:', !!manualRenderRef.current);
+        if (manualRenderRef.current) {
+          console.log('[App] Calling manualRenderRef.current()');
+          manualRenderRef.current();
+        } else {
+          console.error('[App] ❌ manualRenderRef.current is not set!');
+        }
+      });
+      console.log('[App] render-requested listener setup complete');
+    };
+
+    setupListener();
+
+    return () => {
+      if (unlisten) {
+        console.log('[App] Cleaning up render-requested listener');
+        unlisten();
+      }
+    };
+  }, []);
+
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // ⌘K or Ctrl+K to toggle AI panel
+      // ⌘K or Ctrl+K to switch to Copilot tab
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setShowAiPanel((prev) => !prev);
+        setShowAiPanel(true);
       }
       // ⌘, or Ctrl+, to open settings
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
@@ -386,17 +418,6 @@ function App() {
             className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-medium transition-colors"
           >
             Export...
-          </button>
-          <button
-            onClick={() => setShowAiPanel(!showAiPanel)}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-              showAiPanel
-                ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
-            }`}
-            title="Toggle AI Copilot (⌘K)"
-          >
-            🤖 AI {showAiPanel ? '✓' : ''}
           </button>
           <button
             onClick={() => setShowSettingsDialog(true)}
@@ -441,17 +462,50 @@ function App() {
         </Panel>
         <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-gray-600 transition-colors" />
         <Panel defaultSize={25} minSize={10} maxSize={50}>
-          {showAiPanel ? (
-            <AiPromptPanel
-              onSubmit={submitPrompt}
-              isStreaming={isStreaming}
-              streamingResponse={streamingResponse}
-              onCancel={cancelStream}
-              diagnostics={diagnostics}
-            />
-          ) : (
-            <DiagnosticsPanel diagnostics={diagnostics} />
-          )}
+          <div className="h-full flex flex-col bg-gray-800">
+            {/* Tabs and Toolbar - Combined */}
+            <div className="flex items-center justify-between px-3 py-1.5 bg-gray-750 border-b border-gray-700">
+              {/* Left: Tabs */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setShowAiPanel(true)}
+                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                    showAiPanel
+                      ? 'bg-gray-700 text-white'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
+                  }`}
+                >
+                  Copilot
+                </button>
+                <button
+                  onClick={() => setShowAiPanel(false)}
+                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                    !showAiPanel
+                      ? 'bg-gray-700 text-white'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
+                  }`}
+                >
+                  Issues {diagnostics.length > 0 && `(${diagnostics.length})`}
+                </button>
+              </div>
+            </div>
+            {/* Content */}
+            <div className="flex-1 overflow-hidden">
+              {showAiPanel ? (
+                <AiPromptPanel
+                  onSubmit={submitPrompt}
+                  isStreaming={isStreaming}
+                  streamingResponse={streamingResponse}
+                  onCancel={cancelStream}
+                  messages={messages}
+                  onNewConversation={newConversation}
+                  currentToolCalls={currentToolCalls}
+                />
+              ) : (
+                <DiagnosticsPanel diagnostics={diagnostics} />
+              )}
+            </div>
+          </div>
         </Panel>
       </PanelGroup>
 

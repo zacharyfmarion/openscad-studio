@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import type { Diagnostic } from '../api/tauri';
+import type { Message } from '../hooks/useAiAgent';
 
-export type AiMode = 'generate' | 'edit' | 'fix' | 'explain';
+export type AiMode = 'edit';
 
 interface AiPromptPanelProps {
   onSubmit: (prompt: string, mode: AiMode) => void;
   isStreaming: boolean;
   streamingResponse: string | null;
   onCancel: () => void;
-  diagnostics?: Diagnostic[];
+  messages?: Message[];
+  onNewConversation?: () => void;
+  currentToolCalls?: import('../hooks/useAiAgent').ToolCall[];
 }
 
 export function AiPromptPanel({
@@ -16,23 +18,24 @@ export function AiPromptPanel({
   isStreaming,
   streamingResponse,
   onCancel,
-  diagnostics = [],
+  messages = [],
+  onNewConversation,
+  currentToolCalls = [],
 }: AiPromptPanelProps) {
   const [prompt, setPrompt] = useState('');
-  const [mode, setMode] = useState<AiMode>('edit');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const responseRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll streaming response to bottom
+  // Auto-scroll to bottom when messages or streaming response changes
   useEffect(() => {
-    if (responseRef.current && streamingResponse) {
+    if (responseRef.current) {
       responseRef.current.scrollTop = responseRef.current.scrollHeight;
     }
-  }, [streamingResponse]);
+  }, [messages, streamingResponse]);
 
   const handleSubmit = () => {
     if (!prompt.trim() || isStreaming) return;
-    onSubmit(prompt, mode);
+    onSubmit(prompt, 'edit');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -48,16 +51,6 @@ export function AiPromptPanel({
     }
   };
 
-  // Get mode button class
-  const getModeButtonClass = (buttonMode: AiMode) => {
-    const isActive = mode === buttonMode;
-    return `px-3 py-1 rounded text-xs font-medium transition-colors ${
-      isActive
-        ? 'bg-blue-600 text-white'
-        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-    }`;
-  };
-
   // Auto-focus prompt when not streaming
   useEffect(() => {
     if (!isStreaming && textareaRef.current) {
@@ -65,64 +58,159 @@ export function AiPromptPanel({
     }
   }, [isStreaming]);
 
-  const errorCount = diagnostics.filter((d) => d.severity === 'error').length;
-
   return (
-    <div className="h-full flex flex-col bg-gray-800 border-t border-gray-700">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-750 border-b border-gray-700">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-gray-200">🤖 AI Copilot</span>
-          {errorCount > 0 && mode === 'fix' && (
-            <span className="text-xs bg-red-900/40 text-red-400 px-2 py-0.5 rounded">
-              {errorCount} error{errorCount > 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">Mode:</span>
+    <div className="h-full flex flex-col bg-gray-800">
+      {/* Compact Toolbar */}
+      <div className="flex items-center justify-end px-3 py-1 bg-gray-750 border-b border-gray-700">
+        {onNewConversation && (
           <button
-            onClick={() => setMode('generate')}
-            className={getModeButtonClass('generate')}
+            onClick={onNewConversation}
+            className="px-2 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-xs transition-colors"
+            title="Start new conversation"
             disabled={isStreaming}
-            title="Generate new code from scratch"
           >
-            Generate
+            + New
           </button>
-          <button
-            onClick={() => setMode('edit')}
-            className={getModeButtonClass('edit')}
-            disabled={isStreaming}
-            title="Edit existing code"
-          >
-            Edit
-          </button>
-          <button
-            onClick={() => setMode('fix')}
-            className={getModeButtonClass('fix')}
-            disabled={isStreaming}
-            title="Fix errors in code"
-          >
-            Fix
-          </button>
-          <button
-            onClick={() => setMode('explain')}
-            className={getModeButtonClass('explain')}
-            disabled={isStreaming}
-            title="Explain what the code does"
-          >
-            Explain
-          </button>
-        </div>
+        )}
       </div>
 
-      {/* Streaming response area */}
-      {streamingResponse && (
+      {/* Message history area */}
+      {(messages.length > 0 || streamingResponse) && (
         <div
           ref={responseRef}
-          className="flex-1 overflow-y-auto px-4 py-3 bg-gray-900/50 border-b border-gray-700 font-mono text-sm text-gray-300 whitespace-pre-wrap"
+          className="flex-1 overflow-y-auto px-4 py-3 bg-gray-900/50 border-b border-gray-700 space-y-3"
         >
-          {streamingResponse}
+          {messages.map((message) => {
+            // User message
+            if (message.type === 'user') {
+              return (
+                <div key={message.id} className="flex gap-2 justify-end">
+                  <div className="max-w-[85%] rounded-lg px-3 py-2 bg-blue-600 text-white">
+                    <div className="text-xs opacity-70 mb-1">You</div>
+                    <div className="text-sm whitespace-pre-wrap font-mono">{message.content}</div>
+                  </div>
+                </div>
+              );
+            }
+
+            // Assistant text message
+            if (message.type === 'assistant') {
+              return (
+                <div key={message.id} className="flex gap-2 justify-start">
+                  <div className="max-w-[85%] rounded-lg px-3 py-2 bg-gray-700 text-gray-100">
+                    <div className="text-xs opacity-70 mb-1">AI</div>
+                    <div className="text-sm whitespace-pre-wrap font-mono">{message.content}</div>
+                  </div>
+                </div>
+              );
+            }
+
+            // Tool call message (permanent, after completion)
+            if (message.type === 'tool-call') {
+              return (
+                <div key={message.id} className="flex gap-2 justify-start">
+                  <div
+                    className={`rounded-lg px-3 py-2 border ${
+                      message.completed
+                        ? 'bg-gray-800 border-green-400/30'
+                        : 'bg-gray-800 border-yellow-400/30'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 text-sm">
+                      {message.completed ? (
+                        <span className="text-green-400">✓</span>
+                      ) : (
+                        <svg
+                          className="animate-spin h-4 w-4 text-yellow-400"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                      )}
+                      <span className={`font-semibold ${message.completed ? 'text-green-400' : 'text-yellow-400'}`}>
+                        {message.toolName}
+                      </span>
+                      {message.completed && <span className="text-gray-400 text-xs">completed</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // Tool result messages are no longer used
+            return null;
+          })}
+          {/* Current tool calls - shown even without text */}
+          {currentToolCalls.length > 0 && (
+            <div className="flex gap-2 justify-start">
+              <div className="space-y-2">
+                {currentToolCalls.map((tool, idx) => (
+                  <div
+                    key={idx}
+                    className={`rounded-lg px-3 py-2 border ${
+                      tool.result
+                        ? 'bg-gray-800 border-green-400/30'
+                        : 'bg-gray-800 border-yellow-400/30'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 text-sm">
+                      {tool.result ? (
+                        <span className="text-green-400">✓</span>
+                      ) : (
+                        <svg
+                          className="animate-spin h-4 w-4 text-yellow-400"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                      )}
+                      <span className={`font-semibold ${tool.result ? 'text-green-400' : 'text-yellow-400'}`}>
+                        {tool.name}
+                      </span>
+                      {tool.result && <span className="text-gray-400 text-xs">completed</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Streaming text response */}
+          {streamingResponse && (
+            <div className="flex gap-2 justify-start">
+              <div className="max-w-[85%] rounded-lg px-3 py-2 bg-gray-700 text-gray-100">
+                <div className="text-xs opacity-70 mb-1">AI</div>
+                <div className="text-sm whitespace-pre-wrap font-mono">{streamingResponse}</div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -133,15 +221,7 @@ export function AiPromptPanel({
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={
-            mode === 'generate'
-              ? 'Describe what you want to create...'
-              : mode === 'edit'
-              ? 'Describe the changes you want to make...'
-              : mode === 'fix'
-              ? 'Press Enter to fix errors automatically, or describe specific fixes...'
-              : 'Ask a question about the code...'
-          }
+          placeholder="Describe the changes you want to make..."
           className="flex-1 bg-gray-700 text-gray-100 rounded px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500 text-sm"
           rows={2}
           disabled={isStreaming}

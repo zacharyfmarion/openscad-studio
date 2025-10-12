@@ -1,11 +1,11 @@
 use crate::cmd::{
-    apply_diff, get_current_code, get_diagnostics, get_preview_screenshot, trigger_render,
-    validate_diff, EditorState,
+    apply_edit, get_current_code, get_diagnostics, get_preview_screenshot, trigger_render,
+    validate_edit, EditorState,
 };
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
 use std::sync::Arc;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
@@ -36,10 +36,11 @@ struct JsonRpcError {
 
 pub struct AgentSidecar {
     child: Arc<Mutex<Option<Child>>>,
+    stdin: Arc<Mutex<Option<tokio::process::ChildStdin>>>,
 }
 
 impl AgentSidecar {
-    pub async fn spawn(app_handle: &AppHandle, api_key: String) -> Result<Self, String> {
+    pub async fn spawn(app_handle: &AppHandle, api_key: String, provider: String) -> Result<Self, String> {
         // Get path to sidecar executable
         // In dev mode, use source path. In production, use bundled resources.
         let sidecar_path = if cfg!(debug_assertions) {
@@ -85,11 +86,18 @@ impl AgentSidecar {
             ));
         }
 
-        // Spawn node process with API key in environment
-        println!("[Sidecar] Spawning Node process...");
+        // Spawn node process with API key and provider in environment
+        println!("[Sidecar] Spawning Node process with provider: {}...", provider);
+
+        let api_key_env = match provider.as_str() {
+            "openai" => "OPENAI_API_KEY",
+            _ => "ANTHROPIC_API_KEY",
+        };
+
         let mut child = Command::new("node")
             .arg(&sidecar_path)
-            .env("ANTHROPIC_API_KEY", api_key)
+            .env(api_key_env, api_key)
+            .env("AI_PROVIDER", &provider)
             .env("NODE_ENV", "production")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -110,10 +118,13 @@ impl AgentSidecar {
 
         // Handle stdout (JSON-RPC requests from sidecar)
         let app = app_handle.clone();
+        let stdin_for_queries = child.stdin.take();
+        let stdin_arc = Arc::new(Mutex::new(stdin_for_queries));
+
         if let Some(stdout) = child.stdout.take() {
-            let stdin_handle = child.stdin.take();
+            let stdin_clone = stdin_arc.clone();
             tokio::spawn(async move {
-                Self::handle_stdout(stdout, stdin_handle, app).await;
+                Self::handle_stdout(stdout, stdin_clone, app).await;
             });
         }
 
@@ -121,18 +132,18 @@ impl AgentSidecar {
 
         Ok(Self {
             child: Arc::new(Mutex::new(Some(child))),
+            stdin: stdin_arc,
         })
     }
 
-    /// Handle stdout from sidecar (JSON-RPC requests)
+    /// Handle stdout from sidecar (JSON-RPC requests and streaming events)
     async fn handle_stdout(
         stdout: tokio::process::ChildStdout,
-        stdin: Option<tokio::process::ChildStdin>,
+        stdin: Arc<Mutex<Option<tokio::process::ChildStdin>>>,
         app: AppHandle,
     ) {
         let reader = BufReader::new(stdout);
         let mut lines = reader.lines();
-        let stdin = Arc::new(Mutex::new(stdin));
 
         while let Ok(Some(line)) = lines.next_line().await {
             let line = line.trim();
@@ -140,13 +151,29 @@ impl AgentSidecar {
                 continue;
             }
 
-            println!("[Sidecar] Received request: {}", line);
+            println!("[Sidecar] Received message: {}", line);
 
-            // Parse JSON-RPC request
-            let request: JsonRpcRequest = match serde_json::from_str(&line) {
+            // Try to parse as generic JSON first
+            let json: serde_json::Value = match serde_json::from_str(&line) {
+                Ok(j) => j,
+                Err(e) => {
+                    eprintln!("[Sidecar] Failed to parse JSON: {}", e);
+                    continue;
+                }
+            };
+
+            // Check if it's a streaming event (has 'type' field but not 'jsonrpc')
+            if let Some(event_type) = json.get("type").and_then(|v| v.as_str()) {
+                println!("[Sidecar] Emitting ai-stream event: {}", event_type);
+                let _ = app.emit("ai-stream", json);
+                continue;
+            }
+
+            // Otherwise, parse as JSON-RPC request
+            let request: JsonRpcRequest = match serde_json::from_value(json) {
                 Ok(req) => req,
                 Err(e) => {
-                    eprintln!("[Sidecar] Failed to parse request: {}", e);
+                    eprintln!("[Sidecar] Failed to parse as JSON-RPC request: {}", e);
                     continue;
                 }
             };
@@ -155,7 +182,7 @@ impl AgentSidecar {
             let response = Self::handle_request(request, &app).await;
             let response_json = serde_json::to_string(&response).unwrap();
 
-            println!("[Sidecar] Sending response: {}", response_json);
+            println!("[Sidecar] Sending JSON-RPC response: {}", response_json);
 
             // Write response to sidecar stdin
             if let Some(ref mut stdin_guard) = *stdin.lock().await {
@@ -191,11 +218,28 @@ impl AgentSidecar {
                     }),
                 }
             }
-            "validate_diff" => {
-                let diff: String = match serde_json::from_value(
-                    request.params.get("diff").cloned().unwrap_or_default(),
+            "validate_edit" => {
+                let old_string: String = match serde_json::from_value(
+                    request.params.get("old_string").cloned().unwrap_or_default(),
                 ) {
-                    Ok(d) => d,
+                    Ok(s) => s,
+                    Err(e) => {
+                        return JsonRpcResponse {
+                            jsonrpc: "2.0".to_string(),
+                            id: request.id,
+                            result: None,
+                            error: Some(JsonRpcError {
+                                code: -32602,
+                                message: format!("Invalid params: {}", e),
+                            }),
+                        };
+                    }
+                };
+
+                let new_string: String = match serde_json::from_value(
+                    request.params.get("new_string").cloned().unwrap_or_default(),
+                ) {
+                    Ok(s) => s,
                     Err(e) => {
                         return JsonRpcResponse {
                             jsonrpc: "2.0".to_string(),
@@ -210,7 +254,7 @@ impl AgentSidecar {
                 };
 
                 let state: State<EditorState> = app.state();
-                match validate_diff(diff, state) {
+                match validate_edit(old_string, new_string, state) {
                     Ok(validation) => Ok(serde_json::to_value(validation).unwrap()),
                     Err(e) => Err(JsonRpcError {
                         code: -32603,
@@ -218,11 +262,28 @@ impl AgentSidecar {
                     }),
                 }
             }
-            "apply_diff" => {
-                let diff: String = match serde_json::from_value(
-                    request.params.get("diff").cloned().unwrap_or_default(),
+            "apply_edit" => {
+                let old_string: String = match serde_json::from_value(
+                    request.params.get("old_string").cloned().unwrap_or_default(),
                 ) {
-                    Ok(d) => d,
+                    Ok(s) => s,
+                    Err(e) => {
+                        return JsonRpcResponse {
+                            jsonrpc: "2.0".to_string(),
+                            id: request.id,
+                            result: None,
+                            error: Some(JsonRpcError {
+                                code: -32602,
+                                message: format!("Invalid params: {}", e),
+                            }),
+                        };
+                    }
+                };
+
+                let new_string: String = match serde_json::from_value(
+                    request.params.get("new_string").cloned().unwrap_or_default(),
+                ) {
+                    Ok(s) => s,
                     Err(e) => {
                         return JsonRpcResponse {
                             jsonrpc: "2.0".to_string(),
@@ -237,10 +298,9 @@ impl AgentSidecar {
                 };
 
                 let state: State<EditorState> = app.state();
-                // TODO: Get openscad_path from app state or config
-                let openscad_path = "openscad".to_string();
+                let openscad_path = state.openscad_path.lock().unwrap().clone();
 
-                match apply_diff(app.clone(), diff, state, openscad_path).await {
+                match apply_edit(app.clone(), old_string, new_string, state, openscad_path).await {
                     Ok(result) => Ok(serde_json::to_value(result).unwrap()),
                     Err(e) => Err(JsonRpcError {
                         code: -32603,
@@ -329,17 +389,22 @@ impl AgentSidecarState {
 pub async fn start_agent_sidecar(
     app: AppHandle,
     api_key: String,
+    provider: String,
     state: State<'_, AgentSidecarState>,
 ) -> Result<(), String> {
+    println!("[start_agent_sidecar] Command called with provider: {}", provider);
     let mut sidecar_guard = state.sidecar.lock().await;
 
     // Don't start if already running
     if sidecar_guard.is_some() {
+        println!("[start_agent_sidecar] Sidecar already running");
         return Ok(());
     }
 
-    let sidecar = AgentSidecar::spawn(&app, api_key).await?;
+    println!("[start_agent_sidecar] Spawning new sidecar...");
+    let sidecar = AgentSidecar::spawn(&app, api_key, provider).await?;
     *sidecar_guard = Some(sidecar);
+    println!("[start_agent_sidecar] Sidecar spawned successfully");
 
     Ok(())
 }
@@ -356,22 +421,56 @@ pub async fn stop_agent_sidecar(state: State<'_, AgentSidecarState>) -> Result<(
     Ok(())
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Message {
+    role: String,
+    content: String,
+    timestamp: u64,
+}
+
 /// Send a query to the AI agent
 #[tauri::command]
 pub async fn send_agent_query(
-    prompt: String,
+    messages: Vec<Message>,
     mode: String,
     state: State<'_, AgentSidecarState>,
 ) -> Result<(), String> {
+    println!("[send_agent_query] Command called with mode: {}, messages: {}", mode, messages.len());
     let sidecar_guard = state.sidecar.lock().await;
 
-    if sidecar_guard.is_none() {
-        return Err("Sidecar not running. Call start_agent_sidecar first.".to_string());
-    }
+    let sidecar = match sidecar_guard.as_ref() {
+        Some(s) => s,
+        None => {
+            println!("[send_agent_query] ERROR: Sidecar not running");
+            return Err("Sidecar not running. Call start_agent_sidecar first.".to_string());
+        }
+    };
 
-    // TODO: Send query to sidecar via stdin
-    // For now, just log it
-    println!("[Sidecar] Sending query (mode: {}): {}", mode, prompt);
+    // Send query to sidecar via stdin as newline-delimited JSON
+    let query = serde_json::json!({
+        "type": "query",
+        "messages": messages,
+        "mode": mode,
+    });
+
+    let query_json = serde_json::to_string(&query)
+        .map_err(|e| format!("Failed to serialize query: {}", e))?;
+
+    println!("[send_agent_query] Sending to sidecar: {}", query_json);
+
+    let mut stdin_guard = sidecar.stdin.lock().await;
+    if let Some(stdin) = stdin_guard.as_mut() {
+        stdin.write_all(query_json.as_bytes()).await
+            .map_err(|e| format!("Failed to write to sidecar stdin: {}", e))?;
+        stdin.write_all(b"\n").await
+            .map_err(|e| format!("Failed to write newline to sidecar stdin: {}", e))?;
+        stdin.flush().await
+            .map_err(|e| format!("Failed to flush sidecar stdin: {}", e))?;
+        println!("[send_agent_query] Query sent successfully to sidecar");
+    } else {
+        println!("[send_agent_query] ERROR: Sidecar stdin not available");
+        return Err("Sidecar stdin not available".to_string());
+    }
 
     Ok(())
 }

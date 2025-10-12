@@ -91,3 +91,11 @@ export async function renderExact(
     request
   });
 }
+
+export async function updateEditorState(code: string): Promise<void> {
+  return await invoke('update_editor_state', { code });
+}
+
+export async function updateOpenscadPath(openscadPath: string): Promise<void> {
+  return await invoke('update_openscad_path', { openscadPath });
+}

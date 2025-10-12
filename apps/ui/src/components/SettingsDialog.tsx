@@ -7,6 +7,7 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
+  const [provider, setProvider] = useState<'anthropic' | 'openai'>('anthropic');
   const [apiKey, setApiKey] = useState('');
   const [hasKey, setHasKey] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -17,12 +18,15 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   // Check if API key exists when dialog opens
   useEffect(() => {
     if (isOpen) {
-      checkApiKey();
+      loadSettings();
     }
   }, [isOpen]);
 
-  const checkApiKey = async () => {
+  const loadSettings = async () => {
     try {
+      const currentProvider = await invoke<string>('get_ai_provider');
+      setProvider(currentProvider as 'anthropic' | 'openai');
+
       const exists = await invoke<boolean>('has_api_key');
       setHasKey(exists);
       if (exists) {
@@ -32,7 +36,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
         setApiKey('');
       }
     } catch (err) {
-      console.error('Failed to check API key:', err);
+      console.error('Failed to load settings:', err);
     }
   };
 
@@ -47,7 +51,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
     setSuccessMessage(null);
 
     try {
-      await invoke('store_api_key', { key: apiKey });
+      await invoke('store_api_key', { provider, key: apiKey });
       setSuccessMessage('API key saved successfully!');
       setHasKey(true);
       setApiKey('••••••••••••••••••••••••••••••••••••••••••••');
@@ -110,10 +114,29 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
         <div className="px-6 py-4 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Anthropic API Key
+              AI Provider
+            </label>
+            <select
+              value={provider}
+              onChange={(e) => {
+                setProvider(e.target.value as 'anthropic' | 'openai');
+                setApiKey('');
+                setShowKey(false);
+              }}
+              disabled={isLoading}
+              className="w-full bg-gray-700 text-gray-100 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="anthropic">Anthropic (Claude)</option>
+              <option value="openai">OpenAI (GPT)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              {provider === 'anthropic' ? 'Anthropic API Key' : 'OpenAI API Key'}
             </label>
             <p className="text-xs text-gray-500 mb-3">
-              Your API key is stored securely in your system keychain and never leaves your device.
+              Your API key is stored securely in encrypted local storage and never leaves your device.
             </p>
             <div className="relative">
               <input
@@ -151,12 +174,14 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
             <p className="mb-1">
               Don't have an API key?{' '}
               <a
-                href="https://console.anthropic.com/settings/keys"
+                href={provider === 'anthropic'
+                  ? 'https://console.anthropic.com/settings/keys'
+                  : 'https://platform.openai.com/api-keys'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-400 hover:text-blue-300 underline"
               >
-                Get one from Anthropic
+                Get one from {provider === 'anthropic' ? 'Anthropic' : 'OpenAI'}
               </a>
             </p>
             <p>

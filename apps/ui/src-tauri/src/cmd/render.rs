@@ -10,6 +10,7 @@ use tauri::{AppHandle, Manager, State};
 pub async fn render_preview(
     app: AppHandle,
     state: State<'_, crate::AppState>,
+    editor_state: State<'_, crate::cmd::EditorState>,
     openscad_path: String,
     request: RenderPreviewRequest,
 ) -> Result<RenderPreviewResponse, String> {
@@ -203,6 +204,11 @@ pub async fn render_preview(
     state
         .render_cache
         .set(cache_key, out_path.clone(), kind_str.to_string());
+
+    // Update EditorState with render results
+    *editor_state.current_code.lock().unwrap() = request.source.clone();
+    *editor_state.diagnostics.lock().unwrap() = diagnostics.clone();
+    *editor_state.last_preview_path.lock().unwrap() = out_path.to_string_lossy().to_string();
 
     Ok(RenderPreviewResponse {
         kind,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { renderPreview, locateOpenScad, type Diagnostic, type RenderPreviewResponse, type RenderKind } from '../api/tauri';
+import { renderPreview, locateOpenScad, updateEditorState, updateOpenscadPath, type Diagnostic, type RenderPreviewResponse, type RenderKind } from '../api/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
 export function useOpenScad(workingDir?: string | null) {
@@ -18,6 +18,10 @@ export function useOpenScad(workingDir?: string | null) {
       .then(response => {
         setOpenscadPath(response.exe_path);
         console.log('Found OpenSCAD at:', response.exe_path);
+        // Sync with backend state for AI agent
+        updateOpenscadPath(response.exe_path).catch(err => {
+          console.error('Failed to update openscad path in backend:', err);
+        });
       })
       .catch(err => {
         setError(`Failed to locate OpenSCAD: ${err}`);
@@ -111,7 +115,12 @@ export function useOpenScad(workingDir?: string | null) {
 
 
   const updateSource = useCallback((newSource: string) => {
+    console.log('[useOpenScad] updateSource called with new code length:', newSource.length);
     setSource(newSource);
+    // Sync with backend EditorState for AI agent
+    updateEditorState(newSource).catch(err => {
+      console.error('Failed to update editor state:', err);
+    });
     // No auto-render - only render on save or manual render button press
   }, []);
 
@@ -131,6 +140,7 @@ export function useOpenScad(workingDir?: string | null) {
 
   // Manual render function (stable callback)
   const manualRender = useCallback(() => {
+    console.log('[useOpenScad] manualRender called', { sourceLength: source.length, dimensionMode });
     doRender(source, dimensionMode === '3d', dimensionMode);
   }, [source, dimensionMode, doRender]);
 

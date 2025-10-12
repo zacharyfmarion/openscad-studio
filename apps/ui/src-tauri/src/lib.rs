@@ -5,9 +5,10 @@ mod utils;
 
 use agent_sidecar::{cancel_agent_stream, send_agent_query, start_agent_sidecar, stop_agent_sidecar, AgentSidecarState};
 use cmd::{
-    apply_diff, clear_api_key, detect_backend, get_api_key, get_current_code, get_diagnostics,
-    get_preview_screenshot, has_api_key, locate_openscad, render_exact, render_preview,
-    store_api_key, trigger_render, validate_diff, EditorState,
+    apply_edit, clear_api_key, delete_conversation, detect_backend, get_ai_provider, get_api_key,
+    get_current_code, get_diagnostics, get_preview_screenshot, has_api_key, load_conversations,
+    locate_openscad, render_exact, render_preview, save_conversation, store_api_key,
+    trigger_render, update_editor_state, update_openscad_path, validate_edit, EditorState,
 };
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
@@ -46,18 +47,24 @@ pub fn run() {
             detect_backend,
             store_api_key,
             get_api_key,
+            get_ai_provider,
             clear_api_key,
             has_api_key,
             get_current_code,
+            update_editor_state,
+            update_openscad_path,
             get_preview_screenshot,
-            validate_diff,
-            apply_diff,
+            validate_edit,
+            apply_edit,
             get_diagnostics,
             trigger_render,
             start_agent_sidecar,
             stop_agent_sidecar,
             send_agent_query,
             cancel_agent_stream,
+            save_conversation,
+            load_conversations,
+            delete_conversation,
         ])
         .setup(|app| {
             // Create app menu (About, Hide, Quit, etc.)

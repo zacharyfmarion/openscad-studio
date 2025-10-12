@@ -1,14 +1,16 @@
 /**
  * OpenSCAD AI Agent Sidecar Server
  *
- * Runs the Claude Agent SDK with OpenSCAD-specific MCP tools.
+ * Runs the Vercel AI SDK with OpenSCAD-specific tools.
  * Communicates with Tauri backend via JSON-RPC over stdio.
  *
- * Security: API key provided via ANTHROPIC_API_KEY environment variable (never in renderer)
+ * Security: API key provided via environment variable (never in renderer)
  * Architecture: Diff-based editing only, max 120 lines per diff, test-compiled before acceptance
  */
 
-import { tool, createSdkMcpServer, query } from '@anthropic-ai/claude-agent-sdk';
+import { streamText } from 'ai';
+import { anthropic } from '@ai-sdk/anthropic';
+import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 import * as readline from 'readline';
 
@@ -64,9 +66,28 @@ const rl = readline.createInterface({
   terminal: false,
 });
 
-rl.on('line', (line) => {
+rl.on('line', async (line) => {
   try {
-    const response: JsonRpcResponse = JSON.parse(line);
+    const input = JSON.parse(line);
+
+    // Handle query requests
+    if (input.type === 'query') {
+      const { messages, mode } = input;
+      console.error(`[Sidecar] Processing query in ${mode} mode with ${messages?.length || 0} messages`);
+
+      try {
+        await runAgentQuery(messages || [], mode);
+        console.error('[Sidecar] Query completed');
+        console.log(JSON.stringify({ type: 'done' }));
+      } catch (error) {
+        console.error('[Sidecar] Error processing query:', error);
+        console.log(JSON.stringify({ type: 'error', error: String(error) }));
+      }
+      return;
+    }
+
+    // Handle JSON-RPC responses from Rust
+    const response: JsonRpcResponse = input;
     const pending = pendingRequests.get(response.id);
 
     if (pending) {
@@ -83,247 +104,116 @@ rl.on('line', (line) => {
 });
 
 // ============================================================================
-// MCP Tools - OpenSCAD Operations
+// AI SDK Tools - OpenSCAD Operations
 // ============================================================================
 
-/**
- * Tool 1: Get current OpenSCAD code from editor
- */
-const getCurrentCode = tool(
-  'get_current_code',
-  'Get the current OpenSCAD code from the editor buffer',
-  {},
-  async () => {
-    const code = await callRust('get_current_code');
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: code || '// Empty file',
-        },
-      ],
-    };
-  }
-);
-
-/**
- * Tool 2: Get preview screenshot
- * Returns file path (not base64) for efficiency
- */
-const getPreviewScreenshot = tool(
-  'get_preview_screenshot',
-  'Get the file path to the current 3D/2D preview render. Use this to see what the design looks like.',
-  {},
-  async () => {
-    const path = await callRust('get_preview_screenshot');
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Preview image saved at: ${path}\n\nThis shows the current rendered output of the OpenSCAD code.`,
-        },
-      ],
-    };
-  }
-);
-
-/**
- * Tool 3: Propose a diff
- * Validates diff format, checks size limits, dry-runs application
- */
-const proposeDiff = tool(
-  'propose_diff',
-  'Propose code changes as a unified diff. The diff will be validated (max 120 lines changed) and test-applied before acceptance.',
-  {
-    diff: z.string().describe('Unified diff format with --- / +++ / @@ / - / + lines'),
-    rationale: z.string().describe('Brief explanation of what these changes accomplish'),
+const tools = {
+  get_current_code: {
+    description: 'Get the current OpenSCAD code from the editor buffer',
+    parameters: z.object({}),
+    execute: async () => {
+      const code = await callRust('get_current_code');
+      return code || '// Empty file';
+    },
   },
-  async ({ diff, rationale }) => {
-    try {
-      const validation = await callRust('validate_diff', { diff });
 
-      if (!validation.ok) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `❌ Diff validation failed: ${validation.error}\n\nPlease fix the diff and try again.`,
-            },
-          ],
-          isError: true,
-        };
+  get_preview_screenshot: {
+    description: 'Get the file path to the current 3D/2D preview render. Use this to see what the design looks like.',
+    parameters: z.object({}),
+    execute: async () => {
+      const path = await callRust('get_preview_screenshot');
+      return `Preview image saved at: ${path}\n\nThis shows the current rendered output of the OpenSCAD code.`;
+    },
+  },
+
+  apply_edit: {
+    description: 'Apply code changes by replacing an exact substring with new content. The old text must exist exactly once in the code. Max 120 lines changed. The code will be test-compiled with OpenSCAD and rolled back if validation fails or new errors are introduced.',
+    parameters: z.object({
+      old_string: z.string().describe('The exact text to find and replace. Must be unique in the file.'),
+      new_string: z.string().describe('The replacement text'),
+      rationale: z.string().describe('Brief explanation of what this change accomplishes'),
+    }),
+    execute: async ({ old_string, new_string, rationale }: { old_string: string; new_string: string; rationale: string }) => {
+      try {
+        const result = await callRust('apply_edit', { old_string, new_string });
+
+        if (!result.success) {
+          const errorMsg = result.error || 'Unknown error';
+          const diagText = result.diagnostics?.length
+            ? `\n\nNew errors:\n${JSON.stringify(result.diagnostics, null, 2)}`
+            : '';
+
+          return `❌ Failed to apply edit: ${errorMsg}${diagText}\n\nRationale: ${rationale}\n\nThe edit was rolled back. No changes were made.`;
+        }
+
+        return `✅ Edit applied successfully!\n✅ Code compiles without new errors\n✅ Preview has been updated automatically\n\nRationale: ${rationale}\n\nThe changes are now live in the editor.`;
+      } catch (error) {
+        return `❌ Error applying edit: ${error}\n\nNo changes were made.`;
+      }
+    },
+  },
+
+  get_diagnostics: {
+    description: 'Get current compilation errors and warnings from OpenSCAD',
+    parameters: z.object({}),
+    execute: async () => {
+      const diagnostics = await callRust('get_diagnostics');
+
+      if (!diagnostics || diagnostics.length === 0) {
+        return '✅ No errors or warnings. The code compiles successfully.';
       }
 
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `✅ Diff validated successfully\n- Lines changed: ${validation.lines_changed}\n- Rationale: ${rationale}\n\nThe diff is ready to apply. Use apply_diff with the same diff string.`,
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `❌ Error validating diff: ${error}\n\nMake sure the diff is in unified format.`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  }
-);
+      const formatted = diagnostics
+        .map((d: any) => {
+          const location = d.line ? ` (line ${d.line}${d.col ? `, col ${d.col}` : ''})` : '';
+          return `[${d.severity.toUpperCase()}]${location}: ${d.message}`;
+        })
+        .join('\n');
 
-/**
- * Tool 4: Apply diff
- * Applies validated diff, test-compiles with OpenSCAD, rolls back on errors
- */
-const applyDiff = tool(
-  'apply_diff',
-  'Apply a previously validated unified diff to the code. The code will be test-compiled with OpenSCAD and rolled back if errors are introduced.',
-  {
-    diff: z.string().describe('The same unified diff string from propose_diff'),
+      return `Current diagnostics:\n\n${formatted}`;
+    },
   },
-  async ({ diff }) => {
-    try {
-      const result = await callRust('apply_diff', { diff });
 
-      if (!result.success) {
-        const errorMsg = result.error || 'Unknown error';
-        const diagText = result.diagnostics?.length
-          ? `\n\nNew errors:\n${JSON.stringify(result.diagnostics, null, 2)}`
-          : '';
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `❌ Failed to apply diff: ${errorMsg}${diagText}\n\nThe diff was rolled back. No changes were made.`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `✅ Diff applied successfully!\n✅ Code compiles without new errors\n✅ Preview has been updated automatically\n\nThe changes are now live in the editor.`,
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `❌ Error applying diff: ${error}\n\nNo changes were made.`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  }
-);
-
-/**
- * Tool 5: Get diagnostics
- * Retrieve current compilation errors and warnings
- */
-const getDiagnostics = tool(
-  'get_diagnostics',
-  'Get current compilation errors and warnings from OpenSCAD',
-  {},
-  async () => {
-    const diagnostics = await callRust('get_diagnostics');
-
-    if (!diagnostics || diagnostics.length === 0) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: '✅ No errors or warnings. The code compiles successfully.',
-          },
-        ],
-      };
-    }
-
-    const formatted = diagnostics
-      .map((d: any) => {
-        const location = d.line ? ` (line ${d.line}${d.col ? `, col ${d.col}` : ''})` : '';
-        return `[${d.severity.toUpperCase()}]${location}: ${d.message}`;
-      })
-      .join('\n');
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Current diagnostics:\n\n${formatted}`,
-        },
-      ],
-    };
-  }
-);
-
-/**
- * Tool 6: Trigger render
- * Manually trigger a preview render
- */
-const triggerRender = tool(
-  'trigger_render',
-  'Manually trigger a render to update the preview pane with the latest code changes',
-  {},
-  async () => {
-    await callRust('trigger_render');
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: '✅ Render triggered. Check the preview pane for the updated output.',
-        },
-      ],
-    };
-  }
-);
-
-// ============================================================================
-// MCP Server Creation
-// ============================================================================
-
-export const openscadMcpServer = createSdkMcpServer({
-  name: 'openscad-tools',
-  version: '1.0.0',
-  tools: [getCurrentCode, getPreviewScreenshot, proposeDiff, applyDiff, getDiagnostics, triggerRender],
-});
+  trigger_render: {
+    description: 'Manually trigger a render to update the preview pane with the latest code changes',
+    parameters: z.object({}),
+    execute: async () => {
+      await callRust('trigger_render');
+      return '✅ Render triggered. Check the preview pane for the updated output.';
+    },
+  },
+};
 
 // ============================================================================
 // System Prompt Builder
 // ============================================================================
 
-function buildOpenScadSystemPrompt(mode: string): string {
-  const baseContext = `
+function buildOpenScadSystemPrompt(): string {
+  return `
 ## OpenSCAD AI Assistant
 
-You are an expert OpenSCAD assistant helping users design 3D models. You have access to tools that let you see the current code, view the rendered preview, and make targeted code changes.
+You are an expert OpenSCAD assistant helping users design and modify 3D models. You have access to tools that let you see the current code, view the rendered preview, and make targeted code changes.
 
-### Critical Rules:
-1. **ALWAYS use diffs**: Never output full file replacements. Use \`propose_diff\` followed by \`apply_diff\`.
-2. **Keep diffs small**: Maximum 120 lines changed per diff. Break large changes into multiple steps.
-3. **Validate first**: Always use \`propose_diff\` to validate before applying.
-4. **Check your work**: After applying a diff, use \`get_diagnostics\` to verify no new errors were introduced.
-5. **Visual feedback**: Use \`get_preview_screenshot\` to see what the current design looks like.
+### Your Capabilities:
+- **View code**: Use \`get_current_code\` to see what you're working with
+- **See the design**: Use \`get_preview_screenshot\` to see the rendered output
+- **Check for errors**: Use \`get_diagnostics\` to check compilation errors and warnings
+- **Make changes**: Use \`apply_edit\` to modify the code with exact string replacement
+- **Update preview**: Use \`trigger_render\` to manually refresh the preview
 
-### Workflow:
-1. Use \`get_current_code\` to see what you're working with
+### Critical Rules for Editing:
+1. **ALWAYS use exact string replacement**: Never output full file replacements. Use \`apply_edit\` with exact substrings.
+2. **Provide exact substrings**: The \`old_string\` must match exactly (including whitespace and indentation) and must be unique in the file.
+3. **Keep changes small**: Maximum 120 lines changed per edit. Break large changes into multiple steps.
+4. **Automatic validation**: \`apply_edit\` validates the edit and test-compiles the code before applying. If validation fails, the error will be returned and no changes are made.
+5. **Include context**: Make the \`old_string\` large enough to be unique - include surrounding lines if needed.
+
+### Recommended Workflow:
+1. Start by calling \`get_current_code\` to understand what exists
 2. Optionally use \`get_preview_screenshot\` to see the rendered output
-3. Use \`get_diagnostics\` to check for existing errors
-4. Create a targeted diff with \`propose_diff\`
-5. Once validated, apply it with \`apply_diff\`
-6. Verify success with \`get_diagnostics\`
+3. For fixes, use \`get_diagnostics\` to see what errors exist
+4. Use \`apply_edit\` with the exact old text, new replacement, and a rationale explaining the change
+5. The preview updates automatically after successful edits
 
 ### OpenSCAD Quick Reference:
 
@@ -364,72 +254,106 @@ You are an expert OpenSCAD assistant helping users design 3D models. You have ac
 - Variables: \`x = 10;\`
 - Functions: \`function name(params) = expression;\`
 `;
+}
 
-  const modeInstructions: Record<string, string> = {
-    generate: `
-### Mode: GENERATE
-Generate complete new OpenSCAD code from scratch based on the user's description. Start fresh and create well-structured, parametric designs.`,
+// ============================================================================
+// Provider Configuration
+// ============================================================================
 
-    edit: `
-### Mode: EDIT
-Modify existing code with targeted changes. Always get the current code first, then create precise diffs that preserve the structure and style.`,
+function getModelProvider() {
+  const provider = process.env.AI_PROVIDER || 'anthropic';
 
-    fix: `
-### Mode: FIX
-Fix compilation errors in the code. Start by getting diagnostics, then the current code, analyze the issues, and propose fixes that resolve the errors without breaking working parts.`,
+  if (provider === 'openai') {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY not found in environment');
+    }
+    return openai('gpt-4-turbo');
+  }
 
-    explain: `
-### Mode: EXPLAIN
-Explain what the code does. Get the current code and optionally the preview screenshot to understand the design, then provide clear documentation or comments.`,
-  };
-
-  return (
-    baseContext +
-    '\n' +
-    (modeInstructions[mode] || modeInstructions.edit)
-  );
+  // Default to Anthropic
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY not found in environment');
+  }
+  return anthropic('claude-sonnet-4-5');
 }
 
 // ============================================================================
 // Agent Query Handler
 // ============================================================================
 
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 /**
- * Run an agent query with the OpenSCAD MCP tools
+ * Run an agent query with the OpenSCAD tools
  */
-export async function runAgentQuery(prompt: string, mode: string = 'edit'): Promise<AsyncGenerator<any>> {
-  const systemPrompt = buildOpenScadSystemPrompt(mode);
+export async function runAgentQuery(messages: Message[], mode: string = 'edit'): Promise<void> {
+  const systemPrompt = buildOpenScadSystemPrompt();
 
-  console.error(`[Sidecar] Starting agent query in ${mode} mode`);
+  console.error(`[Sidecar] Starting agent query`);
+  console.error(`[Sidecar] Messages: ${messages.length} total`);
+  console.error(`[Sidecar] System prompt length: ${systemPrompt.length} chars`);
 
-  const session = query({
-    prompt,
-    options: {
-      model: 'claude-sonnet-4-5',
-      fallbackModel: 'claude-3-5-sonnet-20241022',
-      systemPrompt,
-      includePartialMessages: true,
-      allowedTools: [
-        'get_current_code',
-        'get_preview_screenshot',
-        'propose_diff',
-        'apply_diff',
-        'get_diagnostics',
-        'trigger_render',
-      ],
-      mcpServers: {
-        openscad: {
-          type: 'sdk' as const,
-          name: 'openscad-tools',
-          instance: openscadMcpServer.instance,
-        },
-      },
-      env: process.env,
-      maxTurns: 10,
-    },
-  });
+  const model = getModelProvider();
+  console.error(`[Sidecar] Model configured`);
 
-  return session;
+  try {
+    console.error(`[Sidecar] Calling streamText...`);
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      messages,
+      tools,
+      maxSteps: 10,
+    });
+
+    console.error(`[Sidecar] streamText returned, awaiting fullStream...`);
+
+    // Stream the full response including tool calls
+    for await (const part of result.fullStream) {
+      console.error(`[Sidecar] Received stream part:`, JSON.stringify(part));
+
+      if (part.type === 'text-delta') {
+        console.log(JSON.stringify({
+          type: 'text',
+          content: part.textDelta,
+        }));
+      } else if (part.type === 'tool-call') {
+        console.error(`[Sidecar] Tool call: ${part.toolName}`);
+        console.log(JSON.stringify({
+          type: 'tool-call',
+          toolName: part.toolName,
+          args: part.args,
+        }));
+      } else if (part.type === 'tool-result') {
+        console.error(`[Sidecar] Tool result for: ${part.toolName}`);
+        console.log(JSON.stringify({
+          type: 'tool-result',
+          toolName: part.toolName,
+          result: part.result,
+        }));
+      } else if (part.type === 'error') {
+        console.error(`[Sidecar] Stream error:`, part.error);
+        console.log(JSON.stringify({
+          type: 'error',
+          error: String(part.error),
+        }));
+      } else {
+        console.error(`[Sidecar] Unknown part type: ${part.type}`);
+      }
+    }
+
+    console.error(`[Sidecar] Stream completed successfully`);
+  } catch (error) {
+    console.error(`[Sidecar] Error in runAgentQuery:`, error);
+    console.log(JSON.stringify({
+      type: 'error',
+      error: String(error),
+    }));
+    throw error;
+  }
 }
 
 // ============================================================================
@@ -439,13 +363,17 @@ export async function runAgentQuery(prompt: string, mode: string = 'edit'): Prom
 console.error('[Sidecar] OpenSCAD AI Agent Server starting...');
 
 // Check for API key
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.error('[Sidecar] ERROR: ANTHROPIC_API_KEY not found in environment');
+const provider = process.env.AI_PROVIDER || 'anthropic';
+const apiKeyVar = provider === 'openai' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY';
+
+if (!process.env[apiKeyVar]) {
+  console.error(`[Sidecar] ERROR: ${apiKeyVar} not found in environment`);
   process.exit(1);
 }
 
+console.error(`[Sidecar] Using provider: ${provider}`);
 console.error('[Sidecar] API key detected ✓');
-console.error('[Sidecar] MCP server initialized with 6 tools');
+console.error('[Sidecar] Initialized with 5 tools: get_current_code, get_preview_screenshot, apply_edit, get_diagnostics, trigger_render');
 console.error('[Sidecar] Ready for agent queries');
 
 // Handle shutdown signals

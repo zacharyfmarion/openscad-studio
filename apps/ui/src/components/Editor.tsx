@@ -2,6 +2,7 @@ import { Editor as MonacoEditor } from '@monaco-editor/react';
 import type { Diagnostic } from '../api/tauri';
 import { useEffect, useRef } from 'react';
 import type * as Monaco from 'monaco-editor';
+import { listen } from '@tauri-apps/api/event';
 
 interface EditorProps {
   value: string;
@@ -19,6 +20,30 @@ export function Editor({ value, onChange, diagnostics, onManualRender }: EditorP
   useEffect(() => {
     onManualRenderRef.current = onManualRender;
   }, [onManualRender]);
+
+  // Listen for code updates from AI agent
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+
+    const setupListener = async () => {
+      console.log('[Editor] Setting up code-updated listener');
+      unlisten = await listen<string>('code-updated', (event) => {
+        console.log('[Editor] ✅ Received code-updated event, payload length:', event.payload.length);
+        console.log('[Editor] Calling onChange with new code');
+        onChange(event.payload);
+      });
+      console.log('[Editor] code-updated listener setup complete');
+    };
+
+    setupListener();
+
+    return () => {
+      if (unlisten) {
+        console.log('[Editor] Cleaning up code-updated listener');
+        unlisten();
+      }
+    };
+  }, [onChange]);
 
   // Update markers when diagnostics change
   useEffect(() => {

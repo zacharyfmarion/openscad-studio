@@ -1,6 +1,5 @@
 use crate::types::Diagnostic;
 use crate::utils::parser::parse_openscad_stderr;
-use diffy::{apply, Patch};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -10,6 +9,7 @@ pub struct EditorState {
     pub current_code: Mutex<String>,
     pub diagnostics: Mutex<Vec<Diagnostic>>,
     pub last_preview_path: Mutex<String>,
+    pub openscad_path: Mutex<String>,
 }
 
 impl Default for EditorState {
@@ -18,22 +18,43 @@ impl Default for EditorState {
             current_code: Mutex::new("// Type your OpenSCAD code here\ncube([10, 10, 10]);".to_string()),
             diagnostics: Mutex::new(Vec::new()),
             last_preview_path: Mutex::new(String::new()),
+            openscad_path: Mutex::new("openscad".to_string()),
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct DiffValidation {
+pub struct EditValidation {
     pub ok: bool,
     pub error: Option<String>,
     pub lines_changed: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ApplyDiffResult {
+pub struct ApplyEditResult {
     pub success: bool,
     pub error: Option<String>,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+/// Update editor state with current code (called when user types)
+#[tauri::command]
+pub fn update_editor_state(
+    code: String,
+    state: State<'_, EditorState>,
+) -> Result<(), String> {
+    *state.current_code.lock().unwrap() = code;
+    Ok(())
+}
+
+/// Update openscad path in editor state (called when openscad is detected)
+#[tauri::command]
+pub fn update_openscad_path(
+    openscad_path: String,
+    state: State<'_, EditorState>,
+) -> Result<(), String> {
+    *state.openscad_path.lock().unwrap() = openscad_path;
+    Ok(())
 }
 
 /// Get current code from editor
@@ -54,91 +75,93 @@ pub fn get_preview_screenshot(state: State<'_, EditorState>) -> Result<String, S
     }
 }
 
-/// Validate a unified diff
+/// Validate a string replacement edit
 #[tauri::command]
-pub fn validate_diff(diff: String, state: State<'_, EditorState>) -> Result<DiffValidation, String> {
-    // Parse the diff
-    let patch = match Patch::from_str(&diff) {
-        Ok(p) => p,
-        Err(e) => {
-            return Ok(DiffValidation {
-                ok: false,
-                error: Some(format!("Invalid diff format: {}", e)),
-                lines_changed: 0,
-            });
-        }
-    };
+pub fn validate_edit(
+    old_string: String,
+    new_string: String,
+    state: State<'_, EditorState>,
+) -> Result<EditValidation, String> {
+    let current_code = state.current_code.lock().unwrap().clone();
 
-    // Count changed lines
-    let mut lines_changed = 0;
-    for hunk in patch.hunks() {
-        for line in hunk.lines() {
-            match line {
-                diffy::Line::Insert(_) | diffy::Line::Delete(_) => lines_changed += 1,
-                _ => {}
-            }
-        }
+    // Check if old_string exists in the code
+    if !current_code.contains(&old_string) {
+        return Ok(EditValidation {
+            ok: false,
+            error: Some("The old_string was not found in the current code. Make sure you copy the exact text including whitespace.".to_string()),
+            lines_changed: 0,
+        });
     }
+
+    // Check if old_string appears multiple times (must be unique)
+    let occurrences = current_code.matches(&old_string).count();
+    if occurrences > 1 {
+        return Ok(EditValidation {
+            ok: false,
+            error: Some(format!(
+                "The old_string appears {} times in the code. It must be unique. Include more surrounding context to make it unique.",
+                occurrences
+            )),
+            lines_changed: 0,
+        });
+    }
+
+    // Count lines changed
+    let old_lines = old_string.lines().count();
+    let new_lines = new_string.lines().count();
+    let lines_changed = old_lines.max(new_lines);
 
     // Check line limit
     if lines_changed > 120 {
-        return Ok(DiffValidation {
+        return Ok(EditValidation {
             ok: false,
             error: Some(format!(
-                "Diff too large: {} lines changed (max 120). Please break into smaller changes.",
+                "Edit too large: {} lines changed (max 120). Please break into smaller changes.",
                 lines_changed
             )),
             lines_changed,
         });
     }
 
-    // Try to apply the diff (dry run)
-    let current_code = state.current_code.lock().unwrap().clone();
-    match apply(&current_code, &patch) {
-        Ok(_) => Ok(DiffValidation {
-            ok: true,
-            error: None,
-            lines_changed,
-        }),
-        Err(e) => Ok(DiffValidation {
-            ok: false,
-            error: Some(format!("Diff doesn't apply cleanly: {}", e)),
-            lines_changed: 0,
-        }),
-    }
+    Ok(EditValidation {
+        ok: true,
+        error: None,
+        lines_changed,
+    })
 }
 
-/// Apply a diff and test compile
+/// Apply a string replacement edit and test compile
 #[tauri::command]
-pub async fn apply_diff(
+pub async fn apply_edit(
     app: AppHandle,
-    diff: String,
+    old_string: String,
+    new_string: String,
     state: State<'_, EditorState>,
     openscad_path: String,
-) -> Result<ApplyDiffResult, String> {
-    // Parse and apply diff
-    let patch = match Patch::from_str(&diff) {
-        Ok(p) => p,
-        Err(e) => {
-            return Ok(ApplyDiffResult {
-                success: false,
-                error: Some(format!("Invalid diff format: {}", e)),
-                diagnostics: vec![],
-            });
-        }
-    };
-
+) -> Result<ApplyEditResult, String> {
     let current_code = state.current_code.lock().unwrap().clone();
-    let new_code = match apply(&current_code, &patch) {
-        Ok(code) => code,
-        Err(e) => {
-            return Ok(ApplyDiffResult {
-                success: false,
-                error: Some(format!("Failed to apply diff: {}", e)),
-                diagnostics: vec![],
-            });
-        }
-    };
+
+    // Check if old_string exists
+    if !current_code.contains(&old_string) {
+        return Ok(ApplyEditResult {
+            success: false,
+            error: Some("The old_string was not found in the current code.".to_string()),
+            diagnostics: vec![],
+        });
+    }
+
+    // Check uniqueness
+    let occurrences = current_code.matches(&old_string).count();
+    if occurrences > 1 {
+        return Ok(ApplyEditResult {
+            success: false,
+            error: Some(format!("The old_string appears {} times. It must be unique.", occurrences)),
+            diagnostics: vec![],
+        });
+    }
+
+    // Apply the replacement
+    let new_code = current_code.replace(&old_string, &new_string);
 
     // Test compile with OpenSCAD
     let old_error_count = state
@@ -152,7 +175,7 @@ pub async fn apply_diff(
     let test_diagnostics = match test_compile(&new_code, &openscad_path, &app).await {
         Ok(diags) => diags,
         Err(e) => {
-            return Ok(ApplyDiffResult {
+            return Ok(ApplyEditResult {
                 success: false,
                 error: Some(format!("Test compilation failed: {}", e)),
                 diagnostics: vec![],
@@ -167,7 +190,7 @@ pub async fn apply_diff(
 
     // Check if new errors were introduced
     if new_error_count > old_error_count {
-        return Ok(ApplyDiffResult {
+        return Ok(ApplyEditResult {
             success: false,
             error: Some("New compilation errors introduced".to_string()),
             diagnostics: test_diagnostics,
@@ -175,13 +198,30 @@ pub async fn apply_diff(
     }
 
     // Apply changes to state
+    eprintln!("[AI Tools] Updating state with new code (length: {})", new_code.len());
     *state.current_code.lock().unwrap() = new_code.clone();
     *state.diagnostics.lock().unwrap() = test_diagnostics.clone();
 
     // Emit code update to frontend
-    let _ = app.emit("code-updated", new_code);
+    eprintln!("[AI Tools] Emitting code-updated event with payload length: {}", new_code.len());
+    if let Err(e) = app.emit("code-updated", &new_code) {
+        eprintln!("[AI Tools] ❌ Failed to emit code-updated: {}", e);
+    } else {
+        eprintln!("[AI Tools] ✅ code-updated event emitted successfully");
+    }
 
-    Ok(ApplyDiffResult {
+    // Small delay to ensure frontend processes the code update before render
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+    // Trigger a render to show the changes
+    eprintln!("[AI Tools] Emitting render-requested event");
+    if let Err(e) = app.emit("render-requested", ()) {
+        eprintln!("[AI Tools] ❌ Failed to emit render-requested: {}", e);
+    } else {
+        eprintln!("[AI Tools] ✅ render-requested event emitted successfully");
+    }
+
+    Ok(ApplyEditResult {
         success: true,
         error: None,
         diagnostics: test_diagnostics,
