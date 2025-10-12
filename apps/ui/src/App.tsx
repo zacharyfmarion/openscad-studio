@@ -14,6 +14,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { renderExact, type ExportFormat } from './api/tauri';
+import { loadSettings, type Settings } from './stores/settingsStore';
+import { formatOpenScadCode } from './utils/openscadFormatter';
 
 function App() {
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
@@ -42,6 +44,7 @@ function App() {
   const [showAiPanel, setShowAiPanel] = useState(true);
   const [isDirty, setIsDirty] = useState(false);
   const [savedContent, setSavedContent] = useState('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
+  const [settings, setSettings] = useState<Settings>(loadSettings());
 
   // AI Agent state
   const {
@@ -121,7 +124,24 @@ function App() {
         if (!savePath) return false; // User cancelled save dialog
       }
 
-      const currentSource = sourceRef.current;
+      let currentSource = sourceRef.current;
+
+      // Format code before saving if enabled
+      const currentSettings = loadSettings();
+      if (currentSettings.editor.formatOnSave) {
+        try {
+          currentSource = formatOpenScadCode(currentSource, {
+            indentSize: currentSettings.editor.indentSize,
+            useTabs: currentSettings.editor.useTabs,
+          });
+          // Update the editor with formatted code
+          updateSource(currentSource);
+        } catch (err) {
+          console.error('Failed to format code:', err);
+          // Continue with save even if formatting fails
+        }
+      }
+
       await writeTextFile(savePath, currentSource);
       setCurrentFilePath(savePath);
       setSavedContent(currentSource);
@@ -136,7 +156,7 @@ function App() {
       alert(`Failed to save file: ${err}`);
       return false;
     }
-  }, []); // No dependencies - saveFile is now stable
+  }, [updateSource]); // Add updateSource as dependency
 
   // Helper function to check for unsaved changes before destructive operations
   // Returns: true if ok to proceed, false if user wants to cancel
@@ -442,6 +462,7 @@ function App() {
                 onChange={updateSource}
                 diagnostics={diagnostics}
                 onManualRender={manualRender}
+                settings={settings}
               />
             </Panel>
             <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-gray-600 transition-colors" />
@@ -522,6 +543,7 @@ function App() {
       <SettingsDialog
         isOpen={showSettingsDialog}
         onClose={() => setShowSettingsDialog(false)}
+        onSettingsChange={setSettings}
       />
 
       {/* AI Error notification */}

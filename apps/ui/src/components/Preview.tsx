@@ -56,7 +56,7 @@ export function Preview({ src, kind, isRendering, error }: PreviewProps) {
     );
   }
 
-  // For SVG, use SVG viewer with pan/zoom
+  // For SVG (2D mode), use SVG viewer with pan/zoom
   if (kind === 'svg') {
     return (
       <div className="w-full h-full">
@@ -65,15 +65,11 @@ export function Preview({ src, kind, isRendering, error }: PreviewProps) {
     );
   }
 
-  // For PNG images, center them
+  // Should never reach here - 3D should always be mesh, 2D should always be SVG
+  console.error('[Preview] Unexpected render kind:', kind);
   return (
     <div className="h-full bg-gray-900 flex items-center justify-center">
-      <img
-        src={src}
-        alt="OpenSCAD Preview"
-        className="max-w-full max-h-full object-contain"
-        key={src} // Force re-render when src changes
-      />
+      <p className="text-red-400">Unexpected render format: {kind}</p>
     </div>
   );
 }

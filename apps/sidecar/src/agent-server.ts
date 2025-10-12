@@ -72,11 +72,11 @@ rl.on('line', async (line) => {
 
     // Handle query requests
     if (input.type === 'query') {
-      const { messages, mode } = input;
-      console.error(`[Sidecar] Processing query in ${mode} mode with ${messages?.length || 0} messages`);
+      const { messages } = input;
+      console.error(`[Sidecar] Processing query with ${messages?.length || 0} messages`);
 
       try {
-        await runAgentQuery(messages || [], mode);
+        await runAgentQuery(messages || []);
         console.error('[Sidecar] Query completed');
         console.log(JSON.stringify({ type: 'done' }));
       } catch (error) {
@@ -289,7 +289,7 @@ interface Message {
 /**
  * Run an agent query with the OpenSCAD tools
  */
-export async function runAgentQuery(messages: Message[], mode: string = 'edit'): Promise<void> {
+export async function runAgentQuery(messages: Message[]): Promise<void> {
   const systemPrompt = buildOpenScadSystemPrompt();
 
   console.error(`[Sidecar] Starting agent query`);

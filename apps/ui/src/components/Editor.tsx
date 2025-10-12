@@ -1,20 +1,31 @@
 import { Editor as MonacoEditor } from '@monaco-editor/react';
 import type { Diagnostic } from '../api/tauri';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type * as Monaco from 'monaco-editor';
 import { listen } from '@tauri-apps/api/event';
+import { formatOpenScadCode } from '../utils/openscadFormatter';
+import { loadSettings, type Settings } from '../stores/settingsStore';
 
 interface EditorProps {
   value: string;
   onChange: (value: string) => void;
   diagnostics: Diagnostic[];
   onManualRender?: () => void;
+  settings?: Settings;
 }
 
-export function Editor({ value, onChange, diagnostics, onManualRender }: EditorProps) {
+export function Editor({ value, onChange, diagnostics, onManualRender, settings: propSettings }: EditorProps) {
+  const [settings, setSettings] = useState<Settings>(propSettings || loadSettings());
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof Monaco | null>(null);
   const onManualRenderRef = useRef(onManualRender);
+
+  // Update settings when props change
+  useEffect(() => {
+    if (propSettings) {
+      setSettings(propSettings);
+    }
+  }, [propSettings]);
 
   // Keep ref in sync with prop
   useEffect(() => {
@@ -84,6 +95,11 @@ export function Editor({ value, onChange, diagnostics, onManualRender }: EditorP
       }
     });
 
+    // Add keyboard shortcut for format (Cmd+Shift+F / Ctrl+Shift+F)
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, () => {
+      editor.getAction('editor.action.formatDocument')?.run();
+    });
+
     // Register OpenSCAD language (basic syntax highlighting)
     monaco.languages.register({ id: 'openscad' });
 
@@ -146,6 +162,25 @@ export function Editor({ value, onChange, diagnostics, onManualRender }: EditorP
           [/"/, 'string', '@pop']
         ]
       }
+    });
+
+    // Register document formatting provider for OpenSCAD
+    monaco.languages.registerDocumentFormattingEditProvider('openscad', {
+      provideDocumentFormattingEdits: (model) => {
+        const text = model.getValue();
+        const currentSettings = loadSettings();
+        const formatted = formatOpenScadCode(text, {
+          indentSize: currentSettings.editor.indentSize,
+          useTabs: currentSettings.editor.useTabs,
+        });
+
+        return [
+          {
+            range: model.getFullModelRange(),
+            text: formatted,
+          },
+        ];
+      },
     });
 
     // Register autocomplete provider for OpenSCAD
@@ -371,6 +406,8 @@ export function Editor({ value, onChange, diagnostics, onManualRender }: EditorP
           acceptSuggestionOnEnter: 'on',
           tabCompletion: 'on',
           wordBasedSuggestions: 'off',
+          formatOnType: settings.editor.formatOnSave,
+          formatOnPaste: settings.editor.formatOnSave,
         }}
       />
     </div>

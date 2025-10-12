@@ -29,7 +29,7 @@ export function useOpenScad(workingDir?: string | null) {
       });
   }, []);
 
-  const doRender = useCallback(async (code: string, useMesh = false, dimension: '2d' | '3d' = '3d') => {
+  const doRender = useCallback(async (code: string, useMesh = true, dimension: '2d' | '3d' = '3d') => {
     console.log('[doRender] Starting render:', { dimension, useMesh, codeLength: code.length });
 
     if (!openscadPath) {
@@ -47,7 +47,7 @@ export function useOpenScad(workingDir?: string | null) {
         source: code,
         view: dimension,
         size: { w: 800, h: 600 },
-        render_mesh: useMesh && dimension === '3d', // Only use mesh for 3D mode
+        render_mesh: dimension === '3d', // Always use mesh for 3D mode
         working_dir: workingDir || undefined,
       });
 
@@ -82,7 +82,7 @@ export function useOpenScad(workingDir?: string | null) {
             source: code,
             view: newDimension,
             size: { w: 800, h: 600 },
-            render_mesh: useMesh && newDimension === '3d',
+            render_mesh: newDimension === '3d', // Always use mesh for 3D mode
             working_dir: workingDir || undefined,
           });
 
@@ -141,12 +141,12 @@ export function useOpenScad(workingDir?: string | null) {
   // Manual render function (stable callback)
   const manualRender = useCallback(() => {
     console.log('[useOpenScad] manualRender called', { sourceLength: source.length, dimensionMode });
-    doRender(source, dimensionMode === '3d', dimensionMode);
+    doRender(source, true, dimensionMode);
   }, [source, dimensionMode, doRender]);
 
   // Render on save function (stable callback)
   const renderOnSave = useCallback(() => {
-    doRender(source, dimensionMode === '3d', dimensionMode);
+    doRender(source, true, dimensionMode);
   }, [source, dimensionMode, doRender]);
 
   return {
