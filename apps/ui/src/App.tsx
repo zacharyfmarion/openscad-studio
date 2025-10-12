@@ -562,7 +562,7 @@ function App() {
         <Panel defaultSize={40} minSize={10} maxSize={70}>
           <div className="h-full flex flex-col" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             {/* Tabs and Toolbar - Combined */}
-            <div className="flex items-center justify-between px-3 py-1.5" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+            <div className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: 'var(--bg-primary)', borderBottom: '2px solid var(--border-primary)' }}>
               {/* Left: Tabs */}
               <div className="flex items-center gap-1">
                 <Button

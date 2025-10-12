@@ -191,14 +191,15 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
         {/* Right Content */}
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-100">
+          <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-primary)' }}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               {activeSection === 'appearance' ? 'Appearance Settings' :
                activeSection === 'editor' ? 'Editor Settings' : 'AI Assistant Settings'}
             </h3>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-200 transition-colors"
+              className="transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
             >
               ✕
             </button>
