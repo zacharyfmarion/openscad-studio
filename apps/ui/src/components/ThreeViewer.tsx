@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid } from '@react-three/drei';
+import { OrbitControls, Grid, GizmoHelper, GizmoViewcube, GizmoViewport } from '@react-three/drei';
 import { STLLoader } from 'three-stdlib';
 import * as THREE from 'three';
 import { loadSettings } from '../stores/settingsStore';
 import { getTheme } from '../themes';
+import { TbBox, TbBoxModel } from 'react-icons/tb';
 
 interface ThreeViewerProps {
   stlPath: string;
   isLoading?: boolean;
 }
 
-function STLModel({ url }: { url: string }) {
+function STLModel({ url, wireframe }: { url: string; wireframe: boolean }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const [modelColor, setModelColor] = useState(() => {
     const settings = loadSettings();
@@ -26,7 +27,6 @@ function STLModel({ url }: { url: string }) {
       (geometry) => {
         if (meshRef.current) {
           geometry.computeVertexNormals();
-          geometry.center();
           meshRef.current.geometry = geometry;
         }
       },
@@ -55,7 +55,7 @@ function STLModel({ url }: { url: string }) {
       receiveShadow
       rotation={[-Math.PI / 2, 0, 0]}
     >
-      <meshStandardMaterial color={modelColor} />
+      <meshStandardMaterial color={modelColor} wireframe={wireframe} />
     </mesh>
   );
 }
@@ -71,6 +71,9 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
       model: theme.colors.accent.secondary,
     };
   });
+
+  const [orthographic, setOrthographic] = useState(false);
+  const [wireframe, setWireframe] = useState(false);
 
   // Update colors when theme changes (check periodically)
   useEffect(() => {
@@ -109,9 +112,40 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
   }
 
   return (
-    <div className="w-full h-full" style={{ backgroundColor: themeColors.background }}>
+    <div className="w-full h-full relative" style={{ backgroundColor: themeColors.background }}>
+      {/* Control Panel - Top Right */}
+      <div className="absolute top-2 right-2 z-10 flex gap-2">
+        {/* Display Options */}
+        <button
+          onClick={() => setOrthographic(!orthographic)}
+          className="p-2 rounded transition-colors flex items-center justify-center"
+          style={{
+            backgroundColor: orthographic ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+            border: '1px solid var(--border-secondary)',
+            color: orthographic ? 'var(--text-inverse)' : 'var(--text-secondary)'
+          }}
+          title="Orthographic Projection"
+        >
+          <TbBox size={18} />
+        </button>
+
+        <button
+          onClick={() => setWireframe(!wireframe)}
+          className="p-2 rounded transition-colors flex items-center justify-center"
+          style={{
+            backgroundColor: wireframe ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+            border: '1px solid var(--border-secondary)',
+            color: wireframe ? 'var(--text-inverse)' : 'var(--text-secondary)'
+          }}
+          title="Wireframe Mode"
+        >
+          {wireframe ? <TbBox size={18} /> : <TbBoxModel size={18} />}
+        </button>
+      </div>
+
       <Canvas
         camera={{ position: [30, 30, 30], fov: 50 }}
+        orthographic={orthographic}
         shadows
         style={{ width: '100%', height: '100%', background: themeColors.background }}
       >
@@ -127,20 +161,14 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
 
         {/* Grid */}
         <Grid
-          args={[50, 50]}
-          cellSize={1}
-          cellThickness={0.5}
-          cellColor={themeColors.grid}
-          sectionSize={5}
-          sectionThickness={1}
-          sectionColor={themeColors.gridSection}
-          fadeDistance={80}
-          fadeStrength={1}
-          position={[0, -0.01, 0]}
+          infiniteGrid
+          cellSize={10}
+          sectionSize={50}
+          fadeDistance={500}
         />
 
         {/* STL Model */}
-        <STLModel url={stlPath} />
+        <STLModel url={stlPath} wireframe={wireframe} />
 
         {/* Controls */}
         <OrbitControls
@@ -149,6 +177,17 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
           enableRotate={true}
           makeDefault
         />
+
+        {/* ViewCube Gizmo */}
+        <GizmoHelper alignment="bottom-left" margin={[80, 80]}>
+          <GizmoViewcube
+            font="16px Inter, sans-serif"
+            opacity={1}
+            faces={['Front', 'Back', 'Top', 'Bottom', 'Left', 'Right']}
+            textColor={themeColors.background}
+            color={themeColors.model}
+          />
+        </GizmoHelper>
       </Canvas>
     </div>
   );
