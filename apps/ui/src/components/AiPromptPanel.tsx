@@ -76,8 +76,19 @@ export function AiPromptPanel({
         )}
       </div>
 
-      {/* Message history area */}
-      {(messages.length > 0 || streamingResponse) && (
+      {/* Empty state spacer or Message history area */}
+      {messages.length === 0 && !streamingResponse ? (
+        <div className="flex-1 flex items-center justify-center px-4" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+          <div className="text-center">
+            <div className="text-lg font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
+              No conversation yet
+            </div>
+            <div className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+              Describe the changes you want to make below
+            </div>
+          </div>
+        </div>
+      ) : (
         <div
           ref={responseRef}
           className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
@@ -257,6 +268,10 @@ export function AiPromptPanel({
             onClick={handleSubmit}
             disabled={!prompt.trim()}
             title="Submit prompt (⌘↵)"
+            style={{
+              opacity: !prompt.trim() ? 0.5 : 1,
+              cursor: !prompt.trim() ? 'not-allowed' : 'pointer'
+            }}
           >
             Send
           </Button>
