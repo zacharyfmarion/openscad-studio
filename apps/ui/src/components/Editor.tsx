@@ -5,6 +5,7 @@ import type * as Monaco from 'monaco-editor';
 import { listen } from '@tauri-apps/api/event';
 import { formatOpenScadCode } from '../utils/openscadFormatter';
 import { loadSettings, type Settings } from '../stores/settingsStore';
+import { getTheme } from '../themes';
 
 interface EditorProps {
   value: string;
@@ -19,6 +20,7 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof Monaco | null>(null);
   const onManualRenderRef = useRef(onManualRender);
+  const [themesRegistered, setThemesRegistered] = useState(false);
 
   // Update settings when props change
   useEffect(() => {
@@ -31,6 +33,14 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
   useEffect(() => {
     onManualRenderRef.current = onManualRender;
   }, [onManualRender]);
+
+  // Update Monaco theme when settings change
+  useEffect(() => {
+    if (monacoRef.current && themesRegistered) {
+      const theme = getTheme(settings.appearance.theme);
+      monacoRef.current.editor.setTheme(theme.monaco);
+    }
+  }, [settings.appearance.theme, themesRegistered]);
 
   // Listen for code updates from AI agent
   useEffect(() => {
@@ -87,6 +97,25 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
   ) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+
+    // Register custom themes
+    if (!themesRegistered) {
+      const themes = [
+        { id: 'solarized-dark', theme: getTheme('solarized-dark') },
+        { id: 'solarized-light', theme: getTheme('solarized-light') },
+      ];
+
+      themes.forEach(({ id, theme }) => {
+        if (theme.monacoTheme) {
+          monaco.editor.defineTheme(id, theme.monacoTheme);
+        }
+      });
+      setThemesRegistered(true);
+
+      // Set initial theme
+      const currentTheme = getTheme(settings.appearance.theme);
+      monaco.editor.setTheme(currentTheme.monaco);
+    }
 
     // Add keyboard shortcut for manual render (Cmd+Enter / Ctrl+Enter)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
@@ -385,12 +414,14 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
     });
   };
 
+  const theme = getTheme(settings.appearance.theme);
+
   return (
     <div className="h-full">
       <MonacoEditor
         height="100%"
         defaultLanguage="openscad"
-        theme="vs-dark"
+        theme={theme.monaco}
         value={value}
         onChange={(val) => onChange(val ?? '')}
         onMount={handleEditorDidMount}

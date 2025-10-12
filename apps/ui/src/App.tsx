@@ -7,6 +7,7 @@ import { ExportDialog } from './components/ExportDialog';
 import { AiPromptPanel } from './components/AiPromptPanel';
 import { DiffViewer } from './components/DiffViewer';
 import { SettingsDialog } from './components/SettingsDialog';
+import { Button } from './components/ui';
 import { useOpenScad } from './hooks/useOpenScad';
 import { useAiAgent } from './hooks/useAiAgent';
 import { listen } from '@tauri-apps/api/event';
@@ -16,6 +17,7 @@ import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { renderExact, type ExportFormat } from './api/tauri';
 import { loadSettings, type Settings } from './stores/settingsStore';
 import { formatOpenScadCode } from './utils/openscadFormatter';
+import { getTheme, applyTheme } from './themes';
 
 function App() {
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
@@ -45,6 +47,12 @@ function App() {
   const [isDirty, setIsDirty] = useState(false);
   const [savedContent, setSavedContent] = useState('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
   const [settings, setSettings] = useState<Settings>(loadSettings());
+
+  // Apply theme on mount and when settings change
+  useEffect(() => {
+    const theme = getTheme(settings.appearance.theme);
+    applyTheme(theme);
+  }, [settings.appearance.theme]);
 
   // AI Agent state
   const {
@@ -410,43 +418,43 @@ function App() {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-gray-900 text-gray-100">
+    <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+      <header className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold">OpenSCAD Copilot</h1>
           {isRendering && (
-            <span className="text-xs bg-blue-900/40 text-blue-400 px-2 py-1 rounded">
+            <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--color-info)', color: 'var(--text-inverse)', opacity: 0.4 }}>
               Rendering...
             </span>
           )}
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400 px-2 py-1 bg-gray-800 rounded">
+          <span className="text-xs px-2 py-1 rounded" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-primary)' }}>
             {dimensionMode === '2d' ? '📐 2D Mode' : '📦 3D Mode'}
           </span>
-          <button
+          <Button
+            variant="primary"
             onClick={manualRender}
             disabled={isRendering || !openscadPath}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-medium transition-colors"
           >
             Render (⌘↵)
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="success"
             onClick={() => setShowExportDialog(true)}
             disabled={isRendering || !openscadPath}
-            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm font-medium transition-colors"
           >
             Export...
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => setShowSettingsDialog(true)}
-            className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-sm font-medium transition-colors"
             title="Settings (⌘,)"
           >
             ⚙️
-          </button>
-          <span className="text-xs text-gray-500">
+          </Button>
+          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
             {openscadPath ? `OpenSCAD: ${openscadPath.split('/').pop()}` : 'OpenSCAD not found'}
           </span>
         </div>
@@ -465,7 +473,7 @@ function App() {
                 settings={settings}
               />
             </Panel>
-            <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-gray-600 transition-colors" />
+            <PanelResizeHandle className="w-1 transition-colors" style={{ backgroundColor: 'var(--border-primary)' }} />
             <Panel defaultSize={50} minSize={20}>
               {proposedDiff ? (
                 <DiffViewer
@@ -481,33 +489,37 @@ function App() {
             </Panel>
           </PanelGroup>
         </Panel>
-        <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-gray-600 transition-colors" />
+        <PanelResizeHandle className="h-1 transition-colors" style={{ backgroundColor: 'var(--border-primary)' }} />
         <Panel defaultSize={25} minSize={10} maxSize={50}>
-          <div className="h-full flex flex-col bg-gray-800">
+          <div className="h-full flex flex-col" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             {/* Tabs and Toolbar - Combined */}
-            <div className="flex items-center justify-between px-3 py-1.5 bg-gray-750 border-b border-gray-700">
+            <div className="flex items-center justify-between px-3 py-1.5" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
               {/* Left: Tabs */}
               <div className="flex items-center gap-1">
-                <button
+                <Button
+                  size="sm"
+                  variant={showAiPanel ? 'ghost' : 'ghost'}
                   onClick={() => setShowAiPanel(true)}
-                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                    showAiPanel
-                      ? 'bg-gray-700 text-white'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
-                  }`}
+                  className="px-2.5 py-1"
+                  style={{
+                    backgroundColor: showAiPanel ? 'var(--bg-tertiary)' : 'transparent',
+                    color: showAiPanel ? 'var(--text-inverse)' : 'var(--text-secondary)'
+                  }}
                 >
                   Copilot
-                </button>
-                <button
+                </Button>
+                <Button
+                  size="sm"
+                  variant={!showAiPanel ? 'ghost' : 'ghost'}
                   onClick={() => setShowAiPanel(false)}
-                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                    !showAiPanel
-                      ? 'bg-gray-700 text-white'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
-                  }`}
+                  className="px-2.5 py-1"
+                  style={{
+                    backgroundColor: !showAiPanel ? 'var(--bg-tertiary)' : 'transparent',
+                    color: !showAiPanel ? 'var(--text-inverse)' : 'var(--text-secondary)'
+                  }}
                 >
                   Issues {diagnostics.length > 0 && `(${diagnostics.length})`}
-                </button>
+                </Button>
               </div>
             </div>
             {/* Content */}
@@ -548,7 +560,7 @@ function App() {
 
       {/* AI Error notification */}
       {aiError && (
-        <div className="fixed bottom-4 right-4 bg-red-900/90 border border-red-700 text-red-100 px-4 py-3 rounded-lg shadow-lg max-w-md z-50">
+        <div className="fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg max-w-md z-50" style={{ backgroundColor: 'var(--color-error)', border: '1px solid var(--color-error)', color: 'var(--text-inverse)', opacity: 0.9 }}>
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="font-semibold mb-1">AI Error</div>
@@ -556,7 +568,8 @@ function App() {
             </div>
             <button
               onClick={clearAiError}
-              className="text-red-300 hover:text-red-100 transition-colors"
+              className="transition-colors"
+              style={{ color: 'var(--text-inverse)', opacity: 0.7 }}
             >
               ✕
             </button>

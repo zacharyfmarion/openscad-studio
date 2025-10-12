@@ -10,8 +10,13 @@ export interface EditorSettings {
   useTabs: boolean;
 }
 
+export interface AppearanceSettings {
+  theme: string;
+}
+
 export interface Settings {
   editor: EditorSettings;
+  appearance: AppearanceSettings;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -19,6 +24,9 @@ const DEFAULT_SETTINGS: Settings = {
     formatOnSave: true,
     indentSize: 4,
     useTabs: false,
+  },
+  appearance: {
+    theme: 'solarized-dark',
   },
 };
 
@@ -39,6 +47,10 @@ export function loadSettings(): Settings {
         editor: {
           ...DEFAULT_SETTINGS.editor,
           ...(parsed.editor || {}),
+        },
+        appearance: {
+          ...DEFAULT_SETTINGS.appearance,
+          ...(parsed.appearance || {}),
         },
       };
     }

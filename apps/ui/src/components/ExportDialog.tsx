@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { renderExact, type ExportFormat } from '../api/tauri';
+import { Button, Select, Label } from './ui';
 
 interface ExportDialogProps {
   isOpen: boolean;
@@ -67,53 +68,58 @@ export function ExportDialog({ isOpen, onClose, source, openscadPath, workingDir
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg shadow-xl p-6 w-96">
-        <h2 className="text-xl font-semibold text-white mb-4">Export Model</h2>
+    <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+      <div className="rounded-lg shadow-xl p-6 w-96" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+        <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Export Model</h2>
 
         <div className="space-y-4">
           {/* Format selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Export Format
-            </label>
-            <select
+            <Label>Export Format</Label>
+            <Select
               value={format}
               onChange={(e) => setFormat(e.target.value as ExportFormat)}
-              className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22white%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3e%3cpolyline points=%226 9 12 15 18 9%22%3e%3c/polyline%3e%3c/svg%3e')] bg-[length:1.5em_1.5em] bg-[right_0.5em_center] bg-no-repeat pr-10"
               disabled={isExporting}
             >
               {FORMAT_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value} className="bg-gray-700">
+                <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Error display */}
           {error && (
-            <div className="bg-red-900/20 border border-red-800 rounded p-3 text-red-400 text-sm">
+            <div className="rounded p-3 text-sm" style={{
+              backgroundColor: 'rgba(220, 50, 47, 0.2)',
+              borderColor: 'var(--color-error)',
+              borderWidth: '1px',
+              borderStyle: 'solid',
+              color: 'var(--color-error)'
+            }}>
               {error}
             </div>
           )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
-            <button
+            <Button
+              variant="secondary"
               onClick={onClose}
               disabled={isExporting}
-              className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white disabled:opacity-50"
+              className="flex-1"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               onClick={handleExport}
               disabled={isExporting}
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white disabled:opacity-50"
+              className="flex-1"
             >
               {isExporting ? 'Exporting...' : 'Export'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

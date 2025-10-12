@@ -2,10 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme CSS Variables - Default (Solarized Dark) */
+:root {
+  --bg-primary: #002b36;
+  --bg-secondary: #073642;
+  --bg-tertiary: #586e75;
+  --bg-elevated: #073642;
+
+  --text-primary: #839496;
+  --text-secondary: #93a1a1;
+  --text-tertiary: #586e75;
+  --text-inverse: #fdf6e3;
+
+  --border-primary: #073642;
+  --border-secondary: #586e75;
+  --border-focus: #268bd2;
+
+  --accent-primary: #268bd2;
+  --accent-secondary: #2aa198;
+  --accent-hover: #6c71c4;
+
+  --color-error: #dc322f;
+  --color-warning: #b58900;
+  --color-success: #859900;
+  --color-info: #268bd2;
+
+  --editor-bg: #002b36;
+  --editor-fg: #839496;
+}
+
 @layer base {
   body {
     @apply m-0 p-0 w-full h-screen overflow-hidden;
     font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
   }
 
   #root {
