@@ -419,7 +419,7 @@ function App() {
     const appWindow = getCurrentWindow();
     const fileName = currentFilePath ? currentFilePath.split('/').pop() : 'Untitled';
     const dirtyIndicator = isDirty ? '• ' : '';
-    appWindow.setTitle(`${dirtyIndicator}${fileName} - OpenSCAD Copilot`);
+    appWindow.setTitle(`${dirtyIndicator}${fileName} - OpenSCAD Studio`);
   }, [currentFilePath, isDirty]);
 
   // Listen for render requests from AI agent
@@ -454,7 +454,7 @@ function App() {
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // ⌘K or Ctrl+K to switch to Copilot tab
+      // ⌘K or Ctrl+K to switch to AI tab
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setShowAiPanel(true);
@@ -494,7 +494,7 @@ function App() {
       {/* Header */}
       <header className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold">OpenSCAD Copilot</h1>
+          <h1 className="text-xl font-bold">OpenSCAD Studio</h1>
           {isRendering && (
             <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--color-info)', color: 'var(--text-inverse)', opacity: 0.4 }}>
               Rendering...
@@ -575,7 +575,7 @@ function App() {
                     color: showAiPanel ? 'var(--text-inverse)' : 'var(--text-secondary)'
                   }}
                 >
-                  Copilot
+                  AI
                 </Button>
                 <Button
                   size="sm"

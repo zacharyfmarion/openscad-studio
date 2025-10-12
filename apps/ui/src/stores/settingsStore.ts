@@ -30,7 +30,7 @@ const DEFAULT_SETTINGS: Settings = {
   },
 };
 
-const SETTINGS_KEY = 'openscad-copilot-settings';
+const SETTINGS_KEY = 'openscad-studio-settings';
 
 /**
  * Load settings from localStorage

@@ -183,7 +183,7 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                 color: activeSection === 'ai' ? 'var(--text-inverse)' : 'var(--text-secondary)'
               }}
             >
-              AI Copilot
+              AI Assistant
             </button>
           </nav>
         </div>
@@ -194,7 +194,7 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
             <h3 className="text-lg font-semibold text-gray-100">
               {activeSection === 'appearance' ? 'Appearance Settings' :
-               activeSection === 'editor' ? 'Editor Settings' : 'AI Copilot Settings'}
+               activeSection === 'editor' ? 'Editor Settings' : 'AI Assistant Settings'}
             </h3>
             <button
               onClick={onClose}
@@ -359,7 +359,7 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                     </a>
                   </p>
                   <p>
-                    Your API key is required for the AI Copilot features to work.
+                    Your API key is required for the AI Assistant features to work.
                   </p>
                 </div>
               </div>

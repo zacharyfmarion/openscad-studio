@@ -21,7 +21,7 @@ const EXAMPLE_PROMPTS = [
   'Design a pencil holder with holes',
 ];
 
-const RECENT_FILES_KEY = 'openscad-copilot-recent-files';
+const RECENT_FILES_KEY = 'openscad-studio-recent-files';
 
 export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent }: WelcomeScreenProps) {
   const [prompt, setPrompt] = useState('');
@@ -101,9 +101,11 @@ export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent
             )}
           </div>
           {/* Keyboard hint */}
-          <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            Press <span className="font-medium">⌘↵</span> to start with AI
-          </div>
+          {prompt.trim() && (
+            <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Press <span className="font-medium">⌘↵</span> to start with AI
+            </div>
+          )}
         </div>
 
         {/* Example prompts */}
@@ -115,7 +117,7 @@ export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent
             {EXAMPLE_PROMPTS.map((example, idx) => (
               <button
                 key={idx}
-                onClick={() => setPrompt(example)}
+                onClick={() => onStartWithPrompt(example)}
                 className="px-3 py-1.5 rounded-lg text-sm transition-colors border"
                 style={{
                   backgroundColor: 'var(--bg-secondary)',

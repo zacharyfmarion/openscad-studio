@@ -1,12 +1,12 @@
 [package]
-name = "openscad-copilot"
+name = "openscad-studio"
 version = "0.1.0"
-description = "Modern OpenSCAD editor with LLM copilot"
-authors = ["OpenSCAD Copilot Contributors"]
+description = "Modern OpenSCAD editor with AI assistance"
+authors = ["OpenSCAD Studio Contributors"]
 edition = "2021"
 
 [lib]
-name = "openscad_copilot_lib"
+name = "openscad_studio_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

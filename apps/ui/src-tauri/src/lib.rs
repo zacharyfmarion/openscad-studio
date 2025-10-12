@@ -68,7 +68,7 @@ pub fn run() {
         ])
         .setup(|app| {
             // Create app menu (About, Hide, Quit, etc.)
-            let app_menu = SubmenuBuilder::new(app, "OpenSCAD Copilot")
+            let app_menu = SubmenuBuilder::new(app, "OpenSCAD Studio")
                 .about(None)
                 .separator()
                 .hide()
