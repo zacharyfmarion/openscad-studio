@@ -7,6 +7,7 @@ import { ExportDialog } from './components/ExportDialog';
 import { AiPromptPanel } from './components/AiPromptPanel';
 import { DiffViewer } from './components/DiffViewer';
 import { SettingsDialog } from './components/SettingsDialog';
+import { WelcomeScreen, addToRecentFiles } from './components/WelcomeScreen';
 import { Button } from './components/ui';
 import { useOpenScad } from './hooks/useOpenScad';
 import { useAiAgent } from './hooks/useAiAgent';
@@ -21,6 +22,7 @@ import { getTheme, applyTheme } from './themes';
 
 function App() {
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
 
   // Get working directory from current file path (for resolving relative imports)
   const workingDir = currentFilePath
@@ -154,6 +156,10 @@ function App() {
       setCurrentFilePath(savePath);
       setSavedContent(currentSource);
       setIsDirty(false);
+
+      // Add to recent files
+      addToRecentFiles(savePath);
+
       // Trigger render on save (only if OpenSCAD is available)
       if (openscadPathRef.current && renderOnSaveRef.current) {
         renderOnSaveRef.current();
@@ -165,6 +171,48 @@ function App() {
       return false;
     }
   }, [updateSource]); // Add updateSource as dependency
+
+  // Handle starting with AI prompt from welcome screen
+  const handleStartWithPrompt = useCallback((prompt: string) => {
+    setShowWelcome(false);
+    // Submit prompt after a small delay to ensure UI is ready
+    setTimeout(() => {
+      submitPrompt(prompt, 'edit');
+    }, 100);
+  }, [submitPrompt]);
+
+  // Handle starting manually from welcome screen
+  const handleStartManually = useCallback(() => {
+    setShowWelcome(false);
+  }, []);
+
+  // Handle opening recent file from welcome screen
+  const handleOpenRecent = useCallback(async (path: string) => {
+    try {
+      const contents = await readTextFile(path);
+      clearPreview();
+      updateSource(contents);
+      setCurrentFilePath(path);
+      setSavedContent(contents);
+      setIsDirty(false);
+      setShowWelcome(false);
+
+      // Add to recent files
+      addToRecentFiles(path);
+
+      // Automatically render the opened file
+      if (openscadPathRef.current && manualRenderRef.current) {
+        setTimeout(() => {
+          if (manualRenderRef.current) {
+            manualRenderRef.current();
+          }
+        }, 100);
+      }
+    } catch (err) {
+      console.error('Failed to open recent file:', err);
+      alert(`Failed to open file: ${err}`);
+    }
+  }, [clearPreview, updateSource]);
 
   // Helper function to check for unsaved changes before destructive operations
   // Returns: true if ok to proceed, false if user wants to cancel
@@ -224,6 +272,7 @@ function App() {
         setCurrentFilePath(null);
         setSavedContent('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
         setIsDirty(false);
+        setShowWelcome(true); // Show welcome screen for new project
       });
       if (isMounted) unlistenFns.push(unlistenNew);
 
@@ -251,6 +300,10 @@ function App() {
           setCurrentFilePath(filePath);
           setSavedContent(contents);
           setIsDirty(false);
+          setShowWelcome(false);
+
+          // Add to recent files
+          addToRecentFiles(filePath);
 
           // Automatically render the opened file
           if (openscadPathRef.current && manualRenderRef.current) {
@@ -417,6 +470,25 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Show welcome screen if no file is open and welcome hasn't been dismissed
+  if (showWelcome) {
+    return (
+      <div className="h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <WelcomeScreen
+          onStartWithPrompt={handleStartWithPrompt}
+          onStartManually={handleStartManually}
+          onOpenRecent={handleOpenRecent}
+        />
+        {/* Settings dialog still accessible from welcome screen via keyboard shortcut */}
+        <SettingsDialog
+          isOpen={showSettingsDialog}
+          onClose={() => setShowSettingsDialog(false)}
+          onSettingsChange={setSettings}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       {/* Header */}
@@ -459,7 +531,7 @@ function App() {
 
       {/* Main content with resizable panels */}
       <PanelGroup direction="vertical" className="flex-1">
-        <Panel defaultSize={75} minSize={30}>
+        <Panel defaultSize={60} minSize={30}>
           <PanelGroup direction="horizontal">
             <Panel defaultSize={50} minSize={20}>
               <Editor
@@ -487,7 +559,7 @@ function App() {
           </PanelGroup>
         </Panel>
         <PanelResizeHandle className="h-1 transition-colors" style={{ backgroundColor: 'var(--border-primary)' }} />
-        <Panel defaultSize={25} minSize={10} maxSize={50}>
+        <Panel defaultSize={40} minSize={10} maxSize={70}>
           <div className="h-full flex flex-col" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             {/* Tabs and Toolbar - Combined */}
             <div className="flex items-center justify-between px-3 py-1.5" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Message } from '../hooks/useAiAgent';
-import { Button, Input } from './ui';
+import { Button } from './ui';
 
 export type AiMode = 'edit';
 
