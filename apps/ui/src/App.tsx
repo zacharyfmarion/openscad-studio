@@ -454,9 +454,6 @@ function App() {
           >
             ⚙️
           </Button>
-          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            {openscadPath ? `OpenSCAD: ${openscadPath.split('/').pop()}` : 'OpenSCAD not found'}
-          </span>
         </div>
       </header>
 

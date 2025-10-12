@@ -88,8 +88,11 @@ export function AiPromptPanel({
             if (message.type === 'user') {
               return (
                 <div key={message.id} className="flex gap-2 justify-end">
-                  <div className="max-w-[85%] rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--accent-primary)', color: 'var(--text-inverse)' }}>
-                    <div className="text-xs opacity-70 mb-1">You</div>
+                  <div className="max-w-[85%] rounded-lg px-3 py-2" style={{
+                    backgroundColor: 'var(--accent-primary)',
+                    color: 'var(--text-inverse)'
+                  }}>
+                    <div className="text-xs mb-1" style={{ opacity: 0.8 }}>You</div>
                     <div className="text-sm whitespace-pre-wrap font-mono">{message.content}</div>
                   </div>
                 </div>
@@ -100,8 +103,12 @@ export function AiPromptPanel({
             if (message.type === 'assistant') {
               return (
                 <div key={message.id} className="flex gap-2 justify-start">
-                  <div className="max-w-[85%] rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>
-                    <div className="text-xs opacity-70 mb-1">AI</div>
+                  <div className="max-w-[85%] rounded-lg px-3 py-2 border" style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    borderColor: 'var(--border-secondary)'
+                  }}>
+                    <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>AI</div>
                     <div className="text-sm whitespace-pre-wrap font-mono">{message.content}</div>
                   </div>
                 </div>
@@ -115,9 +122,8 @@ export function AiPromptPanel({
                   <div
                     className="rounded-lg px-3 py-2 border"
                     style={{
-                      backgroundColor: 'var(--bg-elevated)',
-                      borderColor: message.completed ? 'var(--color-success)' : 'var(--color-warning)',
-                      opacity: 0.9
+                      backgroundColor: 'var(--bg-primary)',
+                      borderColor: message.completed ? 'var(--color-success)' : 'var(--color-warning)'
                     }}
                   >
                     <div className="flex items-center gap-2 text-sm">
@@ -168,9 +174,8 @@ export function AiPromptPanel({
                     key={idx}
                     className="rounded-lg px-3 py-2 border"
                     style={{
-                      backgroundColor: 'var(--bg-elevated)',
-                      borderColor: tool.result ? 'var(--color-success)' : 'var(--color-warning)',
-                      opacity: 0.9
+                      backgroundColor: 'var(--bg-primary)',
+                      borderColor: tool.result ? 'var(--color-success)' : 'var(--color-warning)'
                     }}
                   >
                     <div className="flex items-center gap-2 text-sm">
@@ -212,8 +217,12 @@ export function AiPromptPanel({
           {/* Streaming text response */}
           {streamingResponse && (
             <div className="flex gap-2 justify-start">
-              <div className="max-w-[85%] rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>
-                <div className="text-xs opacity-70 mb-1">AI</div>
+              <div className="max-w-[85%] rounded-lg px-3 py-2 border" style={{
+                backgroundColor: 'var(--bg-primary)',
+                color: 'var(--text-primary)',
+                borderColor: 'var(--border-secondary)'
+              }}>
+                <div className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>AI</div>
                 <div className="text-sm whitespace-pre-wrap font-mono">{streamingResponse}</div>
               </div>
             </div>
