@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { renderPreview, locateOpenScad, updateEditorState, updateOpenscadPath, type Diagnostic, type RenderPreviewResponse, type RenderKind } from '../api/tauri';
+import { renderPreview, locateOpenScad, updateEditorState, updateOpenscadPath, getDiagnostics, type Diagnostic, type RenderPreviewResponse, type RenderKind } from '../api/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
 export function useOpenScad(workingDir?: string | null) {
@@ -64,6 +64,16 @@ export function useOpenScad(workingDir?: string | null) {
     } catch (err) {
       const errorMsg = typeof err === 'string' ? err : String(err);
       console.log('[doRender] Render error:', errorMsg);
+
+      // Fetch diagnostics from backend EditorState (errors may have been stored there)
+      try {
+        const diagnosticsFromBackend = await getDiagnostics();
+        if (diagnosticsFromBackend.length > 0) {
+          setDiagnostics(diagnosticsFromBackend);
+        }
+      } catch (diagErr) {
+        console.error('[doRender] Failed to fetch diagnostics:', diagErr);
+      }
 
       // Check if error is due to dimension mismatch and auto-retry with opposite mode
       const is2DObjectIn3DMode = errorMsg.includes('2D object') && errorMsg.includes('3D mode');

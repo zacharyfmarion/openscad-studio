@@ -52,7 +52,7 @@ pub async fn render_preview(
                 _ => RenderKind::Png,
             },
             path: cached_entry.output_path.to_string_lossy().to_string(),
-            diagnostics: vec![], // Cached results have no new diagnostics
+            diagnostics: cached_entry.diagnostics.clone(),
         });
     }
 
@@ -158,6 +158,9 @@ pub async fn render_preview(
             .any(|d| matches!(d.severity, crate::types::DiagnosticSeverity::Error));
 
         if has_errors {
+            // Update EditorState with diagnostics so they show in the editor even when render fails
+            *editor_state.diagnostics.lock().unwrap() = diagnostics.clone();
+
             // Build error message with diagnostic details
             let mut error_msg = String::from("OpenSCAD failed to render due to errors:\n\n");
             for diag in &diagnostics {
@@ -203,7 +206,7 @@ pub async fn render_preview(
     };
     state
         .render_cache
-        .set(cache_key, out_path.clone(), kind_str.to_string());
+        .set(cache_key, out_path.clone(), kind_str.to_string(), diagnostics.clone());
 
     // Update EditorState with render results
     *editor_state.current_code.lock().unwrap() = request.source.clone();

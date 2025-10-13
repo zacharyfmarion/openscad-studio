@@ -99,3 +99,7 @@ export async function updateEditorState(code: string): Promise<void> {
 export async function updateOpenscadPath(openscadPath: string): Promise<void> {
   return await invoke('update_openscad_path', { openscadPath });
 }
+
+export async function getDiagnostics(): Promise<Diagnostic[]> {
+  return await invoke('get_diagnostics');
+}

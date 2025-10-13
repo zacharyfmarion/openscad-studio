@@ -19,6 +19,7 @@ import { renderExact, type ExportFormat } from './api/tauri';
 import { loadSettings, type Settings } from './stores/settingsStore';
 import { formatOpenScadCode } from './utils/openscadFormatter';
 import { getTheme, applyTheme } from './themes';
+import { TbSettings, TbBox, TbRuler2 } from 'react-icons/tb';
 
 function App() {
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
@@ -492,40 +493,72 @@ function App() {
   return (
     <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       {/* Header */}
-      <header className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+      <header className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold">OpenSCAD Studio</h1>
+          <h1 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>OpenSCAD Studio</h1>
           {isRendering && (
-            <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--color-info)', color: 'var(--text-inverse)', opacity: 0.4 }}>
-              Rendering...
-            </span>
+            <div className="flex items-center gap-2 text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+              <div className="animate-spin h-3 w-3 border-2 rounded-full" style={{ borderColor: 'var(--border-primary)', borderTopColor: 'var(--accent-primary)' }} />
+              <span>Rendering</span>
+            </div>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs px-2 py-1 rounded" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-primary)' }}>
-            {dimensionMode === '2d' ? '📐 2D Mode' : '📦 3D Mode'}
-          </span>
+        <div className="flex items-center gap-2">
+          {/* Mode indicator */}
+          <div className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border" style={{
+            color: 'var(--text-secondary)',
+            backgroundColor: 'var(--bg-elevated)',
+            borderColor: 'var(--border-secondary)'
+          }}>
+            {dimensionMode === '2d' ? (
+              <>
+                <TbRuler2 size={14} />
+                <span className="font-medium">2D</span>
+              </>
+            ) : (
+              <>
+                <TbBox size={14} />
+                <span className="font-medium">3D</span>
+              </>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border-secondary)' }} />
+
+          {/* Action buttons */}
           <Button
             variant="primary"
             onClick={manualRender}
             disabled={isRendering || !openscadPath}
+            className="text-sm px-3 py-1.5"
           >
             Render (⌘↵)
           </Button>
           <Button
-            variant="success"
+            variant="secondary"
             onClick={() => setShowExportDialog(true)}
             disabled={isRendering || !openscadPath}
+            className="text-sm px-3 py-1.5"
           >
-            Export...
+            Export
           </Button>
-          <Button
-            variant="secondary"
+
+          {/* Divider */}
+          <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border-secondary)' }} />
+
+          {/* Settings icon button */}
+          <button
             onClick={() => setShowSettingsDialog(true)}
+            className="p-2 rounded-md transition-colors"
+            style={{
+              backgroundColor: 'transparent',
+              color: 'var(--text-secondary)',
+            }}
             title="Settings (⌘,)"
           >
-            ⚙️
-          </Button>
+            <TbSettings size={18} />
+          </button>
         </div>
       </header>
 
@@ -537,7 +570,7 @@ function App() {
               <Editor
                 value={source}
                 onChange={updateSource}
-                diagnostics={diagnostics}
+                diagnostics={diagnostics.filter(d => !d.message.match(/^ECHO:/i))}
                 onManualRender={manualRender}
                 settings={settings}
               />
@@ -587,7 +620,7 @@ function App() {
                     color: !showAiPanel ? 'var(--text-inverse)' : 'var(--text-secondary)'
                   }}
                 >
-                  Issues {diagnostics.length > 0 && `(${diagnostics.length})`}
+                  Console
                 </Button>
               </div>
             </div>

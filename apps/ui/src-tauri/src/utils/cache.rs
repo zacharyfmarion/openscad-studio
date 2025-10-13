@@ -1,15 +1,21 @@
+use crate::types::Diagnostic;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Current cache version - increment this when CacheEntry structure changes
+const CACHE_VERSION: u32 = 2;
+
 /// A cache entry containing the rendered output path and metadata
 #[derive(Clone, Debug)]
 pub struct CacheEntry {
+    pub version: u32,
     pub output_path: PathBuf,
     pub timestamp: u64,
     pub kind: String, // "png", "svg", or "mesh"
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 /// Simple in-memory cache for render results
@@ -39,6 +45,11 @@ impl RenderCache {
         let entries = self.entries.lock().ok()?;
         let entry = entries.get(key)?;
 
+        // Invalidate entries with old version
+        if entry.version != CACHE_VERSION {
+            return None;
+        }
+
         // Verify the cached file still exists
         if entry.output_path.exists() {
             Some(entry.clone())
@@ -48,7 +59,7 @@ impl RenderCache {
     }
 
     /// Store an entry in the cache
-    pub fn set(&self, key: String, output_path: PathBuf, kind: String) {
+    pub fn set(&self, key: String, output_path: PathBuf, kind: String, diagnostics: Vec<Diagnostic>) {
         if let Ok(mut entries) = self.entries.lock() {
             let timestamp = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -58,9 +69,11 @@ impl RenderCache {
             entries.insert(
                 key,
                 CacheEntry {
+                    version: CACHE_VERSION,
                     output_path,
                     timestamp,
                     kind,
+                    diagnostics,
                 },
             );
         }
@@ -117,7 +130,7 @@ mod tests {
         assert!(cache.get(&key).is_none());
 
         // Set and retrieve
-        cache.set(key.clone(), path.clone(), "png".to_string());
+        cache.set(key.clone(), path.clone(), "png".to_string(), vec![]);
 
         // Note: This test will fail if the file doesn't exist
         // In production, we only cache files that actually exist

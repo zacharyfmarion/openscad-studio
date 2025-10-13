@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import { loadSettings } from '../stores/settingsStore';
+import { getTheme } from '../themes';
+import { TbZoomIn, TbZoomOut, TbFocus2 } from 'react-icons/tb';
 
 interface SvgViewerProps {
   src: string;
@@ -8,6 +11,30 @@ interface SvgViewerProps {
 export function SvgViewer({ src }: SvgViewerProps) {
   const [svgContent, setSvgContent] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [themeColors, setThemeColors] = useState(() => {
+    const settings = loadSettings();
+    const theme = getTheme(settings.appearance.theme);
+    return {
+      background: theme.colors.bg.primary,
+      stroke: theme.colors.accent.primary,
+      axes: theme.colors.border.secondary,
+    };
+  });
+
+  // Update colors when theme changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const settings = loadSettings();
+      const theme = getTheme(settings.appearance.theme);
+      setThemeColors({
+        background: theme.colors.bg.primary,
+        stroke: theme.colors.accent.primary,
+        axes: theme.colors.border.secondary,
+      });
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Load SVG content and inject axes
   useEffect(() => {
@@ -50,12 +77,12 @@ export function SvgViewer({ src }: SvgViewerProps) {
 
         // Don't modify viewBox - keep OpenSCAD's original viewBox so coordinates stay correct
 
-        // Make all shapes have thinner, lighter strokes for better visibility
+        // Make all shapes use theme colors
         const allPaths = svgElement.querySelectorAll('path, circle, rect, polygon, polyline');
         allPaths.forEach((shape) => {
           const currentStroke = shape.getAttribute('stroke');
           if (currentStroke && currentStroke !== 'none') {
-            shape.setAttribute('stroke', '#6b7280'); // Gray-500 for dark mode
+            shape.setAttribute('stroke', themeColors.stroke);
             shape.setAttribute('stroke-width', '0.2');
           }
         });
@@ -64,22 +91,22 @@ export function SvgViewer({ src }: SvgViewerProps) {
         const axesGroup = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'g');
         axesGroup.setAttribute('id', 'coordinate-axes');
 
-        // X-axis (light gray, horizontal through y=0, extending to infinity)
+        // X-axis (using theme color, horizontal through y=0, extending to infinity)
         const xAxis = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'line');
         xAxis.setAttribute('x1', '-999999');
         xAxis.setAttribute('y1', '0');
         xAxis.setAttribute('x2', '999999');
         xAxis.setAttribute('y2', '0');
-        xAxis.setAttribute('stroke', '#9ca3af');
+        xAxis.setAttribute('stroke', themeColors.axes);
         xAxis.setAttribute('stroke-width', strokeWidth.toString());
 
-        // Y-axis (light gray, vertical through x=0, extending to infinity)
+        // Y-axis (using theme color, vertical through x=0, extending to infinity)
         const yAxis = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'line');
         yAxis.setAttribute('x1', '0');
         yAxis.setAttribute('y1', '-999999');
         yAxis.setAttribute('x2', '0');
         yAxis.setAttribute('y2', '999999');
-        yAxis.setAttribute('stroke', '#9ca3af');
+        yAxis.setAttribute('stroke', themeColors.axes);
         yAxis.setAttribute('stroke-width', strokeWidth.toString());
 
         // Add tick marks along X-axis (only in visible viewBox area)
@@ -93,7 +120,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
           tick.setAttribute('y1', (-tickSize / 2).toString());
           tick.setAttribute('x2', x.toString());
           tick.setAttribute('y2', (tickSize / 2).toString());
-          tick.setAttribute('stroke', '#9ca3af');
+          tick.setAttribute('stroke', themeColors.axes);
           tick.setAttribute('stroke-width', strokeWidth.toString());
           axesGroup.appendChild(tick);
         }
@@ -106,7 +133,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
           tick.setAttribute('y1', y.toString());
           tick.setAttribute('x2', (tickSize / 2).toString());
           tick.setAttribute('y2', y.toString());
-          tick.setAttribute('stroke', '#9ca3af');
+          tick.setAttribute('stroke', themeColors.axes);
           tick.setAttribute('stroke-width', strokeWidth.toString());
           axesGroup.appendChild(tick);
         }
@@ -139,13 +166,13 @@ export function SvgViewer({ src }: SvgViewerProps) {
     if (src) {
       loadSvg();
     }
-  }, [src]);
+  }, [src, themeColors]);
 
   // Show error if SVG failed to load
   if (error) {
     return (
-      <div className="h-full w-full bg-gray-900 flex items-center justify-center">
-        <div className="text-center text-gray-400 max-w-md px-4">
+      <div className="h-full w-full flex items-center justify-center" style={{ backgroundColor: themeColors.background }}>
+        <div className="text-center max-w-md px-4" style={{ color: 'var(--text-secondary)' }}>
           <p className="text-lg mb-2">{error}</p>
           <p className="text-sm">The SVG file may not have been created by OpenSCAD.</p>
         </div>
@@ -156,14 +183,14 @@ export function SvgViewer({ src }: SvgViewerProps) {
   // Show loading state if no content yet
   if (!svgContent) {
     return (
-      <div className="h-full w-full bg-gray-900 flex items-center justify-center">
-        <p className="text-gray-500">Loading SVG...</p>
+      <div className="h-full w-full flex items-center justify-center" style={{ backgroundColor: themeColors.background }}>
+        <p style={{ color: 'var(--text-tertiary)' }}>Loading SVG...</p>
       </div>
     );
   }
 
   return (
-    <div className="relative h-full w-full bg-gray-900">
+    <div className="relative h-full w-full" style={{ backgroundColor: themeColors.background }}>
       <TransformWrapper
         initialScale={1}
         minScale={0.1}
@@ -174,27 +201,42 @@ export function SvgViewer({ src }: SvgViewerProps) {
         {({ zoomIn, zoomOut, resetTransform }) => (
           <>
             {/* Controls - positioned inside the viewer panel */}
-            <div className="absolute top-4 right-4 z-10 flex gap-2">
+            <div className="absolute top-2 right-2 z-10 flex gap-2">
               <button
                 onClick={() => zoomIn()}
-                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-sm"
+                className="p-2 rounded transition-colors flex items-center justify-center"
+                style={{
+                  backgroundColor: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-secondary)',
+                  color: 'var(--text-secondary)'
+                }}
                 title="Zoom In"
               >
-                +
+                <TbZoomIn size={18} />
               </button>
               <button
                 onClick={() => zoomOut()}
-                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-sm"
+                className="p-2 rounded transition-colors flex items-center justify-center"
+                style={{
+                  backgroundColor: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-secondary)',
+                  color: 'var(--text-secondary)'
+                }}
                 title="Zoom Out"
               >
-                −
+                <TbZoomOut size={18} />
               </button>
               <button
                 onClick={() => resetTransform()}
-                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-sm"
-                title="Reset View"
+                className="p-2 rounded transition-colors flex items-center justify-center"
+                style={{
+                  backgroundColor: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-secondary)',
+                  color: 'var(--text-secondary)'
+                }}
+                title="Fit to View"
               >
-                Reset
+                <TbFocus2 size={18} />
               </button>
             </div>
 

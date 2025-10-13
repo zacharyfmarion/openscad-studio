@@ -148,14 +148,14 @@ export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent
                     borderColor: 'var(--border-primary)',
                   }}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="text-lg">📄</div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {file.name}
                       </div>
-                      <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                        {new Date(file.lastOpened).toLocaleDateString()}
+                      <div className="text-xs truncate" style={{ color: 'var(--text-tertiary)' }} title={file.path}>
+                        {file.path}
                       </div>
                     </div>
                   </div>

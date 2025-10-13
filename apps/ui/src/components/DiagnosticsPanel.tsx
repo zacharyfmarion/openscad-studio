@@ -8,20 +8,14 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
   if (diagnostics.length === 0) {
     return (
       <div className="h-full px-4 py-3 text-sm" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
-        No issues detected ✓
+        No messages
       </div>
     );
   }
 
   return (
     <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-      <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-primary)' }}>
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-          Problems ({diagnostics.length})
-        </h3>
-      </div>
-      <div style={{ borderTop: '1px solid var(--border-primary)' }}>
-        {diagnostics.map((diag, idx) => (
+      {diagnostics.map((diag, idx) => (
           <div
             key={idx}
             className="px-4 py-2 cursor-pointer"
@@ -56,6 +50,5 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
           </div>
         ))}
       </div>
-    </div>
   );
 }
