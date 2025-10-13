@@ -8,6 +8,7 @@ import { AiPromptPanel } from './components/AiPromptPanel';
 import { DiffViewer } from './components/DiffViewer';
 import { SettingsDialog } from './components/SettingsDialog';
 import { WelcomeScreen, addToRecentFiles } from './components/WelcomeScreen';
+import { TabBar, type Tab } from './components/TabBar';
 import { Button } from './components/ui';
 import { useOpenScad } from './hooks/useOpenScad';
 import { useAiAgent } from './hooks/useAiAgent';
@@ -15,19 +16,42 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
-import { renderExact, type ExportFormat } from './api/tauri';
+import { renderExact, type ExportFormat, updateEditorState } from './api/tauri';
 import { loadSettings, type Settings } from './stores/settingsStore';
 import { formatOpenScadCode } from './utils/openscadFormatter';
 import { getTheme, applyTheme } from './themes';
 import { TbSettings, TbBox, TbRuler2 } from 'react-icons/tb';
 
+// Helper to generate unique IDs for tabs
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 11);
+}
+
+// Helper to generate unique untitled names
+function generateUntitledName(): string {
+  return `Untitled`;
+}
+
 function App() {
-  const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
+  // Tab state
+  const initialTab: Tab = {
+    id: generateId(),
+    filePath: null,
+    name: generateUntitledName(),
+    content: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
+    savedContent: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
+    isDirty: false,
+  };
+  const [tabs, setTabs] = useState<Tab[]>([initialTab]);
+  const [activeTabId, setActiveTabId] = useState<string>(initialTab.id);
   const [showWelcome, setShowWelcome] = useState(true);
 
-  // Get working directory from current file path (for resolving relative imports)
-  const workingDir = currentFilePath
-    ? currentFilePath.substring(0, currentFilePath.lastIndexOf('/'))
+  // Computed active tab
+  const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
+
+  // Get working directory from active tab's file path (for resolving relative imports)
+  const workingDir = activeTab?.filePath && typeof activeTab.filePath === 'string'
+    ? activeTab.filePath.substring(0, activeTab.filePath.lastIndexOf('/'))
     : null;
 
   const {
@@ -42,13 +66,10 @@ function App() {
     dimensionMode,
     manualRender,
     renderOnSave,
-    clearPreview,
   } = useOpenScad(workingDir);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(true);
-  const [isDirty, setIsDirty] = useState(false);
-  const [savedContent, setSavedContent] = useState('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
   const [settings, setSettings] = useState<Settings>(loadSettings());
 
   // Apply theme on mount and when settings change
@@ -74,20 +95,160 @@ function App() {
     newConversation,
   } = useAiAgent();
 
+  // Tab management functions
+  const createNewTab = useCallback((filePath?: string | null, content?: string, name?: string): string => {
+    const newId = generateId();
+    const defaultContent = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';
+    const tabContent = content || defaultContent;
+    const newTab: Tab = {
+      id: newId,
+      filePath: filePath || null,
+      name: name || generateUntitledName(),
+      content: tabContent,
+      savedContent: tabContent,
+      isDirty: false,
+    };
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(newId);
+
+    // Update editor source to new tab's content
+    updateSource(tabContent);
+
+    // Update backend EditorState for AI agent
+    updateEditorState(tabContent).catch(err => {
+      console.error('Failed to update editor state:', err);
+    });
+
+    return newId;
+  }, [updateSource]);
+
+  const switchTab = useCallback(async (id: string) => {
+    if (id === activeTabId) return;
+
+    // Store current tab's render state before switching
+    setTabs(prev => prev.map(tab =>
+      tab.id === activeTabId
+        ? { ...tab, previewSrc, previewKind, diagnostics, dimensionMode, content: source }
+        : tab
+    ));
+
+    // Switch to new tab
+    setActiveTabId(id);
+    const newTab = tabs.find(t => t.id === id);
+    if (newTab) {
+      // Update editor with new tab's content
+      updateSource(newTab.content);
+
+      // Update backend EditorState for AI agent
+      try {
+        await updateEditorState(newTab.content);
+      } catch (err) {
+        console.error('Failed to update editor state:', err);
+      }
+    }
+    // Note: Rendering is handled by the centralized useEffect watching activeTabId
+  }, [activeTabId, tabs, previewSrc, previewKind, diagnostics, dimensionMode, source, updateSource]);
+
+  const closeTab = useCallback(async (id: string) => {
+    const tab = tabs.find(t => t.id === id);
+    if (!tab) return;
+
+    // Check for unsaved changes
+    if (tab.isDirty) {
+      const { ask, confirm } = await import('@tauri-apps/plugin-dialog');
+      const wantsToSave = await ask(
+        `Save changes to ${tab.name}?`,
+        {
+          title: 'Unsaved Changes',
+          kind: 'warning',
+          okLabel: 'Save',
+          cancelLabel: "Don't Save",
+        }
+      );
+
+      if (wantsToSave) {
+        // TODO: Implement save logic for tab
+        return;
+      } else {
+        const confirmDiscard = await confirm(
+          'Are you sure you want to discard your changes?',
+          {
+            title: 'Discard Changes',
+            kind: 'warning',
+            okLabel: 'Discard',
+            cancelLabel: 'Cancel',
+          }
+        );
+        if (!confirmDiscard) return;
+      }
+    }
+
+    // Remove tab and switch to adjacent if needed
+    const filtered = tabs.filter(t => t.id !== id);
+
+    // If last tab, show welcome screen
+    if (filtered.length === 0) {
+      setShowWelcome(true);
+      const newId = generateId();
+      const newTab: Tab = {
+        id: newId,
+        filePath: null,
+        name: generateUntitledName(),
+        content: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
+        savedContent: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
+        isDirty: false,
+      };
+      setTabs([newTab]);
+      setActiveTabId(newId);
+      updateSource(newTab.content);
+      return;
+    }
+
+    // If closing active tab, switch to adjacent and update editor
+    if (id === activeTabId) {
+      const idx = tabs.findIndex(t => t.id === id);
+      const newActiveTab = filtered[Math.max(0, idx - 1)];
+      setTabs(filtered);
+      setActiveTabId(newActiveTab.id);
+      updateSource(newActiveTab.content);
+
+      // Update backend EditorState for AI agent
+      try {
+        await updateEditorState(newActiveTab.content);
+      } catch (err) {
+        console.error('Failed to update editor state:', err);
+      }
+    } else {
+      // Closing a non-active tab, just update tabs list
+      setTabs(filtered);
+    }
+  }, [tabs, activeTabId, updateSource]);
+
+  const updateTabContent = useCallback((id: string, content: string) => {
+    setTabs(prev => prev.map(tab =>
+      tab.id === id
+        ? { ...tab, content, isDirty: content !== tab.savedContent }
+        : tab
+    ));
+  }, []);
+
   // Use refs to avoid stale closures in event listeners
-  const currentFilePathRef = useRef<string | null>(null);
+  const activeTabRef = useRef<Tab>(activeTab);
+  const tabsRef = useRef<Tab[]>(tabs);
   const sourceRef = useRef<string>(source);
   const openscadPathRef = useRef<string>(openscadPath);
   const workingDirRef = useRef<string | null>(workingDir);
-  const isDirtyRef = useRef<boolean>(isDirty);
-  const savedContentRef = useRef<string>(savedContent);
   const renderOnSaveRef = useRef(renderOnSave);
   const manualRenderRef = useRef(manualRender);
 
   // Keep refs in sync with state
   useEffect(() => {
-    currentFilePathRef.current = currentFilePath;
-  }, [currentFilePath]);
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
 
   useEffect(() => {
     sourceRef.current = source;
@@ -102,14 +263,6 @@ function App() {
   }, [workingDir]);
 
   useEffect(() => {
-    isDirtyRef.current = isDirty;
-  }, [isDirty]);
-
-  useEffect(() => {
-    savedContentRef.current = savedContent;
-  }, [savedContent]);
-
-  useEffect(() => {
     renderOnSaveRef.current = renderOnSave;
   }, [renderOnSave]);
 
@@ -117,22 +270,79 @@ function App() {
     manualRenderRef.current = manualRender;
   }, [manualRender]);
 
-  // Track if content has changed
+  // Centralized render-on-tab-change effect
+  // This ensures ANY tab switch triggers a render, regardless of how it happened
+  const prevActiveTabIdRef = useRef<string | null>(null);
+  const tabSwitchRenderTimerRef = useRef<number | null>(null);
+
   useEffect(() => {
-    setIsDirty(source !== savedContent);
-  }, [source, savedContent]);
+    // Skip initial mount - only render on actual tab changes
+    if (prevActiveTabIdRef.current === null) {
+      prevActiveTabIdRef.current = activeTabId;
+      return;
+    }
+
+    // Skip if switching to welcome screen
+    if (showWelcome) {
+      prevActiveTabIdRef.current = activeTabId;
+      return;
+    }
+
+    // Only render if tab actually changed
+    if (prevActiveTabIdRef.current !== activeTabId) {
+      // Clear any pending render
+      if (tabSwitchRenderTimerRef.current) {
+        clearTimeout(tabSwitchRenderTimerRef.current);
+      }
+
+      // Debounced render - handles rapid tab switching gracefully
+      tabSwitchRenderTimerRef.current = window.setTimeout(() => {
+        if (manualRenderRef.current) {
+          const currentTab = tabs.find(t => t.id === activeTabId);
+          console.log('[App] Auto-rendering after tab change to:', currentTab?.name);
+          manualRenderRef.current();
+        }
+        tabSwitchRenderTimerRef.current = null;
+      }, 150);
+
+      prevActiveTabIdRef.current = activeTabId;
+    }
+
+    // Cleanup timer on unmount or tab change
+    return () => {
+      if (tabSwitchRenderTimerRef.current) {
+        clearTimeout(tabSwitchRenderTimerRef.current);
+      }
+    };
+  }, [activeTabId, showWelcome, tabs]);
+
+  // Sync active tab content with editor source
+  useEffect(() => {
+    if (activeTab && source !== activeTab.content) {
+      updateTabContent(activeTabId, source);
+    }
+  }, [source, activeTab, activeTabId, updateTabContent]);
 
   // Helper function to save file to current path or prompt for new path
   const saveFile = useCallback(async (promptForPath: boolean = false): Promise<boolean> => {
     try {
-      let savePath = currentFilePathRef.current;
+      const currentTab = activeTabRef.current;
+      let savePath: string | null = currentTab.filePath;
 
       if (promptForPath || !savePath) {
-        savePath = await save({
+        const result = await save({
           filters: [{ name: 'OpenSCAD Files', extensions: ['scad'] }],
           defaultPath: savePath || undefined,
         });
-        if (!savePath) return false; // User cancelled save dialog
+        if (!result) return false; // User cancelled save dialog
+        savePath = result;
+      }
+
+      // Ensure savePath is valid before proceeding
+      if (!savePath) {
+        console.error('[saveFile] Invalid save path');
+        alert('Failed to save file: No path specified');
+        return false;
       }
 
       let currentSource = sourceRef.current;
@@ -148,15 +358,20 @@ function App() {
           // Update the editor with formatted code
           updateSource(currentSource);
         } catch (err) {
-          console.error('Failed to format code:', err);
+          console.error('[saveFile] Failed to format code:', err);
           // Continue with save even if formatting fails
         }
       }
 
       await writeTextFile(savePath, currentSource);
-      setCurrentFilePath(savePath);
-      setSavedContent(currentSource);
-      setIsDirty(false);
+
+      // Update tab with saved state
+      const fileName = savePath.split('/').pop() || savePath;
+      setTabs(prev => prev.map(tab =>
+        tab.id === currentTab.id
+          ? { ...tab, filePath: savePath, name: fileName, savedContent: currentSource, isDirty: false }
+          : tab
+      ));
 
       // Add to recent files
       addToRecentFiles(savePath);
@@ -165,13 +380,15 @@ function App() {
       if (openscadPathRef.current && renderOnSaveRef.current) {
         renderOnSaveRef.current();
       }
+
       return true;
     } catch (err) {
-      console.error('Save failed:', err);
-      alert(`Failed to save file: ${err}`);
+      console.error('[saveFile] Save failed:', err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      alert(`Failed to save file: ${errorMsg}`);
       return false;
     }
-  }, [updateSource]); // Add updateSource as dependency
+  }, [updateSource]);
 
   // Handle starting with AI prompt from welcome screen
   const handleStartWithPrompt = useCallback((prompt: string) => {
@@ -190,12 +407,19 @@ function App() {
   // Handle opening recent file from welcome screen
   const handleOpenRecent = useCallback(async (path: string) => {
     try {
+      // Check if file is already open in a tab
+      const existingTab = tabs.find(t => t.filePath === path);
+      if (existingTab) {
+        // Switch to existing tab
+        await switchTab(existingTab.id);
+        setShowWelcome(false);
+        return;
+      }
+
+      // Open in new tab
       const contents = await readTextFile(path);
-      clearPreview();
-      updateSource(contents);
-      setCurrentFilePath(path);
-      setSavedContent(contents);
-      setIsDirty(false);
+      const fileName = path.split('/').pop() || path;
+      createNewTab(path, contents, fileName);
       setShowWelcome(false);
 
       // Add to recent files
@@ -213,14 +437,14 @@ function App() {
       console.error('Failed to open recent file:', err);
       alert(`Failed to open file: ${err}`);
     }
-  }, [clearPreview, updateSource]);
+  }, [tabs, switchTab, createNewTab]);
 
   // Helper function to check for unsaved changes before destructive operations
   // Returns: true if ok to proceed, false if user wants to cancel
   const checkUnsavedChangesRef = useRef<() => Promise<boolean>>();
 
   checkUnsavedChangesRef.current = async (): Promise<boolean> => {
-    if (!isDirtyRef.current) return true;
+    if (!activeTabRef.current.isDirty) return true;
 
     const { ask, confirm } = await import('@tauri-apps/plugin-dialog');
 
@@ -268,11 +492,7 @@ function App() {
         const canProceed = checkUnsavedChangesRef.current ? await checkUnsavedChangesRef.current() : true;
         if (!canProceed) return;
 
-        clearPreview();
-        updateSource('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
-        setCurrentFilePath(null);
-        setSavedContent('// Type your OpenSCAD code here\ncube([10, 10, 10]);');
-        setIsDirty(false);
+        createNewTab();
         setShowWelcome(true); // Show welcome screen for new project
       });
       if (isMounted) unlistenFns.push(unlistenNew);
@@ -280,9 +500,6 @@ function App() {
       // File > Open
       const unlistenOpen = await listen('menu:file:open', async () => {
         if (!isMounted) return;
-
-        const canProceed = checkUnsavedChangesRef.current ? await checkUnsavedChangesRef.current() : true;
-        if (!canProceed) return;
 
         try {
           const selected = await open({
@@ -292,15 +509,20 @@ function App() {
           if (!selected) return; // User cancelled
 
           const filePath = typeof selected === 'string' ? selected : (selected as { path: string }).path;
-          const contents = await readTextFile(filePath);
 
+          // Check if already open
+          const existingTab = tabsRef.current.find(t => t.filePath === filePath);
+          if (existingTab) {
+            await switchTab(existingTab.id);
+            setShowWelcome(false);
+            return;
+          }
+
+          const contents = await readTextFile(filePath);
           if (!isMounted) return;
 
-          clearPreview();
-          updateSource(contents);
-          setCurrentFilePath(filePath);
-          setSavedContent(contents);
-          setIsDirty(false);
+          const fileName = filePath.split('/').pop() || filePath;
+          createNewTab(filePath, contents, fileName);
           setShowWelcome(false);
 
           // Add to recent files
@@ -308,7 +530,6 @@ function App() {
 
           // Automatically render the opened file
           if (openscadPathRef.current && manualRenderRef.current) {
-            // Small delay to ensure state updates have propagated
             setTimeout(() => {
               if (manualRenderRef.current) {
                 manualRenderRef.current();
@@ -387,7 +608,8 @@ function App() {
       isMounted = false;
       unlistenFns.forEach(fn => fn());
     };
-  }, []); // Empty deps - only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount, using refs for latest values
 
   // Handle window close with unsaved changes
   useEffect(() => {
@@ -396,7 +618,8 @@ function App() {
 
     const setup = async () => {
       unlisten = await appWindow.onCloseRequested(async (event) => {
-        if (isDirtyRef.current) {
+        const anyDirty = tabsRef.current.some(t => t.isDirty);
+        if (anyDirty) {
           event.preventDefault();
           const canClose = checkUnsavedChangesRef.current ? await checkUnsavedChangesRef.current() : true;
           if (canClose) {
@@ -418,10 +641,10 @@ function App() {
   // Update window title with unsaved indicator
   useEffect(() => {
     const appWindow = getCurrentWindow();
-    const fileName = currentFilePath ? currentFilePath.split('/').pop() : 'Untitled';
-    const dirtyIndicator = isDirty ? '• ' : '';
+    const fileName = activeTab.name;
+    const dirtyIndicator = activeTab.isDirty ? '• ' : '';
     appWindow.setTitle(`${dirtyIndicator}${fileName} - OpenSCAD Studio`);
-  }, [currentFilePath, isDirty]);
+  }, [activeTab]);
 
   // Listen for render requests from AI agent
   useEffect(() => {
@@ -465,11 +688,21 @@ function App() {
         e.preventDefault();
         setShowSettingsDialog(true);
       }
+      // ⌘T or Ctrl+T for new tab
+      if ((e.metaKey || e.ctrlKey) && e.key === 't') {
+        e.preventDefault();
+        createNewTab();
+      }
+      // ⌘W or Ctrl+W to close tab
+      if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
+        e.preventDefault();
+        closeTab(activeTabId);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [createNewTab, closeTab, activeTabId]);
 
   // Show welcome screen if no file is open and welcome hasn't been dismissed
   if (showWelcome) {
@@ -492,73 +725,83 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      {/* Header */}
-      <header className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>OpenSCAD Studio</h1>
-          {isRendering && (
-            <div className="flex items-center gap-2 text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
-              <div className="animate-spin h-3 w-3 border-2 rounded-full" style={{ borderColor: 'var(--border-primary)', borderTopColor: 'var(--accent-primary)' }} />
-              <span>Rendering</span>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Mode indicator */}
-          <div className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border" style={{
-            color: 'var(--text-secondary)',
-            backgroundColor: 'var(--bg-elevated)',
-            borderColor: 'var(--border-secondary)'
-          }}>
-            {dimensionMode === '2d' ? (
-              <>
-                <TbRuler2 size={14} />
-                <span className="font-medium">2D</span>
-              </>
-            ) : (
-              <>
-                <TbBox size={14} />
-                <span className="font-medium">3D</span>
-              </>
-            )}
+      {/* Header with tabs */}
+      <header style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+        {/* Top row: TabBar on left, controls on right */}
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <TabBar
+              tabs={tabs}
+              activeTabId={activeTabId}
+              onTabClick={switchTab}
+              onTabClose={closeTab}
+              onNewTab={() => createNewTab()}
+            />
           </div>
+          <div className="flex items-center gap-2 px-4 py-2" style={{ borderBottom: '1px solid var(--border-primary)' }}>
+            {isRendering && (
+              <div className="flex items-center gap-2 text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+                <div className="animate-spin h-3 w-3 border-2 rounded-full" style={{ borderColor: 'var(--border-primary)', borderTopColor: 'var(--accent-primary)' }} />
+                <span>Rendering</span>
+              </div>
+            )}
 
-          {/* Divider */}
-          <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border-secondary)' }} />
-
-          {/* Action buttons */}
-          <Button
-            variant="primary"
-            onClick={manualRender}
-            disabled={isRendering || !openscadPath}
-            className="text-sm px-3 py-1.5"
-          >
-            Render (⌘↵)
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setShowExportDialog(true)}
-            disabled={isRendering || !openscadPath}
-            className="text-sm px-3 py-1.5"
-          >
-            Export
-          </Button>
-
-          {/* Divider */}
-          <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border-secondary)' }} />
-
-          {/* Settings icon button */}
-          <button
-            onClick={() => setShowSettingsDialog(true)}
-            className="p-2 rounded-md transition-colors"
-            style={{
-              backgroundColor: 'transparent',
+            {/* Mode indicator */}
+            <div className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border" style={{
               color: 'var(--text-secondary)',
-            }}
-            title="Settings (⌘,)"
-          >
-            <TbSettings size={18} />
-          </button>
+              backgroundColor: 'var(--bg-elevated)',
+              borderColor: 'var(--border-secondary)'
+            }}>
+              {dimensionMode === '2d' ? (
+                <>
+                  <TbRuler2 size={14} />
+                  <span className="font-medium">2D</span>
+                </>
+              ) : (
+                <>
+                  <TbBox size={14} />
+                  <span className="font-medium">3D</span>
+                </>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border-secondary)' }} />
+
+            {/* Action buttons */}
+            <Button
+              variant="primary"
+              onClick={manualRender}
+              disabled={isRendering || !openscadPath}
+              className="text-sm px-3 py-1.5"
+            >
+              Render (⌘↵)
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setShowExportDialog(true)}
+              disabled={isRendering || !openscadPath}
+              className="text-sm px-3 py-1.5"
+            >
+              Export
+            </Button>
+
+            {/* Divider */}
+            <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border-secondary)' }} />
+
+            {/* Settings icon button */}
+            <button
+              onClick={() => setShowSettingsDialog(true)}
+              className="p-2 rounded-md transition-colors"
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--text-secondary)',
+              }}
+              title="Settings (⌘,)"
+            >
+              <TbSettings size={18} />
+            </button>
+          </div>
         </div>
       </header>
 
