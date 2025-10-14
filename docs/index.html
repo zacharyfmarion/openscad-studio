@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenSCAD Studio - Modern OpenSCAD Editor</title>
+    <meta name="description" content="A modern cross-platform OpenSCAD editor with live preview and AI copilot. Built with Tauri, React, and Rust.">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#24C8DB',
+                        'primary-light': '#7DD3FC',
+                        'primary-dark': '#0E7490',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" href="images/icon.png">
+</head>
+<body class="bg-slate-950 text-gray-100">
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 z-50">
+        <nav class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <img src="images/icon.png" alt="OpenSCAD Studio" class="w-10 h-10 rounded-lg">
+                <span class="text-xl font-bold">OpenSCAD Studio</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="https://github.com/zacharyfmarion/openscad-tauri"
+                   class="text-gray-300 hover:text-white transition">
+                    GitHub
+                </a>
+                <a href="https://github.com/zacharyfmarion/openscad-tauri/releases"
+                   class="bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-6 py-2 rounded-lg transition">
+                    Download
+                </a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 px-6">
+        <div class="max-w-7xl mx-auto text-center">
+            <div class="inline-block mb-6 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-500 text-sm font-medium">
+                ⚠️ Early Alpha - macOS Only
+            </div>
+
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-primary via-primary-light to-primary bg-clip-text text-transparent">
+                Modern OpenSCAD Editor
+            </h1>
+
+            <p class="text-xl md:text-2xl text-gray-400 mb-8 max-w-3xl mx-auto">
+                A cross-platform OpenSCAD editor with <span class="text-primary">live preview</span> and <span class="text-primary">AI copilot</span>
+            </p>
+
+            <div class="flex gap-4 justify-center mb-16">
+                <a href="https://github.com/zacharyfmarion/openscad-tauri/releases"
+                   class="bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-8 py-3 rounded-lg transition text-lg">
+                    Download for macOS
+                </a>
+                <a href="https://github.com/zacharyfmarion/openscad-tauri"
+                   class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-8 py-3 rounded-lg transition text-lg">
+                    View on GitHub
+                </a>
+            </div>
+
+            <!-- Main Screenshot -->
+            <div class="rounded-xl overflow-hidden shadow-2xl border border-slate-800">
+                <img src="images/example.png" alt="OpenSCAD Studio Screenshot" class="w-full">
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-20 px-6">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-4xl font-bold text-center mb-16">
+                Everything you need to design faster
+            </h2>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Feature 1: Editor -->
+                <div class="bg-slate-900 rounded-xl p-8 border border-slate-800 hover:border-primary/50 transition">
+                    <div class="text-4xl mb-4">💻</div>
+                    <h3 class="text-2xl font-bold mb-3">Modern Editor</h3>
+                    <p class="text-gray-400 mb-4">
+                        Monaco editor with custom OpenSCAD syntax highlighting, multi-tab editing, auto-save, and format on save.
+                    </p>
+                    <div class="bg-slate-950 rounded-lg p-4 border border-slate-800">
+                        <img src="images/welcome.png" alt="Editor" class="w-full rounded">
+                    </div>
+                </div>
+
+                <!-- Feature 2: Live Preview -->
+                <div class="bg-slate-900 rounded-xl p-8 border border-slate-800 hover:border-primary/50 transition">
+                    <div class="text-4xl mb-4">🎨</div>
+                    <h3 class="text-2xl font-bold mb-3">Live 3D Preview</h3>
+                    <p class="text-gray-400 mb-4">
+                        Fast mesh viewer with orbit controls and instant re-renders using content-hash caching. Sub-500ms preview updates.
+                    </p>
+                    <div class="bg-slate-950 rounded-lg p-4 border border-slate-800">
+                        <img src="images/example.png" alt="3D Preview" class="w-full rounded">
+                    </div>
+                </div>
+
+                <!-- Feature 3: AI Copilot -->
+                <div class="bg-slate-900 rounded-xl p-8 border border-slate-800 hover:border-primary/50 transition">
+                    <div class="text-4xl mb-4">🤖</div>
+                    <h3 class="text-2xl font-bold mb-3">AI Copilot</h3>
+                    <p class="text-gray-400 mb-4">
+                        Diff-based editing with streaming responses and test compilation. Security-first architecture with API keys in OS keychain.
+                    </p>
+                    <div class="bg-slate-950 rounded-lg p-4 border border-slate-800 flex items-center justify-center h-48">
+                        <p class="text-gray-600 text-sm">Screenshot placeholder - AI chat interface</p>
+                    </div>
+                </div>
+
+                <!-- Feature 4: Export -->
+                <div class="bg-slate-900 rounded-xl p-8 border border-slate-800 hover:border-primary/50 transition">
+                    <div class="text-4xl mb-4">📦</div>
+                    <h3 class="text-2xl font-bold mb-3">Export & Diagnostics</h3>
+                    <p class="text-gray-400 mb-4">
+                        Export to multiple formats: STL, OBJ, AMF, 3MF, PNG, SVG, DXF. Real-time error diagnostics with inline markers.
+                    </p>
+                    <div class="bg-slate-950 rounded-lg p-4 border border-slate-800 flex items-center justify-center h-48">
+                        <p class="text-gray-600 text-sm">Screenshot placeholder - Export dialog</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack Section -->
+    <section class="py-20 px-6 bg-slate-900/50">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-4xl font-bold text-center mb-12">
+                Built with modern technologies
+            </h2>
+
+            <div class="flex flex-wrap justify-center gap-6">
+                <div class="bg-slate-900 px-6 py-3 rounded-lg border border-slate-800">
+                    <span class="font-semibold text-primary">Tauri 2.0</span>
+                </div>
+                <div class="bg-slate-900 px-6 py-3 rounded-lg border border-slate-800">
+                    <span class="font-semibold text-primary">React 19</span>
+                </div>
+                <div class="bg-slate-900 px-6 py-3 rounded-lg border border-slate-800">
+                    <span class="font-semibold text-primary">Rust 1.82+</span>
+                </div>
+                <div class="bg-slate-900 px-6 py-3 rounded-lg border border-slate-800">
+                    <span class="font-semibold text-primary">Monaco Editor</span>
+                </div>
+                <div class="bg-slate-900 px-6 py-3 rounded-lg border border-slate-800">
+                    <span class="font-semibold text-primary">Three.js</span>
+                </div>
+                <div class="bg-slate-900 px-6 py-3 rounded-lg border border-slate-800">
+                    <span class="font-semibold text-primary">Vercel AI SDK</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-20 px-6">
+        <div class="max-w-4xl mx-auto text-center">
+            <h2 class="text-4xl font-bold mb-6">
+                Ready to design smarter?
+            </h2>
+            <p class="text-xl text-gray-400 mb-8">
+                Download OpenSCAD Studio and start creating with AI-powered assistance
+            </p>
+            <a href="https://github.com/zacharyfmarion/openscad-tauri/releases"
+               class="inline-block bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-8 py-3 rounded-lg transition text-lg">
+                Download for macOS
+            </a>
+            <p class="text-sm text-gray-500 mt-4">
+                Requires OpenSCAD installed on your system
+            </p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 py-12 px-6">
+        <div class="max-w-7xl mx-auto text-center text-gray-400">
+            <p class="mb-4">
+                Open source under the MIT License
+            </p>
+            <div class="flex justify-center gap-6">
+                <a href="https://github.com/zacharyfmarion/openscad-tauri" class="hover:text-primary transition">
+                    GitHub
+                </a>
+                <a href="https://github.com/zacharyfmarion/openscad-tauri/issues" class="hover:text-primary transition">
+                    Issues
+                </a>
+                <a href="https://github.com/zacharyfmarion/openscad-tauri/blob/main/LICENSE" class="hover:text-primary transition">
+                    License
+                </a>
+            </div>
+            <p class="mt-6 text-sm text-gray-600">
+                Made with ❤️ for the OpenSCAD community
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

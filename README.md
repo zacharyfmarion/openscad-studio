@@ -16,6 +16,9 @@
   <img src="https://img.shields.io/badge/Rust-1.82+-000000.svg" alt="Rust">
 </p>
 
+> **⚠️ Early Alpha Software**
+> This project is in early alpha and has only been tested on macOS. Windows and Linux support is planned but not yet implemented or tested.
+
 ---
 
 <p align="center">
