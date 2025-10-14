@@ -1,9 +1,9 @@
-mod agent_sidecar;
+mod ai_agent;
 mod cmd;
 mod types;
 mod utils;
 
-use agent_sidecar::{cancel_agent_stream, send_agent_query, start_agent_sidecar, stop_agent_sidecar, AgentSidecarState};
+use ai_agent::{cancel_ai_stream, send_ai_query, start_ai_agent, stop_ai_agent, AiAgentState};
 use cmd::{
     apply_edit, clear_api_key, delete_conversation, detect_backend, get_ai_provider, get_api_key,
     get_current_code, get_diagnostics, get_preview_screenshot, has_api_key, load_conversations,
@@ -30,14 +30,14 @@ pub fn run() {
         render_cache: Arc::new(RenderCache::new()),
     };
     let editor_state = EditorState::default();
-    let agent_sidecar_state = AgentSidecarState::new();
+    let ai_agent_state = AiAgentState::new();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(app_state)
         .manage(editor_state)
-        .manage(agent_sidecar_state)
+        .manage(ai_agent_state)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
@@ -58,10 +58,10 @@ pub fn run() {
             apply_edit,
             get_diagnostics,
             trigger_render,
-            start_agent_sidecar,
-            stop_agent_sidecar,
-            send_agent_query,
-            cancel_agent_stream,
+            start_ai_agent,
+            stop_ai_agent,
+            send_ai_query,
+            cancel_ai_stream,
             save_conversation,
             load_conversations,
             delete_conversation,

@@ -6,10 +6,9 @@
   "packageManager": "pnpm@10.12.4",
   "scripts": {
     "dev": "cd apps/ui && pnpm dev",
-    "build": "pnpm build:sidecar && cd apps/ui && pnpm build",
-    "build:sidecar": "cd apps/sidecar && pnpm build",
-    "tauri:dev": "pnpm build:sidecar && cd apps/ui && pnpm tauri dev",
-    "tauri:build": "pnpm build:sidecar && cd apps/ui && pnpm tauri build",
+    "build": "cd apps/ui && pnpm build",
+    "tauri:dev": "cd apps/ui && pnpm tauri dev",
+    "tauri:build": "cd apps/ui && pnpm tauri build",
     "lint": "pnpm -r lint",
     "type-check": "pnpm -r type-check"
   },

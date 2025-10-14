@@ -9,7 +9,7 @@ This document helps AI assistants (like Claude) understand the OpenSCAD Studio c
 **Tech Stack:**
 - **Frontend**: React 19 + TypeScript + Vite + Monaco Editor
 - **Backend**: Rust + Tauri (IPC-based architecture)
-- **AI Sidecar**: Node.js + Vercel AI SDK + Anthropic Claude
+- **AI Agent**: Native Rust + Direct Anthropic Claude API
 - **Package Manager**: pnpm (monorepo workspace)
 
 ## Architecture
@@ -40,17 +40,13 @@ openscad-tauri/
 │   │       │   ├── cmd/            # Tauri commands
 │   │       │   │   ├── render.rs   # OpenSCAD rendering
 │   │       │   │   ├── locate.rs   # OpenSCAD binary detection
-│   │       │   │   ├── ai.rs       # Keychain API key storage
+│   │       │   │   ├── ai.rs       # Encrypted store API key storage
 │   │       │   │   ├── ai_tools.rs # AI tool handlers (diff apply, etc.)
 │   │       │   │   └── conversations.rs # Conversation management
-│   │       │   ├── agent_sidecar.rs # Sidecar process manager
+│   │       │   ├── ai_agent.rs     # Native Rust AI agent (direct API)
 │   │       │   ├── types.rs        # Rust type definitions
 │   │       │   └── utils/          # Utilities (parser, cache)
 │   │       └── Cargo.toml
-│   └── sidecar/                    # AI Agent sidecar process
-│       ├── src/
-│       │   └── agent-server.ts     # Vercel AI SDK + tools
-│       └── package.json
 └── packages/
     └── shared/                     # Shared TypeScript types (Zod schemas)
 ```
@@ -62,10 +58,8 @@ User Input
     ↓
 React Frontend (TypeScript)
     ↓ (Tauri IPC)
-Rust Backend (Tauri Commands)
-    ↓ (stdio JSON-RPC)
-Node.js Sidecar (AI Agent)
-    ↓ (HTTP)
+Rust Backend (Tauri Commands + AI Agent)
+    ↓ (HTTPS)
 Anthropic API (Claude)
 ```
 
@@ -78,7 +72,7 @@ Anthropic API (Claude)
    - Interactive STL/3D mesh for manipulation
    - SVG for 2D designs
 
-3. **Secure AI Sidecar**: API keys stored in OS keychain, injected into sidecar via env vars, never exposed to renderer process.
+3. **Secure AI Integration**: API keys stored in encrypted Tauri store, accessed only by backend Rust code, never exposed to renderer process.
 
 4. **Diff-based AI Editing**: AI returns exact string replacements (max 120 lines), not full file rewrites. Changes are test-compiled before acceptance.
 
@@ -101,20 +95,16 @@ Anthropic API (Claude)
 - **`apps/ui/src-tauri/src/lib.rs`**: Tauri app initialization, command registration.
 - **`apps/ui/src-tauri/src/cmd/render.rs`**: `render_preview` and `render_exact` commands. Spawns OpenSCAD, parses stderr, manages temp files.
 - **`apps/ui/src-tauri/src/cmd/ai_tools.rs`**: AI tool handlers (`apply_edit`, `get_current_code`, `get_diagnostics`, etc.)
-- **`apps/ui/src-tauri/src/agent_sidecar.rs`**: Sidecar process lifecycle management (spawn, JSON-RPC communication, shutdown).
+- **`apps/ui/src-tauri/src/ai_agent.rs`**: Native Rust AI agent with direct Anthropic API integration, streaming support, and tool calling.
 - **`apps/ui/src-tauri/src/utils/parser.rs`**: OpenSCAD stderr parser (regex-based diagnostics extraction).
 - **`apps/ui/src-tauri/src/utils/cache.rs`**: Content-hash based render cache with validation.
-
-### AI Sidecar (Node.js)
-
-- **`apps/sidecar/src/agent-server.ts`**: Vercel AI SDK integration. Defines OpenSCAD tools, system prompt, JSON-RPC bridge to Rust.
 
 ## Development Workflow
 
 ### Prerequisites
 
 1. **OpenSCAD** installed and in PATH: `brew install openscad` (macOS)
-2. **Node.js** 18+ and **pnpm**: `npm install -g pnpm`
+2. **pnpm**: `npm install -g pnpm`
 3. **Rust** toolchain: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 
 ### Running the App
@@ -135,7 +125,6 @@ pnpm tauri:build
 ```bash
 pnpm dev                # Run UI dev server only
 pnpm build              # Build all packages
-pnpm build:sidecar      # Build AI sidecar only
 pnpm tauri:dev          # Run Tauri app in dev mode
 pnpm tauri:build        # Build production app
 pnpm lint               # Lint all workspaces
@@ -153,10 +142,10 @@ pnpm type-check         # Type check all workspaces
 
 ### Adding a New AI Tool
 
-1. Define tool in `apps/sidecar/src/agent-server.ts` (in `tools` object)
-2. Implement Rust handler in `apps/ui/src-tauri/src/cmd/ai_tools.rs`
-3. Handle JSON-RPC call in sidecar's `callRust()` function
-4. Update system prompt if needed
+1. Add tool definition in `apps/ui/src-tauri/src/ai_agent.rs` (`get_tool_definitions()` function)
+2. Implement handler function in the `execute_tool()` match statement
+3. Add Rust command handler in `apps/ui/src-tauri/src/cmd/ai_tools.rs` if needed
+4. Update system prompt in `build_system_prompt()` if needed
 
 ### Modifying the OpenSCAD Parser
 
@@ -174,8 +163,8 @@ pnpm type-check         # Type check all workspaces
 
 ### Security
 
-- **API keys**: NEVER store API keys in localStorage or renderer process. Use OS keychain via `keyring` crate.
-- **Sidecar isolation**: API keys injected via environment variables to sidecar process only.
+- **API keys**: NEVER store API keys in localStorage or renderer process. Use encrypted Tauri store (tauri-plugin-store).
+- **Backend isolation**: API keys only accessible from Rust backend code, never exposed to frontend.
 - **Diff validation**: All AI edits are validated (exact string match, max 120 lines) and test-compiled before acceptance.
 
 ### OpenSCAD Integration
@@ -228,7 +217,7 @@ pnpm type-check         # Type check all workspaces
 1. **Image caching**: Browser caches preview images. Use cache-busting query params (`?t=${timestamp}`)
 2. **OpenSCAD `--imgsize` format**: Must be `W,H` (comma), not `WxH` (x)
 3. **Monaco line numbers**: Line numbers in diagnostics are 1-indexed, Monaco uses 0-indexed
-4. **Sidecar shutdown**: Must explicitly kill sidecar process on app close (handled in `agent_sidecar.rs`)
+4. **Anthropic streaming**: The implementation currently loads the full response before processing (could be improved with true streaming)
 5. **Multi-file rendering**: `use`/`include` directives require `working_dir` parameter (derived from file path)
 
 ## Code Style

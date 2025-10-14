@@ -496,7 +496,7 @@ export function useAiAgent() {
         const provider = await invoke<string>('get_ai_provider');
         const apiKey = await invoke<string>('get_api_key');
         console.log('[useAiAgent] Got API key for provider:', provider);
-        await invoke('start_agent_sidecar', { apiKey, provider });
+        await invoke('start_ai_agent', { apiKey, provider });
         console.log('[useAiAgent] Sidecar started successfully');
         sidecarRef.current = true;
       } else {
@@ -508,7 +508,7 @@ export function useAiAgent() {
 
       // Send query to sidecar with full message history
       console.log('[useAiAgent] Sending query to sidecar with', legacyMessages.length, 'messages');
-      await invoke('send_agent_query', {
+      await invoke('send_ai_query', {
         messages: legacyMessages,
         mode,
       });
@@ -527,7 +527,7 @@ export function useAiAgent() {
   // Cancel streaming
   const cancelStream = useCallback(async () => {
     try {
-      await invoke('cancel_agent_stream');
+      await invoke('cancel_ai_stream');
       setState((prev) => ({
         ...prev,
         isStreaming: false,
