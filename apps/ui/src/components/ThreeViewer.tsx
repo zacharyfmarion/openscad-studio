@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { CameraControls, Grid, GizmoHelper, GizmoViewcube, OrthographicCamera, PerspectiveCamera, ContactShadows, Environment, Wireframe as DreiWireframe } from '@react-three/drei';
 import { STLLoader } from 'three-stdlib';
 import * as THREE from 'three';
-import { loadSettings } from '../stores/settingsStore';
-import { getTheme } from '../themes';
+import { useTheme } from '../contexts/ThemeContext';
 import { TbBox, TbBoxModel, TbSun, TbFocus2 } from 'react-icons/tb';
 
 interface ThreeViewerProps {
@@ -12,12 +11,7 @@ interface ThreeViewerProps {
   isLoading?: boolean;
 }
 
-function STLModel({ url, wireframe, meshRef }: { url: string; wireframe: boolean; meshRef: React.RefObject<THREE.Mesh> }) {
-  const [modelColor, setModelColor] = useState(() => {
-    const settings = loadSettings();
-    const theme = getTheme(settings.appearance.theme);
-    return theme.colors.accent.secondary;
-  });
+function STLModel({ url, wireframe, meshRef, modelColor }: { url: string; wireframe: boolean; meshRef: React.RefObject<THREE.Mesh>; modelColor: string }) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
 
   useEffect(() => {
@@ -34,17 +28,6 @@ function STLModel({ url, wireframe, meshRef }: { url: string; wireframe: boolean
       }
     );
   }, [url]);
-
-  // Update model color when theme changes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const settings = loadSettings();
-      const theme = getTheme(settings.appearance.theme);
-      setModelColor(theme.colors.accent.secondary);
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, []);
 
   if (!geometry) {
     return null;
@@ -82,16 +65,15 @@ function STLModel({ url, wireframe, meshRef }: { url: string; wireframe: boolean
 }
 
 export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
-  const [themeColors, setThemeColors] = useState(() => {
-    const settings = loadSettings();
-    const theme = getTheme(settings.appearance.theme);
-    return {
-      background: theme.colors.bg.primary,
-      grid: theme.colors.border.secondary,
-      gridSection: theme.colors.border.primary,
-      model: theme.colors.accent.secondary,
-    };
-  });
+  const { theme } = useTheme();
+
+  // Derive theme colors from context
+  const themeColors = useMemo(() => ({
+    background: theme.colors.bg.primary,
+    grid: theme.colors.border.secondary,
+    gridSection: theme.colors.border.primary,
+    model: theme.colors.accent.secondary,
+  }), [theme]);
 
   const [orthographic, setOrthographic] = useState(false);
   const [wireframe, setWireframe] = useState(false);
@@ -241,7 +223,7 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
         )}
 
         {/* STL Model */}
-        <STLModel url={stlPath} wireframe={wireframe} meshRef={meshRef} />
+        <STLModel url={stlPath} wireframe={wireframe} meshRef={meshRef} modelColor={themeColors.model} />
 
         {/* Camera Controls */}
         <CameraControls

@@ -296,20 +296,52 @@ export function useAiAgent() {
             break;
 
           case 'done':
+            console.log('[useAiAgent] ===== DONE EVENT RECEIVED =====');
+            console.log('[useAiAgent] streamBufferRef.current:', streamBufferRef.current);
+            console.log('[useAiAgent] currentToolCallsRef.current:', currentToolCallsRef.current);
+            console.log('[useAiAgent] lastModeRef.current:', lastModeRef.current);
+
+            // Capture ref values before resetting
+            const finalStreamBuffer = streamBufferRef.current;
+            const finalToolCalls = [...currentToolCallsRef.current];
+
             // Flush any remaining content
             setState((prev) => {
+              console.log('[useAiAgent] Current messages count before flush:', prev.messages.length);
+              console.log('[useAiAgent] Current streamingResponse:', prev.streamingResponse);
+
               const newMessages = [...prev.messages];
 
+              // Flush remaining tools if any
+              if (finalToolCalls.length > 0) {
+                console.log('[useAiAgent] Flushing', finalToolCalls.length, 'remaining tool calls');
+                const toolMessages = finalToolCalls.map(tool => ({
+                  type: 'tool-call' as const,
+                  id: crypto.randomUUID(),
+                  timestamp: Date.now(),
+                  toolName: tool.name,
+                  args: tool.args,
+                  completed: !!tool.result,
+                }));
+                newMessages.push(...toolMessages);
+              }
+
               // Flush remaining text if any
-              if (streamBufferRef.current && streamBufferRef.current.trim()) {
-                console.log('[useAiAgent] Flushing final text on done');
+              if (finalStreamBuffer && finalStreamBuffer.trim()) {
+                console.log('[useAiAgent] Flushing final text on done. Length:', finalStreamBuffer.length);
+                console.log('[useAiAgent] Final text content:', finalStreamBuffer);
                 newMessages.push({
                   type: 'assistant',
                   id: crypto.randomUUID(),
-                  content: streamBufferRef.current,
+                  content: finalStreamBuffer,
                   timestamp: Date.now(),
                 });
+              } else {
+                console.log('[useAiAgent] No text to flush (finalStreamBuffer is empty or whitespace)');
               }
+
+              console.log('[useAiAgent] Final messages count after flush:', newMessages.length);
+              console.log('[useAiAgent] Final messages:', newMessages.map(m => ({ type: m.type, id: m.id, content: 'content' in m ? m.content.substring(0, 50) : 'N/A' })));
 
               // Save conversation after adding message
               setTimeout(() => saveConversation(), 100);
@@ -323,10 +355,12 @@ export function useAiAgent() {
               };
             });
 
-            // Reset all refs
+            // Reset all refs AFTER capturing values
+            console.log('[useAiAgent] Resetting refs');
             streamBufferRef.current = '';
             currentToolCallsRef.current = [];
             lastModeRef.current = null;
+            console.log('[useAiAgent] ===== DONE EVENT PROCESSED =====');
             break;
         }
       });

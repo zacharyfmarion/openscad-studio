@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { loadSettings, saveSettings, type Settings } from '../stores/settingsStore';
-import { getAvailableThemes, getTheme, applyTheme } from '../themes';
+import { getAvailableThemes } from '../themes';
+import { useTheme } from '../contexts/ThemeContext';
 import { Button, Input, Select, Label, Toggle } from './ui';
 
 interface SettingsDialogProps {
@@ -15,6 +16,7 @@ type SettingsSection = 'appearance' | 'editor' | 'ai';
 export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDialogProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance');
   const [settings, setSettings] = useState<Settings>(loadSettings());
+  const { updateTheme } = useTheme();
   const availableThemes = getAvailableThemes();
 
   // AI Settings
@@ -64,13 +66,11 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
       },
     };
     setSettings(updated);
-    saveSettings(updated);
     onSettingsChange?.(updated);
 
-    // Apply theme immediately if changed
+    // Update theme via context (context handles persistence and applying CSS)
     if (key === 'theme') {
-      const theme = getTheme(value as string);
-      applyTheme(theme);
+      updateTheme(value as string);
     }
   };
 

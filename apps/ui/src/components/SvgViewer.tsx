@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { loadSettings } from '../stores/settingsStore';
-import { getTheme } from '../themes';
+import { useTheme } from '../contexts/ThemeContext';
 import { TbZoomIn, TbZoomOut, TbFocus2 } from 'react-icons/tb';
 
 interface SvgViewerProps {
@@ -11,30 +10,14 @@ interface SvgViewerProps {
 export function SvgViewer({ src }: SvgViewerProps) {
   const [svgContent, setSvgContent] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const [themeColors, setThemeColors] = useState(() => {
-    const settings = loadSettings();
-    const theme = getTheme(settings.appearance.theme);
-    return {
-      background: theme.colors.bg.primary,
-      stroke: theme.colors.accent.primary,
-      axes: theme.colors.border.secondary,
-    };
-  });
+  const { theme } = useTheme();
 
-  // Update colors when theme changes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const settings = loadSettings();
-      const theme = getTheme(settings.appearance.theme);
-      setThemeColors({
-        background: theme.colors.bg.primary,
-        stroke: theme.colors.accent.primary,
-        axes: theme.colors.border.secondary,
-      });
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, []);
+  // Derive theme colors from context
+  const themeColors = useMemo(() => ({
+    background: theme.colors.bg.primary,
+    stroke: theme.colors.accent.primary,
+    axes: theme.colors.border.secondary,
+  }), [theme]);
 
   // Load SVG content and inject axes
   useEffect(() => {

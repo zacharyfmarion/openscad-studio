@@ -4,7 +4,7 @@ import { Editor } from './components/Editor';
 import { Preview } from './components/Preview';
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
 import { ExportDialog } from './components/ExportDialog';
-import { AiPromptPanel } from './components/AiPromptPanel';
+import { AiPromptPanel, type AiPromptPanelRef } from './components/AiPromptPanel';
 import { DiffViewer } from './components/DiffViewer';
 import { SettingsDialog } from './components/SettingsDialog';
 import { WelcomeScreen, addToRecentFiles } from './components/WelcomeScreen';
@@ -19,7 +19,6 @@ import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { renderExact, type ExportFormat, updateEditorState } from './api/tauri';
 import { loadSettings, type Settings } from './stores/settingsStore';
 import { formatOpenScadCode } from './utils/openscadFormatter';
-import { getTheme, applyTheme } from './themes';
 import { TbSettings, TbBox, TbRuler2 } from 'react-icons/tb';
 
 // Helper to generate unique IDs for tabs
@@ -71,12 +70,7 @@ function App() {
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(true);
   const [settings, setSettings] = useState<Settings>(loadSettings());
-
-  // Apply theme on mount and when settings change
-  useEffect(() => {
-    const theme = getTheme(settings.appearance.theme);
-    applyTheme(theme);
-  }, [settings.appearance.theme]);
+  const aiPromptPanelRef = useRef<AiPromptPanelRef>(null);
 
   // AI Agent state
   const {
@@ -230,6 +224,10 @@ function App() {
         ? { ...tab, content, isDirty: content !== tab.savedContent }
         : tab
     ));
+  }, []);
+
+  const reorderTabs = useCallback((newTabs: Tab[]) => {
+    setTabs(newTabs);
   }, []);
 
   // Use refs to avoid stale closures in event listeners
@@ -678,10 +676,14 @@ function App() {
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // ⌘K or Ctrl+K to switch to AI tab
+      // ⌘K or Ctrl+K to switch to AI tab and focus prompt
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setShowAiPanel(true);
+        // Focus the prompt after panel is shown
+        setTimeout(() => {
+          aiPromptPanelRef.current?.focusPrompt();
+        }, 0);
       }
       // ⌘, or Ctrl+, to open settings
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
@@ -736,6 +738,7 @@ function App() {
               onTabClick={switchTab}
               onTabClose={closeTab}
               onNewTab={() => createNewTab()}
+              onReorderTabs={reorderTabs}
             />
           </div>
           <div className="flex items-center gap-2 px-4 py-2" style={{ borderBottom: '1px solid var(--border-primary)' }}>
@@ -871,6 +874,7 @@ function App() {
             <div className="flex-1 overflow-hidden">
               {showAiPanel ? (
                 <AiPromptPanel
+                  ref={aiPromptPanelRef}
                   onSubmit={submitPrompt}
                   isStreaming={isStreaming}
                   streamingResponse={streamingResponse}

@@ -36,7 +36,7 @@ export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent
         const files: RecentFile[] = JSON.parse(stored);
         // Sort by last opened, most recent first
         files.sort((a, b) => b.lastOpened - a.lastOpened);
-        setRecentFiles(files.slice(0, 5)); // Show max 5 recent files
+        setRecentFiles(files.slice(0, 3)); // Show max 3 recent files
       }
     } catch (err) {
       console.error('Failed to load recent files:', err);

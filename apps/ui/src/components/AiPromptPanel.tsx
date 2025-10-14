@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import type { Message } from '../hooks/useAiAgent';
 import { Button } from './ui';
 
@@ -14,7 +14,11 @@ interface AiPromptPanelProps {
   currentToolCalls?: import('../hooks/useAiAgent').ToolCall[];
 }
 
-export function AiPromptPanel({
+export interface AiPromptPanelRef {
+  focusPrompt: () => void;
+}
+
+export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
   onSubmit,
   isStreaming,
   streamingResponse,
@@ -22,10 +26,17 @@ export function AiPromptPanel({
   messages = [],
   onNewConversation,
   currentToolCalls = [],
-}: AiPromptPanelProps) {
+}, ref) => {
   const [prompt, setPrompt] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const responseRef = useRef<HTMLDivElement>(null);
+
+  // Expose focusPrompt method to parent
+  useImperativeHandle(ref, () => ({
+    focusPrompt: () => {
+      textareaRef.current?.focus();
+    }
+  }));
 
   // Auto-scroll to bottom when messages or streaming response changes
   useEffect(() => {
@@ -34,14 +45,29 @@ export function AiPromptPanel({
     }
   }, [messages, streamingResponse]);
 
+  // Log when messages or streamingResponse changes
+  useEffect(() => {
+    console.log('[AiPromptPanel] Messages updated. Count:', messages.length);
+    console.log('[AiPromptPanel] Messages:', messages.map(m => ({ type: m.type, id: m.id, content: 'content' in m ? (m.content as string).substring(0, 50) : 'N/A' })));
+  }, [messages]);
+
+  useEffect(() => {
+    console.log('[AiPromptPanel] streamingResponse updated:', streamingResponse ? streamingResponse.substring(0, 100) + '...' : null);
+  }, [streamingResponse]);
+
+  useEffect(() => {
+    console.log('[AiPromptPanel] currentToolCalls updated:', currentToolCalls);
+  }, [currentToolCalls]);
+
   const handleSubmit = () => {
     if (!prompt.trim() || isStreaming) return;
     onSubmit(prompt, 'edit');
+    setPrompt(''); // Clear input after submission
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Cmd+Enter / Ctrl+Enter to submit
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    // Enter to submit (unless Shift is held for newline)
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
     }
@@ -267,7 +293,7 @@ export function AiPromptPanel({
             variant="primary"
             onClick={handleSubmit}
             disabled={!prompt.trim()}
-            title="Submit prompt (⌘↵)"
+            title="Submit prompt (↵)"
             style={{
               opacity: !prompt.trim() ? 0.5 : 1,
               cursor: !prompt.trim() ? 'not-allowed' : 'pointer'
@@ -280,9 +306,9 @@ export function AiPromptPanel({
 
       {/* Help text */}
       <div className="px-4 py-2 text-xs" style={{ color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-primary)' }}>
-        <span className="font-medium">⌘↵</span> to submit • <span className="font-medium">Esc</span> to cancel •{' '}
+        <span className="font-medium">↵</span> to submit • <span className="font-medium">⇧↵</span> for newline • <span className="font-medium">Esc</span> to cancel •{' '}
         <span className="font-medium">⌘K</span> to focus prompt
       </div>
     </div>
   );
-}
+});
