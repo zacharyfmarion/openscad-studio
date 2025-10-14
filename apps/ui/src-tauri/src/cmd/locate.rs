@@ -45,25 +45,77 @@ pub async fn locate_openscad(
         }
         _ => {
             // Fallback: try common installation paths
-            let common_paths = if cfg!(target_os = "macos") {
-                vec![
+            if cfg!(target_os = "macos") {
+                // Check common OpenSCAD.app paths (including versioned installs)
+                let app_candidates = vec![
                     "/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD",
+                    "/Applications/OpenSCAD-2021.01.app/Contents/MacOS/OpenSCAD",
+                    "/Applications/OpenSCAD-2024.12.app/Contents/MacOS/OpenSCAD",
+                    "/Applications/OpenSCAD-nightly.app/Contents/MacOS/OpenSCAD",
+                ];
+
+                for path in app_candidates {
+                    if std::path::Path::new(path).exists() {
+                        return Ok(LocateOpenScadResponse {
+                            exe_path: path.to_string(),
+                        });
+                    }
+                }
+
+                // Check Homebrew paths
+                let homebrew_paths = vec![
+                    "/opt/homebrew/bin/openscad",
                     "/usr/local/bin/openscad",
-                ]
+                ];
+
+                for path in homebrew_paths {
+                    if std::path::Path::new(path).exists() {
+                        return Ok(LocateOpenScadResponse {
+                            exe_path: path.to_string(),
+                        });
+                    }
+                }
+
+                // Try scanning /Applications as last resort
+                if let Ok(entries) = std::fs::read_dir("/Applications") {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if let Some(name) = path.file_name() {
+                            let name_str = name.to_string_lossy();
+                            if name_str.starts_with("OpenSCAD")
+                                && name_str.ends_with(".app") {
+                                let exe_path = path.join("Contents/MacOS/OpenSCAD");
+                                if exe_path.exists() {
+                                    return Ok(LocateOpenScadResponse {
+                                        exe_path: exe_path.to_string_lossy().to_string(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
             } else if cfg!(target_os = "windows") {
-                vec![
+                let common_paths = vec![
                     "C:\\Program Files\\OpenSCAD\\openscad.exe",
                     "C:\\Program Files (x86)\\OpenSCAD\\openscad.exe",
-                ]
-            } else {
-                vec!["/usr/bin/openscad", "/usr/local/bin/openscad"]
-            };
+                ];
 
-            for path in common_paths {
-                if std::path::Path::new(path).exists() {
-                    return Ok(LocateOpenScadResponse {
-                        exe_path: path.to_string(),
-                    });
+                for path in common_paths {
+                    if std::path::Path::new(path).exists() {
+                        return Ok(LocateOpenScadResponse {
+                            exe_path: path.to_string(),
+                        });
+                    }
+                }
+            } else {
+                let common_paths = vec!["/usr/bin/openscad", "/usr/local/bin/openscad"];
+
+                for path in common_paths {
+                    if std::path::Path::new(path).exists() {
+                        return Ok(LocateOpenScadResponse {
+                            exe_path: path.to_string(),
+                        });
+                    }
                 }
             }
 

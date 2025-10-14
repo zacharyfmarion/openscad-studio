@@ -40,6 +40,48 @@ pub struct AgentSidecar {
 }
 
 impl AgentSidecar {
+    /// Find node executable in common locations
+    fn find_node() -> Result<String, String> {
+        // Try `which node` first (works in dev mode)
+        if let Ok(output) = std::process::Command::new("which").arg("node").output() {
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !path.is_empty() && std::path::Path::new(&path).exists() {
+                    return Ok(path);
+                }
+            }
+        }
+
+        // Check common node installation paths
+        let common_paths = vec![
+            "/usr/local/bin/node",
+            "/opt/homebrew/bin/node",
+            "/usr/bin/node",
+        ];
+
+        for path in common_paths {
+            if std::path::Path::new(path).exists() {
+                return Ok(path.to_string());
+            }
+        }
+
+        // Check nvm default path
+        if let Ok(home) = std::env::var("HOME") {
+            let nvm_default = format!("{}/.nvm/versions/node", home);
+            if let Ok(entries) = std::fs::read_dir(&nvm_default) {
+                // Find the first node version
+                for entry in entries.flatten() {
+                    let node_path = entry.path().join("bin/node");
+                    if node_path.exists() {
+                        return Ok(node_path.to_string_lossy().to_string());
+                    }
+                }
+            }
+        }
+
+        Err("Node.js not found. Please install Node.js from https://nodejs.org/ or ensure it's in your PATH.".to_string())
+    }
+
     pub async fn spawn(app_handle: &AppHandle, api_key: String, provider: String) -> Result<Self, String> {
         // Get path to sidecar executable
         // In dev mode, use source path. In production, use bundled resources.
@@ -86,6 +128,10 @@ impl AgentSidecar {
             ));
         }
 
+        // Find node executable
+        let node_path = Self::find_node()?;
+        println!("[Sidecar] Using node at: {:?}", node_path);
+
         // Spawn node process with API key and provider in environment
         println!("[Sidecar] Spawning Node process with provider: {}...", provider);
 
@@ -94,7 +140,7 @@ impl AgentSidecar {
             _ => "ANTHROPIC_API_KEY",
         };
 
-        let mut child = Command::new("node")
+        let mut child = Command::new(&node_path)
             .arg(&sidecar_path)
             .env(api_key_env, api_key)
             .env("AI_PROVIDER", &provider)

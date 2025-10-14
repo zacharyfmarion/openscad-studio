@@ -35,8 +35,8 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "../../sidecar/dist/*"
-    ]
+    "resources": {
+      "../../sidecar/dist": "sidecar/dist"
+    }
   }
 }
