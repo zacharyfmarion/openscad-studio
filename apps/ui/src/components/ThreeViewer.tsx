@@ -88,22 +88,6 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
     }
   };
 
-  // Update colors when theme changes (check periodically)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const settings = loadSettings();
-      const theme = getTheme(settings.appearance.theme);
-      setThemeColors({
-        background: theme.colors.bg.primary,
-        grid: theme.colors.border.secondary,
-        gridSection: theme.colors.border.primary,
-        model: theme.colors.accent.secondary,
-      });
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, []);
-
   if (isLoading) {
     return (
       <div

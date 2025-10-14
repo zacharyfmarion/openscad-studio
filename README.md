@@ -1,26 +1,59 @@
-# OpenSCAD Copilot
+<p align="center">
+  <img src="images/icon.png" alt="OpenSCAD Studio" width="128" height="128">
+</p>
 
-A modern cross-platform OpenSCAD editor with live preview and AI copilot, built with Tauri + React.
+<h1 align="center">OpenSCAD Studio</h1>
 
-## Features
+<p align="center">
+  <strong>A modern cross-platform OpenSCAD editor with live preview and AI copilot</strong>
+</p>
 
-### Current (Phase 1 - Vertical Slice)
-- ✅ Monaco code editor with OpenSCAD syntax highlighting
-- ✅ Live preview with debounced rendering (300ms)
-- ✅ Error/warning diagnostics with inline markers
-- ✅ Auto-detect OpenSCAD installation
-- ✅ Cross-platform (macOS, Windows, Linux)
+<p align="center">
+  <img src="https://img.shields.io/badge/version-0.1.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
+  <img src="https://img.shields.io/badge/Tauri-2.0-24C8DB.svg" alt="Tauri">
+  <img src="https://img.shields.io/badge/React-19-61DAFB.svg" alt="React">
+  <img src="https://img.shields.io/badge/Rust-1.82+-000000.svg" alt="Rust">
+</p>
 
-### Coming Soon
-- Three.js interactive 3D mesh viewer
-- Backend detection (Manifold vs CGAL)
-- 2D SVG preview mode
-- LLM copilot for code generation & editing
-- Export to STL, OBJ, AMF, 3MF, DXF
-- Project file management
-- Diff-based AI suggestions with rollback
+---
 
-## Prerequisites
+<p align="center">
+  <img src="images/example.png" alt="OpenSCAD Studio Screenshot" width="100%">
+</p>
+
+## ✨ Features
+
+### 🎨 Editor
+- **Monaco Editor** with custom OpenSCAD syntax highlighting
+- **Multi-tab editing** with drag-and-drop reordering
+- **Auto-save** and unsaved changes tracking
+- **Format on save** with configurable indentation
+- **Keyboard shortcuts** for common operations
+
+### 🖼️ Preview
+- **Live 3D mesh viewer** with orbit controls (Three.js + STL)
+- **Fast PNG preview** while typing (< 500ms)
+- **2D SVG mode** for 2D designs
+- **Auto-detect dimension mode** (2D vs 3D)
+- **Content-hash caching** for instant re-renders
+
+### 🤖 AI Copilot
+- **Diff-based editing** with validation and rollback
+- **Streaming responses** with real-time tool visualization
+- **Security-first** architecture (API keys in OS keychain)
+- **Test compilation** before accepting changes
+- **Multi-turn conversations** with context preservation
+
+### 🚀 Export & Diagnostics
+- **Export to multiple formats**: STL, OBJ, AMF, 3MF, PNG, SVG, DXF
+- **Real-time error diagnostics** with inline markers
+- **OpenSCAD stderr parsing** with line/column precision
+- **Auto-detect OpenSCAD** installation
+
+## 📦 Installation
+
+### Prerequisites
 
 1. **OpenSCAD** must be installed and available in your PATH
    - Download from https://openscad.org/
@@ -29,97 +62,114 @@ A modern cross-platform OpenSCAD editor with live preview and AI copilot, built 
      - Ubuntu: `sudo apt install openscad`
      - Windows: Download installer from website
 
-2. **Node.js** 18+ and **pnpm**
-   ```bash
-   npm install -g pnpm
-   ```
+2. For development, you'll need:
+   - **Node.js** 18+ and **pnpm**
+     ```bash
+     npm install -g pnpm
+     ```
+   - **Rust** toolchain (for building Tauri backend)
+     ```bash
+     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+     ```
 
-3. **Rust** toolchain (for building Tauri backend)
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   ```
-
-## Development
+### Development
 
 ```bash
 # Install dependencies
 pnpm install
 
-# Run in development mode
+# Run in development mode (with hot reload)
 pnpm tauri:dev
 
 # Build for production
 pnpm tauri:build
 ```
 
-## Project Structure
+The built application will be in `apps/ui/src-tauri/target/release/bundle/`.
+
+## 🏗️ Project Structure
 
 ```
-openscad-copilot/
+openscad-studio/
 ├── apps/
-│   ├── ui/                 # React + Vite frontend
+│   ├── ui/                      # React + Vite frontend
 │   │   ├── src/
-│   │   │   ├── api/        # Tauri IPC wrappers
-│   │   │   ├── components/ # React components
-│   │   │   ├── hooks/      # Custom React hooks
-│   │   │   └── lib/        # Utilities
-│   │   └── package.json
-│   └── tauri/
-│       └── src-tauri/      # Rust backend
-│           ├── src/
-│           │   ├── cmd/    # Tauri commands
-│           │   ├── types/  # Rust type definitions
-│           │   └── utils/  # Utilities (parser, cache, etc)
-│           └── Cargo.toml
+│   │   │   ├── api/             # Tauri IPC wrappers
+│   │   │   ├── components/      # React components
+│   │   │   ├── hooks/           # Custom React hooks (useOpenScad, useAiAgent)
+│   │   │   ├── stores/          # State management
+│   │   │   └── themes/          # Theme definitions
+│   │   └── src-tauri/           # Rust backend
+│   │       ├── src/
+│   │       │   ├── cmd/         # Tauri commands (render, AI tools)
+│   │       │   └── utils/       # OpenSCAD parser, caching
+│   │       └── Cargo.toml
+│   └── sidecar/                 # AI Agent sidecar (Node.js)
+│       └── src/
+│           └── agent-server.ts  # Vercel AI SDK + tools
 └── packages/
-    └── shared/             # Zod schemas (shared TS types)
+    └── shared/                  # Shared TypeScript types (Zod schemas)
 ```
 
-## Architecture
+## 🤖 AI Copilot Setup
 
-### Frontend (React + Monaco + Tailwind)
-- Monaco editor with custom OpenSCAD language support
-- Debounced rendering to avoid overwhelming OpenSCAD process
-- Diagnostics panel showing errors/warnings from OpenSCAD stderr
-- Preview pane displaying rendered PNG output
+The AI copilot uses a secure sidecar architecture with API keys stored in your OS keychain.
 
-### Backend (Rust + Tauri)
-- Spawns OpenSCAD as subprocess for each render
-- Parses stderr for diagnostics using regex
-- Manages temp files in app cache directory
-- Future: caching, debouncing, LLM integration
+1. Open Settings (⌘,)
+2. Navigate to "AI" tab
+3. Enter your Anthropic API key
+4. Key is securely stored in macOS Keychain / Windows Credential Manager / Linux Secret Service
 
-### IPC Commands
-- `locate_openscad` - Auto-detect OpenSCAD installation
-- `render_preview` - Generate preview PNG/SVG
-- `detect_backend` - Check for Manifold support (coming soon)
+**Supported Providers:**
+- Anthropic (Claude Sonnet 4.5) - default
+- OpenAI (GPT-4) - set `AI_PROVIDER=openai` environment variable
 
-## Roadmap
+The AI can:
+- View your current code and preview
+- Make targeted code changes with exact string replacement
+- Check for compilation errors
+- All edits are validated and test-compiled before acceptance
 
-### Phase 2: Advanced Rendering
-- Interactive 3D mesh viewer (Three.js + STL loader)
-- Backend detection and selection (Manifold/CGAL)
-- 2D mode with SVG output
-- Performance optimizations (caching, resolution scaling)
+## 📚 Documentation
 
-### Phase 3: LLM Copilot
-- Server-side LLM integration (OpenAI/Anthropic)
-- Diff-based code suggestions
-- Safe apply/rollback workflow
-- Context-aware prompting
-- "Add", "Modify", "Explain" modes
+- **[CLAUDE.md](CLAUDE.md)** - Comprehensive guide for AI assistants and contributors
+- **[AGENTS.md](AGENTS.md)** - AI agent architecture and tool definitions
+- **[ROADMAP.md](ROADMAP.md)** - Detailed development roadmap with phases
 
-### Phase 4: Production Polish
-- Project management (multi-file support)
-- Advanced editor features (formatting, linting)
-- Measurement tools in 3D viewer
-- Export to multiple formats
-- E2E testing
+## 🗺️ Roadmap
 
-## License
+- ✅ **Phase 1-2 (Completed)**: Monaco editor, live preview, 3D viewer, export, caching
+- 🚧 **Phase 3 (In Progress)**: AI copilot with sidecar architecture
+- 🔜 **Phase 4 (Planned)**: Multi-file projects, testing, distribution
 
-MIT
+See [ROADMAP.md](ROADMAP.md) for detailed breakdown.
 
-## Contributing
+## 🤝 Contributing
 
-Contributions welcome! Please open an issue first to discuss major changes.
+Contributions are welcome! Please:
+
+1. Check existing issues or create a new one to discuss your idea
+2. Fork the repository and create a feature branch
+3. Follow the code style (rustfmt for Rust, prettier for TypeScript)
+4. Update documentation as needed
+5. Submit a pull request
+
+For detailed development guidelines, see [CLAUDE.md](CLAUDE.md).
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## 🙏 Acknowledgments
+
+Built with:
+- [Tauri](https://tauri.app/) - Rust-powered desktop framework
+- [React](https://react.dev/) - UI framework
+- [Monaco Editor](https://microsoft.github.io/monaco-editor/) - Code editor
+- [Three.js](https://threejs.org/) - 3D rendering
+- [Vercel AI SDK](https://sdk.vercel.ai/) - AI agent framework
+- [OpenSCAD](https://openscad.org/) - The amazing CSG tool this editor is built for
+
+---
+
+**Made with ❤️ for the OpenSCAD community**
