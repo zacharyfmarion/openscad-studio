@@ -139,22 +139,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 EOF
 fi
 
-# Prepare changelog entry
-CHANGELOG_ENTRY="## [$NEW_VERSION] - $TODAY
+# Prepare changelog entry using a temporary file
+TEMP_ENTRY=$(mktemp)
+cat > "$TEMP_ENTRY" <<EOF
+## [$NEW_VERSION] - $TODAY
 
 $RELEASE_NOTES
 
-"
+EOF
 
-# Insert after the header (after the first occurrence of "##" or at the end of the preamble)
+# Insert the new entry into CHANGELOG
 if grep -q "^## \[" "$CHANGELOG_FILE"; then
     # Insert before the first existing version entry
-    awk -v entry="$CHANGELOG_ENTRY" '/^## \[/ && !inserted { print entry; inserted=1 } 1' "$CHANGELOG_FILE" > "$CHANGELOG_FILE.tmp"
-    mv "$CHANGELOG_FILE.tmp" "$CHANGELOG_FILE"
+    TEMP_CHANGELOG=$(mktemp)
+    awk '
+        /^## \[/ && !inserted {
+            while ((getline line < "'"$TEMP_ENTRY"'") > 0) {
+                print line
+            }
+            close("'"$TEMP_ENTRY"'")
+            inserted = 1
+        }
+        { print }
+    ' "$CHANGELOG_FILE" > "$TEMP_CHANGELOG"
+    mv "$TEMP_CHANGELOG" "$CHANGELOG_FILE"
 else
     # No previous entries, append after preamble
-    echo "$CHANGELOG_ENTRY" >> "$CHANGELOG_FILE"
+    cat "$TEMP_ENTRY" >> "$CHANGELOG_FILE"
 fi
+
+# Clean up temp file
+rm -f "$TEMP_ENTRY"
 
 success "CHANGELOG.md updated"
 
