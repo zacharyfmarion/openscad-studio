@@ -173,6 +173,19 @@ rm -f "$TEMP_ENTRY"
 
 success "CHANGELOG.md updated"
 
+# Update website download links
+info "Updating website download links..."
+WEBSITE_FILE="docs/index.html"
+if [ -f "$WEBSITE_FILE" ]; then
+    # Update download links to point to new version
+    # Pattern: releases/download/v{VERSION}/OpenSCAD-Studio-{VERSION}-aarch64.dmg
+    sed -i.bak "s|releases/download/v[0-9]*\.[0-9]*\.[0-9]*/OpenSCAD-Studio-[0-9]*\.[0-9]*\.[0-9]*-aarch64\.dmg|releases/download/v$NEW_VERSION/OpenSCAD-Studio-$NEW_VERSION-aarch64.dmg|g" "$WEBSITE_FILE"
+    rm -f "$WEBSITE_FILE.bak"
+    success "Website download links updated"
+else
+    warn "Website file not found at $WEBSITE_FILE, skipping"
+fi
+
 # Fix .gitignore to allow Cargo.lock for Tauri app (application should track Cargo.lock)
 info "Updating .gitignore to track Tauri app's Cargo.lock..."
 if grep -q "^Cargo.lock$" .gitignore; then
@@ -193,13 +206,13 @@ if pnpm tauri:build; then
 else
     # Revert version changes if build fails
     warn "Build failed. Reverting version changes..."
-    git checkout package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock CHANGELOG.md .gitignore 2>/dev/null || true
+    git checkout package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock CHANGELOG.md .gitignore docs/index.html 2>/dev/null || true
     error "Build failed. All changes have been reverted. Please fix the build errors and try again."
 fi
 
 # Commit version bump
 info "Committing version bump..."
-git add package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock CHANGELOG.md .gitignore
+git add package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock CHANGELOG.md .gitignore docs/index.html
 git commit -m "chore: bump version to $NEW_VERSION"
 success "Version bump committed"
 
