@@ -260,6 +260,9 @@ info "Creating GitHub release..."
 # Prepare release notes for GitHub (escape special characters)
 GITHUB_NOTES=$(echo "$RELEASE_NOTES" | sed 's/"/\\"/g')
 
+# Unset GH_HOST to avoid conflicts with git remotes
+unset GH_HOST
+
 # Create release with gh CLI
 if [ ${#ARTIFACTS[@]} -eq 0 ]; then
     # Create release without artifacts
