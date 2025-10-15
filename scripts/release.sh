@@ -184,6 +184,19 @@ else
     info ".gitignore already configured correctly for Cargo.lock"
 fi
 
+# Build the application BEFORE committing/tagging (verify it works first)
+info "Building application for release..."
+info "This may take several minutes..."
+
+if pnpm tauri:build; then
+    success "Application built successfully"
+else
+    # Revert version changes if build fails
+    warn "Build failed. Reverting version changes..."
+    git checkout package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock CHANGELOG.md .gitignore 2>/dev/null || true
+    error "Build failed. All changes have been reverted. Please fix the build errors and try again."
+fi
+
 # Commit version bump
 info "Committing version bump..."
 git add package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock CHANGELOG.md .gitignore
@@ -200,16 +213,6 @@ info "Pushing to remote..."
 git push origin "$CURRENT_BRANCH"
 git push origin "v$NEW_VERSION"
 success "Changes and tag pushed to remote"
-
-# Build the application
-info "Building application for release..."
-info "This may take several minutes..."
-
-if pnpm tauri:build; then
-    success "Application built successfully"
-else
-    error "Build failed. Please check the errors above."
-fi
 
 # Find the built artifacts
 TAURI_DIR="apps/ui/src-tauri"
