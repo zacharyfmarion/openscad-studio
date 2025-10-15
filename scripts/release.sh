@@ -205,7 +205,7 @@ success "Changes and tag pushed to remote"
 info "Building application for release..."
 info "This may take several minutes..."
 
-if pnpm tauri build; then
+if pnpm tauri:build; then
     success "Application built successfully"
 else
     error "Build failed. Please check the errors above."
