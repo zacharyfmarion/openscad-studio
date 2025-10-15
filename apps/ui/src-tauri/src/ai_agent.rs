@@ -140,13 +140,31 @@ async fn execute_tool(tool_name: &str, args: Value, app: &AppHandle) -> Result<S
 
             if !result.success {
                 let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+
+                // Format diagnostics in a readable way (same format as get_diagnostics)
                 let diag_text = if !result.diagnostics.is_empty() {
-                    format!("\n\nNew errors:\n{}", serde_json::to_string_pretty(&result.diagnostics).unwrap_or_default())
+                    let formatted: Vec<String> = result.diagnostics
+                        .iter()
+                        .map(|d| {
+                            let location = if let Some(line) = d.line {
+                                if let Some(col) = d.col {
+                                    format!(" (line {}, col {})", line, col)
+                                } else {
+                                    format!(" (line {})", line)
+                                }
+                            } else {
+                                String::new()
+                            };
+                            format!("  [{:?}]{}: {}", d.severity, location, d.message)
+                        })
+                        .collect();
+                    format!("\n\nCompilation errors after applying edit:\n{}", formatted.join("\n"))
                 } else {
                     String::new()
                 };
+
                 Ok(format!(
-                    "❌ Failed to apply edit: {}{}\n\nRationale: {}\n\nThe edit was rolled back. No changes were made.",
+                    "❌ Failed to apply edit: {}{}\n\nRationale: {}\n\nThe edit was rolled back. No changes were made. Please fix the errors and try again.",
                     error_msg, diag_text, rationale
                 ))
             } else {
@@ -268,6 +286,7 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
 pub struct AiAgentState {
     pub api_key: Arc<Mutex<Option<String>>>,
     pub provider: Arc<Mutex<String>>,
+    pub model: Arc<Mutex<String>>,
 }
 
 impl AiAgentState {
@@ -275,6 +294,7 @@ impl AiAgentState {
         Self {
             api_key: Arc::new(Mutex::new(None)),
             provider: Arc::new(Mutex::new("anthropic".to_string())),
+            model: Arc::new(Mutex::new("claude-sonnet-4-5-20250929".to_string())),
         }
     }
 }
@@ -304,6 +324,24 @@ pub async fn stop_ai_agent(state: State<'_, AiAgentState>) -> Result<(), String>
     Ok(())
 }
 
+/// Get current AI model
+#[tauri::command]
+pub async fn get_ai_model(state: State<'_, AiAgentState>) -> Result<String, String> {
+    let model = state.model.lock().await.clone();
+    Ok(model)
+}
+
+/// Set AI model
+#[tauri::command]
+pub async fn set_ai_model(
+    model: String,
+    state: State<'_, AiAgentState>,
+) -> Result<(), String> {
+    eprintln!("[AI Agent] Setting model: {}", model);
+    *state.model.lock().await = model;
+    Ok(())
+}
+
 /// Send query to AI agent with streaming response
 #[tauri::command]
 pub async fn send_ai_query(
@@ -313,7 +351,7 @@ pub async fn send_ai_query(
 ) -> Result<(), String> {
     eprintln!("[AI Agent] Received query with {} messages", messages.len());
 
-    // Get API key and provider
+    // Get API key, provider, and model
     let api_key = ai_state
         .api_key
         .lock()
@@ -322,14 +360,15 @@ pub async fn send_ai_query(
         .ok_or("AI agent not started. Please configure API key in settings.")?;
 
     let provider = ai_state.provider.lock().await.clone();
+    let model = ai_state.model.lock().await.clone();
 
     // Spawn background task for streaming
     tokio::spawn(async move {
         let app_for_error = app.clone();
         let result = if provider == "openai" {
-            run_openai_query(app, messages, api_key).await
+            run_openai_query(app, messages, api_key, model).await
         } else {
-            run_ai_query(app, messages, api_key).await
+            run_ai_query(app, messages, api_key, model).await
         };
 
         if let Err(e) = result {
@@ -349,8 +388,8 @@ pub async fn send_ai_query(
 }
 
 /// Run AI query with streaming (background task) - supports multi-turn tool calling
-async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String) -> Result<(), String> {
-    eprintln!("[AI Agent] Starting API call to Anthropic");
+async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String, model: String) -> Result<(), String> {
+    eprintln!("[AI Agent] Starting API call to Anthropic with model: {}", model);
 
     // Convert messages to Anthropic format
     let mut api_messages = vec![];
@@ -365,7 +404,7 @@ async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String) -
     loop {
         // Build request
         let request_body = json!({
-            "model": "claude-sonnet-4-20250514",
+            "model": model,
             "max_tokens": 8000,
             "system": build_system_prompt(),
             "messages": api_messages.clone(),
@@ -612,9 +651,9 @@ async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String) -
     Ok(())
 }
 
-/// Run OpenAI query with streaming (background task)
-async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: String) -> Result<(), String> {
-    eprintln!("[AI Agent] Starting API call to OpenAI");
+/// Run OpenAI query with streaming (background task) - supports multi-turn tool calling
+async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: String, model: String) -> Result<(), String> {
+    eprintln!("[AI Agent] Starting API call to OpenAI with model: {}", model);
 
     // Convert messages to OpenAI format
     let mut api_messages = vec![];
@@ -625,12 +664,12 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
         }));
     }
 
-    // Build messages array
+    // Build messages array with system prompt
     let mut all_messages = vec![json!({
         "role": "system",
         "content": build_system_prompt()
     })];
-    all_messages.extend(api_messages);
+    all_messages.extend(api_messages.clone());
 
     // Build tools array
     let tools: Vec<Value> = get_tool_definitions().iter().map(|t| json!({
@@ -642,36 +681,42 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
         }
     })).collect();
 
-    // Build request
-    let request_body = json!({
-        "model": "gpt-4-turbo-preview",
-        "messages": all_messages,
-        "tools": tools,
-        "stream": true
-    });
+    // Multi-turn conversation loop
+    loop {
+        // Build request
+        let request_body = json!({
+            "model": model,
+            "messages": all_messages.clone(),
+            "tools": tools,
+            "stream": true
+        });
 
-    eprintln!("[AI Agent] Sending request to OpenAI API");
+        eprintln!("[AI Agent] Sending request to OpenAI API (conversation turn)");
 
-    let client = reqwest::Client::new();
-    let response = client
-        .post("https://api.openai.com/v1/chat/completions")
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("content-type", "application/json")
-        .json(&request_body)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to send request: {}", e))?;
+        let client = reqwest::Client::new();
+        let response = client
+            .post("https://api.openai.com/v1/chat/completions")
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("content-type", "application/json")
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to send request: {}", e))?;
 
-    if !response.status().is_success() {
-        let error_text = response.text().await.unwrap_or_default();
-        return Err(format!("API error: {}", error_text));
-    }
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(format!("API error: {}", error_text));
+        }
 
-    eprintln!("[AI Agent] Processing streaming response");
+        eprintln!("[AI Agent] Processing streaming response");
 
-    // Process streaming response incrementally
-    let mut stream = response.bytes_stream();
-    let mut buffer = String::new();
+        // Process streaming response incrementally
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+
+        // Track tool calls by index (OpenAI streams them incrementally)
+        let mut tool_calls: std::collections::HashMap<usize, (String, String)> = std::collections::HashMap::new();
+        let mut tool_call_emitted: std::collections::HashSet<usize> = std::collections::HashSet::new();
 
     while let Some(chunk_result) = stream.next().await {
         let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
@@ -693,11 +738,11 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
             }
 
             if let Ok(event) = serde_json::from_str::<Value>(data) {
-                if let Some(choices) = event["choices"].as_array() {
+                if let Some(choices) = event.get("choices").and_then(|v| v.as_array()) {
                     if let Some(choice) = choices.first() {
-                        if let Some(delta) = choice["delta"].as_object() {
+                        if let Some(delta) = choice.get("delta").and_then(|v| v.as_object()) {
                             // Handle text content
-                            if let Some(content) = delta["content"].as_str() {
+                            if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
                                 eprintln!("[AI Agent] Text delta: {}", content);
                                 let _ = app.emit("ai-stream", StreamEvent {
                                     event_type: "text".to_string(),
@@ -709,50 +754,38 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
                                 });
                             }
 
-                            // Handle tool calls
-                            if let Some(tool_calls) = delta["tool_calls"].as_array() {
-                                for tool_call in tool_calls {
-                                    if let Some(function) = tool_call["function"].as_object() {
-                                        if let Some(name) = function["name"].as_str() {
-                                            eprintln!("[AI Agent] Tool call: {}", name);
+                            // Handle tool calls (streamed incrementally)
+                            if let Some(tool_calls_delta) = delta.get("tool_calls").and_then(|v| v.as_array()) {
+                                for tool_call in tool_calls_delta {
+                                    if let Some(index) = tool_call.get("index").and_then(|v| v.as_u64()) {
+                                        let index = index as usize;
 
-                                            // Execute tool immediately with arguments
-                                            if let Some(args_str) = function["arguments"].as_str() {
-                                                if let Ok(args) = serde_json::from_str::<Value>(args_str) {
+                                        // Get or create entry for this tool call
+                                        let entry = tool_calls.entry(index).or_insert((String::new(), String::new()));
+
+                                        // Update name if provided
+                                        if let Some(function) = tool_call.get("function").and_then(|v| v.as_object()) {
+                                            if let Some(name) = function.get("name").and_then(|v| v.as_str()) {
+                                                entry.0 = name.to_string();
+
+                                                // Emit tool-call event when we first see the name
+                                                if !tool_call_emitted.contains(&index) {
+                                                    eprintln!("[AI Agent] Tool call started: {}", name);
                                                     let _ = app.emit("ai-stream", StreamEvent {
                                                         event_type: "tool-call".to_string(),
                                                         content: None,
                                                         tool_name: Some(name.to_string()),
-                                                        args: Some(args.clone()),
+                                                        args: Some(json!({})),
                                                         result: None,
                                                         error: None,
                                                     });
-
-                                                    match execute_tool(name, args, &app).await {
-                                                        Ok(result) => {
-                                                            eprintln!("[AI Agent] Tool result: {}", &result[..result.len().min(100)]);
-                                                            let _ = app.emit("ai-stream", StreamEvent {
-                                                                event_type: "tool-result".to_string(),
-                                                                content: None,
-                                                                tool_name: Some(name.to_string()),
-                                                                args: None,
-                                                                result: Some(json!(result)),
-                                                                error: None,
-                                                            });
-                                                        }
-                                                        Err(e) => {
-                                                            eprintln!("[AI Agent] Tool error: {}", e);
-                                                            let _ = app.emit("ai-stream", StreamEvent {
-                                                                event_type: "error".to_string(),
-                                                                content: None,
-                                                                tool_name: None,
-                                                                args: None,
-                                                                result: None,
-                                                                error: Some(format!("Tool execution failed: {}", e)),
-                                                            });
-                                                        }
-                                                    }
+                                                    tool_call_emitted.insert(index);
                                                 }
+                                            }
+
+                                            // Accumulate arguments
+                                            if let Some(args_delta) = function.get("arguments").and_then(|v| v.as_str()) {
+                                                entry.1.push_str(args_delta);
                                             }
                                         }
                                     }
@@ -765,9 +798,95 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
         }
     }
 
-    eprintln!("[AI Agent] Stream processing complete");
+        eprintln!("[AI Agent] Stream processing complete");
 
-    // Send done event
+        // Execute all accumulated tool calls and prepare for next turn
+        if !tool_calls.is_empty() {
+            eprintln!("[AI Agent] Continuing conversation with {} tool calls", tool_calls.len());
+
+            // Build assistant message with tool calls
+            let tool_calls_json: Vec<Value> = tool_calls.iter()
+                .map(|(index, (name, args_str))| {
+                    json!({
+                        "id": format!("call_{}", index),
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "arguments": args_str
+                        }
+                    })
+                })
+                .collect();
+
+            all_messages.push(json!({
+                "role": "assistant",
+                "content": null,
+                "tool_calls": tool_calls_json
+            }));
+
+            // Execute tools and collect results
+            for (index, (name, args_str)) in tool_calls.iter() {
+                eprintln!("[AI Agent] Executing tool #{}: {} with args: {}", index, name, args_str);
+
+                let args: Value = if args_str.is_empty() {
+                    json!({})
+                } else {
+                    serde_json::from_str(args_str).unwrap_or_else(|e| {
+                        eprintln!("[AI Agent] Failed to parse tool arguments: {}", e);
+                        json!({})
+                    })
+                };
+
+                match execute_tool(name, args, &app).await {
+                    Ok(result) => {
+                        eprintln!("[AI Agent] Tool result: {}", &result[..result.len().min(100)]);
+                        let _ = app.emit("ai-stream", StreamEvent {
+                            event_type: "tool-result".to_string(),
+                            content: None,
+                            tool_name: Some(name.to_string()),
+                            args: None,
+                            result: Some(json!(result.clone())),
+                            error: None,
+                        });
+
+                        // Add tool result message
+                        all_messages.push(json!({
+                            "role": "tool",
+                            "tool_call_id": format!("call_{}", index),
+                            "content": result
+                        }));
+                    }
+                    Err(e) => {
+                        eprintln!("[AI Agent] Tool error: {}", e);
+                        let _ = app.emit("ai-stream", StreamEvent {
+                            event_type: "error".to_string(),
+                            content: None,
+                            tool_name: None,
+                            args: None,
+                            result: None,
+                            error: Some(format!("Tool execution failed: {}", e)),
+                        });
+
+                        // Add error as tool result
+                        all_messages.push(json!({
+                            "role": "tool",
+                            "tool_call_id": format!("call_{}", index),
+                            "content": format!("Error: {}", e)
+                        }));
+                    }
+                }
+            }
+
+            // Continue loop to get AI's response to tool results
+            continue;
+        } else {
+            // No tools used, conversation complete
+            eprintln!("[AI Agent] No tool use detected, ending conversation");
+            break;
+        }
+    } // End of loop
+
+    // Send final done event
     let _ = app.emit("ai-stream", StreamEvent {
         event_type: "done".to_string(),
         content: None,

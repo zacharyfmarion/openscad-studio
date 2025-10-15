@@ -21,12 +21,31 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
 
   // AI Settings
   const [provider, setProvider] = useState<'anthropic' | 'openai'>('anthropic');
+  const [model, setModel] = useState('claude-sonnet-4-5-20250929');
   const [apiKey, setApiKey] = useState('');
   const [hasKey, setHasKey] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
+
+  // Model options (Updated 2025-10)
+  const anthropicModels = [
+    { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5 (Latest - Best for coding)' },
+    { value: 'claude-opus-4-1-20250805', label: 'Claude Opus 4.1 (Best for complex tasks)' },
+    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Fastest)' },
+    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (October)' },
+    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet (June)' },
+    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+  ];
+
+  const openaiModels = [
+    { value: 'gpt-4o', label: 'GPT-4o (Latest - Multimodal)' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Affordable)' },
+    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+    { value: 'gpt-4', label: 'GPT-4' },
+    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+  ];
 
   // Load settings when dialog opens
   useEffect(() => {
@@ -40,6 +59,9 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
     try {
       const currentProvider = await invoke<string>('get_ai_provider');
       setProvider(currentProvider as 'anthropic' | 'openai');
+
+      const currentModel = await invoke<string>('get_ai_model');
+      setModel(currentModel);
 
       const exists = await invoke<boolean>('has_api_key');
       setHasKey(exists);
@@ -102,7 +124,8 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
 
     try {
       await invoke('store_api_key', { provider, key: apiKey });
-      setSuccessMessage('API key saved successfully!');
+      await invoke('set_ai_model', { model });
+      setSuccessMessage('Settings saved successfully!');
       setHasKey(true);
       setApiKey('••••••••••••••••••••••••••••••••••••••••••••');
       setShowKey(false);
@@ -110,7 +133,7 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
         setSuccessMessage(null);
       }, 3000);
     } catch (err) {
-      setError(`Failed to save API key: ${err}`);
+      setError(`Failed to save settings: ${err}`);
     } finally {
       setIsLoading(false);
     }
@@ -142,6 +165,17 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
   const handleChangeKey = () => {
     setApiKey('');
     setShowKey(true);
+  };
+
+  const handleProviderChange = (newProvider: 'anthropic' | 'openai') => {
+    setProvider(newProvider);
+    // Set default model for new provider
+    const defaultModel = newProvider === 'anthropic'
+      ? 'claude-sonnet-4-5-20250929'
+      : 'gpt-4o';
+    setModel(defaultModel);
+    setApiKey('');
+    setShowKey(false);
   };
 
   if (!isOpen) return null;
@@ -280,15 +314,29 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                   <Label>AI Provider</Label>
                   <Select
                     value={provider}
-                    onChange={(e) => {
-                      setProvider(e.target.value as 'anthropic' | 'openai');
-                      setApiKey('');
-                      setShowKey(false);
-                    }}
+                    onChange={(e) => handleProviderChange(e.target.value as 'anthropic' | 'openai')}
                     disabled={isLoading}
                   >
                     <option value="anthropic">Anthropic (Claude)</option>
                     <option value="openai">OpenAI (GPT)</option>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Model</Label>
+                  <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
+                    Select which AI model to use for code generation
+                  </p>
+                  <Select
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    disabled={isLoading}
+                  >
+                    {(provider === 'anthropic' ? anthropicModels : openaiModels).map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
                   </Select>
                 </div>
 
