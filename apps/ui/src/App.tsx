@@ -8,6 +8,7 @@ import { AiPromptPanel, type AiPromptPanelRef } from './components/AiPromptPanel
 import { DiffViewer } from './components/DiffViewer';
 import { SettingsDialog } from './components/SettingsDialog';
 import { WelcomeScreen, addToRecentFiles } from './components/WelcomeScreen';
+import { OpenScadSetupScreen } from './components/OpenScadSetupScreen';
 import { TabBar, type Tab } from './components/TabBar';
 import { Button } from './components/ui';
 import { useOpenScad } from './hooks/useOpenScad';
@@ -44,6 +45,8 @@ function App() {
   const [tabs, setTabs] = useState<Tab[]>([initialTab]);
   const [activeTabId, setActiveTabId] = useState<string>(initialTab.id);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [showSetupScreen, setShowSetupScreen] = useState(false);
+  const [setupScreenDismissed, setSetupScreenDismissed] = useState(false);
 
   // Computed active tab
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
@@ -232,6 +235,23 @@ function App() {
   const reorderTabs = useCallback((newTabs: Tab[]) => {
     setTabs(newTabs);
   }, []);
+
+  // Check for OpenSCAD on mount
+  useEffect(() => {
+    // If OpenSCAD is not detected and setup screen hasn't been dismissed
+    if (!openscadPath && !setupScreenDismissed) {
+      // Give it a moment to detect OpenSCAD
+      const timer = setTimeout(() => {
+        if (!openscadPath && !setupScreenDismissed) {
+          setShowSetupScreen(true);
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (openscadPath) {
+      // OpenSCAD found, hide setup screen if it was showing
+      setShowSetupScreen(false);
+    }
+  }, [openscadPath, setupScreenDismissed]);
 
   // Use refs to avoid stale closures in event listeners
   const activeTabRef = useRef<Tab>(activeTab);
@@ -804,6 +824,24 @@ function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [createNewTab, closeTab, activeTabId]);
+
+  // Show setup screen if OpenSCAD not found
+  if (showSetupScreen) {
+    return (
+      <div className="h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <OpenScadSetupScreen
+          onRetry={() => {
+            // Force re-check by reloading the page
+            window.location.reload();
+          }}
+          onSkip={() => {
+            setSetupScreenDismissed(true);
+            setShowSetupScreen(false);
+          }}
+        />
+      </div>
+    );
+  }
 
   // Show welcome screen if no file is open and welcome hasn't been dismissed
   if (showWelcome) {
