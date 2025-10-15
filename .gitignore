@@ -25,7 +25,10 @@ dist-ssr
 
 # Rust
 target/
-Cargo.lock
+# Note: Cargo.lock is tracked for Tauri apps (apps/ui/src-tauri/Cargo.lock)
+# Only ignore Cargo.lock in workspace root or packages
+/Cargo.lock
+packages/**/Cargo.lock
 
 # Environment
 .env
