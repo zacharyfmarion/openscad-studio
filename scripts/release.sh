@@ -27,7 +27,8 @@ warn() {
 }
 
 confirm() {
-    read -p "$(echo -e ${YELLOW}$1 [y/N]: ${NC})" response
+    echo -ne "${YELLOW}$1 [y/N]: ${NC}"
+    read response
     case "$response" in
         [yY][eE][sS]|[yY])
             return 0
@@ -68,7 +69,8 @@ info "Current version: $CURRENT_VERSION"
 
 # Prompt for new version
 echo ""
-read -p "$(echo -e ${BLUE}Enter new version number (e.g., 0.2.0): ${NC})" NEW_VERSION
+echo -ne "${BLUE}Enter new version number (e.g., 0.2.0): ${NC}"
+read NEW_VERSION
 
 if [ -z "$NEW_VERSION" ]; then
     error "Version number cannot be empty"
