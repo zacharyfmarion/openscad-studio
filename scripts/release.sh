@@ -173,9 +173,20 @@ rm -f "$TEMP_ENTRY"
 
 success "CHANGELOG.md updated"
 
+# Fix .gitignore to allow Cargo.lock for Tauri app (application should track Cargo.lock)
+info "Updating .gitignore to track Tauri app's Cargo.lock..."
+if grep -q "^Cargo.lock$" .gitignore; then
+    # Replace global Cargo.lock ignore with specific patterns
+    sed -i.bak 's/^Cargo\.lock$/# Note: Cargo.lock is tracked for Tauri apps (apps\/ui\/src-tauri\/Cargo.lock)\n# Only ignore Cargo.lock in workspace root or packages\n\/Cargo.lock\npackages\/**\/Cargo.lock/' .gitignore
+    rm -f .gitignore.bak
+    success ".gitignore updated to allow Tauri app's Cargo.lock"
+else
+    info ".gitignore already configured correctly for Cargo.lock"
+fi
+
 # Commit version bump
 info "Committing version bump..."
-git add package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock CHANGELOG.md
+git add package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock CHANGELOG.md .gitignore
 git commit -m "chore: bump version to $NEW_VERSION"
 success "Version bump committed"
 
