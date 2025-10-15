@@ -81,12 +81,15 @@ function App() {
     isApplyingDiff,
     messages,
     currentToolCalls,
+    currentModel,
+    availableProviders,
     submitPrompt,
     cancelStream,
     acceptDiff,
     rejectDiff,
     clearError: clearAiError,
     newConversation,
+    setCurrentModel,
   } = useAiAgent();
 
   // Tab management functions
@@ -414,10 +417,37 @@ function App() {
         return;
       }
 
-      // Open in new tab
       const contents = await readTextFile(path);
       const fileName = path.split('/').pop() || path;
-      createNewTab(path, contents, fileName);
+
+      // Check if we should replace the first tab (if it's untitled and unmodified)
+      const firstTab = tabs[0];
+      const shouldReplaceFirstTab = showWelcome &&
+                                    tabs.length === 1 &&
+                                    !firstTab.filePath &&
+                                    !firstTab.isDirty;
+
+      if (shouldReplaceFirstTab) {
+        // Replace the first tab instead of creating a new one
+        setTabs([{
+          ...firstTab,
+          filePath: path,
+          name: fileName,
+          content: contents,
+          savedContent: contents,
+          isDirty: false,
+        }]);
+        updateSource(contents);
+
+        // Update backend EditorState for AI agent
+        updateEditorState(contents).catch(err => {
+          console.error('Failed to update editor state:', err);
+        });
+      } else {
+        // Create new tab as usual
+        createNewTab(path, contents, fileName);
+      }
+
       setShowWelcome(false);
 
       // Add to recent files
@@ -435,7 +465,76 @@ function App() {
       console.error('Failed to open recent file:', err);
       alert(`Failed to open file: ${err}`);
     }
-  }, [tabs, switchTab, createNewTab]);
+  }, [tabs, showWelcome, switchTab, createNewTab, updateSource]);
+
+  // Handle opening file dialog from welcome screen
+  const handleOpenFile = useCallback(async () => {
+    try {
+      const selected = await open({
+        filters: [{ name: 'OpenSCAD Files', extensions: ['scad'] }],
+        multiple: false
+      });
+      if (!selected) return; // User cancelled
+
+      const filePath = typeof selected === 'string' ? selected : (selected as { path: string }).path;
+
+      // Check if already open
+      const existingTab = tabs.find(t => t.filePath === filePath);
+      if (existingTab) {
+        await switchTab(existingTab.id);
+        setShowWelcome(false);
+        return;
+      }
+
+      const contents = await readTextFile(filePath);
+      const fileName = filePath.split('/').pop() || filePath;
+
+      // Check if we should replace the first tab (if it's untitled and unmodified)
+      const firstTab = tabs[0];
+      const shouldReplaceFirstTab = showWelcome &&
+                                    tabs.length === 1 &&
+                                    !firstTab.filePath &&
+                                    !firstTab.isDirty;
+
+      if (shouldReplaceFirstTab) {
+        // Replace the first tab instead of creating a new one
+        setTabs([{
+          ...firstTab,
+          filePath,
+          name: fileName,
+          content: contents,
+          savedContent: contents,
+          isDirty: false,
+        }]);
+        updateSource(contents);
+
+        // Update backend EditorState for AI agent
+        updateEditorState(contents).catch(err => {
+          console.error('Failed to update editor state:', err);
+        });
+      } else {
+        // Create new tab as usual
+        createNewTab(filePath, contents, fileName);
+      }
+
+      setShowWelcome(false);
+
+      // Add to recent files
+      addToRecentFiles(filePath);
+
+      // Automatically render the opened file
+      if (openscadPathRef.current && manualRenderRef.current) {
+        setTimeout(() => {
+          if (manualRenderRef.current) {
+            manualRenderRef.current();
+          }
+        }, 100);
+      }
+    } catch (err) {
+      console.error('Failed to open file:', err);
+      alert(`Failed to open file: ${err}`);
+    }
+  }, [tabs, showWelcome, switchTab, createNewTab, updateSource]);
 
   // Helper function to check for unsaved changes before destructive operations
   // Returns: true if ok to proceed, false if user wants to cancel
@@ -714,6 +813,7 @@ function App() {
           onStartWithPrompt={handleStartWithPrompt}
           onStartManually={handleStartManually}
           onOpenRecent={handleOpenRecent}
+          onOpenFile={handleOpenFile}
         />
         {/* Settings dialog still accessible from welcome screen via keyboard shortcut */}
         <SettingsDialog
@@ -882,6 +982,9 @@ function App() {
                   messages={messages}
                   onNewConversation={newConversation}
                   currentToolCalls={currentToolCalls}
+                  currentModel={currentModel}
+                  availableProviders={availableProviders}
+                  onModelChange={setCurrentModel}
                 />
               ) : (
                 <DiagnosticsPanel diagnostics={diagnostics} />

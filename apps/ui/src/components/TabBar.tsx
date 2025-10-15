@@ -88,12 +88,40 @@ function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps
       onMouseDown={handleTabClick}
       className="group flex items-center gap-2 px-4 py-3 text-sm transition-all relative"
     >
-      {/* Tab name with dirty indicator */}
+      {/* Bottom accent for active tab */}
+      {isActive && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: '2px',
+            backgroundColor: 'var(--accent-primary)',
+          }}
+        />
+      )}
+
+      {/* Unsaved indicator - show before filename */}
+      {tab.isDirty && (
+        <div
+          style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: 'var(--accent-primary)',
+            flexShrink: 0,
+          }}
+          title="Unsaved changes"
+        />
+      )}
+
+      {/* Tab name */}
       <span className="truncate flex-1 text-left" style={{ fontSize: '13px' }}>
         {tab.name}
       </span>
 
-      {/* Close button - always visible on active tab, show on hover for inactive */}
+      {/* Close button - always shows X, visible on active tab or hover */}
       <button
         onClick={handleCloseClick}
         onMouseDown={(e) => e.stopPropagation()}
@@ -102,22 +130,11 @@ function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps
           color: 'var(--text-tertiary)',
           width: '20px',
           height: '20px',
-          opacity: isActive || tab.isDirty ? 1 : 0,
+          opacity: isActive ? 1 : 0,
         }}
-        title={tab.isDirty ? 'Unsaved changes' : 'Close tab'}
+        title="Close tab"
       >
-        {tab.isDirty ? (
-          <div
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--accent-primary)',
-            }}
-          />
-        ) : (
-          <TbX size={16} />
-        )}
+        <TbX size={16} />
       </button>
     </div>
   );
@@ -125,7 +142,11 @@ function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps
 
 export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onNewTab, onReorderTabs }: TabBarProps) {
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before drag starts
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })

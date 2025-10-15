@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import type { Message } from '../hooks/useAiAgent';
 import { Button } from './ui';
+import { ModelSelector } from './ModelSelector';
 
 export type AiMode = 'edit';
 
@@ -12,6 +13,9 @@ interface AiPromptPanelProps {
   messages?: Message[];
   onNewConversation?: () => void;
   currentToolCalls?: import('../hooks/useAiAgent').ToolCall[];
+  currentModel?: string;
+  availableProviders?: string[];
+  onModelChange?: (model: string) => void;
 }
 
 export interface AiPromptPanelRef {
@@ -26,6 +30,9 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
   messages = [],
   onNewConversation,
   currentToolCalls = [],
+  currentModel = 'claude-sonnet-4-5-20250929',
+  availableProviders = [],
+  onModelChange,
 }, ref) => {
   const [prompt, setPrompt] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -264,6 +271,48 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
               </div>
             </div>
           )}
+          {/* Thinking indicator - shown when streaming but no response or active tool calls */}
+          {isStreaming && !streamingResponse && currentToolCalls.filter(tc => !tc.result).length === 0 && (
+            <div className="flex gap-2 justify-start">
+              <div className="rounded-lg px-3 py-2 border" style={{
+                backgroundColor: 'var(--bg-primary)',
+                color: 'var(--text-primary)',
+                borderColor: 'var(--border-secondary)'
+              }}>
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    <div
+                      className="w-2 h-2 rounded-full animate-pulse"
+                      style={{
+                        backgroundColor: 'var(--accent-primary)',
+                        animationDelay: '0ms',
+                        animationDuration: '1.4s'
+                      }}
+                    />
+                    <div
+                      className="w-2 h-2 rounded-full animate-pulse"
+                      style={{
+                        backgroundColor: 'var(--accent-primary)',
+                        animationDelay: '200ms',
+                        animationDuration: '1.4s'
+                      }}
+                    />
+                    <div
+                      className="w-2 h-2 rounded-full animate-pulse"
+                      style={{
+                        backgroundColor: 'var(--accent-primary)',
+                        animationDelay: '400ms',
+                        animationDuration: '1.4s'
+                      }}
+                    />
+                  </div>
+                  <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                    Thinking...
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -304,10 +353,20 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
         )}
       </div>
 
-      {/* Help text */}
-      <div className="px-4 py-2 text-xs" style={{ color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-primary)' }}>
-        <span className="font-medium">↵</span> to submit • <span className="font-medium">⇧↵</span> for newline • <span className="font-medium">Esc</span> to cancel •{' '}
-        <span className="font-medium">⌘K</span> to focus prompt
+      {/* Help text and model selector */}
+      <div className="flex items-center justify-between px-4 py-2 text-xs" style={{ color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-primary)' }}>
+        <div>
+          <span className="font-medium">↵</span> to submit • <span className="font-medium">⇧↵</span> for newline • <span className="font-medium">Esc</span> to cancel •{' '}
+          <span className="font-medium">⌘K</span> to focus prompt
+        </div>
+        <div className="flex items-center gap-2">
+          <ModelSelector
+            currentModel={currentModel}
+            availableProviders={availableProviders}
+            onChange={(model) => onModelChange?.(model)}
+            disabled={isStreaming}
+          />
+        </div>
       </div>
     </div>
   );

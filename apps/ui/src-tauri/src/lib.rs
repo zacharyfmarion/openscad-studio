@@ -3,12 +3,13 @@ mod cmd;
 mod types;
 mod utils;
 
-use ai_agent::{cancel_ai_stream, get_ai_model, send_ai_query, set_ai_model, start_ai_agent, stop_ai_agent, AiAgentState};
+use ai_agent::{cancel_ai_stream, send_ai_query, start_ai_agent, stop_ai_agent, AiAgentState};
 use cmd::{
-    apply_edit, clear_api_key, delete_conversation, detect_backend, get_ai_provider, get_api_key,
-    get_current_code, get_diagnostics, get_preview_screenshot, has_api_key, load_conversations,
-    locate_openscad, render_exact, render_preview, save_conversation, store_api_key,
-    trigger_render, update_editor_state, update_openscad_path, validate_edit, EditorState,
+    apply_edit, clear_api_key, delete_conversation, detect_backend, get_ai_model, get_ai_provider,
+    get_api_key, get_available_providers, get_current_code, get_diagnostics, get_preview_screenshot,
+    has_api_key, load_conversations, locate_openscad, render_exact, render_preview, save_conversation,
+    set_ai_model, store_api_key, trigger_render, update_editor_state, update_openscad_path,
+    validate_edit, EditorState,
 };
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
@@ -48,6 +49,7 @@ pub fn run() {
             store_api_key,
             get_api_key,
             get_ai_provider,
+            get_available_providers,
             clear_api_key,
             has_api_key,
             get_current_code,

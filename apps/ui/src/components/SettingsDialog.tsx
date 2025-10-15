@@ -21,31 +21,13 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
 
   // AI Settings
   const [provider, setProvider] = useState<'anthropic' | 'openai'>('anthropic');
-  const [model, setModel] = useState('claude-sonnet-4-5-20250929');
   const [apiKey, setApiKey] = useState('');
-  const [hasKey, setHasKey] = useState(false);
+  const [hasAnthropicKey, setHasAnthropicKey] = useState(false);
+  const [hasOpenAIKey, setHasOpenAIKey] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
-
-  // Model options (Updated 2025-10)
-  const anthropicModels = [
-    { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5 (Latest - Best for coding)' },
-    { value: 'claude-opus-4-1-20250805', label: 'Claude Opus 4.1 (Best for complex tasks)' },
-    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Fastest)' },
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (October)' },
-    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet (June)' },
-    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
-  ];
-
-  const openaiModels = [
-    { value: 'gpt-4o', label: 'GPT-4o (Latest - Multimodal)' },
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Affordable)' },
-    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-    { value: 'gpt-4', label: 'GPT-4' },
-    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-  ];
 
   // Load settings when dialog opens
   useEffect(() => {
@@ -57,16 +39,17 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
 
   const loadAISettings = async () => {
     try {
+      // Check which providers have keys
+      const availableProviders = await invoke<string[]>('get_available_providers');
+      setHasAnthropicKey(availableProviders.includes('anthropic'));
+      setHasOpenAIKey(availableProviders.includes('openai'));
+
       const currentProvider = await invoke<string>('get_ai_provider');
       setProvider(currentProvider as 'anthropic' | 'openai');
 
-      const currentModel = await invoke<string>('get_ai_model');
-      setModel(currentModel);
-
-      const exists = await invoke<boolean>('has_api_key');
-      setHasKey(exists);
-      if (exists) {
-        // Load masked key for display
+      // Load the masked key for the current provider if it exists
+      const hasCurrentKey = availableProviders.includes(currentProvider);
+      if (hasCurrentKey) {
         setApiKey('••••••••••••••••••••••••••••••••••••••••••••');
       } else {
         setApiKey('');
@@ -124,23 +107,29 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
 
     try {
       await invoke('store_api_key', { provider, key: apiKey });
-      await invoke('set_ai_model', { model });
-      setSuccessMessage('Settings saved successfully!');
-      setHasKey(true);
+      setSuccessMessage(`${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key saved successfully!`);
+
+      // Update the appropriate key status
+      if (provider === 'anthropic') {
+        setHasAnthropicKey(true);
+      } else {
+        setHasOpenAIKey(true);
+      }
+
       setApiKey('••••••••••••••••••••••••••••••••••••••••••••');
       setShowKey(false);
       setTimeout(() => {
         setSuccessMessage(null);
       }, 3000);
     } catch (err) {
-      setError(`Failed to save settings: ${err}`);
+      setError(`Failed to save API key: ${err}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleClear = async () => {
-    const confirmed = confirm('Are you sure you want to remove your API key?');
+    const confirmed = confirm(`Are you sure you want to remove your ${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key?`);
     if (!confirmed) return;
 
     setIsLoading(true);
@@ -150,7 +139,14 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
     try {
       await invoke('clear_api_key');
       setSuccessMessage('API key cleared successfully');
-      setHasKey(false);
+
+      // Update the appropriate key status
+      if (provider === 'anthropic') {
+        setHasAnthropicKey(false);
+      } else {
+        setHasOpenAIKey(false);
+      }
+
       setApiKey('');
       setTimeout(() => {
         setSuccessMessage(null);
@@ -160,22 +156,6 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleChangeKey = () => {
-    setApiKey('');
-    setShowKey(true);
-  };
-
-  const handleProviderChange = (newProvider: 'anthropic' | 'openai') => {
-    setProvider(newProvider);
-    // Set default model for new provider
-    const defaultModel = newProvider === 'anthropic'
-      ? 'claude-sonnet-4-5-20250929'
-      : 'gpt-4o';
-    setModel(defaultModel);
-    setApiKey('');
-    setShowKey(false);
   };
 
   if (!isOpen) return null;
@@ -309,63 +289,179 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
             )}
 
             {activeSection === 'ai' && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
-                  <Label>AI Provider</Label>
-                  <Select
-                    value={provider}
-                    onChange={(e) => handleProviderChange(e.target.value as 'anthropic' | 'openai')}
-                    disabled={isLoading}
-                  >
-                    <option value="anthropic">Anthropic (Claude)</option>
-                    <option value="openai">OpenAI (GPT)</option>
-                  </Select>
+                  <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+                    Add your API keys to enable AI assistant features. Model selection is available in the chat interface.
+                  </p>
                 </div>
 
-                <div>
-                  <Label>Model</Label>
-                  <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
-                    Select which AI model to use for code generation
-                  </p>
-                  <Select
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    disabled={isLoading}
-                  >
-                    {(provider === 'anthropic' ? anthropicModels : openaiModels).map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>
-                    {provider === 'anthropic' ? 'Anthropic API Key' : 'OpenAI API Key'}
-                  </Label>
-                  <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
-                    Your API key is stored securely in encrypted local storage and never leaves your device.
-                  </p>
-                  <div className="relative">
-                    <Input
-                      type={showKey ? 'text' : 'password'}
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="sk-ant-..."
-                      className="pr-20 font-mono"
-                      disabled={isLoading || (hasKey && apiKey.startsWith('•'))}
-                    />
-                    {apiKey && !apiKey.startsWith('•') && (
-                      <button
-                        onClick={() => setShowKey(!showKey)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 transition-colors"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
-                        {showKey ? '🙈 Hide' : '👁️ Show'}
-                      </button>
-                    )}
+                {/* Anthropic Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Label className="mb-0">Anthropic API Key</Label>
+                    <span className="text-xs px-2 py-0.5 rounded font-medium" style={{
+                      backgroundColor: hasAnthropicKey ? 'rgba(133, 153, 0, 0.2)' : 'rgba(128, 128, 128, 0.2)',
+                      color: hasAnthropicKey ? 'var(--color-success)' : 'var(--text-tertiary)',
+                      borderWidth: '1px',
+                      borderStyle: 'solid',
+                      borderColor: hasAnthropicKey ? 'var(--color-success)' : 'var(--border-secondary)'
+                    }}>
+                      {hasAnthropicKey ? '✓ Configured' : 'Not Configured'}
+                    </span>
                   </div>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    Required for Claude models. Your key is stored securely and never leaves your device.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type={showKey && provider === 'anthropic' ? 'text' : 'password'}
+                        value={provider === 'anthropic' ? apiKey : ''}
+                        onChange={(e) => {
+                          setProvider('anthropic');
+                          setApiKey(e.target.value);
+                        }}
+                        onFocus={() => {
+                          setProvider('anthropic');
+                          if (provider !== 'anthropic') {
+                            setApiKey('');
+                            setShowKey(false);
+                          }
+                        }}
+                        placeholder="sk-ant-..."
+                        className="pr-20 font-mono text-sm"
+                        disabled={isLoading}
+                      />
+                      {provider === 'anthropic' && apiKey && !apiKey.startsWith('•') && (
+                        <button
+                          onClick={() => setShowKey(!showKey)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 transition-colors"
+                          style={{ color: 'var(--text-secondary)' }}
+                        >
+                          {showKey ? '🙈 Hide' : '👁️ Show'}
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setProvider('anthropic');
+                        if (hasAnthropicKey) {
+                          handleClear();
+                        }
+                      }}
+                      disabled={isLoading || !hasAnthropicKey}
+                      className="px-3 py-2 rounded transition-colors"
+                      style={{
+                        backgroundColor: 'transparent',
+                        border: '1px solid var(--border-primary)',
+                        color: hasAnthropicKey && !isLoading ? 'var(--color-error)' : 'var(--text-tertiary)',
+                        opacity: hasAnthropicKey && !isLoading ? 1 : 0.5,
+                        cursor: hasAnthropicKey && !isLoading ? 'pointer' : 'not-allowed'
+                      }}
+                      title={hasAnthropicKey ? 'Remove API key' : 'No API key to remove'}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 4h12M5.333 4V2.667a.667.667 0 01.667-.667h4a.667.667 0 01.667.667V4m2 0v9.333a.667.667 0 01-.667.667H4a.667.667 0 01-.667-.667V4h9.334z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    Don't have a key?{' '}
+                    <a
+                      href="https://console.anthropic.com/settings/keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                      style={{ color: 'var(--accent-primary)' }}
+                    >
+                      Get one from Anthropic
+                    </a>
+                  </p>
+                </div>
+
+                {/* OpenAI Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Label className="mb-0">OpenAI API Key</Label>
+                    <span className="text-xs px-2 py-0.5 rounded font-medium" style={{
+                      backgroundColor: hasOpenAIKey ? 'rgba(133, 153, 0, 0.2)' : 'rgba(128, 128, 128, 0.2)',
+                      color: hasOpenAIKey ? 'var(--color-success)' : 'var(--text-tertiary)',
+                      borderWidth: '1px',
+                      borderStyle: 'solid',
+                      borderColor: hasOpenAIKey ? 'var(--color-success)' : 'var(--border-secondary)'
+                    }}>
+                      {hasOpenAIKey ? '✓ Configured' : 'Not Configured'}
+                    </span>
+                  </div>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    Required for GPT models. Your key is stored securely and never leaves your device.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type={showKey && provider === 'openai' ? 'text' : 'password'}
+                        value={provider === 'openai' ? apiKey : ''}
+                        onChange={(e) => {
+                          setProvider('openai');
+                          setApiKey(e.target.value);
+                        }}
+                        onFocus={() => {
+                          setProvider('openai');
+                          if (provider !== 'openai') {
+                            setApiKey('');
+                            setShowKey(false);
+                          }
+                        }}
+                        placeholder="sk-..."
+                        className="pr-20 font-mono text-sm"
+                        disabled={isLoading}
+                      />
+                      {provider === 'openai' && apiKey && !apiKey.startsWith('•') && (
+                        <button
+                          onClick={() => setShowKey(!showKey)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 transition-colors"
+                          style={{ color: 'var(--text-secondary)' }}
+                        >
+                          {showKey ? '🙈 Hide' : '👁️ Show'}
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setProvider('openai');
+                        if (hasOpenAIKey) {
+                          handleClear();
+                        }
+                      }}
+                      disabled={isLoading || !hasOpenAIKey}
+                      className="px-3 py-2 rounded transition-colors"
+                      style={{
+                        backgroundColor: 'transparent',
+                        border: '1px solid var(--border-primary)',
+                        color: hasOpenAIKey && !isLoading ? 'var(--color-error)' : 'var(--text-tertiary)',
+                        opacity: hasOpenAIKey && !isLoading ? 1 : 0.5,
+                        cursor: hasOpenAIKey && !isLoading ? 'pointer' : 'not-allowed'
+                      }}
+                      title={hasOpenAIKey ? 'Remove API key' : 'No API key to remove'}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 4h12M5.333 4V2.667a.667.667 0 01.667-.667h4a.667.667 0 01.667.667V4m2 0v9.333a.667.667 0 01-.667.667H4a.667.667 0 01-.667-.667V4h9.334z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    Don't have a key?{' '}
+                    <a
+                      href="https://platform.openai.com/api-keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                      style={{ color: 'var(--accent-primary)' }}
+                    >
+                      Get one from OpenAI
+                    </a>
+                  </p>
                 </div>
 
                 {error && (
@@ -391,59 +487,13 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                     {successMessage}
                   </div>
                 )}
-
-                <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  <p className="mb-1">
-                    Don't have an API key?{' '}
-                    <a
-                      href={provider === 'anthropic'
-                        ? 'https://console.anthropic.com/settings/keys'
-                        : 'https://platform.openai.com/api-keys'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline"
-                      style={{ color: 'var(--accent-primary)' }}
-                    >
-                      Get one from {provider === 'anthropic' ? 'Anthropic' : 'OpenAI'}
-                    </a>
-                  </p>
-                  <p>
-                    Your API key is required for the AI Assistant features to work.
-                  </p>
-                </div>
               </div>
             )}
           </div>
 
           {/* Footer - only show for AI section */}
           {activeSection === 'ai' && (
-            <div className="flex items-center justify-between px-6 py-4" style={{ backgroundColor: 'var(--bg-secondary)', borderTop: '1px solid var(--border-primary)' }}>
-              <div>
-                {hasKey && apiKey.startsWith('•') && (
-                  <button
-                    onClick={handleChangeKey}
-                    disabled={isLoading}
-                    className="text-sm transition-colors"
-                    style={{
-                      color: isLoading ? 'var(--text-tertiary)' : 'var(--accent-primary)'
-                    }}
-                  >
-                    Change Key
-                  </button>
-                )}
-                {hasKey && (
-                  <button
-                    onClick={handleClear}
-                    disabled={isLoading}
-                    className="text-sm transition-colors ml-4"
-                    style={{
-                      color: isLoading ? 'var(--text-tertiary)' : 'var(--color-error)'
-                    }}
-                  >
-                    Remove Key
-                  </button>
-                )}
-              </div>
+            <div className="flex items-center justify-end px-6 py-4" style={{ backgroundColor: 'var(--bg-secondary)', borderTop: '1px solid var(--border-primary)' }}>
               <div className="flex items-center gap-2">
                 <Button variant="secondary" onClick={onClose} disabled={isLoading}>
                   Close

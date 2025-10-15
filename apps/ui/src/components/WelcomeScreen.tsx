@@ -11,6 +11,7 @@ interface WelcomeScreenProps {
   onStartWithPrompt: (prompt: string) => void;
   onStartManually: () => void;
   onOpenRecent: (path: string) => void;
+  onOpenFile?: () => void;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -23,7 +24,7 @@ const EXAMPLE_PROMPTS = [
 
 const RECENT_FILES_KEY = 'openscad-studio-recent-files';
 
-export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent }: WelcomeScreenProps) {
+export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent, onOpenFile }: WelcomeScreenProps) {
   const [prompt, setPrompt] = useState('');
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -177,8 +178,17 @@ export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent
           </div>
         )}
 
-        {/* Start manually button */}
-        <div className="flex justify-center pt-4">
+        {/* Action buttons */}
+        <div className="flex justify-center gap-4 pt-4">
+          {onOpenFile && (
+            <Button
+              variant="secondary"
+              onClick={onOpenFile}
+              className="text-sm"
+            >
+              Open File
+            </Button>
+          )}
           <Button
             variant="ghost"
             onClick={onStartManually}

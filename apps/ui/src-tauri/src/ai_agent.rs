@@ -10,6 +10,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex;
 use futures_util::StreamExt;
+use tokio_util::sync::CancellationToken;
 
 use crate::cmd::{
     apply_edit, get_current_code, get_diagnostics, get_preview_screenshot, trigger_render,
@@ -286,7 +287,7 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
 pub struct AiAgentState {
     pub api_key: Arc<Mutex<Option<String>>>,
     pub provider: Arc<Mutex<String>>,
-    pub model: Arc<Mutex<String>>,
+    pub cancellation_token: Arc<Mutex<Option<CancellationToken>>>,
 }
 
 impl AiAgentState {
@@ -294,7 +295,7 @@ impl AiAgentState {
         Self {
             api_key: Arc::new(Mutex::new(None)),
             provider: Arc::new(Mutex::new("anthropic".to_string())),
-            model: Arc::new(Mutex::new("claude-sonnet-4-5-20250929".to_string())),
+            cancellation_token: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -324,51 +325,60 @@ pub async fn stop_ai_agent(state: State<'_, AiAgentState>) -> Result<(), String>
     Ok(())
 }
 
-/// Get current AI model
-#[tauri::command]
-pub async fn get_ai_model(state: State<'_, AiAgentState>) -> Result<String, String> {
-    let model = state.model.lock().await.clone();
-    Ok(model)
-}
-
-/// Set AI model
-#[tauri::command]
-pub async fn set_ai_model(
-    model: String,
-    state: State<'_, AiAgentState>,
-) -> Result<(), String> {
-    eprintln!("[AI Agent] Setting model: {}", model);
-    *state.model.lock().await = model;
-    Ok(())
-}
-
 /// Send query to AI agent with streaming response
 #[tauri::command]
 pub async fn send_ai_query(
     app: AppHandle,
     messages: Vec<Message>,
+    model: Option<String>,
+    provider: Option<String>,
     ai_state: State<'_, AiAgentState>,
 ) -> Result<(), String> {
     eprintln!("[AI Agent] Received query with {} messages", messages.len());
 
-    // Get API key, provider, and model
-    let api_key = ai_state
-        .api_key
-        .lock()
-        .await
-        .clone()
-        .ok_or("AI agent not started. Please configure API key in settings.")?;
+    // Use provided model or fall back to stored settings
+    use crate::cmd::ai::{get_ai_model, get_api_key_for_provider};
+    let model = match model {
+        Some(m) => {
+            eprintln!("[AI Agent] Using provided model: {}", m);
+            m
+        }
+        None => {
+            let stored_model = get_ai_model(app.clone())?;
+            eprintln!("[AI Agent] Using stored model: {}", stored_model);
+            stored_model
+        }
+    };
 
-    let provider = ai_state.provider.lock().await.clone();
-    let model = ai_state.model.lock().await.clone();
+    // Use provided provider or fall back to stored settings
+    use crate::cmd::ai::get_ai_provider;
+    let provider = match provider {
+        Some(p) => {
+            eprintln!("[AI Agent] Using provided provider: {}", p);
+            p
+        }
+        None => {
+            let stored_provider = get_ai_provider(app.clone());
+            eprintln!("[AI Agent] Using stored provider: {}", stored_provider);
+            stored_provider
+        }
+    };
+
+    // Get API key for the specific provider
+    let api_key = get_api_key_for_provider(app.clone(), &provider)?;
+    eprintln!("[AI Agent] Retrieved API key for provider: {}", provider);
+
+    // Create cancellation token for this request
+    let cancel_token = CancellationToken::new();
+    *ai_state.cancellation_token.lock().await = Some(cancel_token.clone());
 
     // Spawn background task for streaming
     tokio::spawn(async move {
         let app_for_error = app.clone();
         let result = if provider == "openai" {
-            run_openai_query(app, messages, api_key, model).await
+            run_openai_query(app, messages, api_key, model, cancel_token).await
         } else {
-            run_ai_query(app, messages, api_key, model).await
+            run_ai_query(app, messages, api_key, model, cancel_token).await
         };
 
         if let Err(e) = result {
@@ -388,7 +398,7 @@ pub async fn send_ai_query(
 }
 
 /// Run AI query with streaming (background task) - supports multi-turn tool calling
-async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String, model: String) -> Result<(), String> {
+async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String, model: String, cancel_token: CancellationToken) -> Result<(), String> {
     eprintln!("[AI Agent] Starting API call to Anthropic with model: {}", model);
 
     // Convert messages to Anthropic format
@@ -402,6 +412,12 @@ async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String, m
 
     // Multi-turn conversation loop for tool calling
     loop {
+        // Check for cancellation before starting new turn
+        if cancel_token.is_cancelled() {
+            eprintln!("[AI Agent] Request cancelled by user");
+            return Ok(());
+        }
+
         // Build request
         let request_body = json!({
             "model": model,
@@ -444,6 +460,12 @@ async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String, m
 
     // Parse SSE format incrementally
     while let Some(chunk_result) = stream.next().await {
+        // Check for cancellation in stream processing
+        if cancel_token.is_cancelled() {
+            eprintln!("[AI Agent] Stream cancelled by user");
+            return Ok(());
+        }
+
         let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
         let chunk_str = String::from_utf8_lossy(&chunk);
         buffer.push_str(&chunk_str);
@@ -652,7 +674,7 @@ async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String, m
 }
 
 /// Run OpenAI query with streaming (background task) - supports multi-turn tool calling
-async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: String, model: String) -> Result<(), String> {
+async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: String, model: String, cancel_token: CancellationToken) -> Result<(), String> {
     eprintln!("[AI Agent] Starting API call to OpenAI with model: {}", model);
 
     // Convert messages to OpenAI format
@@ -683,6 +705,12 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
 
     // Multi-turn conversation loop
     loop {
+        // Check for cancellation before starting new turn
+        if cancel_token.is_cancelled() {
+            eprintln!("[AI Agent] Request cancelled by user");
+            return Ok(());
+        }
+
         // Build request
         let request_body = json!({
             "model": model,
@@ -719,6 +747,12 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
         let mut tool_call_emitted: std::collections::HashSet<usize> = std::collections::HashSet::new();
 
     while let Some(chunk_result) = stream.next().await {
+        // Check for cancellation in stream processing
+        if cancel_token.is_cancelled() {
+            eprintln!("[AI Agent] Stream cancelled by user");
+            return Ok(());
+        }
+
         let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
         let chunk_str = String::from_utf8_lossy(&chunk);
         buffer.push_str(&chunk_str);
@@ -902,8 +936,16 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
 
 /// Cancel ongoing AI stream
 #[tauri::command]
-pub async fn cancel_ai_stream() -> Result<(), String> {
-    // Stream cancellation is handled by dropping the stream
-    // Frontend can stop listening to events
+pub async fn cancel_ai_stream(state: State<'_, AiAgentState>) -> Result<(), String> {
+    eprintln!("[AI Agent] Cancelling stream");
+
+    // Trigger cancellation token
+    if let Some(token) = state.cancellation_token.lock().await.take() {
+        token.cancel();
+        eprintln!("[AI Agent] Cancellation token triggered");
+    } else {
+        eprintln!("[AI Agent] No active cancellation token found");
+    }
+
     Ok(())
 }

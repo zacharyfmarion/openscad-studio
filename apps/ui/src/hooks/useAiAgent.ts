@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { AiMode } from '../components/AiPromptPanel';
+import { getProviderFromModel } from '../constants/models';
 
 export interface ToolCall {
   name: string;
@@ -72,6 +73,8 @@ export interface AiAgentState {
   conversations: Conversation[];
   currentConversationId: string | null;
   currentToolCalls: ToolCall[];  // Real-time tool calls for current streaming response
+  currentModel: string;  // Currently selected model for this session
+  availableProviders: string[];  // Providers with API keys
 }
 
 interface StreamEvent {
@@ -153,6 +156,8 @@ export function useAiAgent() {
     conversations: [],
     currentConversationId: null,
     currentToolCalls: [],
+    currentModel: 'claude-sonnet-4-5-20250929',  // Default, will be loaded from settings
+    availableProviders: [],
   });
 
   const sidecarRef = useRef<any>(null);
@@ -161,9 +166,30 @@ export function useAiAgent() {
   const currentToolCallsRef = useRef<ToolCall[]>([]);
   const lastModeRef = useRef<'text' | 'tool' | null>(null); // Track what we were doing last
 
-  // Load conversations on mount
+  // Load conversations, model, and available providers on mount
   useEffect(() => {
     loadConversations();
+    loadModelAndProviders();
+  }, []);
+
+  const loadModelAndProviders = useCallback(async () => {
+    try {
+      // Load current model from settings
+      const model = await invoke<string>('get_ai_model');
+
+      // Load available providers
+      const providers = await invoke<string[]>('get_available_providers');
+
+      setState((prev) => ({
+        ...prev,
+        currentModel: model,
+        availableProviders: providers,
+      }));
+
+      console.log('[useAiAgent] Loaded model:', model, 'Available providers:', providers);
+    } catch (err) {
+      console.error('Failed to load model and providers:', err);
+    }
   }, []);
 
   // Listen for streaming events from sidecar
@@ -495,7 +521,8 @@ export function useAiAgent() {
         console.log('[useAiAgent] Starting sidecar...');
         const provider = await invoke<string>('get_ai_provider');
         const apiKey = await invoke<string>('get_api_key');
-        console.log('[useAiAgent] Got API key for provider:', provider);
+        const model = await invoke<string>('get_ai_model');
+        console.log('[useAiAgent] Got API key for provider:', provider, 'model:', model);
         await invoke('start_ai_agent', { apiKey, provider });
         console.log('[useAiAgent] Sidecar started successfully');
         sidecarRef.current = true;
@@ -506,10 +533,15 @@ export function useAiAgent() {
       // Convert to legacy format for backend
       const legacyMessages = convertMessagesToLegacy(updatedMessages);
 
-      // Send query to sidecar with full message history
-      console.log('[useAiAgent] Sending query to sidecar with', legacyMessages.length, 'messages');
+      // Determine provider from current model
+      const provider = getProviderFromModel(state.currentModel) || 'anthropic';
+
+      // Send query to sidecar with full message history, current model, and provider
+      console.log('[useAiAgent] Sending query to sidecar with', legacyMessages.length, 'messages', 'using model:', state.currentModel, 'provider:', provider);
       await invoke('send_ai_query', {
         messages: legacyMessages,
+        model: state.currentModel,
+        provider,
         mode,
       });
       console.log('[useAiAgent] Query sent successfully');
@@ -522,17 +554,29 @@ export function useAiAgent() {
       }));
       streamBufferRef.current = '';
     }
-  }, [state.currentConversationId, state.messages]);
+  }, [state.currentConversationId, state.messages, state.currentModel]);
 
   // Cancel streaming
   const cancelStream = useCallback(async () => {
     try {
+      console.log('[useAiAgent] Cancelling stream...');
       await invoke('cancel_ai_stream');
+
+      // Reset all streaming state
       setState((prev) => ({
         ...prev,
         isStreaming: false,
+        streamingResponse: null,
+        currentToolCalls: [],
       }));
+
+      // Reset refs
       streamBufferRef.current = '';
+      currentToolCallsRef.current = [];
+      lastModeRef.current = null;
+      lastChunkRef.current = '';
+
+      console.log('[useAiAgent] Stream cancelled successfully');
     } catch (err) {
       console.error('Failed to cancel stream:', err);
     }
@@ -596,6 +640,15 @@ export function useAiAgent() {
     }));
   }, []);
 
+  // Set current model
+  const setCurrentModel = useCallback((model: string) => {
+    console.log('[useAiAgent] Setting current model to:', model);
+    setState((prev) => ({
+      ...prev,
+      currentModel: model,
+    }));
+  }, []);
+
   return {
     ...state,
     submitPrompt,
@@ -606,5 +659,7 @@ export function useAiAgent() {
     newConversation,
     loadConversation,
     saveConversation,
+    setCurrentModel,
+    loadModelAndProviders,
   };
 }
