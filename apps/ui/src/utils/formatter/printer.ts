@@ -25,12 +25,18 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
 
   // Debug log for unhandled node types
   if (!['source_file', 'module_declaration', 'function_declaration', 'block', 'union_block',
-        'if_statement', 'for_statement', 'for_block', 'assignment', 'binary_expression',
+        'if_statement', 'if_block', 'for_statement', 'for_block', 'assignment', 'binary_expression',
         'unary_expression', 'call_expression', 'module_call', 'function_call',
         'transform_chain', 'arguments', 'parameters_declaration', 'parameter', 'parenthesized_assignments',
+        'parenthesized_expression', 'ternary_expression', 'index_expression', 'dot_index_expression',
         'list', 'vector', 'array', 'range',
-        'comment', 'identifier', 'number', 'decimal', 'integer', 'string', 'boolean',
-        '(', ')', '[', ']', '{', '}', ',', ';', '=', ':', 'for', 'whitespace', '\n'].includes(type)) {
+        'comment', 'identifier', 'number', 'decimal', 'integer', 'float', 'string', 'boolean',
+        'special_variable', 'use_statement', 'include_statement', 'include_path',
+        'assert_statement', 'assert_expression',
+        'modifier', 'modifier_chain', 'intersection_for', 'intersection_for_block',
+        'use', 'if', 'else', 'module',
+        '(', ')', '[', ']', '{', '}', ',', ';', '=', ':', 'for', 'whitespace', '\n',
+        '$', '.', '#', '%', '?', '!'].includes(type)) {
     console.log(`[Formatter] Unknown node type: "${type}", text: "${text.substring(0, 50)}"`);
   }
 
@@ -50,11 +56,16 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       return printBlock(node, options);
 
     case 'if_statement':
+    case 'if_block':
       return printIfStatement(node, options);
 
     case 'for_statement':
     case 'for_block':
       return printForStatement(node, options);
+
+    case 'intersection_for':
+    case 'intersection_for_block':
+      return printIntersectionFor(node, options);
 
     case 'assignment':
       return printAssignment(node, options);
@@ -84,6 +95,28 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
     case 'range':
       return printRange(node, options);
 
+    case 'ternary_expression':
+      return printTernaryExpression(node, options);
+
+    case 'index_expression':
+      return printIndexExpression(node, options);
+
+    case 'dot_index_expression':
+      return printDotIndexExpression(node, options);
+
+    case 'parenthesized_expression':
+      return printParenthesizedExpression(node, options);
+
+    case 'use_statement':
+      return printUseStatement(node, options);
+
+    case 'assert_statement':
+    case 'assert_expression':
+      return printAssert(node, options);
+
+    case 'modifier_chain':
+      return printModifierChain(node, options);
+
     case 'comment':
       return text;
 
@@ -92,8 +125,10 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
     case 'number':
     case 'decimal':
     case 'integer':
+    case 'float':
     case 'string':
     case 'boolean':
+    case 'special_variable':
       return text;
 
     default:
@@ -581,6 +616,157 @@ function printRange(node: TreeSitter.Node, options: Required<FormatOptions>): Do
     } else {
       parts.push(printNode(child, options));
     }
+  }
+
+  return concat(parts);
+}
+
+function printTernaryExpression(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    if (child.type === '?') {
+      parts.push(' ', child.text, ' ');
+    } else if (child.type === ':') {
+      parts.push(' ', child.text, ' ');
+    } else {
+      parts.push(printNode(child, options));
+    }
+  }
+
+  return concat(parts);
+}
+
+function printIndexExpression(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    parts.push(printNode(child, options));
+  }
+
+  return concat(parts);
+}
+
+function printDotIndexExpression(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    parts.push(printNode(child, options));
+  }
+
+  return concat(parts);
+}
+
+function printParenthesizedExpression(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = ['('];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === '(' || child.type === ')') {
+      continue;
+    }
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    parts.push(printNode(child, options));
+  }
+
+  parts.push(')');
+  return concat(parts);
+}
+
+function printUseStatement(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    if (child.type === 'use') {
+      parts.push(child.text, ' ');
+    } else if (child.type === 'include_path') {
+      parts.push(child.text);
+    } else {
+      parts.push(printNode(child, options));
+    }
+  }
+
+  return concat(parts);
+}
+
+function printAssert(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = ['assert'];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'assert') {
+      continue;
+    }
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    parts.push(printNode(child, options));
+  }
+
+  return concat(parts);
+}
+
+function printModifierChain(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    if (child.type === 'modifier') {
+      parts.push(child.text);
+    } else if (child.type === 'module_call' || child.type === 'function_call' || child.type === 'transform_chain') {
+      if (parts.length > 0) {
+        parts.push(' ');
+      }
+      parts.push(printNode(child, options));
+    } else {
+      parts.push(printNode(child, options));
+    }
+  }
+
+  return concat(parts);
+}
+
+function printIntersectionFor(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = ['intersection_for', ' '];
+  let block: Doc | null = null;
+
+  for (const child of node.children) {
+    if (!child) continue;
+
+    if (child.type === 'intersection_for') {
+      continue;
+    } else if (child.type === 'parenthesized_assignments') {
+      parts.push(printParenthesizedAssignments(child, options));
+    } else if (child.type === 'block' || child.type === 'union_block') {
+      block = printNode(child, options);
+    } else if (child.type !== ';' && child.type !== 'whitespace' && child.type !== '\n') {
+      parts.push(printNode(child, options));
+    }
+  }
+
+  if (block) {
+    parts.push(' ', block);
   }
 
   return concat(parts);
