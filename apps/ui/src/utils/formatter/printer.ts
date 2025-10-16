@@ -1,0 +1,717 @@
+/**
+ * Tree-sitter based printer for OpenSCAD
+ *
+ * Converts AST to formatted code using the Doc IR
+ */
+
+import type * as TreeSitter from 'web-tree-sitter';
+import type { FormatOptions } from './index';
+import { concat, hardline, indent, line, group, join } from './doc';
+import type { Doc } from './doc';
+
+/**
+ * Print a tree-sitter syntax tree as formatted code
+ */
+export function printTree(tree: TreeSitter.Tree, options: Required<FormatOptions>): string {
+  const doc = printNode(tree.rootNode, options);
+  return printDoc(doc, options);
+}
+
+/**
+ * Print a single AST node
+ */
+function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const { type, text } = node;
+
+  // Debug log for unhandled node types
+  if (!['source_file', 'module_declaration', 'function_declaration', 'block', 'union_block',
+        'if_statement', 'for_statement', 'for_block', 'assignment', 'binary_expression',
+        'unary_expression', 'call_expression', 'module_call', 'function_call',
+        'transform_chain', 'arguments', 'parameters_declaration', 'parenthesized_assignments',
+        'list', 'vector', 'array', 'range',
+        'comment', 'identifier', 'number', 'decimal', 'integer', 'string', 'boolean',
+        '(', ')', '[', ']', '{', '}', ',', ';', '=', ':', 'for', 'whitespace', '\n'].includes(type)) {
+    console.log(`[Formatter] Unknown node type: "${type}", text: "${text.substring(0, 50)}"`);
+  }
+
+  // Handle different node types
+  switch (type) {
+    case 'source_file':
+      return printSourceFile(node, options);
+
+    case 'module_declaration':
+      return printModuleDeclaration(node, options);
+
+    case 'function_declaration':
+      return printFunctionDeclaration(node, options);
+
+    case 'block':
+    case 'union_block':
+      return printBlock(node, options);
+
+    case 'if_statement':
+      return printIfStatement(node, options);
+
+    case 'for_statement':
+    case 'for_block':
+      return printForStatement(node, options);
+
+    case 'assignment':
+      return printAssignment(node, options);
+
+    case 'binary_expression':
+      return printBinaryExpression(node, options);
+
+    case 'unary_expression':
+      return printUnaryExpression(node, options);
+
+    case 'call_expression':
+    case 'module_call':
+    case 'function_call':
+      return printCallExpression(node, options);
+
+    case 'transform_chain':
+      return printTransformChain(node, options);
+
+    case 'arguments':
+      return printArguments(node, options);
+
+    case 'list':
+    case 'vector':
+    case 'array':
+      return printList(node, options);
+
+    case 'range':
+      return printRange(node, options);
+
+    case 'comment':
+      return text;
+
+    case 'identifier':
+    case 'number':
+    case 'decimal':
+    case 'integer':
+    case 'string':
+    case 'boolean':
+      return text;
+
+    default:
+      // For unknown nodes, try to print children or fall back to text
+      if (node.childCount > 0) {
+        return printChildren(node, options);
+      }
+      return text;
+  }
+}
+
+function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+  let lastWasComment = false;
+  let lastWasDeclaration = false;
+
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (!child) continue;
+
+    // Skip whitespace nodes and semicolons (we'll add them ourselves)
+    if (child.type === 'whitespace' || child.type === '\n' || child.type === ';') {
+      continue;
+    }
+
+    const childDoc = printNode(child, options);
+
+    // Add blank line between sections (when we see a new comment after code)
+    const isComment = child.type === 'comment';
+    if (i > 0 && isComment && !lastWasComment) {
+      parts.push(hardline());
+    }
+
+    // Add blank line between top-level declarations (but not after comments)
+    const isDecl = isDeclaration(child.type);
+    if (i > 0 && isDecl && lastWasDeclaration) {
+      parts.push(hardline());
+    }
+
+    parts.push(childDoc);
+
+    // Add semicolon for statements that need it
+    if (needsSemicolon(child.type)) {
+      parts.push(';');
+    }
+
+    parts.push(hardline());
+    lastWasComment = isComment;
+    lastWasDeclaration = isDecl;
+  }
+
+  return concat(parts);
+}
+
+function printModuleDeclaration(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  console.log('[printModuleDeclaration] Node children:');
+  for (const child of node.children) {
+    if (child) {
+      console.log(`  - type: "${child.type}", text: "${child.text.substring(0, 30)}"`);
+    }
+  }
+
+  const parts: Doc[] = ['module', ' '];  // Always add space after 'module'
+
+  for (const child of node.children) {
+    if (!child) continue;
+
+    if (child.type === 'module') {
+      // Skip the 'module' keyword itself
+      continue;
+    } else if (child.type === 'identifier') {
+      console.log('[printModuleDeclaration] Adding identifier:', child.text);
+      parts.push(child.text);
+    } else if (child.type === 'parameters_declaration') {
+      console.log('[printModuleDeclaration] Found parameters_declaration node');
+      parts.push(printParameters(child, options));
+    } else if (child.type === 'block' || child.type === 'union_block') {
+      console.log('[printModuleDeclaration] Found block');
+      parts.push(' ', printBlock(child, options));
+    } else {
+      console.log('[printModuleDeclaration] Unhandled child type:', child.type);
+    }
+  }
+
+  console.log('[printModuleDeclaration] Final parts:', parts);
+  return concat(parts);
+}
+
+function printFunctionDeclaration(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = ['function'];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'identifier') {
+      parts.push(' ', child.text);
+    } else if (child.type === 'parameters_declaration') {
+      parts.push(printParameters(child, options));
+    } else if (child.type === '=') {
+      parts.push(' ', child.text, ' ');
+    } else if (child.type !== 'function') {
+      parts.push(printNode(child, options));
+    }
+  }
+
+  parts.push(';');
+  return concat(parts);
+}
+
+function printParameters(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  console.log('[printParameters] Node children:');
+  for (const child of node.children) {
+    if (child) {
+      console.log(`  - type: "${child.type}", text: "${child.text.substring(0, 30)}"`);
+    }
+  }
+
+  const params: Doc[] = [];
+  let firstParamLine = -1;
+  let lastParamLine = -1;
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === '(' || child.type === ')' || child.type === ',') {
+      continue;
+    }
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+
+    // Track line positions to detect multiline parameters
+    if (firstParamLine === -1) {
+      firstParamLine = child.startPosition.row;
+    }
+    lastParamLine = child.endPosition.row;
+
+    console.log('[printParameters] Adding param:', child.type, child.text.substring(0, 20));
+    params.push(printNode(child, options));
+  }
+
+  console.log('[printParameters] Total params collected:', params.length);
+
+  if (params.length === 0) {
+    console.log('[printParameters] Returning empty ()');
+    return '()';
+  }
+
+  // Check if parameters were originally multiline
+  const isMultiline = lastParamLine > firstParamLine;
+
+  if (isMultiline) {
+    // Format as multiline with Prettier-style formatting
+    const parts: Doc[] = [];
+
+    params.forEach((param, i) => {
+      parts.push(param);
+      if (i < params.length - 1) {
+        parts.push(',');
+        parts.push(hardline());
+      }
+    });
+
+    return concat([
+      '(',
+      indent(concat([hardline(), ...parts])),
+      hardline(),
+      ')',
+    ]);
+  }
+
+  // Keep single-line parameters compact
+  const result = concat([
+    '(',
+    join(', ', params),
+    ')',
+  ]);
+  console.log('[printParameters] Returning result with', params.length, 'params');
+  return result;
+}
+
+function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const items: Array<{ stmt: Doc; needsSemi: boolean; blankLineBefore: boolean; child: TreeSitter.Node }> = [];
+  let prevChild: TreeSitter.Node | null = null;
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === '{' || child.type === '}' || child.type === ';') {
+      continue;
+    }
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+
+    const stmt = printNode(child, options);
+
+    // Determine if this statement needs a semicolon
+    let needsSemi = false;
+    if (child.type === 'assignment') {
+      needsSemi = true;
+    } else if (child.type === 'transform_chain') {
+      // Check if transform_chain ends with a block
+      const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
+      needsSemi = !hasBlock;
+    }
+
+    // Check if there was a blank line before this statement in the original code
+    let blankLineBefore = false;
+    if (prevChild) {
+      const lineDiff = child.startPosition.row - prevChild.endPosition.row;
+      blankLineBefore = lineDiff > 1;
+    }
+
+    items.push({ stmt, needsSemi, blankLineBefore, child });
+    prevChild = child;
+  }
+
+  if (items.length === 0) {
+    return '{}';
+  }
+
+  const statements: Doc[] = [];
+  items.forEach(({ stmt, needsSemi, blankLineBefore }, i) => {
+    // Add blank line if there was one in the original
+    if (blankLineBefore && i > 0) {
+      statements.push(hardline());
+    }
+
+    statements.push(stmt);
+    if (needsSemi) {
+      statements.push(';');
+    }
+
+    // Add hardline after each statement except the last
+    if (i < items.length - 1) {
+      statements.push(hardline());
+    }
+  });
+
+  return group(concat([
+    '{',
+    indent(concat([hardline(), ...statements])),
+    hardline(),
+    '}',
+  ]));
+}
+
+function printIfStatement(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = ['if'];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'if') {
+      continue;
+    } else if (child.type === 'condition' || child.type === 'parenthesized_expression') {
+      const conditionChild = child.children[1] || child;
+      if (conditionChild) {
+        parts.push(' (', printNode(conditionChild, options), ')');
+      }
+    } else if (child.type === 'block' || child.type === 'statement') {
+      parts.push(' ', printNode(child, options));
+    } else if (child.type === 'else_clause') {
+      const elseChild = child.children[1] || child;
+      if (elseChild) {
+        parts.push(' else ', printNode(elseChild, options));
+      }
+    }
+  }
+
+  return concat(parts);
+}
+
+function printForStatement(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  console.log('[printForStatement] Node children:');
+  for (const child of node.children) {
+    if (child) {
+      console.log(`  - type: "${child.type}", text: "${child.text.substring(0, 30)}"`);
+    }
+  }
+
+  const parts: Doc[] = ['for', ' '];
+  let block: Doc | null = null;
+
+  for (const child of node.children) {
+    if (!child) continue;
+
+    if (child.type === 'for') {
+      // Skip the 'for' keyword itself
+      continue;
+    } else if (child.type === 'parenthesized_assignments') {
+      // Print the parenthesized assignments (e.g., "(i = [0:10])")
+      parts.push(printParenthesizedAssignments(child, options));
+    } else if (child.type === 'block' || child.type === 'union_block') {
+      block = printNode(child, options);
+    } else if (child.type !== ';' && child.type !== 'whitespace' && child.type !== '\n') {
+      parts.push(printNode(child, options));
+    }
+  }
+
+  if (block) {
+    parts.push(' ', block);
+  }
+
+  console.log('[printForStatement] Final parts:', parts);
+  return concat(parts);
+}
+
+function printParenthesizedAssignments(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = ['('];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === '(' || child.type === ')') {
+      continue;
+    }
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    if (child.type === '=') {
+      parts.push(' ', child.text, ' ');
+    } else {
+      parts.push(printNode(child, options));
+    }
+  }
+
+  parts.push(')');
+  return concat(parts);
+}
+
+function printAssignment(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (!child) continue;
+
+    if (child.type === '=') {
+      parts.push(' ', child.text, ' ');
+    } else if (child.type === ';') {
+      // Skip semicolons - they'll be added by printSourceFile
+      continue;
+    } else {
+      parts.push(printNode(child, options));
+    }
+  }
+
+  return concat(parts);
+}
+
+function printTransformChain(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+  let hasBlock = false;
+
+  for (const child of node.children) {
+    if (!child) continue;
+
+    if (child.type === 'module_call' || child.type === 'function_call') {
+      parts.push(printCallExpression(child, options));
+    } else if (child.type === 'union_block' || child.type === 'block') {
+      parts.push(' ', printBlock(child, options));
+      hasBlock = true;
+    } else if (child.type === ';') {
+      // Skip - semicolon handled by parent based on whether there's a block
+      continue;
+    } else if (child.type === 'transform_chain') {
+      // Nested transform chain
+      parts.push(' ', printTransformChain(child, options));
+    } else {
+      parts.push(printNode(child, options));
+    }
+  }
+
+  return concat(parts);
+}
+
+function printBinaryExpression(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (isOperator(child.text)) {
+      parts.push(' ', child.text, ' ');
+    } else {
+      parts.push(printNode(child, options));
+    }
+  }
+
+  return concat(parts);
+}
+
+function printUnaryExpression(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const operator = node.child(0);
+  const operand = node.child(1);
+
+  if (!operator || !operand) {
+    return node.text;
+  }
+
+  // Handle negative numbers/expressions (no space for minus)
+  if (operator.text === '-') {
+    return concat([operator.text, printNode(operand, options)]);
+  }
+
+  // Other unary operators (like !)
+  return concat([operator.text, printNode(operand, options)]);
+}
+
+function printCallExpression(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'identifier') {
+      parts.push(child.text);
+    } else if (child.type === 'arguments') {
+      parts.push(printArguments(child, options));
+    } else if (child.type !== ';' && child.type !== 'whitespace' && child.type !== '\n') {
+      parts.push(printNode(child, options));
+    }
+  }
+
+  return concat(parts);
+}
+
+function printArguments(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const args: Doc[] = [];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === '(' || child.type === ')' || child.type === ',') {
+      continue;
+    }
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    args.push(printNode(child, options));
+  }
+
+  if (args.length === 0) {
+    return '()';
+  }
+
+  return concat([
+    '(',
+    join(concat([', ']), args),
+    ')',
+  ]);
+}
+
+function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const items: Doc[] = [];
+  const children: TreeSitter.Node[] = [];
+  let firstItemLine = -1;
+  let lastItemLine = -1;
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === '[' || child.type === ']' || child.type === ',') {
+      continue;
+    }
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+
+    // Track line positions to detect multiline arrays
+    if (firstItemLine === -1) {
+      firstItemLine = child.startPosition.row;
+    }
+    lastItemLine = child.endPosition.row;
+
+    children.push(child);
+    items.push(printNode(child, options));
+  }
+
+  if (items.length === 0) {
+    return '[]';
+  }
+
+  // Check if array was originally multiline
+  const isMultiline = lastItemLine > firstItemLine;
+
+  if (isMultiline && items.length > 0) {
+    // Format as multiline with Prettier-style formatting
+    // Each item on its own line with comma, closing bracket unindented
+    const parts: Doc[] = [];
+
+    items.forEach((item, i) => {
+      parts.push(item);
+      if (i < items.length - 1) {
+        parts.push(',');
+        parts.push(hardline());
+      }
+    });
+
+    return concat([
+      '[',
+      indent(concat([hardline(), ...parts])),
+      hardline(),
+      ']',
+    ]);
+  }
+
+  // Keep single-line arrays compact: [1, 2, 3] not [ 1, 2, 3 ]
+  return concat([
+    '[',
+    join(', ', items),
+    ']',
+  ]);
+}
+
+function printRange(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    if (child.type === ':') {
+      parts.push(child.text);
+    } else {
+      parts.push(printNode(child, options));
+    }
+  }
+
+  return concat(parts);
+}
+
+function printChildren(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (!child) continue;
+    parts.push(printNode(child, options));
+  }
+
+  return concat(parts);
+}
+
+// Helper functions
+
+function isDeclaration(type: string): boolean {
+  return type === 'module_declaration' || type === 'function_declaration';
+}
+
+function needsSemicolon(type: string): boolean {
+  return type === 'assignment' || type === 'transform_chain';
+}
+
+function hasChildOfType(node: TreeSitter.Node, type: string): boolean {
+  for (const child of node.children) {
+    if (child && child.type === type) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isOperator(text: string): boolean {
+  return ['+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '&&', '||', '!'].includes(text);
+}
+
+/**
+ * Convert Doc IR to actual string output
+ */
+function printDoc(doc: Doc, options: Required<FormatOptions>, mode: 'flat' | 'break' = 'break'): string {
+  const indentStr = options.useTabs ? '\t' : ' '.repeat(options.indentSize);
+  let output = '';
+  let indentLevel = 0;
+
+  function print(d: Doc, m: 'flat' | 'break' = mode): void {
+    if (typeof d === 'string') {
+      output += d;
+      return;
+    }
+
+    if (Array.isArray(d)) {
+      for (const part of d) {
+        print(part, m);
+      }
+      return;
+    }
+
+    switch (d.type) {
+      case 'concat':
+        for (const part of d.parts) {
+          print(part, m);
+        }
+        break;
+
+      case 'line':
+        if (d.hard || m === 'break') {
+          output += '\n' + indentStr.repeat(indentLevel);
+        } else if (!d.soft) {
+          output += ' ';
+        }
+        break;
+
+      case 'group':
+        print(d.contents, d.shouldBreak ? 'break' : 'flat');
+        break;
+
+      case 'indent':
+        indentLevel++;
+        print(d.contents, m);
+        indentLevel--;
+        break;
+
+      case 'if-break':
+        print(m === 'break' ? d.breakContents : d.flatContents, m);
+        break;
+
+      case 'fill':
+        for (const part of d.parts) {
+          print(part, m);
+        }
+        break;
+    }
+  }
+
+  print(doc);
+  return output;
+}

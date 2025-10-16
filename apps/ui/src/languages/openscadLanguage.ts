@@ -179,39 +179,41 @@ type OpenScadMonarchLanguage = Monaco.languages.IMonarchLanguage & {
   constants: string[];
 };
 
-const LANGUAGE_CONFIGURATION: Monaco.languages.LanguageConfiguration = {
-  comments: {
-    lineComment: '//',
-    blockComment: ['/*', '*/'],
-  },
-  brackets: BRACKETS,
-  autoClosingPairs: AUTO_CLOSING_PAIRS,
-  surroundingPairs: SURROUNDING_PAIRS,
-  wordPattern: WORD_PATTERN,
-  indentationRules: {
-    increaseIndentPattern: /(^.*\{[^}"']*$)|(^\s*(module|function|if|else|for|each|intersection_for|let|assign)\b(?!.*;).*?$)/,
-    decreaseIndentPattern: /^\s*[}\]]/,
-  },
-  onEnterRules: [
-    {
-      beforeText: /^\s*\/\*.*$/, // block comment start
-      afterText: /^.*\*\//,
-      action: { indentAction: Monaco.languages.IndentAction.None, appendText: ' * ' },
+function getLanguageConfiguration(monaco: typeof Monaco): Monaco.languages.LanguageConfiguration {
+  return {
+    comments: {
+      lineComment: '//',
+      blockComment: ['/*', '*/'],
     },
-    {
-      beforeText: /^\s*\/\*[^*]*$/,
-      action: { indentAction: Monaco.languages.IndentAction.IndentOutdent, appendText: ' * ' },
+    brackets: BRACKETS,
+    autoClosingPairs: AUTO_CLOSING_PAIRS,
+    surroundingPairs: SURROUNDING_PAIRS,
+    wordPattern: WORD_PATTERN,
+    indentationRules: {
+      increaseIndentPattern: /(^.*\{[^}"']*$)|(^\s*(module|function|if|else|for|each|intersection_for|let|assign)\b(?!.*;).*?$)/,
+      decreaseIndentPattern: /^\s*[}\]]/,
     },
-    {
-      beforeText: /^\s*(?:module|function|if|else|for|each|intersection_for|let|assign).*\{\s*$/, // block start
-      action: { indentAction: Monaco.languages.IndentAction.Indent },
-    },
-    {
-      beforeText: /^\s*\*.*$/,
-      action: { indentAction: Monaco.languages.IndentAction.None, appendText: '* ' },
-    },
-  ],
-};
+    onEnterRules: [
+      {
+        beforeText: /^\s*\/\*.*$/, // block comment start
+        afterText: /^.*\*\//,
+        action: { indentAction: monaco.languages.IndentAction.None, appendText: ' * ' },
+      },
+      {
+        beforeText: /^\s*\/\*[^*]*$/,
+        action: { indentAction: monaco.languages.IndentAction.IndentOutdent, appendText: ' * ' },
+      },
+      {
+        beforeText: /^\s*(?:module|function|if|else|for|each|intersection_for|let|assign).*\{\s*$/, // block start
+        action: { indentAction: monaco.languages.IndentAction.Indent },
+      },
+      {
+        beforeText: /^\s*\*.*$/,
+        action: { indentAction: monaco.languages.IndentAction.None, appendText: '* ' },
+      },
+    ],
+  };
+}
 
 const monarchLanguage: OpenScadMonarchLanguage = {
   defaultToken: '',
@@ -315,11 +317,10 @@ export function ensureOpenScadLanguage(monaco: typeof Monaco): void {
     });
   }
 
-  monaco.languages.setLanguageConfiguration(LANGUAGE_ID, LANGUAGE_CONFIGURATION);
+  monaco.languages.setLanguageConfiguration(LANGUAGE_ID, getLanguageConfiguration(monaco));
   monaco.languages.setMonarchTokensProvider(LANGUAGE_ID, monarchLanguage);
 
   registered = true;
 }
 
-export const OPENSCAD_LANGUAGE_CONFIGURATION = LANGUAGE_CONFIGURATION;
 export const OPENSCAD_MONARCH_LANGUAGE = monarchLanguage;

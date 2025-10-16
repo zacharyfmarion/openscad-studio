@@ -3,7 +3,7 @@ import type { Diagnostic } from '../api/tauri';
 import { useEffect, useRef, useState } from 'react';
 import type * as Monaco from 'monaco-editor';
 import { listen } from '@tauri-apps/api/event';
-import { formatOpenScadCode } from '../utils/openscadFormatter';
+import { formatOpenScadCode, initFormatter } from '../utils/formatter';
 import { loadSettings, type Settings } from '../stores/settingsStore';
 import { getTheme } from '../themes';
 import { ensureOpenScadLanguage } from '../languages/openscadLanguage';
@@ -125,30 +125,58 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
       }
     });
 
-    // Add keyboard shortcut for format (Cmd+Shift+F / Ctrl+Shift+F)
+    // Add keyboard shortcut for manual format (Cmd+Shift+F / Ctrl+Shift+F)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, () => {
       editor.getAction('editor.action.formatDocument')?.run();
+    });
+
+    // Add keyboard shortcut for save with format (Cmd+S / Ctrl+S)
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, async () => {
+      console.log('[Editor] Save triggered');
+      const currentSettings = loadSettings();
+
+      if (currentSettings.editor.formatOnSave) {
+        console.log('[Editor] Format on save is enabled, formatting...');
+        // Trigger the format action which will use our formatter
+        await editor.getAction('editor.action.formatDocument')?.run();
+      } else {
+        console.log('[Editor] Format on save is disabled, skipping format');
+      }
+
+      // Note: In a real app, you'd save to file here
+      // For now, the formatted code is already in the editor via the formatting provider
     });
 
     // Ensure full OpenSCAD language support (syntax, config, tokens)
     ensureOpenScadLanguage(monaco);
 
+    // Initialize tree-sitter formatter
+    initFormatter().catch((error) => {
+      console.error('[Editor] Failed to initialize formatter:', error);
+    });
+
     // Register document formatting provider for OpenSCAD
     monaco.languages.registerDocumentFormattingEditProvider('openscad', {
-      provideDocumentFormattingEdits: (model) => {
+      provideDocumentFormattingEdits: async (model) => {
         const text = model.getValue();
         const currentSettings = loadSettings();
-        const formatted = formatOpenScadCode(text, {
-          indentSize: currentSettings.editor.indentSize,
-          useTabs: currentSettings.editor.useTabs,
-        });
 
-        return [
-          {
-            range: model.getFullModelRange(),
-            text: formatted,
-          },
-        ];
+        try {
+          const formatted = await formatOpenScadCode(text, {
+            indentSize: currentSettings.editor.indentSize,
+            useTabs: currentSettings.editor.useTabs,
+          });
+
+          return [
+            {
+              range: model.getFullModelRange(),
+              text: formatted,
+            },
+          ];
+        } catch (error) {
+          console.error('[Editor] Formatting error:', error);
+          return []; // Return empty array on error (no changes)
+        }
       },
     });
 
