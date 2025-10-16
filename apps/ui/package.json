@@ -10,7 +10,9 @@
     "tauri": "tauri",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "type-check": "tsc --noEmit",
-    "test": "jest"
+    "test": "node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js",
+    "test:formatter": "node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js src/utils/formatter/__tests__",
+    "test:watch": "node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --watch"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

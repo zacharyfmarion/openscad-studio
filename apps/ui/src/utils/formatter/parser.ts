@@ -20,16 +20,32 @@ export async function initParser(): Promise<void> {
 
   initPromise = (async () => {
     try {
-      // Initialize web-tree-sitter with WASM location
-      await TreeSitter.Parser.init({
-        locateFile(scriptName: string, scriptDirectory: string) {
-          // Return the public path for WASM files
-          return `/${scriptName}`;
-        },
-      });
+      // Detect if we're running in Node.js or browser
+      const isNode = typeof process !== 'undefined' && process.versions?.node;
 
-      // Load the OpenSCAD language grammar
-      language = await TreeSitter.Language.load('/tree-sitter-openscad.wasm');
+      if (isNode) {
+        // Node.js environment (tests)
+        const path = await import('path');
+
+        // Initialize web-tree-sitter for Node
+        await TreeSitter.Parser.init();
+
+        // Load WASM from public directory in project root
+        // Use __dirname-like resolution that works in both ESM and CommonJS
+        const wasmPath = path.resolve(process.cwd(), 'public/tree-sitter-openscad.wasm');
+        language = await TreeSitter.Language.load(wasmPath);
+      } else {
+        // Browser environment
+        await TreeSitter.Parser.init({
+          locateFile(scriptName: string, scriptDirectory: string) {
+            // Return the public path for WASM files
+            return `/${scriptName}`;
+          },
+        });
+
+        // Load the OpenSCAD language grammar
+        language = await TreeSitter.Language.load('/tree-sitter-openscad.wasm');
+      }
 
       // Create parser instance
       parser = new TreeSitter.Parser();

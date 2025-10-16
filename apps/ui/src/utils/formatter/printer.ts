@@ -27,7 +27,7 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
   if (!['source_file', 'module_declaration', 'function_declaration', 'block', 'union_block',
         'if_statement', 'for_statement', 'for_block', 'assignment', 'binary_expression',
         'unary_expression', 'call_expression', 'module_call', 'function_call',
-        'transform_chain', 'arguments', 'parameters_declaration', 'parenthesized_assignments',
+        'transform_chain', 'arguments', 'parameters_declaration', 'parameter', 'parenthesized_assignments',
         'list', 'vector', 'array', 'range',
         'comment', 'identifier', 'number', 'decimal', 'integer', 'string', 'boolean',
         '(', ')', '[', ']', '{', '}', ',', ';', '=', ':', 'for', 'whitespace', '\n'].includes(type)) {
@@ -87,6 +87,7 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
     case 'comment':
       return text;
 
+    case 'parameter':
     case 'identifier':
     case 'number':
     case 'decimal':
@@ -135,7 +136,7 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
     parts.push(childDoc);
 
     // Add semicolon for statements that need it
-    if (needsSemicolon(child.type)) {
+    if (needsSemicolon(child.type, child)) {
       parts.push(';');
     }
 
@@ -148,13 +149,6 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
 }
 
 function printModuleDeclaration(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
-  console.log('[printModuleDeclaration] Node children:');
-  for (const child of node.children) {
-    if (child) {
-      console.log(`  - type: "${child.type}", text: "${child.text.substring(0, 30)}"`);
-    }
-  }
-
   const parts: Doc[] = ['module', ' '];  // Always add space after 'module'
 
   for (const child of node.children) {
@@ -164,20 +158,14 @@ function printModuleDeclaration(node: TreeSitter.Node, options: Required<FormatO
       // Skip the 'module' keyword itself
       continue;
     } else if (child.type === 'identifier') {
-      console.log('[printModuleDeclaration] Adding identifier:', child.text);
       parts.push(child.text);
     } else if (child.type === 'parameters_declaration') {
-      console.log('[printModuleDeclaration] Found parameters_declaration node');
       parts.push(printParameters(child, options));
     } else if (child.type === 'block' || child.type === 'union_block') {
-      console.log('[printModuleDeclaration] Found block');
       parts.push(' ', printBlock(child, options));
-    } else {
-      console.log('[printModuleDeclaration] Unhandled child type:', child.type);
     }
   }
 
-  console.log('[printModuleDeclaration] Final parts:', parts);
   return concat(parts);
 }
 
@@ -202,13 +190,6 @@ function printFunctionDeclaration(node: TreeSitter.Node, options: Required<Forma
 }
 
 function printParameters(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
-  console.log('[printParameters] Node children:');
-  for (const child of node.children) {
-    if (child) {
-      console.log(`  - type: "${child.type}", text: "${child.text.substring(0, 30)}"`);
-    }
-  }
-
   const params: Doc[] = [];
   let firstParamLine = -1;
   let lastParamLine = -1;
@@ -228,14 +209,10 @@ function printParameters(node: TreeSitter.Node, options: Required<FormatOptions>
     }
     lastParamLine = child.endPosition.row;
 
-    console.log('[printParameters] Adding param:', child.type, child.text.substring(0, 20));
     params.push(printNode(child, options));
   }
 
-  console.log('[printParameters] Total params collected:', params.length);
-
   if (params.length === 0) {
-    console.log('[printParameters] Returning empty ()');
     return '()';
   }
 
@@ -263,13 +240,11 @@ function printParameters(node: TreeSitter.Node, options: Required<FormatOptions>
   }
 
   // Keep single-line parameters compact
-  const result = concat([
+  return concat([
     '(',
     join(', ', params),
     ')',
   ]);
-  console.log('[printParameters] Returning result with', params.length, 'params');
-  return result;
 }
 
 function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
@@ -364,13 +339,6 @@ function printIfStatement(node: TreeSitter.Node, options: Required<FormatOptions
 }
 
 function printForStatement(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
-  console.log('[printForStatement] Node children:');
-  for (const child of node.children) {
-    if (child) {
-      console.log(`  - type: "${child.type}", text: "${child.text.substring(0, 30)}"`);
-    }
-  }
-
   const parts: Doc[] = ['for', ' '];
   let block: Doc | null = null;
 
@@ -394,7 +362,6 @@ function printForStatement(node: TreeSitter.Node, options: Required<FormatOption
     parts.push(' ', block);
   }
 
-  console.log('[printForStatement] Final parts:', parts);
   return concat(parts);
 }
 
@@ -637,8 +604,16 @@ function isDeclaration(type: string): boolean {
   return type === 'module_declaration' || type === 'function_declaration';
 }
 
-function needsSemicolon(type: string): boolean {
-  return type === 'assignment' || type === 'transform_chain';
+function needsSemicolon(type: string, node?: TreeSitter.Node): boolean {
+  if (type === 'assignment') {
+    return true;
+  }
+  if (type === 'transform_chain' && node) {
+    // Only add semicolon if transform chain doesn't have a block
+    const hasBlock = hasChildOfType(node, 'union_block') || hasChildOfType(node, 'block');
+    return !hasBlock;
+  }
+  return false;
 }
 
 function hasChildOfType(node: TreeSitter.Node, type: string): boolean {
@@ -713,5 +688,7 @@ function printDoc(doc: Doc, options: Required<FormatOptions>, mode: 'flat' | 'br
   }
 
   print(doc);
-  return output;
+
+  // Remove trailing whitespace from each line
+  return output.split('\n').map(line => line.trimEnd()).join('\n');
 }
