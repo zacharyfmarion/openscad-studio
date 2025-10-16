@@ -198,6 +198,12 @@ function printModuleDeclaration(node: TreeSitter.Node, options: Required<FormatO
       parts.push(printParameters(child, options));
     } else if (child.type === 'block' || child.type === 'union_block') {
       parts.push(' ', printBlock(child, options));
+    } else if (child.type === 'whitespace' || child.type === '\n' || child.type === ';') {
+      // Skip
+      continue;
+    } else {
+      // This handles module body without braces (transform chains, etc.)
+      parts.push(' ', printNode(child, options));
     }
   }
 
@@ -305,6 +311,14 @@ function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Do
       // Check if transform_chain ends with a block
       const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
       needsSemi = !hasBlock;
+    } else if (child.type === 'modifier_chain') {
+      // Check if modifier_chain ends with a block
+      const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
+      needsSemi = !hasBlock;
+    } else if (child.type === 'module_call' || child.type === 'call_expression') {
+      // Module/function calls without blocks need semicolons
+      const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
+      needsSemi = !hasBlock;
     }
 
     // Check if there was a blank line before this statement in the original code
@@ -360,13 +374,16 @@ function printIfStatement(node: TreeSitter.Node, options: Required<FormatOptions
       if (conditionChild) {
         parts.push(' (', printNode(conditionChild, options), ')');
       }
-    } else if (child.type === 'block' || child.type === 'statement') {
+    } else if (child.type === 'block' || child.type === 'union_block') {
       parts.push(' ', printNode(child, options));
-    } else if (child.type === 'else_clause') {
-      const elseChild = child.children[1] || child;
-      if (elseChild) {
-        parts.push(' else ', printNode(elseChild, options));
-      }
+    } else if (child.type === 'else') {
+      parts.push(' else');
+    } else if (child.type === 'whitespace' || child.type === '\n' || child.type === ';') {
+      // Skip
+      continue;
+    } else {
+      // This handles any statement/expression in the if body (without braces)
+      parts.push(' ', printNode(child, options));
     }
   }
 
@@ -799,6 +816,23 @@ function needsSemicolon(type: string, node?: TreeSitter.Node): boolean {
     const hasBlock = hasChildOfType(node, 'union_block') || hasChildOfType(node, 'block');
     return !hasBlock;
   }
+  if (type === 'modifier_chain' && node) {
+    // Modifier chains without blocks need semicolons (like #rotate(...) cylinder(...);)
+    const hasBlock = hasChildOfType(node, 'union_block') || hasChildOfType(node, 'block');
+    return !hasBlock;
+  }
+  if (type === 'module_declaration' && node) {
+    // Module declarations without blocks need semicolons
+    const hasBlock = hasChildOfType(node, 'union_block') || hasChildOfType(node, 'block');
+    return !hasBlock;
+  }
+  if (type === 'if_statement' || type === 'if_block') {
+    // If statements without blocks need semicolons
+    if (node) {
+      const hasBlock = hasChildOfType(node, 'union_block') || hasChildOfType(node, 'block');
+      return !hasBlock;
+    }
+  }
   return false;
 }
 
@@ -875,6 +909,11 @@ function printDoc(doc: Doc, options: Required<FormatOptions>, mode: 'flat' | 'br
 
   print(doc);
 
-  // Remove trailing whitespace from each line
-  return output.split('\n').map(line => line.trimEnd()).join('\n');
+  // Remove trailing whitespace from each line and ensure single trailing newline
+  let result = output.split('\n').map(line => line.trimEnd()).join('\n');
+
+  // Ensure exactly one trailing newline (all text files should end with newline)
+  result = result.replace(/\n*$/, '\n');
+
+  return result;
 }
