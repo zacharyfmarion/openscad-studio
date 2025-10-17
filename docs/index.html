@@ -26,6 +26,13 @@
 
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="images/icon.png">
+
+    <!-- Privacy-friendly analytics by Plausible -->
+    <script async src="https://plausible.io/js/pa-i5RcgYlZsbKEeykIjdw-3.js"></script>
+    <script>
+      window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+      plausible.init()
+    </script>
 </head>
 <body class="bg-slate-950 text-gray-100">
     <!-- Header -->
@@ -41,7 +48,8 @@
                     GitHub
                 </a>
                 <a href="https://github.com/zacharyfmarion/openscad-studio/releases/download/v0.2.0/OpenSCAD.Studio_0.2.0-aarch64.dmg"
-                   class="bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-6 py-2 rounded-lg transition">
+                   class="bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-6 py-2 rounded-lg transition"
+                   onclick="plausible('Download', {props: {platform: 'macOS', version: 'v0.2.0', location: 'header'}})">
                     Download
                 </a>
             </div>
@@ -65,7 +73,8 @@
 
             <div class="flex gap-4 justify-center mb-16">
                 <a href="https://github.com/zacharyfmarion/openscad-studio/releases/download/v0.2.0/OpenSCAD.Studio_0.2.0-aarch64.dmg"
-                   class="bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-8 py-3 rounded-lg transition text-lg">
+                   class="bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-8 py-3 rounded-lg transition text-lg"
+                   onclick="plausible('Download', {props: {platform: 'macOS', version: 'v0.2.0', location: 'hero'}})">
                     Download for macOS
                 </a>
                 <a href="https://github.com/zacharyfmarion/openscad-studio"
@@ -185,7 +194,8 @@
                 Download OpenSCAD Studio and start creating with AI-powered assistance
             </p>
             <a href="https://github.com/zacharyfmarion/openscad-studio/releases/download/v0.2.0/OpenSCAD.Studio_0.2.0-aarch64.dmg"
-               class="inline-block bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-8 py-3 rounded-lg transition text-lg">
+               class="inline-block bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-8 py-3 rounded-lg transition text-lg"
+               onclick="plausible('Download', {props: {platform: 'macOS', version: 'v0.2.0', location: 'cta'}})">
                 Download for macOS
             </a>
             <p class="text-sm text-gray-500 mt-4">
