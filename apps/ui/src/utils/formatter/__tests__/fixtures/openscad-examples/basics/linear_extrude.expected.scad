@@ -1,4 +1,4 @@
-echo(version=version());
+echo(version = version());
 
 // simple 2D -> 3D extrusion of a rectangle
 color("red")

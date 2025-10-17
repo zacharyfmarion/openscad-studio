@@ -1,4 +1,4 @@
-echo(version=version());
+echo(version = version());
 
 %import("projection.stl");
 
@@ -13,7 +13,7 @@ color("red")
                 square(30, center = true);
                 projection()
                     import("projection.stl");
-            }
+            };
 
 color("green")
     rotate([0, 90, 0])
@@ -24,7 +24,7 @@ color("green")
                     projection()
                         rotate([0, 90, 0])
                             import("projection.stl");
-                }
+                };
 
 color("cyan")
     rotate([-90, 0, 0])
@@ -35,7 +35,7 @@ color("cyan")
                     projection()
                         rotate([90, 0, 0])
                             import("projection.stl");
-                }
+                };
 
 // Including the cut = true uses the outline of the cut at
 // the X/Y plane.at Z = 0. This can make internal features
@@ -48,9 +48,7 @@ color("yellow", 0.5)
                 square(30, center = true);
                 projection(cut = true)
                     import("projection.stl");
-            }
-
-
+            };
 
 // Written in 2015 by Torsten Paul <Torsten.Paul@gmx.de>
 //

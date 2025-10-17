@@ -142,8 +142,6 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
 
 function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
   const parts: Doc[] = [];
-  let lastWasComment = false;
-  let lastWasDeclaration = false;
   let prevChild: TreeSitter.Node | null = null;
 
   for (let i = 0; i < node.childCount; i++) {
@@ -152,6 +150,24 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
 
     // Skip whitespace nodes and semicolons (we'll add them ourselves)
     if (child.type === 'whitespace' || child.type === '\n' || child.type === ';') {
+      continue;
+    }
+
+    // Check if this is an inline comment (comment on same line as previous statement)
+    const isInlineComment = child.type === 'comment' && prevChild &&
+                            child.startPosition.row === prevChild.endPosition.row;
+
+    if (isInlineComment) {
+      // Preserve the original spacing before the inline comment
+      // In the AST, prevChild ends before the semicolon, and child (comment) includes whitespace before it
+      // We need to calculate: (comment start column) - (prevChild end column) - 1 (for semicolon we added)
+      const prevEndCol = prevChild.endPosition.column;
+      const commentStartCol = child.startPosition.column;
+      const spacingBefore = commentStartCol - prevEndCol - 1; // -1 for the semicolon
+      const spacing = ' '.repeat(Math.max(2, spacingBefore));
+      parts.push(spacing, printNode(child, options));
+      parts.push(hardline());
+      prevChild = child;
       continue;
     }
 
@@ -165,14 +181,7 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
     }
 
     // Add blank line if there was one in the original
-    const isComment = child.type === 'comment';
     if (blankLineBefore && i > 0) {
-      parts.push(hardline());
-    }
-
-    // Add blank line between top-level declarations (but not after comments)
-    const isDecl = isDeclaration(child.type);
-    if (i > 0 && isDecl && lastWasDeclaration && !blankLineBefore) {
       parts.push(hardline());
     }
 
@@ -183,9 +192,24 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
       parts.push(';');
     }
 
-    parts.push(hardline());
-    lastWasComment = isComment;
-    lastWasDeclaration = isDecl;
+    // Check if next child is an inline comment on the same line
+    // If so, don't add hardline yet
+    let nextChild: TreeSitter.Node | null = null;
+    for (let j = i + 1; j < node.childCount; j++) {
+      const nc = node.child(j);
+      if (nc && nc.type !== 'whitespace' && nc.type !== '\n' && nc.type !== ';') {
+        nextChild = nc;
+        break;
+      }
+    }
+
+    const nextIsInlineComment = nextChild && nextChild.type === 'comment' &&
+                                nextChild.startPosition.row === child.endPosition.row;
+
+    if (!nextIsInlineComment) {
+      parts.push(hardline());
+    }
+
     prevChild = child;
   }
 
@@ -515,22 +539,52 @@ function printAssignment(node: TreeSitter.Node, options: Required<FormatOptions>
 
 function printTransformChain(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
   const parts: Doc[] = [];
-  let hasBlock = false;
+  const calls: TreeSitter.Node[] = [];
+  let firstCallLine = -1;
+  let lastCallLine = -1;
+
+  // Track line positions of module/function calls to detect multiline chains
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'module_call' || child.type === 'function_call' || child.type === 'transform_chain') {
+      calls.push(child);
+      if (firstCallLine === -1) {
+        firstCallLine = child.startPosition.row;
+      }
+      lastCallLine = child.endPosition.row;
+    }
+  }
+
+  const isMultiline = lastCallLine > firstCallLine;
 
   for (const child of node.children) {
     if (!child) continue;
 
     if (child.type === 'module_call' || child.type === 'function_call') {
-      parts.push(printCallExpression(child, options));
+      // Check if this call is on a new line
+      if (isMultiline && parts.length > 0 && child.startPosition.row > firstCallLine) {
+        parts.push(indent(concat([hardline(), printCallExpression(child, options)])));
+      } else {
+        if (parts.length > 0) {
+          parts.push(' ');
+        }
+        parts.push(printCallExpression(child, options));
+      }
     } else if (child.type === 'union_block' || child.type === 'block') {
       parts.push(' ', printBlock(child, options));
-      hasBlock = true;
     } else if (child.type === ';') {
       // Skip - semicolon handled by parent based on whether there's a block
       continue;
     } else if (child.type === 'transform_chain') {
       // Nested transform chain
-      parts.push(' ', printTransformChain(child, options));
+      if (isMultiline && parts.length > 0 && child.startPosition.row > firstCallLine) {
+        parts.push(indent(concat([hardline(), printTransformChain(child, options)])));
+      } else {
+        if (parts.length > 0) {
+          parts.push(' ');
+        }
+        parts.push(printTransformChain(child, options));
+      }
     } else {
       parts.push(printNode(child, options));
     }
@@ -590,6 +644,8 @@ function printCallExpression(node: TreeSitter.Node, options: Required<FormatOpti
 
 function printArguments(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
   const args: Doc[] = [];
+  let firstArgLine = -1;
+  let lastArgLine = -1;
 
   for (const child of node.children) {
     if (!child) continue;
@@ -599,6 +655,13 @@ function printArguments(node: TreeSitter.Node, options: Required<FormatOptions>)
     if (child.type === 'whitespace' || child.type === '\n') {
       continue;
     }
+
+    // Track line positions to detect multiline arguments
+    if (firstArgLine === -1) {
+      firstArgLine = child.startPosition.row;
+    }
+    lastArgLine = child.endPosition.row;
+
     args.push(printNode(child, options));
   }
 
@@ -606,9 +669,33 @@ function printArguments(node: TreeSitter.Node, options: Required<FormatOptions>)
     return '()';
   }
 
+  // Check if arguments were originally multiline
+  const isMultiline = lastArgLine > firstArgLine;
+
+  if (isMultiline) {
+    // Format as multiline with Prettier-style formatting
+    const parts: Doc[] = [];
+
+    args.forEach((arg, i) => {
+      parts.push(arg);
+      if (i < args.length - 1) {
+        parts.push(',');
+        parts.push(hardline());
+      }
+    });
+
+    return concat([
+      '(',
+      indent(concat([hardline(), ...parts])),
+      hardline(),
+      ')',
+    ]);
+  }
+
+  // Keep single-line arguments compact
   return concat([
     '(',
-    join(concat([', ']), args),
+    join(', ', args),
     ')',
   ]);
 }
@@ -694,6 +781,22 @@ function printRange(node: TreeSitter.Node, options: Required<FormatOptions>): Do
 
 function printTernaryExpression(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
   const parts: Doc[] = [];
+  let firstChildLine = -1;
+  let lastChildLine = -1;
+
+  // Track line positions to detect multiline ternaries
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    if (firstChildLine === -1) {
+      firstChildLine = child.startPosition.row;
+    }
+    lastChildLine = child.endPosition.row;
+  }
+
+  const isMultiline = lastChildLine > firstChildLine;
 
   for (const child of node.children) {
     if (!child) continue;
@@ -701,10 +804,19 @@ function printTernaryExpression(node: TreeSitter.Node, options: Required<FormatO
       continue;
     }
     if (child.type === '?') {
-      parts.push(' ', child.text, ' ');
+      if (isMultiline) {
+        parts.push(indent(concat([hardline(), child.text, ' '])));
+      } else {
+        parts.push(' ', child.text, ' ');
+      }
     } else if (child.type === ':') {
-      parts.push(' ', child.text, ' ');
+      if (isMultiline) {
+        parts.push(indent(concat([hardline(), child.text, ' '])));
+      } else {
+        parts.push(' ', child.text, ' ');
+      }
     } else {
+      // Regular child node - just add it, indentation handled by ? and : above
       parts.push(printNode(child, options));
     }
   }
@@ -804,11 +916,10 @@ function printModifierChain(node: TreeSitter.Node, options: Required<FormatOptio
       continue;
     }
     if (child.type === 'modifier') {
+      // No space after modifier characters like %, #, !, *
       parts.push(child.text);
     } else if (child.type === 'module_call' || child.type === 'function_call' || child.type === 'transform_chain') {
-      if (parts.length > 0) {
-        parts.push(' ');
-      }
+      // Just add the node directly, no space before it
       parts.push(printNode(child, options));
     } else {
       parts.push(printNode(child, options));
@@ -856,10 +967,6 @@ function printChildren(node: TreeSitter.Node, options: Required<FormatOptions>):
 }
 
 // Helper functions
-
-function isDeclaration(type: string): boolean {
-  return type === 'module_declaration' || type === 'function_declaration';
-}
 
 function needsSemicolon(type: string, node?: TreeSitter.Node): boolean {
   if (type === 'assignment') {
@@ -987,6 +1094,10 @@ function printDoc(doc: Doc, options: Required<FormatOptions>, mode: 'flat' | 'br
   let result = output.split('\n').map(line => line.trimEnd()).join('\n');
 
   // Ensure exactly one trailing newline (all text files should end with newline)
+  // Unless the result is empty
+  if (result.trim().length === 0) {
+    return '';
+  }
   result = result.replace(/\n*$/, '\n');
 
   return result;

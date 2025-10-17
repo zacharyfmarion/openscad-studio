@@ -32,8 +32,8 @@ arm(pos[0], pos[1], arm1_length, arm2_length);
 // The $t variable will be used as parameter for this function
 // so the range for t is [0..1].
 function position(t) = t < 0.5
-    ? [ 200 * t - 50, 30 * sin(5 * 360 * t) + 60 ]
-    : [ 50 * cos(360 * (t - 0.5)), 100 * -sin(360 * (t- 0.5)) + 60 ];
+    ? [200 * t - 50, 30 * sin(5 * 360 * t) + 60]
+    : [50 * cos(360 * (t - 0.5)), 100 * -sin(360 * (t - 0.5)) + 60];
 
 // Inverse kinematics functions for a scara style arm
 // See http://forums.reprap.org/read.php?185,283327
@@ -64,24 +64,24 @@ module arm(x, y, l1, l2) {
         sphere(r = 2 * r);
         rotate([0, 0, a2]) segment("green", l2);
     }
-    translate([x, y, -r/2])
+    translate([x, y, -r / 2])
         cylinder(r1 = 0, r2 = r, h = 4 * r, center = true);
 }
 
-module curve() polygon([for (a = [ 0 : 0.004 : 1]) position(a)]);
+module curve() polygon([for(a = [0:0.004:1])position(a)]);
 
 // Draws the plate and the traced function using small black cubes.
 module plate() {
-    %translate([0, 0, -3*r]) {
-        translate([0,25,0]) cube([150, 150, 0.1], center = true);
+    %translate([0, 0, -3 * r]) {
+        translate([0, 25, 0]) cube([150, 150, 0.1], center = true);
         color("Black") linear_extrude(0.1) difference() {
             curve();
             offset(-1) curve();
-        }
-    }
+        };
+    };
 }
 
-echo(version=version());
+echo(version = version());
 // Written in 2015 by Torsten Paul <Torsten.Paul@gmx.de>
 //
 // To the extent possible under law, the author(s) have dedicated all

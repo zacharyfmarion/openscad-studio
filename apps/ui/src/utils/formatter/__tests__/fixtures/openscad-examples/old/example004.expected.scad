@@ -1,13 +1,11 @@
-
-module example004()
-{
-  difference() {
-    cube(30, center = true);
-    sphere(20);
-  }
+module example004() {
+    difference() {
+        cube(30, center = true);
+        sphere(20);
+    }
 }
 
-echo(version=version());
+echo(version = version());
 
 example004();
 

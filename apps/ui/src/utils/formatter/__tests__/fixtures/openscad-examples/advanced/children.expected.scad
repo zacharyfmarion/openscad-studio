@@ -13,15 +13,14 @@ color("green")
         difference() {
             sphere(5);
             cylinder(r = 2, h = 12, center = true);
-        }
+        };
 
 color("cyan")
     make_ring_of(radius = 50, count = 4)
         something();
 
-module make_ring_of(radius, count)
-{
-    for (a = [0 : count - 1]) {
+module make_ring_of(radius, count) {
+    for (a = [0:count - 1]) {
         angle = a * 360 / count;
         translate(radius * [sin(angle), -cos(angle), 0])
             rotate([0, 0, angle])
@@ -29,8 +28,7 @@ module make_ring_of(radius, count)
     }
 }
 
-module something()
-{
+module something() {
     cube(10, center = true);
     cylinder(r = 2, h = 12, $fn = 40);
     translate([0, 0, 12])
@@ -41,7 +39,7 @@ module something()
         cube([22, 1.6, 0.4], center = true);
 }
 
-echo(version=version());
+echo(version = version());
 // Written in 2015 by Torsten Paul <Torsten.Paul@gmx.de>
 //
 // To the extent possible under law, the author(s) have dedicated all

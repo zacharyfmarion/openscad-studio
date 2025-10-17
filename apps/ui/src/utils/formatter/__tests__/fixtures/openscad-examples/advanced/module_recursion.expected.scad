@@ -4,14 +4,14 @@
 // described in http://natureofcode.com/book/chapter-8-fractals/
 
 // number of levels for the recursion
-levels = 10; // [1:1:14]
+levels = 10;  // [1:1:14]
 // length of the first segment
-len = 100; // [10:10:200]
+len = 100;  // [10:10:200]
 // thickness of the first segment
-thickness = 5; //[1:1:20]
+thickness = 5;  //[1:1:20]
 
 // the identity matrix
-identity = [ [ 1, 0, 0, 0 ], [ 0, 1, 0, 0 ], [ 0, 0, 1, 0 ], [ 0, 0, 0, 1 ] ];
+identity = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
 
 // random generator, to generate always the same output for the example,
 // this uses a seed for rands() and stores the array of random values in
@@ -22,10 +22,10 @@ random = rands(0, 1, rcnt, 18);
 function rnd(s, e, r) = random[r % rcnt] * (e - s) + s;
 
 // generate 4x4 translation matrix
-function mt(x, y) = [ [ 1, 0, 0, x ], [ 0, 1, 0, y ], [ 0, 0, 1, 0 ], [ 0, 0, 0, 1 ] ];
+function mt(x, y) = [[1, 0, 0, x], [0, 1, 0, y], [0, 0, 1, 0], [0, 0, 0, 1]];
 
 // generate 4x4 rotation matrix around Z axis
-function mr(a) = [ [ cos(a), -sin(a), 0, 0 ], [ sin(a), cos(a), 0, 0 ], [ 0, 0, 1, 0 ], [ 0, 0, 0, 1 ] ];
+function mr(a) = [[cos(a), -sin(a), 0, 0], [sin(a), cos(a), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
 
 module tree(length, thickness, count, m = identity, r = 1) {
     color([0, 1 - (0.8 / levels * count), 0])
@@ -40,7 +40,7 @@ module tree(length, thickness, count, m = identity, r = 1) {
 
 tree(len, thickness, levels);
 
-echo(version=version());
+echo(version = version());
 // Written in 2015 by Torsten Paul <Torsten.Paul@gmx.de>
 //
 // To the extent possible under law, the author(s) have dedicated all

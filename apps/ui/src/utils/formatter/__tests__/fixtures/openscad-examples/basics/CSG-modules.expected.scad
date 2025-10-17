@@ -27,11 +27,11 @@ module body() {
 }
 
 module intersector() {
-    color("Red") cube(15, center=true);
+    color("Red") cube(15, center = true);
 }
 
 module holeObject() {
-    color("Lime") cylinder(h=20, r=5, center=true);
+    color("Lime") cylinder(h = 20, r = 5, center = true);
 }
 
 // Various modules for visualizing intermediate components
@@ -43,8 +43,8 @@ module intersected() {
     }
 }
 
-module holeA() rotate([0,90,0]) holeObject();
-module holeB() rotate([90,0,0]) holeObject();
+module holeA() rotate([0, 90, 0]) holeObject();
+module holeB() rotate([90, 0, 0]) holeObject();
 module holeC() holeObject();
 
 module holes() {
@@ -57,31 +57,31 @@ module holes() {
 
 module helpers() {
     // Inner module since it's only needed inside helpers
-    module line() color("Black") cylinder(r=1, h=10, center=true);
+    module line() color("Black") cylinder(r = 1, h = 10, center = true);
 
     scale(0.5) {
-        translate([-30,0,-40]) {
+        translate([-30, 0, -40]) {
             intersected();
-            translate([-15,0,-35]) body();
-            translate([15,0,-35]) intersector();
-            translate([-7.5,0,-17.5]) rotate([0,30,0]) line();
-            translate([7.5,0,-17.5]) rotate([0,-30,0]) line();
+            translate([-15, 0, -35]) body();
+            translate([15, 0, -35]) intersector();
+            translate([-7.5, 0, -17.5]) rotate([0, 30, 0]) line();
+            translate([7.5, 0, -17.5]) rotate([0, -30, 0]) line();
         }
-        translate([30,0,-40]) {
+        translate([30, 0, -40]) {
             holes();
-            translate([-10,0,-35]) holeA();
-            translate([10,0,-35]) holeB();
-            translate([30,0,-35]) holeC();
-            translate([5,0,-17.5]) rotate([0,-20,0]) line();
-            translate([-5,0,-17.5]) rotate([0,30,0]) line();
-            translate([15,0,-17.5]) rotate([0,-45,0]) line();
+            translate([-10, 0, -35]) holeA();
+            translate([10, 0, -35]) holeB();
+            translate([30, 0, -35]) holeC();
+            translate([5, 0, -17.5]) rotate([0, -20, 0]) line();
+            translate([-5, 0, -17.5]) rotate([0, 30, 0]) line();
+            translate([15, 0, -17.5]) rotate([0, -45, 0]) line();
         }
-        translate([-20,0,-22.5]) rotate([0,45,0]) line();
-        translate([20,0,-22.5]) rotate([0,-45,0]) line();
+        translate([-20, 0, -22.5]) rotate([0, 45, 0]) line();
+        translate([20, 0, -22.5]) rotate([0, -45, 0]) line();
     }
 }
 
-echo(version=version());
+echo(version = version());
 // Written by Marius Kintel <marius@kintel.net>
 //
 // To the extent possible under law, the author(s) have dedicated all
