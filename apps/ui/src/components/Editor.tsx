@@ -130,21 +130,12 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
       editor.getAction('editor.action.formatDocument')?.run();
     });
 
-    // Add keyboard shortcut for save with format (Cmd+S / Ctrl+S)
+    // Add keyboard shortcut for save (Cmd+S / Ctrl+S)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, async () => {
-      console.log('[Editor] Save triggered');
-      const currentSettings = loadSettings();
-
-      if (currentSettings.editor.formatOnSave) {
-        console.log('[Editor] Format on save is enabled, formatting...');
-        // Trigger the format action which will use our formatter
-        await editor.getAction('editor.action.formatDocument')?.run();
-      } else {
-        console.log('[Editor] Format on save is disabled, skipping format');
-      }
-
-      // Note: In a real app, you'd save to file here
-      // For now, the formatted code is already in the editor via the formatting provider
+      console.log('[Editor] Save triggered via Cmd+S');
+      // Emit the save event so App.tsx can handle formatting and file save
+      const { emit } = await import('@tauri-apps/api/event');
+      await emit('menu:file:save');
     });
 
     // Ensure full OpenSCAD language support (syntax, config, tokens)
