@@ -144,6 +144,7 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
   const parts: Doc[] = [];
   let lastWasComment = false;
   let lastWasDeclaration = false;
+  let prevChild: TreeSitter.Node | null = null;
 
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i);
@@ -156,15 +157,22 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
 
     const childDoc = printNode(child, options);
 
-    // Add blank line between sections (when we see a new comment after code)
+    // Check if there was a blank line before this child in the original code
+    let blankLineBefore = false;
+    if (prevChild) {
+      const lineDiff = child.startPosition.row - prevChild.endPosition.row;
+      blankLineBefore = lineDiff > 1;
+    }
+
+    // Add blank line if there was one in the original
     const isComment = child.type === 'comment';
-    if (i > 0 && isComment && !lastWasComment) {
+    if (blankLineBefore && i > 0) {
       parts.push(hardline());
     }
 
     // Add blank line between top-level declarations (but not after comments)
     const isDecl = isDeclaration(child.type);
-    if (i > 0 && isDecl && lastWasDeclaration) {
+    if (i > 0 && isDecl && lastWasDeclaration && !blankLineBefore) {
       parts.push(hardline());
     }
 
@@ -178,6 +186,7 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
     parts.push(hardline());
     lastWasComment = isComment;
     lastWasDeclaration = isDecl;
+    prevChild = child;
   }
 
   return concat(parts);
@@ -319,6 +328,27 @@ function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Do
       // Module/function calls without blocks need semicolons
       const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
       needsSemi = !hasBlock;
+    } else if (child.type === 'module_declaration') {
+      // Module declarations without blocks need semicolons
+      const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
+      needsSemi = !hasBlock;
+    } else if (child.type === 'if_statement' || child.type === 'if_block') {
+      // If statements - check if they need semicolons
+      // If they have else, printIfStatement handles semicolons
+      // Otherwise, need semicolons if no block
+      const hasElse = hasChildOfType(child, 'else');
+      if (!hasElse) {
+        const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
+        needsSemi = !hasBlock;
+      }
+    } else if (child.type === 'for_statement' || child.type === 'for_block') {
+      // For statements without blocks need semicolons
+      const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
+      needsSemi = !hasBlock;
+    } else if (child.type === 'intersection_for' || child.type === 'intersection_for_block') {
+      // Intersection_for without blocks need semicolons
+      const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
+      needsSemi = !hasBlock;
     }
 
     // Check if there was a blank line before this statement in the original code
@@ -364,6 +394,9 @@ function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Do
 
 function printIfStatement(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
   const parts: Doc[] = ['if'];
+  let hasElse = false;
+  let seenElse = false;
+  let conditionEndRow = -1;
 
   for (const child of node.children) {
     if (!child) continue;
@@ -374,17 +407,38 @@ function printIfStatement(node: TreeSitter.Node, options: Required<FormatOptions
       if (conditionChild) {
         parts.push(' (', printNode(conditionChild, options), ')');
       }
+      conditionEndRow = child.endPosition.row;
     } else if (child.type === 'block' || child.type === 'union_block') {
       parts.push(' ', printNode(child, options));
     } else if (child.type === 'else') {
+      // Add semicolon before else if we're not in a block
+      if (!hasChildOfType(node, 'union_block') && !hasChildOfType(node, 'block')) {
+        parts.push(';');
+      }
       parts.push(' else');
+      hasElse = true;
+      seenElse = true;
     } else if (child.type === 'whitespace' || child.type === '\n' || child.type === ';') {
       // Skip
       continue;
     } else {
       // This handles any statement/expression in the if body (without braces)
-      parts.push(' ', printNode(child, options));
+      // Check if body is on a new line
+      const isMultiline = conditionEndRow >= 0 && child.startPosition.row > conditionEndRow;
+
+      if (isMultiline && !seenElse) {
+        // Body on new line - add newline and indent
+        parts.push(indent(concat([hardline(), printNode(child, options)])));
+      } else {
+        // Body on same line
+        parts.push(' ', printNode(child, options));
+      }
     }
+  }
+
+  // Add final semicolon if there's an else clause (and no block)
+  if (hasElse && !hasChildOfType(node, 'union_block') && !hasChildOfType(node, 'block')) {
+    parts.push(';');
   }
 
   return concat(parts);
@@ -827,7 +881,27 @@ function needsSemicolon(type: string, node?: TreeSitter.Node): boolean {
     return !hasBlock;
   }
   if (type === 'if_statement' || type === 'if_block') {
-    // If statements without blocks need semicolons
+    // If statements with else need semicolons handled in printIfStatement
+    // If statements without else and without blocks need semicolons
+    if (node) {
+      const hasElse = hasChildOfType(node, 'else');
+      if (hasElse) {
+        return false; // printIfStatement handles semicolons for if-else
+      }
+      const hasBlock = hasChildOfType(node, 'union_block') || hasChildOfType(node, 'block');
+      return !hasBlock;
+    }
+    return false;
+  }
+  if (type === 'for_statement' || type === 'for_block') {
+    // For statements need semicolons if they don't have blocks
+    if (node) {
+      const hasBlock = hasChildOfType(node, 'union_block') || hasChildOfType(node, 'block');
+      return !hasBlock;
+    }
+  }
+  if (type === 'intersection_for' || type === 'intersection_for_block') {
+    // Intersection_for statements need semicolons if they don't have blocks
     if (node) {
       const hasBlock = hasChildOfType(node, 'union_block') || hasChildOfType(node, 'block');
       return !hasBlock;

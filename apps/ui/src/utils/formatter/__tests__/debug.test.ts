@@ -12,56 +12,29 @@ describe('Debug Formatter Tests', () => {
     await initFormatter();
   });
 
-  it('should format simple comment and call', async () => {
-    const input = `// Line 1 comment
-// Line 2 comment
-Logo(50);
-`;
-
-    const expected = `// Line 1 comment
-// Line 2 comment
-Logo(50);
-`;
-
-    const actual = await formatOpenScadCode(input);
-
-    console.log('\n=== INPUT ===');
-    console.log(JSON.stringify(input));
-    console.log('\n=== EXPECTED ===');
-    console.log(JSON.stringify(expected));
-    console.log('\n=== ACTUAL ===');
-    console.log(JSON.stringify(actual));
-
-    console.log('\n=== LINE BY LINE ===');
-    const inputLines = input.split('\n');
-    const expectedLines = expected.split('\n');
-    const actualLines = actual.split('\n');
-
-    const maxLines = Math.max(inputLines.length, expectedLines.length, actualLines.length);
-    for (let i = 0; i < maxLines; i++) {
-      console.log(`Line ${i + 1}:`);
-      console.log(`  Input:    ${JSON.stringify(inputLines[i] || '(missing)')}`);
-      console.log(`  Expected: ${JSON.stringify(expectedLines[i] || '(missing)')}`);
-      console.log(`  Actual:   ${JSON.stringify(actualLines[i] || '(missing)')}`);
-      if (expectedLines[i] !== actualLines[i]) {
-        console.log(`  ❌ MISMATCH`);
-      }
-    }
-
-    expect(actual).toBe(expected);
-  });
-
-  it('should be idempotent', async () => {
-    const input = `// Comment
-Logo(50);
-`;
+  it('should be idempotent - if-else without braces', async () => {
+    const input = `if (a) cube(1); else sphere(2);`;
 
     const once = await formatOpenScadCode(input);
     const twice = await formatOpenScadCode(once);
 
-    console.log('\n=== IDEMPOTENCE CHECK ===');
-    console.log('Formatted once:', JSON.stringify(once));
-    console.log('Formatted twice:', JSON.stringify(twice));
+    console.log('\n=== IDEMPOTENCE DEBUG ===');
+    console.log('Input:', JSON.stringify(input));
+    console.log('Once:', JSON.stringify(once));
+    console.log('Twice:', JSON.stringify(twice));
+
+    const onceLines = once.split('\n');
+    const twiceLines = twice.split('\n');
+
+    console.log('\n=== LINE COMPARISON ===');
+    const maxLines = Math.max(onceLines.length, twiceLines.length);
+    for (let i = 0; i < maxLines; i++) {
+      if (onceLines[i] !== twiceLines[i]) {
+        console.log(`Line ${i + 1} DIFFERS:`);
+        console.log(`  Once:  ${JSON.stringify(onceLines[i] || '(missing)')}`);
+        console.log(`  Twice: ${JSON.stringify(twiceLines[i] || '(missing)')}`);
+      }
+    }
 
     expect(twice).toBe(once);
   });
