@@ -340,6 +340,8 @@ function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Do
     let needsSemi = false;
     if (child.type === 'assignment') {
       needsSemi = true;
+    } else if (child.type === 'assert_statement' || child.type === 'assert_expression') {
+      needsSemi = true;
     } else if (child.type === 'transform_chain') {
       // Check if transform_chain ends with a block
       const hasBlock = hasChildOfType(child, 'union_block') || hasChildOfType(child, 'block');
@@ -891,7 +893,10 @@ function printUseStatement(node: TreeSitter.Node, options: Required<FormatOption
 }
 
 function printAssert(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
-  const parts: Doc[] = ['assert'];
+  const parts: Doc[] = ['assert', '('];
+  const args: Doc[] = [];
+  let afterParens: Doc | null = null;
+  let seenCloseParen = false;
 
   for (const child of node.children) {
     if (!child) continue;
@@ -901,7 +906,35 @@ function printAssert(node: TreeSitter.Node, options: Required<FormatOptions>): D
     if (child.type === 'whitespace' || child.type === '\n') {
       continue;
     }
-    parts.push(printNode(child, options));
+    if (child.type === '(') {
+      continue;
+    }
+    if (child.type === ')') {
+      seenCloseParen = true;
+      continue;
+    }
+    if (child.type === ';') {
+      continue;
+    }
+    if (child.type === ',') {
+      continue;
+    }
+
+    // If we've seen the closing paren, this is the expression after assert
+    if (seenCloseParen) {
+      afterParens = printNode(child, options);
+    } else {
+      args.push(printNode(child, options));
+    }
+  }
+
+  // Join arguments with comma and space
+  parts.push(join(', ', args));
+  parts.push(')');
+
+  // Add expression after assert with a space
+  if (afterParens) {
+    parts.push(' ', afterParens);
   }
 
   return concat(parts);
@@ -970,6 +1003,9 @@ function printChildren(node: TreeSitter.Node, options: Required<FormatOptions>):
 
 function needsSemicolon(type: string, node?: TreeSitter.Node): boolean {
   if (type === 'assignment') {
+    return true;
+  }
+  if (type === 'assert_statement' || type === 'assert_expression') {
     return true;
   }
   if (type === 'transform_chain' && node) {
