@@ -3,9 +3,10 @@ import type { Diagnostic } from '../api/tauri';
 import { useEffect, useRef, useState } from 'react';
 import type * as Monaco from 'monaco-editor';
 import { listen } from '@tauri-apps/api/event';
-import { formatOpenScadCode } from '../utils/openscadFormatter';
+import { formatOpenScadCode } from '../utils/formatter';
 import { loadSettings, type Settings } from '../stores/settingsStore';
 import { getTheme } from '../themes';
+import { ensureOpenScadLanguage } from '../languages/openscadLanguage';
 
 interface EditorProps {
   value: string;
@@ -124,91 +125,46 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
       }
     });
 
-    // Add keyboard shortcut for format (Cmd+Shift+F / Ctrl+Shift+F)
+    // Add keyboard shortcut for manual format (Cmd+Shift+F / Ctrl+Shift+F)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, () => {
       editor.getAction('editor.action.formatDocument')?.run();
     });
 
-    // Register OpenSCAD language (basic syntax highlighting)
-    monaco.languages.register({ id: 'openscad' });
-
-    // Register comment configuration for OpenSCAD
-    // This enables Cmd+/ to work automatically
-    monaco.languages.setLanguageConfiguration('openscad', {
-      comments: {
-        lineComment: '//',
-        blockComment: ['/*', '*/'],
-      },
-      brackets: [
-        ['{', '}'],
-        ['[', ']'],
-        ['(', ')']
-      ],
-      autoClosingPairs: [
-        { open: '{', close: '}' },
-        { open: '[', close: ']' },
-        { open: '(', close: ')' },
-        { open: '"', close: '"' },
-      ],
+    // Add keyboard shortcut for save (Cmd+S / Ctrl+S)
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, async () => {
+      console.log('[Editor] Save triggered via Cmd+S');
+      // Emit the save event so App.tsx can handle formatting and file save
+      const { emit } = await import('@tauri-apps/api/event');
+      await emit('menu:file:save');
     });
 
-    monaco.languages.setMonarchTokensProvider('openscad', {
-      keywords: [
-        'module', 'function', 'if', 'else', 'for', 'let', 'echo', 'assert',
-        'true', 'false', 'undef', 'include', 'use'
-      ],
-      builtins: [
-        'cube', 'sphere', 'cylinder', 'polyhedron', 'square', 'circle',
-        'polygon', 'text', 'union', 'difference', 'intersection',
-        'translate', 'rotate', 'scale', 'resize', 'mirror', 'multmatrix',
-        'color', 'offset', 'hull', 'minkowski', 'linear_extrude',
-        'rotate_extrude', 'projection', 'render', 'surface', 'children'
-      ],
-      operators: ['+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '&&', '||', '!'],
-      symbols: /[=><!~?:&|+\-*\/\^%]+/,
-      tokenizer: {
-        root: [
-          [/[a-zA-Z_]\w*/, {
-            cases: {
-              '@keywords': 'keyword',
-              '@builtins': 'type',
-              '@default': 'identifier'
-            }
-          }],
-          [/\/\/.*$/, 'comment'],
-          [/\/\*/, 'comment', '@comment'],
-          [/\d+(\.\d+)?/, 'number'],
-          [/"([^"\\]|\\.)*$/, 'string.invalid'],
-          [/"/, 'string', '@string'],
-        ],
-        comment: [
-          [/[^\/*]+/, 'comment'],
-          [/\*\//, 'comment', '@pop'],
-          [/[\/*]/, 'comment']
-        ],
-        string: [
-          [/[^\\"]+/, 'string'],
-          [/"/, 'string', '@pop']
-        ]
-      }
-    });
+    // Ensure full OpenSCAD language support (syntax, config, tokens)
+    ensureOpenScadLanguage(monaco);
+
+    // Note: Tree-sitter formatter is initialized early in App.tsx for better performance
 
     // Register document formatting provider for OpenSCAD
     monaco.languages.registerDocumentFormattingEditProvider('openscad', {
-      provideDocumentFormattingEdits: (model) => {
+      provideDocumentFormattingEdits: async (model) => {
         const text = model.getValue();
         const currentSettings = loadSettings();
-        const formatted = formatOpenScadCode(text, {
-          indentSize: currentSettings.editor.indentSize,
-          useTabs: currentSettings.editor.useTabs,
-        });
 
-        return [
-          {
-            range: model.getFullModelRange(),
-            text: formatted,
-          },
-        ];
+        try {
+          const formatted = await formatOpenScadCode(text, {
+            indentSize: currentSettings.editor.indentSize,
+            useTabs: currentSettings.editor.useTabs,
+          });
+
+          return [
+            {
+              range: model.getFullModelRange(),
+              text: formatted,
+            },
+          ];
+        } catch (error) {
+          console.error('[Editor] Formatting error:', error);
+          return []; // Return empty array on error (no changes)
+        }
       },
     });
 

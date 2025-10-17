@@ -25,7 +25,15 @@
   <img src="images/example.png" alt="OpenSCAD Studio Screenshot" width="100%">
 </p>
 
+## ✨ Motivation
+
+As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precision and maps to my mental model of building things. However, some operations (like rounding with `minkowski`) are not very intuitive. At work, I often use Cursor and Claude Code for writing code, and found myself plugging my OpenSCAD code into ChatGPT in order to either (1) scaffold out a starting point or (2) fix a confusing issue in my code. I also became frustrated by certain limitations of the OpenSCAD editor, like not being able to easily indent code with the editor commands I'm used to. Lastly, for 2d graphics (which I often create for laser cutting), the preview experience as a 3D view feels very strange. So I built OpenSCAD Studio, which aims to be something like a Cursor for the language.
+
 ## ✨ Features
+
+* Built in AI chat that can edit the code and view diagnostics
+* First-class 2D graphics support with a separate SVG viewer
+* Modern code editor with auto-formatting using Monaco & Tree Sitter
 
 ### 🎨 Editor
 - **Monaco Editor** with custom OpenSCAD syntax highlighting
@@ -54,16 +62,21 @@
 - **OpenSCAD stderr parsing** with line/column precision
 - **Auto-detect OpenSCAD** installation
 
+### Limitations
+
+OpenSCAD Studio is a very new project and still does not support everything that OpenSCAD does. The main ones right now:
+
+* No support for special operators (!, #, etc)
+* No customizer support
+
 ## 📦 Installation
 
 ### Prerequisites
 
-1. **OpenSCAD** must be installed and available in your PATH
-   - Download from https://openscad.org/
-   - Or install via package manager:
-     - macOS: `brew install openscad`
-     - Ubuntu: `sudo apt install openscad`
-     - Windows: Download installer from website
+1. The **opescad** cli binary must be installed and available in your PATH. You can install via package manager:
+  - macOS: `brew install openscad`
+  - Ubuntu: `sudo apt install openscad`
+  - Windows: Download installer from website
 
 2. For development, you'll need:
    - **Node.js** 18+ and **pnpm**
@@ -120,12 +133,12 @@ The AI copilot uses a secure sidecar architecture with API keys stored in your O
 
 1. Open Settings (⌘,)
 2. Navigate to "AI" tab
-3. Enter your Anthropic API key
+3. Enter your Anthropic / OpenAI API key
 4. Key is securely stored in macOS Keychain / Windows Credential Manager / Linux Secret Service
 
 **Supported Providers:**
-- Anthropic (Claude Sonnet 4.5) - default
-- OpenAI (GPT-4) - set `AI_PROVIDER=openai` environment variable
+- Anthropic
+- OpenAI
 
 The AI can:
 - View your current code and preview

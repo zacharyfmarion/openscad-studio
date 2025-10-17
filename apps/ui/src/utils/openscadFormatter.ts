@@ -26,7 +26,7 @@ export function formatOpenScadCode(code: string, options: FormatOptions = {}): s
   // Split into lines and remove trailing whitespace
   const lines = code.split('\n').map(line => line.trimEnd());
 
-  let formatted: string[] = [];
+  const formatted: string[] = [];
   let indentLevel = 0;
   let lastLineWasBlank = false;
 
@@ -120,10 +120,13 @@ export function formatOpenScadCode(code: string, options: FormatOptions = {}): s
 /**
  * Format the content of a single line (spacing around operators, etc.)
  */
+const MULTI_CHAR_OPERATORS = ['<=', '>=', '==', '!=', '+=', '-=', '*=', '/=', '%='];
+
 function formatLineContent(line: string): string {
   let result = '';
   let inString = false;
-  let inComment = false;
+  let commentMode: 'line' | 'block' | null = null;
+  let inImportPath = false;
 
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
@@ -143,14 +146,68 @@ function formatLineContent(line: string): string {
     }
 
     // Handle comments
-    if (char === '/' && (nextChar === '/' || nextChar === '*')) {
-      inComment = true;
+    if (commentMode === 'line') {
       result += char;
       continue;
     }
-    if (inComment) {
+
+    if (commentMode === 'block') {
+      result += char;
+      if (char === '*' && nextChar === '/') {
+        result += nextChar;
+        i++;
+        commentMode = null;
+      }
+      continue;
+    }
+
+    if (char === '/' && nextChar === '/') {
+      commentMode = 'line';
       result += char;
       continue;
+    }
+
+    if (char === '/' && nextChar === '*') {
+      commentMode = 'block';
+      result += char;
+      continue;
+    }
+
+    if (!inImportPath && char === '<') {
+      const trimmedResult = result.trimEnd();
+      if (/\b(?:use|include)$/.test(trimmedResult)) {
+        if (!result.endsWith(' ')) {
+          result += ' ';
+        }
+        inImportPath = true;
+        result += char;
+        continue;
+      }
+    }
+
+    if (inImportPath) {
+      result += char;
+      if (char === '>') {
+        inImportPath = false;
+      }
+      continue;
+    }
+
+    if (!inImportPath) {
+      const twoChar = line.slice(i, i + 2);
+      if (MULTI_CHAR_OPERATORS.includes(twoChar)) {
+        const prevResultChar = result[result.length - 1];
+        if (prevResultChar && prevResultChar !== ' ' && prevResultChar !== '(') {
+          result += ' ';
+        }
+        result += twoChar;
+        const followingChar = line[i + 2];
+        if (followingChar && followingChar !== ' ' && followingChar !== ')' && followingChar !== ';' && followingChar !== ',') {
+          result += ' ';
+        }
+        i++;
+        continue;
+      }
     }
 
     // Add space after commas
@@ -190,5 +247,24 @@ function formatLineContent(line: string): string {
     result += char;
   }
 
-  return result;
+  const singleLineCommentIndex = result.indexOf('//');
+  const blockCommentIndex = result.indexOf('/*');
+  const commentIndexes = [singleLineCommentIndex, blockCommentIndex].filter(index => index >= 0);
+  const prefixEnd = commentIndexes.length > 0 ? Math.min(...commentIndexes) : result.length;
+  const prefix = result.slice(0, prefixEnd);
+  const suffix = result.slice(prefixEnd);
+
+  const normalizedPrefix = prefix
+    .replace(/}\s*else/g, '} else')
+    .replace(/else\s*if/g, 'else if')
+    .replace(/else\s*\{/g, 'else {')
+    .replace(/\bif\s*\(/g, 'if (')
+    .replace(/\bfor\s*\(/g, 'for (')
+    .replace(/\bwhile\s*\(/g, 'while (')
+    .replace(/\)\s*\{/g, ') {')
+    .replace(/else if\s*\(([^)]*)\)\s*\{/g, 'else if ($1) {')
+    .replace(/\b(if|for|while)\s*\(([^)]*)\)\s*\{/g, (_match, keyword, condition) => `${keyword} (${condition}) {`)
+    .replace(/^(use|include)\s*<\s*([^>]+?)\s*>/g, '$1 <$2>');
+
+  return normalizedPrefix + suffix;
 }

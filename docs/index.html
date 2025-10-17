@@ -60,7 +60,7 @@
             </h1>
 
             <p class="text-xl md:text-2xl text-gray-400 mb-8 max-w-3xl mx-auto">
-                A cross-platform OpenSCAD editor with <span class="text-primary">live preview</span> and <span class="text-primary">AI copilot</span>
+                A cross-platform OpenSCAD editor with <span class="text-primary">live preview</span>, <span class="text-primary">smart formatting</span>, and <span class="text-primary">AI copilot</span>
             </p>
 
             <div class="flex gap-4 justify-center mb-16">
@@ -106,22 +106,27 @@
                     <div class="text-4xl mb-4">🎨</div>
                     <h3 class="text-2xl font-bold mb-3">Live 3D Preview</h3>
                     <p class="text-gray-400 mb-4">
-                        Interactive mesh viewer with orbit controls and instant re-renders using content-hash caching. Sub-500ms preview updates. Real-time error diagnostics with inline markers.
+                        Interactive mesh viewer with orbit controls and instant re-renders using content-hash caching. Real-time error diagnostics with inline markers.
                     </p>
                     <div class="bg-slate-950 rounded-lg p-4 border border-slate-800">
                         <img src="images/example.png" alt="3D Preview" class="w-full rounded">
                     </div>
                 </div>
 
-                <!-- Feature 3: Modern Editor with Theming -->
+                <!-- Feature 3: Modern Editor with Tree-sitter Formatter -->
                 <div class="bg-slate-900 rounded-xl p-8 border border-slate-800 hover:border-primary/50 transition">
                     <div class="text-4xl mb-4">💻</div>
-                    <h3 class="text-2xl font-bold mb-3">Modern Editor with Theming</h3>
+                    <h3 class="text-2xl font-bold mb-3">Smart Code Formatting</h3>
                     <p class="text-gray-400 mb-4">
-                        Monaco editor with custom OpenSCAD syntax highlighting, multi-tab editing with drag-to-reorder, auto-save, format on save, and keyboard shortcuts for power users. Multiple color themes to match your style.
+                        Monaco editor with <span class="text-primary font-semibold">tree-sitter based formatter</span> for idempotent, AST-aware code formatting. Auto-format on save (Cmd+S), preserves comments and blank lines, multi-tab editing with drag-to-reorder, and multiple color themes.
                     </p>
+                    <ul class="text-gray-400 text-sm mb-4 space-y-2">
+                        <li>✓ <span class="text-primary">Idempotent</span> - consistent output every time</li>
+                        <li>✓ <span class="text-primary">Comment-aware</span> - preserves all documentation</li>
+                        <li>✓ <span class="text-primary">137+ tests</span> - validated against official examples</li>
+                    </ul>
                     <div class="bg-slate-950 rounded-lg p-4 border border-slate-800">
-                        <img src="images/editor-with-theme.png" alt="Editor with Theming" class="w-full rounded">
+                        <img src="images/editor-with-theme.png" alt="Editor with Formatting" class="w-full rounded">
                     </div>
                 </div>
 
@@ -159,6 +164,9 @@
                 </div>
                 <div class="bg-slate-900 px-6 py-3 rounded-lg border border-slate-800">
                     <span class="font-semibold text-primary">Monaco Editor</span>
+                </div>
+                <div class="bg-slate-900 px-6 py-3 rounded-lg border border-slate-800">
+                    <span class="font-semibold text-primary">Tree-sitter</span>
                 </div>
                 <div class="bg-slate-900 px-6 py-3 rounded-lg border border-slate-800">
                     <span class="font-semibold text-primary">Three.js</span>

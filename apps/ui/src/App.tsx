@@ -19,7 +19,7 @@ import { save, open } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { renderExact, type ExportFormat, updateEditorState } from './api/tauri';
 import { loadSettings, type Settings } from './stores/settingsStore';
-import { formatOpenScadCode } from './utils/openscadFormatter';
+import { formatOpenScadCode } from './utils/formatter';
 import { TbSettings, TbBox, TbRuler2 } from 'react-icons/tb';
 
 // Helper to generate unique IDs for tabs
@@ -236,6 +236,8 @@ function App() {
     setTabs(newTabs);
   }, []);
 
+  // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
+
   // Check for OpenSCAD on mount
   useEffect(() => {
     // If OpenSCAD is not detected and setup screen hasn't been dismissed
@@ -372,7 +374,7 @@ function App() {
       const currentSettings = loadSettings();
       if (currentSettings.editor.formatOnSave) {
         try {
-          currentSource = formatOpenScadCode(currentSource, {
+          currentSource = await formatOpenScadCode(currentSource, {
             indentSize: currentSettings.editor.indentSize,
             useTabs: currentSettings.editor.useTabs,
           });

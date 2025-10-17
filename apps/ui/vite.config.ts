@@ -28,5 +28,18 @@ export default defineConfig(async () => ({
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
+    headers: {
+      // Serve WASM files with correct MIME type
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+    },
   },
+  // Ensure WASM files are served with correct MIME type
+  optimizeDeps: {
+    exclude: ['web-tree-sitter'],
+  },
+  // Configure asset handling for WASM files
+  assetsInclude: ['**/*.wasm'],
+  // Explicitly copy WASM files to dist during build
+  publicDir: 'public',
 }));
