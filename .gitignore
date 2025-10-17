@@ -37,3 +37,6 @@ packages/**/Cargo.lock
 # Tauri
 src-tauri/target/
 src-tauri/WixTools/
+
+# Jest cache
+.jest-cache/
