@@ -6,7 +6,7 @@
 
 import type * as TreeSitter from 'web-tree-sitter';
 import type { FormatOptions } from './index';
-import { concat, hardline, indent, line, group, join } from './doc';
+import { concat, hardline, indent, group, join } from './doc';
 import type { Doc } from './doc';
 
 /**
@@ -163,7 +163,7 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
     const isInlineComment = child.type === 'comment' && prevChild &&
                             child.startPosition.row === prevChild.endPosition.row;
 
-    if (isInlineComment) {
+    if (isInlineComment && prevChild) {
       // Preserve the original spacing before the inline comment
       // In the AST, prevChild ends before the semicolon, and child (comment) includes whitespace before it
       // We need to calculate: (comment start column) - (prevChild end column) - 1 (for semicolon we added)

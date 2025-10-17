@@ -40,4 +40,6 @@ export default defineConfig(async () => ({
   },
   // Configure asset handling for WASM files
   assetsInclude: ['**/*.wasm'],
+  // Explicitly copy WASM files to dist during build
+  publicDir: 'public',
 }));
