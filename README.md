@@ -29,45 +29,15 @@
 
 As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precision and maps to my mental model of building things. However, some operations (like rounding with `minkowski`) are not very intuitive. At work, I often use Cursor and Claude Code for writing code, and found myself plugging my OpenSCAD code into ChatGPT in order to either (1) scaffold out a starting point or (2) fix a confusing issue in my code. I also became frustrated by certain limitations of the OpenSCAD editor, like not being able to easily indent code with the editor commands I'm used to. So I built OpenSCAD Studio, which aims to be something like a Cursor for the language.
 
-## ✨ Features
+## Features
 
-* Built in AI chat that can edit the code and view diagnostics
-* First-class 2D graphics support with a separate SVG viewer
-* Modern code editor with auto-formatting using Monaco & Tree Sitter
+- 🤖 **AI copilot** - Chat with Claude/GPT to generate and fix code (bring your own API key)
+- 🎨 **Modern editor** - OpenSCAD syntax highlighting, multi-tab editing, format on save
+- 🖼️ **Live 3D preview** - Interactive mesh viewer with orbit controls and content-hash caching
+- 📐 **2D mode** - Dedicated SVG viewer for laser cutting and engraving
+- 🔍 **Real-time diagnostics** - Inline error markers with line/column precision
 
-### 🎨 Editor
-- **Monaco Editor** with custom OpenSCAD syntax highlighting
-- **Multi-tab editing** with drag-and-drop reordering
-- **Auto-save** and unsaved changes tracking
-- **Format on save** with configurable indentation
-- **Keyboard shortcuts** for common operations
-
-### 🖼️ Preview
-- **Live 3D mesh viewer** with orbit controls (Three.js + STL)
-- **Fast PNG preview** while typing (< 500ms)
-- **2D SVG mode** for 2D designs
-- **Auto-detect dimension mode** (2D vs 3D)
-- **Content-hash caching** for instant re-renders
-
-### 🤖 AI Copilot
-- **Diff-based editing** with validation and rollback
-- **Streaming responses** with real-time tool visualization
-- **Security-first** architecture (API keys in OS keychain)
-- **Test compilation** before accepting changes
-- **Multi-turn conversations** with context preservation
-
-### 🚀 Export & Diagnostics
-- **Export to multiple formats**: STL, OBJ, AMF, 3MF, PNG, SVG, DXF
-- **Real-time error diagnostics** with inline markers
-- **OpenSCAD stderr parsing** with line/column precision
-- **Auto-detect OpenSCAD** installation
-
-### Limitations
-
-OpenSCAD Studio is a very new project and still does not support everything that OpenSCAD does. The main ones right now:
-
-* No support for special operators (!, #, etc)
-* No customizer support
+**Limitations:** No special operators (!, #, %, *) or customizer support yet
 
 ## 📦 Installation
 
