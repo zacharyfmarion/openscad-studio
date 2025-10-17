@@ -68,7 +68,7 @@ module arm(x, y, l1, l2) {
         cylinder(r1 = 0, r2 = r, h = 4 * r, center = true);
 }
 
-module curve() polygon([for(a = [0:0.004:1])position(a)]);
+module curve() polygon([for(a = [0 : 0.004 : 1]) position(a)]);
 
 // Draws the plate and the traced function using small black cubes.
 module plate() {

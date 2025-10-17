@@ -20,7 +20,7 @@ color("cyan")
         something();
 
 module make_ring_of(radius, count) {
-    for (a = [0:count - 1]) {
+    for (a = [0 : count - 1]) {
         angle = a * 360 / count;
         translate(radius * [sin(angle), -cos(angle), 0])
             rotate([0, 0, angle])

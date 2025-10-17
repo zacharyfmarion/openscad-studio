@@ -5,7 +5,7 @@ function size(x) = assert(x % 2 == 0, "Size must be an even number") x;
 module ring(r = 10, cnt = 3, s = 6) {
     assert(r >= 10, "Parameter r must be >= 10");
     assert(cnt >= 3 && cnt <= 20, "Parameter cnt must be between 3 and 20 (inclusive");
-    for (a = [0:cnt - 1]) {
+    for (a = [0 : cnt - 1]) {
         rotate(a * 360 / cnt) translate([r, 0, 0]) cube(size(s), center = true);
     }
 }

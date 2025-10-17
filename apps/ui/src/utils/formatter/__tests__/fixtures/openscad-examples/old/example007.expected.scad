@@ -18,8 +18,9 @@ module clip() {
         rotate_extrude(convexity = 3, $fn = 0, $fa = 12, $fs = 2) {
             import(file = "example007.dxf", layer = "dorn");
         }
-        for (r = [0, 90])rotate(r, [0, 0, 1])
-            cutout();
+        for (r = [0, 90])
+            rotate(r, [0, 0, 1])
+                cutout();
     }
 }
 

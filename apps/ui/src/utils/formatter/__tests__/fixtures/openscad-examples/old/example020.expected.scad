@@ -2,7 +2,7 @@ module screw(type = 2, r1 = 15, r2 = 20, n = 7, h = 100, t = 8) {
     linear_extrude(height = h, twist = 360 * t / n, convexity = t)
         difference() {
             circle(r2);
-            for (i = [0:n - 1]) {
+            for (i = [0 : n - 1]) {
                 if (type == 1) rotate(i * 360 / n) polygon(
                     [
                         [2 * r2, 0],
@@ -75,7 +75,8 @@ module spring(r1 = 100, r2 = 10, h = 100, hr = 12) {
         $fn = (hr / r2) / stepsize,
         convexity = 5
     ) {
-        for (i = [stepsize:stepsize:1 + stepsize / 2])segment(i - stepsize, min(i, 1));
+        for (i = [stepsize : stepsize : 1 + stepsize / 2])
+            segment(i - stepsize, min(i, 1));
     }
 }
 

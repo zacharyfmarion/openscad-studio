@@ -29,7 +29,7 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
         'unary_expression', 'call_expression', 'module_call', 'function_call',
         'transform_chain', 'arguments', 'parameters_declaration', 'parameter', 'parenthesized_assignments',
         'parenthesized_expression', 'ternary_expression', 'index_expression', 'dot_index_expression',
-        'list', 'vector', 'array', 'range',
+        'list', 'vector', 'array', 'range', 'list_comprehension', 'for_clause',
         'comment', 'identifier', 'number', 'decimal', 'integer', 'float', 'string', 'boolean',
         'special_variable', 'use_statement', 'include_statement', 'include_path',
         'assert_statement', 'assert_expression',
@@ -94,6 +94,12 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
 
     case 'range':
       return printRange(node, options);
+
+    case 'list_comprehension':
+      return printListComprehension(node, options);
+
+    case 'for_clause':
+      return printForClause(node, options);
 
     case 'ternary_expression':
       return printTernaryExpression(node, options);
@@ -472,7 +478,7 @@ function printIfStatement(node: TreeSitter.Node, options: Required<FormatOptions
 
 function printForStatement(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
   const parts: Doc[] = ['for', ' '];
-  let block: Doc | null = null;
+  let parensEndRow = -1;
 
   for (const child of node.children) {
     if (!child) continue;
@@ -483,15 +489,21 @@ function printForStatement(node: TreeSitter.Node, options: Required<FormatOption
     } else if (child.type === 'parenthesized_assignments') {
       // Print the parenthesized assignments (e.g., "(i = [0:10])")
       parts.push(printParenthesizedAssignments(child, options));
+      parensEndRow = child.endPosition.row;
     } else if (child.type === 'block' || child.type === 'union_block') {
-      block = printNode(child, options);
+      parts.push(' ', printNode(child, options));
     } else if (child.type !== ';' && child.type !== 'whitespace' && child.type !== '\n') {
-      parts.push(printNode(child, options));
-    }
-  }
+      // Check if body is on a new line
+      const isMultiline = parensEndRow >= 0 && child.startPosition.row > parensEndRow;
 
-  if (block) {
-    parts.push(' ', block);
+      if (isMultiline) {
+        // Body on new line - add newline and indent
+        parts.push(indent(concat([hardline(), printNode(child, options)])));
+      } else {
+        // Body on same line
+        parts.push(' ', printNode(child, options));
+      }
+    }
   }
 
   return concat(parts);
@@ -772,9 +784,47 @@ function printRange(node: TreeSitter.Node, options: Required<FormatOptions>): Do
       continue;
     }
     if (child.type === ':') {
-      parts.push(child.text);
+      // Add spaces around colons in ranges: [0 : 10] not [0:10]
+      parts.push(' ', child.text, ' ');
     } else {
       parts.push(printNode(child, options));
+    }
+  }
+
+  return concat(parts);
+}
+
+function printListComprehension(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = [];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    parts.push(printNode(child, options));
+  }
+
+  return concat(parts);
+}
+
+function printForClause(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  const parts: Doc[] = ['for'];
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'for') {
+      // Already added
+      continue;
+    }
+    if (child.type === 'whitespace' || child.type === '\n') {
+      continue;
+    }
+    if (child.type === 'parenthesized_assignments') {
+      parts.push(printParenthesizedAssignments(child, options));
+    } else {
+      // This is the expression after the for clause
+      parts.push(' ', printNode(child, options));
     }
   }
 

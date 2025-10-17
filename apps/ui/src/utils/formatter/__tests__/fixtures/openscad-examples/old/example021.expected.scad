@@ -24,7 +24,7 @@ module demo_proj() {
 }
 
 module demo_cut() {
-    for (i = [-20:5:+20]) {
+    for (i = [-20 : 5 : +20]) {
         rotate(-30, [1, 1, 0]) translate([0, 0, -i])
             linear_extrude(center = true, height = 0.5) projection(cut = true)
                 translate([0, 0, i]) rotate(+30, [1, 1, 0]) thing();

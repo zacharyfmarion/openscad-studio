@@ -12,7 +12,7 @@ module roundedBox(size, radius, sidesonly) {
         cube([size[0] - radius * 2, size[1], size[2] - radius * 2], center = true);
         cube([size[0] - radius * 2, size[1] - radius * 2, size[2]], center = true);
 
-        for (axis = [0:2]) {
+        for (axis = [0 : 2]) {
             for (x = [radius - size[axis] / 2, -radius + size[axis] / 2],y = [radius - size[(axis + 1) % 3] / 2, -radius + size[(axis + 1) % 3] / 2]) {
                 rotate(rot[axis])
                     translate([x, y, 0])

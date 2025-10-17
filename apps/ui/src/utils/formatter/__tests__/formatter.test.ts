@@ -81,7 +81,7 @@ describe('OpenSCAD Formatter', () => {
     it('should add space after for keyword', async () => {
       const input = 'for(i=[0:10]){}';
       const result = await formatOpenScadCode(input);
-      expect(result).toContain('for (i = [0:10])');
+      expect(result).toContain('for (i = [0 : 10])');
     });
 
     it('should add space after module keyword', async () => {

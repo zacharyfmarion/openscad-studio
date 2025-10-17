@@ -39,9 +39,11 @@ module align_in_grid_and_add_text() {
         linear_extrude(height = 1, center = true)
             text(t, 6, halign = "center");
 
-        for (y = [0:$children - 1])for (x = [0:$children - 1])translate([15 * (x - ($children - 1) / 2), 20 * y + 40, 0])
-            scale(1 + x / $children)
-                children(y);
+        for (y = [0 : $children - 1])
+            for (x = [0 : $children - 1])
+                translate([15 * (x - ($children - 1) / 2), 20 * y + 40, 0])
+                    scale(1 + x / $children)
+                        children(y);
     }
 }
 
