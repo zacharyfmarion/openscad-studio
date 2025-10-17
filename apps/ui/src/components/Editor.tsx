@@ -3,7 +3,7 @@ import type { Diagnostic } from '../api/tauri';
 import { useEffect, useRef, useState } from 'react';
 import type * as Monaco from 'monaco-editor';
 import { listen } from '@tauri-apps/api/event';
-import { formatOpenScadCode, initFormatter } from '../utils/formatter';
+import { formatOpenScadCode } from '../utils/formatter';
 import { loadSettings, type Settings } from '../stores/settingsStore';
 import { getTheme } from '../themes';
 import { ensureOpenScadLanguage } from '../languages/openscadLanguage';
@@ -141,10 +141,7 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
     // Ensure full OpenSCAD language support (syntax, config, tokens)
     ensureOpenScadLanguage(monaco);
 
-    // Initialize tree-sitter formatter
-    initFormatter().catch((error) => {
-      console.error('[Editor] Failed to initialize formatter:', error);
-    });
+    // Note: Tree-sitter formatter is initialized early in App.tsx for better performance
 
     // Register document formatting provider for OpenSCAD
     monaco.languages.registerDocumentFormattingEditProvider('openscad', {

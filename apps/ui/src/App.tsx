@@ -236,6 +236,8 @@ function App() {
     setTabs(newTabs);
   }, []);
 
+  // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
+
   // Check for OpenSCAD on mount
   useEffect(() => {
     // If OpenSCAD is not detected and setup screen hasn't been dismissed
