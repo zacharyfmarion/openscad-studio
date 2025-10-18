@@ -9,7 +9,7 @@ This document helps AI assistants (like Claude) understand the OpenSCAD Studio c
 **Tech Stack:**
 - **Frontend**: React 19 + TypeScript + Vite + Monaco Editor
 - **Backend**: Rust + Tauri (IPC-based architecture)
-- **AI Agent**: Native Rust + Direct Anthropic Claude API
+- **AI Agent**: Native Rust with direct Anthropic/OpenAI API integration
 - **Package Manager**: pnpm (monorepo workspace)
 
 ## Architecture
@@ -72,7 +72,7 @@ Anthropic API (Claude)
    - Interactive STL/3D mesh for manipulation
    - SVG for 2D designs
 
-3. **Secure AI Integration**: API keys stored in encrypted Tauri store, accessed only by backend Rust code, never exposed to renderer process.
+3. **Secure AI Integration**: API keys stored in encrypted Tauri store (tauri-plugin-store), accessed only by backend Rust code, never exposed to renderer process.
 
 4. **Diff-based AI Editing**: AI returns exact string replacements (max 120 lines), not full file rewrites. Changes are test-compiled before acceptance.
 
@@ -189,7 +189,7 @@ pnpm type-check         # Type check all workspaces
 
 ## Current Status
 
-### Completed (Phase 1-2)
+### Completed (Phase 1-3)
 ✅ Monaco editor with OpenSCAD syntax
 ✅ Live PNG/STL/SVG preview
 ✅ Error diagnostics with inline markers
@@ -198,12 +198,10 @@ pnpm type-check         # Type check all workspaces
 ✅ Export to STL, OBJ, AMF, 3MF, PNG, SVG, DXF
 ✅ Content-hash caching
 ✅ 2D mode with SVG viewer
-
-### In Progress (Phase 3)
-🚧 AI copilot with sidecar architecture
-🚧 Diff-based code editing
-🚧 Tool call visualization
-🚧 Conversation history
+✅ Native Rust AI copilot with direct API integration
+✅ Diff-based code editing with validation
+✅ Tool call visualization
+✅ Conversation history and management
 
 ### Planned (Phase 4)
 - Multi-file project support (use/include)
@@ -217,8 +215,7 @@ pnpm type-check         # Type check all workspaces
 1. **Image caching**: Browser caches preview images. Use cache-busting query params (`?t=${timestamp}`)
 2. **OpenSCAD `--imgsize` format**: Must be `W,H` (comma), not `WxH` (x)
 3. **Monaco line numbers**: Line numbers in diagnostics are 1-indexed, Monaco uses 0-indexed
-4. **Anthropic streaming**: The implementation currently loads the full response before processing (could be improved with true streaming)
-5. **Multi-file rendering**: `use`/`include` directives require `working_dir` parameter (derived from file path)
+4. **Multi-file rendering**: `use`/`include` directives require `working_dir` parameter (derived from file path)
 
 ## Code Style
 
@@ -246,7 +243,8 @@ pnpm type-check         # Type check all workspaces
 
 - **OpenSCAD Docs**: https://openscad.org/documentation.html
 - **Tauri Docs**: https://tauri.app/
-- **Vercel AI SDK**: https://sdk.vercel.ai/
+- **Anthropic API**: https://docs.anthropic.com/
+- **OpenAI API**: https://platform.openai.com/docs/
 - **Monaco Editor**: https://microsoft.github.io/monaco-editor/
 - **Three.js**: https://threejs.org/
 
@@ -259,5 +257,5 @@ pnpm type-check         # Type check all workspaces
 
 ---
 
-**Last Updated**: 2025-10-13
-**Current Phase**: Phase 3 (AI Copilot Integration)
+**Last Updated**: 2025-10-18
+**Current Phase**: Phase 3 Complete, Phase 4 (Production Polish) Planning

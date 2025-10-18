@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.2.0-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/Tauri-2.0-24C8DB.svg" alt="Tauri">
   <img src="https://img.shields.io/badge/React-19-61DAFB.svg" alt="React">
@@ -88,27 +88,25 @@ openscad-studio/
 │   │   └── src-tauri/           # Rust backend
 │   │       ├── src/
 │   │       │   ├── cmd/         # Tauri commands (render, AI tools)
+│   │       │   ├── ai_agent.rs  # Native Rust AI agent
 │   │       │   └── utils/       # OpenSCAD parser, caching
 │   │       └── Cargo.toml
-│   └── sidecar/                 # AI Agent sidecar (Node.js)
-│       └── src/
-│           └── agent-server.ts  # Vercel AI SDK + tools
 └── packages/
     └── shared/                  # Shared TypeScript types (Zod schemas)
 ```
 
 ## 🤖 AI Copilot Setup
 
-The AI copilot uses a secure sidecar architecture with API keys stored in your OS keychain.
+The AI copilot uses a native Rust implementation with direct API integration and secure encrypted storage.
 
 1. Open Settings (⌘,)
 2. Navigate to "AI" tab
 3. Enter your Anthropic / OpenAI API key
-4. Key is securely stored in macOS Keychain / Windows Credential Manager / Linux Secret Service
+4. Key is securely stored using Tauri's encrypted store plugin
 
 **Supported Providers:**
-- Anthropic
-- OpenAI
+- Anthropic (Claude Sonnet 4.5, Claude Sonnet 3.5)
+- OpenAI (GPT-4)
 
 The AI can:
 - View your current code and preview
@@ -125,7 +123,7 @@ The AI can:
 ## 🗺️ Roadmap
 
 - ✅ **Phase 1-2 (Completed)**: Monaco editor, live preview, 3D viewer, export, caching
-- 🚧 **Phase 3 (In Progress)**: AI copilot with sidecar architecture
+- ✅ **Phase 3 (Completed)**: AI copilot with native Rust implementation
 - 🔜 **Phase 4 (Planned)**: Multi-file projects, testing, distribution
 
 See [ROADMAP.md](ROADMAP.md) for detailed breakdown.
@@ -153,7 +151,6 @@ Built with:
 - [React](https://react.dev/) - UI framework
 - [Monaco Editor](https://microsoft.github.io/monaco-editor/) - Code editor
 - [Three.js](https://threejs.org/) - 3D rendering
-- [Vercel AI SDK](https://sdk.vercel.ai/) - AI agent framework
 - [OpenSCAD](https://openscad.org/) - The amazing CSG tool this editor is built for
 
 ---

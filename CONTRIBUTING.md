@@ -33,9 +33,6 @@ cd openscad-studio
 # Install dependencies
 pnpm install
 
-# Build the AI sidecar
-pnpm build:sidecar
-
 # Run in development mode
 pnpm tauri:dev
 ```
@@ -174,10 +171,9 @@ Currently, the project uses manual testing. When contributing:
 ```
 openscad-studio/
 ├── apps/
-│   ├── ui/                      # React frontend + Tauri backend
-│   │   ├── src/                 # React components, hooks, etc.
-│   │   └── src-tauri/           # Rust backend code
-│   └── sidecar/                 # AI Agent sidecar (Node.js)
+│   └── ui/                      # React frontend + Tauri backend
+│       ├── src/                 # React components, hooks, etc.
+│       └── src-tauri/           # Rust backend code (including AI agent)
 ├── packages/
 │   └── shared/                  # Shared TypeScript types
 ├── CLAUDE.md                    # AI assistant guide
