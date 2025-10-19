@@ -31,4 +31,7 @@ futures-util = "0.3"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 diffy = "0.4"
+uuid = { version = "1", features = ["v4"] }
+chrono = "0.4"
+similar = "2"
 

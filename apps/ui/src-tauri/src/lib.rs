@@ -1,5 +1,6 @@
 mod ai_agent;
 mod cmd;
+mod history;
 mod types;
 mod utils;
 
@@ -11,6 +12,7 @@ use cmd::{
     set_ai_model, store_api_key, trigger_render, update_editor_state, update_openscad_path,
     validate_edit, EditorState,
 };
+use history::HistoryState;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
@@ -32,6 +34,7 @@ pub fn run() {
     };
     let editor_state = EditorState::default();
     let ai_agent_state = AiAgentState::new();
+    let history_state = HistoryState::new();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
@@ -39,6 +42,7 @@ pub fn run() {
         .manage(app_state)
         .manage(editor_state)
         .manage(ai_agent_state)
+        .manage(history_state)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
@@ -69,6 +73,14 @@ pub fn run() {
             save_conversation,
             load_conversations,
             delete_conversation,
+            cmd::history::create_checkpoint,
+            cmd::history::undo,
+            cmd::history::redo,
+            cmd::history::get_history,
+            cmd::history::restore_to_checkpoint,
+            cmd::history::get_checkpoint_diff,
+            cmd::history::can_undo,
+            cmd::history::can_redo,
         ])
         .setup(|app| {
             // Create app menu (About, Hide, Quit, etc.)

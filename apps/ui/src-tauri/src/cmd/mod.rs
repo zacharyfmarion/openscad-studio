@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod ai_tools;
 pub mod conversations;
+pub mod history;
 pub mod locate;
 pub mod render;
 
