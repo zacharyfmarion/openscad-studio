@@ -133,3 +133,18 @@ pub fn can_redo(
     let history = history_state.history.lock().unwrap();
     Ok(history.can_redo())
 }
+
+/// Get a specific checkpoint by ID
+#[tauri::command]
+pub fn get_checkpoint_by_id(
+    checkpoint_id: String,
+    history_state: State<'_, HistoryState>,
+) -> Result<EditorCheckpoint, String> {
+    let history = history_state.history.lock().unwrap();
+    let checkpoints = history.get_all();
+
+    checkpoints
+        .into_iter()
+        .find(|c| c.id == checkpoint_id)
+        .ok_or_else(|| format!("Checkpoint not found: {}", checkpoint_id))
+}

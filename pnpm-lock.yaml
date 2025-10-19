@@ -52,6 +52,9 @@ importers:
       monaco-editor:
         specifier: ^0.52.0
         version: 0.52.2
+      monaco-vim:
+        specifier: ^0.4.2
+        version: 0.4.2(monaco-editor@0.52.2)
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -2037,6 +2040,11 @@ packages:
 
   monaco-editor@0.52.2:
     resolution: {integrity: sha512-GEQWEZmfkOGLdd3XK8ryrfWz3AIP8YymVXiPHEdewrUq7mh0qrKrfHLNCXcbB6sTnMLnOZ3ztSiKcciFUkIJwQ==}
+
+  monaco-vim@0.4.2:
+    resolution: {integrity: sha512-rdbQC3O2rmpwX2Orzig/6gZjZfH7q7TIeB+uEl49sa+QyNm3jCKJOw5mwxBdFzTqbrPD+URfg6A2lEkuL5kymw==}
+    peerDependencies:
+      monaco-editor: '*'
 
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
@@ -4914,6 +4922,10 @@ snapshots:
   minipass@7.1.2: {}
 
   monaco-editor@0.52.2: {}
+
+  monaco-vim@0.4.2(monaco-editor@0.52.2):
+    dependencies:
+      monaco-editor: 0.52.2
 
   ms@2.1.3: {}
 

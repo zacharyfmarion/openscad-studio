@@ -20,6 +20,7 @@ export interface BaseMessage {
 export interface UserMessage extends BaseMessage {
   type: 'user';
   content: string;
+  checkpointId?: string;  // Checkpoint ID from AI edits in response to this message
 }
 
 // Assistant text response
@@ -165,6 +166,7 @@ export function useAiAgent() {
   const lastChunkRef = useRef<string>('');
   const currentToolCallsRef = useRef<ToolCall[]>([]);
   const lastModeRef = useRef<'text' | 'tool' | null>(null); // Track what we were doing last
+  const pendingCheckpointIdRef = useRef<string | null>(null); // Checkpoint ID from last tool result
 
   // Load conversations, model, and available providers on mount
   useEffect(() => {
@@ -270,6 +272,7 @@ export function useAiAgent() {
                   content: streamBufferRef.current,
                   timestamp: Date.now(),
                 };
+
                 setState((prev) => ({
                   ...prev,
                   messages: [...prev.messages, assistantMessage],
@@ -297,6 +300,15 @@ export function useAiAgent() {
           case 'tool-result':
             if (payload.toolName) {
               console.log('[useAiAgent] Tool result:', payload.toolName);
+
+              // Check for checkpoint marker in result (from apply_edit tool)
+              if (payload.result && typeof payload.result === 'string') {
+                const checkpointMatch = payload.result.match(/\[CHECKPOINT:([\w-]+)\]/);
+                if (checkpointMatch) {
+                  pendingCheckpointIdRef.current = checkpointMatch[1];
+                  console.log('[useAiAgent] Extracted checkpoint ID from tool result:', pendingCheckpointIdRef.current);
+                }
+              }
 
               // Update the tool call with result (for checkmark display)
               const toolCall = currentToolCallsRef.current.find(tc => tc.name === payload.toolName && !tc.result);
@@ -356,14 +368,30 @@ export function useAiAgent() {
               if (finalStreamBuffer && finalStreamBuffer.trim()) {
                 console.log('[useAiAgent] Flushing final text on done. Length:', finalStreamBuffer.length);
                 console.log('[useAiAgent] Final text content:', finalStreamBuffer);
-                newMessages.push({
+                const assistantMessage: AssistantMessage = {
                   type: 'assistant',
                   id: crypto.randomUUID(),
                   content: finalStreamBuffer,
                   timestamp: Date.now(),
-                });
+                };
+
+                newMessages.push(assistantMessage);
               } else {
                 console.log('[useAiAgent] No text to flush (finalStreamBuffer is empty or whitespace)');
+              }
+
+              // Attach checkpoint ID to the last user message if we have one
+              if (pendingCheckpointIdRef.current) {
+                console.log('[useAiAgent] Attaching checkpoint ID to last user message:', pendingCheckpointIdRef.current);
+                // Find the last user message and attach checkpoint
+                for (let i = newMessages.length - 1; i >= 0; i--) {
+                  if (newMessages[i].type === 'user') {
+                    (newMessages[i] as UserMessage).checkpointId = pendingCheckpointIdRef.current;
+                    console.log('[useAiAgent] Attached checkpoint to user message:', newMessages[i].id);
+                    break;
+                  }
+                }
+                pendingCheckpointIdRef.current = null;  // Clear after use
               }
 
               console.log('[useAiAgent] Final messages count after flush:', newMessages.length);
@@ -386,6 +414,7 @@ export function useAiAgent() {
             streamBufferRef.current = '';
             currentToolCallsRef.current = [];
             lastModeRef.current = null;
+            // Note: pendingCheckpointIdRef is cleared when attached to message, not here
             console.log('[useAiAgent] ===== DONE EVENT PROCESSED =====');
             break;
         }
@@ -514,6 +543,7 @@ export function useAiAgent() {
     lastChunkRef.current = '';
     currentToolCallsRef.current = [];
     lastModeRef.current = null;
+    pendingCheckpointIdRef.current = null;
 
     try {
       // Start sidecar if not running
@@ -575,6 +605,7 @@ export function useAiAgent() {
       currentToolCallsRef.current = [];
       lastModeRef.current = null;
       lastChunkRef.current = '';
+      pendingCheckpointIdRef.current = null;
 
       console.log('[useAiAgent] Stream cancelled successfully');
     } catch (err) {
@@ -649,6 +680,18 @@ export function useAiAgent() {
     }));
   }, []);
 
+  // Handle checkpoint restoration with conversation truncation
+  const handleRestoreCheckpoint = useCallback((checkpointId: string, truncatedMessages: Message[]) => {
+    console.log('[useAiAgent] Restoring checkpoint and truncating conversation:', checkpointId);
+    setState((prev) => ({
+      ...prev,
+      messages: truncatedMessages,
+    }));
+
+    // Save the truncated conversation
+    setTimeout(() => saveConversation(), 100);
+  }, [saveConversation]);
+
   return {
     ...state,
     submitPrompt,
@@ -661,5 +704,6 @@ export function useAiAgent() {
     saveConversation,
     setCurrentModel,
     loadModelAndProviders,
+    handleRestoreCheckpoint,
   };
 }

@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { loadSettings, saveSettings, type Settings } from '../stores/settingsStore';
-import { getAvailableThemes } from '../themes';
+import { loadSettings, saveSettings, getDefaultVimConfig, type Settings } from '../stores/settingsStore';
+import { getAvailableThemes, getTheme } from '../themes';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button, Input, Select, Label, Toggle } from './ui';
+import { Editor as MonacoEditor } from '@monaco-editor/react';
+import type * as Monaco from 'monaco-editor';
+import { registerVimConfigLanguage } from '../languages/vimConfigLanguage';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -12,12 +15,15 @@ interface SettingsDialogProps {
 }
 
 type SettingsSection = 'appearance' | 'editor' | 'ai';
+type EditorSubTab = 'general' | 'vim';
 
 export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDialogProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance');
+  const [editorSubTab, setEditorSubTab] = useState<EditorSubTab>('general');
   const [settings, setSettings] = useState<Settings>(loadSettings());
   const { updateTheme } = useTheme();
   const availableThemes = getAvailableThemes();
+  const vimEditorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
 
   // AI Settings
   const [provider, setProvider] = useState<'anthropic' | 'openai'>('anthropic');
@@ -245,46 +251,173 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
 
             {activeSection === 'editor' && (
               <div className="space-y-4">
-                {/* Format on Save */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="mb-0">Format on Save</Label>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                      Automatically format OpenSCAD code when saving files
-                    </p>
-                  </div>
-                  <Toggle
-                    checked={settings.editor.formatOnSave}
-                    onChange={(e) => handleEditorSettingChange('formatOnSave', e.target.checked)}
-                  />
-                </div>
-
-                {/* Indent Size */}
-                <div>
-                  <Label>Indent Size</Label>
-                  <Select
-                    value={settings.editor.indentSize}
-                    onChange={(e) => handleEditorSettingChange('indentSize', Number(e.target.value))}
+                {/* Subtabs */}
+                <div className="flex gap-2 pb-2" style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                  <button
+                    onClick={() => setEditorSubTab('general')}
+                    className="px-3 py-1.5 text-sm rounded transition-colors"
+                    style={{
+                      backgroundColor: editorSubTab === 'general' ? 'var(--bg-tertiary)' : 'transparent',
+                      color: editorSubTab === 'general' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      fontWeight: editorSubTab === 'general' ? '500' : 'normal',
+                    }}
                   >
-                    <option value={2}>2 spaces</option>
-                    <option value={4}>4 spaces</option>
-                    <option value={8}>8 spaces</option>
-                  </Select>
+                    General
+                  </button>
+                  <button
+                    onClick={() => setEditorSubTab('vim')}
+                    className="px-3 py-1.5 text-sm rounded transition-colors"
+                    style={{
+                      backgroundColor: editorSubTab === 'vim' ? 'var(--bg-tertiary)' : 'transparent',
+                      color: editorSubTab === 'vim' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      fontWeight: editorSubTab === 'vim' ? '500' : 'normal',
+                    }}
+                  >
+                    Vim
+                  </button>
                 </div>
 
-                {/* Use Tabs */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="mb-0">Use Tabs</Label>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                      Use tab characters instead of spaces for indentation
-                    </p>
+                {/* General Settings */}
+                {editorSubTab === 'general' && (
+                  <div className="space-y-4">
+                    {/* Format on Save */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="mb-0">Format on Save</Label>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                          Automatically format OpenSCAD code when saving files
+                        </p>
+                      </div>
+                      <Toggle
+                        checked={settings.editor.formatOnSave}
+                        onChange={(e) => handleEditorSettingChange('formatOnSave', e.target.checked)}
+                      />
+                    </div>
+
+                    {/* Indent Size */}
+                    <div>
+                      <Label>Indent Size</Label>
+                      <Select
+                        value={settings.editor.indentSize}
+                        onChange={(e) => handleEditorSettingChange('indentSize', Number(e.target.value))}
+                      >
+                        <option value={2}>2 spaces</option>
+                        <option value={4}>4 spaces</option>
+                        <option value={8}>8 spaces</option>
+                      </Select>
+                    </div>
+
+                    {/* Use Tabs */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="mb-0">Use Tabs</Label>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                          Use tab characters instead of spaces for indentation
+                        </p>
+                      </div>
+                      <Toggle
+                        checked={settings.editor.useTabs}
+                        onChange={(e) => handleEditorSettingChange('useTabs', e.target.checked)}
+                      />
+                    </div>
                   </div>
-                  <Toggle
-                    checked={settings.editor.useTabs}
-                    onChange={(e) => handleEditorSettingChange('useTabs', e.target.checked)}
-                  />
-                </div>
+                )}
+
+                {/* Vim Settings */}
+                {editorSubTab === 'vim' && (
+                  <div className="space-y-4">
+                    {/* Vim Mode Toggle */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="mb-0">Enable Vim Mode</Label>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                          Enable vim keybindings and modal editing in the editor
+                        </p>
+                      </div>
+                      <Toggle
+                        checked={settings.editor.vimMode}
+                        onChange={(e) => handleEditorSettingChange('vimMode', e.target.checked)}
+                      />
+                    </div>
+
+                    {/* Vim Configuration Editor */}
+                    {settings.editor.vimMode && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="mb-0">Vim Configuration</Label>
+                          <button
+                            onClick={() => handleEditorSettingChange('vimConfig', getDefaultVimConfig())}
+                            className="text-xs px-2 py-1 rounded transition-colors"
+                            style={{
+                              color: 'var(--accent-primary)',
+                              border: '1px solid var(--border-primary)',
+                            }}
+                          >
+                            Reset to Defaults
+                          </button>
+                        </div>
+                        <p className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>
+                          Customize vim keybindings using vim-style commands. Lines starting with # are comments.
+                        </p>
+                        <div style={{ height: '300px', border: '1px solid var(--border-primary)', borderRadius: '4px', overflow: 'hidden' }}>
+                          <MonacoEditor
+                            height="100%"
+                            defaultLanguage="vimconfig"
+                            theme={getTheme(settings.appearance.theme).monaco}
+                            value={settings.editor.vimConfig}
+                            onChange={(val) => handleEditorSettingChange('vimConfig', val ?? '')}
+                            onMount={(editor, monaco) => {
+                              vimEditorRef.current = editor;
+
+                              // Register vim config language
+                              registerVimConfigLanguage(monaco);
+
+                              // Register all custom themes
+                              const themeIds = [
+                                'solarized-dark',
+                                'solarized-light',
+                                'monokai',
+                                'dracula',
+                                'one-dark-pro',
+                                'github-dark',
+                                'github-light',
+                                'nord',
+                                'tokyo-night',
+                                'gruvbox-dark',
+                                'gruvbox-light',
+                              ];
+
+                              themeIds.forEach((id) => {
+                                const theme = getTheme(id);
+                                if (theme.monacoTheme) {
+                                  monaco.editor.defineTheme(id, theme.monacoTheme);
+                                }
+                              });
+
+                              // Apply current theme
+                              monaco.editor.setTheme(getTheme(settings.appearance.theme).monaco);
+                            }}
+                            options={{
+                              minimap: { enabled: false },
+                              fontSize: 13,
+                              lineNumbers: 'on',
+                              scrollBeyondLastLine: false,
+                              automaticLayout: true,
+                              wordWrap: 'on',
+                              tabSize: 2,
+                              renderLineHighlight: 'line',
+                            }}
+                          />
+                        </div>
+                        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                          Supported: <code style={{ color: 'var(--text-primary)' }}>map</code>, <code style={{ color: 'var(--text-primary)' }}>imap</code>, <code style={{ color: 'var(--text-primary)' }}>nmap</code>, <code style={{ color: 'var(--text-primary)' }}>vmap</code>
+                          {' • '}
+                          Example: <code style={{ color: 'var(--text-primary)' }}>map kj &lt;Esc&gt; insert</code>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

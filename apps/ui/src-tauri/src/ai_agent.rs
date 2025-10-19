@@ -169,9 +169,16 @@ async fn execute_tool(tool_name: &str, args: Value, app: &AppHandle) -> Result<S
                     error_msg, diag_text, rationale
                 ))
             } else {
+                // Include checkpoint_id in success message so frontend can associate it
+                let checkpoint_info = if let Some(checkpoint_id) = &result.checkpoint_id {
+                    format!("\n\n[CHECKPOINT:{}]", checkpoint_id)
+                } else {
+                    String::new()
+                };
+
                 Ok(format!(
-                    "✅ Edit applied successfully!\n✅ Code compiles without new errors\n✅ Preview has been updated automatically\n\nRationale: {}\n\nThe changes are now live in the editor.",
-                    rationale
+                    "✅ Edit applied successfully!\n✅ Code compiles without new errors\n✅ Preview has been updated automatically\n\nRationale: {}\n\nThe changes are now live in the editor.{}",
+                    rationale, checkpoint_info
                 ))
             }
         }

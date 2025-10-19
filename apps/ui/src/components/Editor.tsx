@@ -7,6 +7,8 @@ import { formatOpenScadCode } from '../utils/formatter';
 import { loadSettings, type Settings } from '../stores/settingsStore';
 import { getTheme } from '../themes';
 import { ensureOpenScadLanguage } from '../languages/openscadLanguage';
+import { initVimMode } from 'monaco-vim';
+import { applyVimConfig } from '../utils/vimConfig';
 
 interface EditorProps {
   value: string;
@@ -22,6 +24,8 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
   const monacoRef = useRef<typeof Monaco | null>(null);
   const onManualRenderRef = useRef(onManualRender);
   const [themesRegistered, setThemesRegistered] = useState(false);
+  const vimModeRef = useRef<{ dispose: () => void } | null>(null);
+  const statusBarRef = useRef<HTMLDivElement | null>(null);
 
   // Update settings when props change
   useEffect(() => {
@@ -42,6 +46,39 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
       monacoRef.current.editor.setTheme(theme.monaco);
     }
   }, [settings.appearance.theme, themesRegistered]);
+
+  // Initialize or dispose vim mode when settings change
+  useEffect(() => {
+    if (!editorRef.current || !statusBarRef.current) return;
+
+    if (settings.editor.vimMode) {
+      // Initialize vim mode
+      if (!vimModeRef.current) {
+        vimModeRef.current = initVimMode(editorRef.current, statusBarRef.current);
+      }
+
+      // Apply user's vim configuration
+      const errors = applyVimConfig(settings.editor.vimConfig);
+      if (errors.length > 0) {
+        console.warn('[Editor] Vim configuration errors:', errors);
+        // You could show these errors to the user via a toast notification
+      }
+    } else {
+      // Dispose vim mode if it exists
+      if (vimModeRef.current) {
+        vimModeRef.current.dispose();
+        vimModeRef.current = null;
+      }
+    }
+
+    return () => {
+      // Cleanup on unmount
+      if (vimModeRef.current) {
+        vimModeRef.current.dispose();
+        vimModeRef.current = null;
+      }
+    };
+  }, [settings.editor.vimMode, settings.editor.vimConfig]);
 
   // Listen for code updates from AI agent
   useEffect(() => {
@@ -101,12 +138,22 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
 
     // Register custom themes
     if (!themesRegistered) {
-      const themes = [
-        { id: 'solarized-dark', theme: getTheme('solarized-dark') },
-        { id: 'solarized-light', theme: getTheme('solarized-light') },
+      const themeIds = [
+        'solarized-dark',
+        'solarized-light',
+        'monokai',
+        'dracula',
+        'one-dark-pro',
+        'github-dark',
+        'github-light',
+        'nord',
+        'tokyo-night',
+        'gruvbox-dark',
+        'gruvbox-light',
       ];
 
-      themes.forEach(({ id, theme }) => {
+      themeIds.forEach((id) => {
+        const theme = getTheme(id);
         if (theme.monacoTheme) {
           monaco.editor.defineTheme(id, theme.monacoTheme);
         }
@@ -373,30 +420,43 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
   const theme = getTheme(settings.appearance.theme);
 
   return (
-    <div className="h-full">
-      <MonacoEditor
-        height="100%"
-        defaultLanguage="openscad"
-        theme={theme.monaco}
-        value={value}
-        onChange={(val) => onChange(val ?? '')}
-        onMount={handleEditorDidMount}
-        options={{
-          minimap: { enabled: false },
-          fontSize: 14,
-          lineNumbers: 'on',
-          roundedSelection: false,
-          scrollBeyondLastLine: false,
-          automaticLayout: true,
-          quickSuggestions: true,
-          suggestOnTriggerCharacters: true,
-          acceptSuggestionOnEnter: 'on',
-          tabCompletion: 'on',
-          wordBasedSuggestions: 'off',
-          formatOnType: settings.editor.formatOnSave,
-          formatOnPaste: settings.editor.formatOnSave,
-        }}
-      />
+    <div className="h-full flex flex-col">
+      <div className="flex-1 overflow-hidden">
+        <MonacoEditor
+          height="100%"
+          defaultLanguage="openscad"
+          theme={theme.monaco}
+          value={value}
+          onChange={(val) => onChange(val ?? '')}
+          onMount={handleEditorDidMount}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 14,
+            lineNumbers: 'on',
+            roundedSelection: false,
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            quickSuggestions: true,
+            suggestOnTriggerCharacters: true,
+            acceptSuggestionOnEnter: 'on',
+            tabCompletion: 'on',
+            wordBasedSuggestions: 'off',
+            formatOnType: settings.editor.formatOnSave,
+            formatOnPaste: settings.editor.formatOnSave,
+          }}
+        />
+      </div>
+      {settings.editor.vimMode && (
+        <div
+          ref={statusBarRef}
+          className="vim-status-bar px-2 py-1 text-xs font-mono"
+          style={{
+            borderTop: '1px solid var(--border-primary)',
+            backgroundColor: 'var(--bg-secondary)',
+            color: 'var(--text-secondary)',
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -81,6 +81,7 @@ pub fn run() {
             cmd::history::get_checkpoint_diff,
             cmd::history::can_undo,
             cmd::history::can_redo,
+            cmd::history::get_checkpoint_by_id,
         ])
         .setup(|app| {
             // Create app menu (About, Hide, Quit, etc.)

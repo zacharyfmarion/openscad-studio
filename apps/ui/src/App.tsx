@@ -10,6 +10,7 @@ import { SettingsDialog } from './components/SettingsDialog';
 import { WelcomeScreen, addToRecentFiles } from './components/WelcomeScreen';
 import { OpenScadSetupScreen } from './components/OpenScadSetupScreen';
 import { TabBar, type Tab } from './components/TabBar';
+import { CustomizerPanel } from './components/CustomizerPanel';
 import { Button } from './components/ui';
 import { useOpenScad } from './hooks/useOpenScad';
 import { useAiAgent } from './hooks/useAiAgent';
@@ -71,7 +72,7 @@ function App() {
   } = useOpenScad(workingDir);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
-  const [showAiPanel, setShowAiPanel] = useState(true);
+  const [bottomPanelTab, setBottomPanelTab] = useState<'ai' | 'console'>('ai');
   const [settings, setSettings] = useState<Settings>(loadSettings());
   const aiPromptPanelRef = useRef<AiPromptPanelRef>(null);
 
@@ -93,6 +94,7 @@ function App() {
     clearError: clearAiError,
     newConversation,
     setCurrentModel,
+    handleRestoreCheckpoint,
   } = useAiAgent();
 
   // Tab management functions
@@ -794,13 +796,51 @@ function App() {
     };
   }, []);
 
+  // Listen for checkpoint restore events (from AI chat)
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+
+    const setupListener = async () => {
+      console.log('[App] Setting up history:restore listener');
+      unlisten = await listen<{ code: string }>('history:restore', (event) => {
+        console.log('[App] ✅ Received history:restore event');
+        const { code } = event.payload;
+
+        // Update editor with restored code
+        updateSource(code);
+
+        // Update backend EditorState
+        updateEditorState(code).catch(err => {
+          console.error('Failed to update editor state:', err);
+        });
+
+        // Update active tab content
+        setTabs(prev => prev.map(tab =>
+          tab.id === activeTabId
+            ? { ...tab, content: code, isDirty: code !== tab.savedContent }
+            : tab
+        ));
+      });
+      console.log('[App] history:restore listener setup complete');
+    };
+
+    setupListener();
+
+    return () => {
+      if (unlisten) {
+        console.log('[App] Cleaning up history:restore listener');
+        unlisten();
+      }
+    };
+  }, [activeTabId, updateSource]);
+
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // ⌘K or Ctrl+K to switch to AI tab and focus prompt
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setShowAiPanel(true);
+        setBottomPanelTab('ai');
         // Focus the prompt after panel is shown
         setTimeout(() => {
           aiPromptPanelRef.current?.focusPrompt();
@@ -972,7 +1012,14 @@ function App() {
                   isApplying={isApplyingDiff}
                 />
               ) : (
-                <Preview src={previewSrc} kind={previewKind} isRendering={isRendering} error={error} />
+                <Preview
+                  src={previewSrc}
+                  kind={previewKind}
+                  isRendering={isRendering}
+                  error={error}
+                  code={source}
+                  onCodeChange={updateSource}
+                />
               )}
             </Panel>
           </PanelGroup>
@@ -986,24 +1033,24 @@ function App() {
               <div className="flex items-center gap-1">
                 <Button
                   size="sm"
-                  variant={showAiPanel ? 'ghost' : 'ghost'}
-                  onClick={() => setShowAiPanel(true)}
+                  variant="ghost"
+                  onClick={() => setBottomPanelTab('ai')}
                   className="px-2.5 py-1"
                   style={{
-                    backgroundColor: showAiPanel ? 'var(--bg-tertiary)' : 'transparent',
-                    color: showAiPanel ? 'var(--text-inverse)' : 'var(--text-secondary)'
+                    backgroundColor: bottomPanelTab === 'ai' ? 'var(--bg-tertiary)' : 'transparent',
+                    color: bottomPanelTab === 'ai' ? 'var(--text-inverse)' : 'var(--text-secondary)'
                   }}
                 >
                   AI
                 </Button>
                 <Button
                   size="sm"
-                  variant={!showAiPanel ? 'ghost' : 'ghost'}
-                  onClick={() => setShowAiPanel(false)}
+                  variant="ghost"
+                  onClick={() => setBottomPanelTab('console')}
                   className="px-2.5 py-1"
                   style={{
-                    backgroundColor: !showAiPanel ? 'var(--bg-tertiary)' : 'transparent',
-                    color: !showAiPanel ? 'var(--text-inverse)' : 'var(--text-secondary)'
+                    backgroundColor: bottomPanelTab === 'console' ? 'var(--bg-tertiary)' : 'transparent',
+                    color: bottomPanelTab === 'console' ? 'var(--text-inverse)' : 'var(--text-secondary)'
                   }}
                 >
                   Console
@@ -1012,7 +1059,7 @@ function App() {
             </div>
             {/* Content */}
             <div className="flex-1 overflow-hidden">
-              {showAiPanel ? (
+              {bottomPanelTab === 'ai' && (
                 <AiPromptPanel
                   ref={aiPromptPanelRef}
                   onSubmit={submitPrompt}
@@ -1025,8 +1072,10 @@ function App() {
                   currentModel={currentModel}
                   availableProviders={availableProviders}
                   onModelChange={setCurrentModel}
+                  onRestoreCheckpoint={handleRestoreCheckpoint}
                 />
-              ) : (
+              )}
+              {bottomPanelTab === 'console' && (
                 <DiagnosticsPanel diagnostics={diagnostics} />
               )}
             </div>

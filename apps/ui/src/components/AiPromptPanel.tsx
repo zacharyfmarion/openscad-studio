@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 're
 import type { Message } from '../hooks/useAiAgent';
 import { Button } from './ui';
 import { ModelSelector } from './ModelSelector';
+import { useHistory } from '../hooks/useHistory';
+import { invoke } from '@tauri-apps/api/core';
 
 export type AiMode = 'edit';
 
@@ -16,6 +18,7 @@ interface AiPromptPanelProps {
   currentModel?: string;
   availableProviders?: string[];
   onModelChange?: (model: string) => void;
+  onRestoreCheckpoint?: (checkpointId: string, truncatedMessages: Message[]) => void;
 }
 
 export interface AiPromptPanelRef {
@@ -33,10 +36,12 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
   currentModel = 'claude-sonnet-4-5-20250929',
   availableProviders = [],
   onModelChange,
+  onRestoreCheckpoint,
 }, ref) => {
   const [prompt, setPrompt] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const responseRef = useRef<HTMLDivElement>(null);
+  const { restoreToCheckpoint } = useHistory();
 
   // Expose focusPrompt method to parent
   useImperativeHandle(ref, () => ({
@@ -82,6 +87,43 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
     if (e.key === 'Escape' && isStreaming) {
       e.preventDefault();
       onCancel();
+    }
+  };
+
+  const handleRestoreCheckpoint = async (checkpointId: string, messageId: string) => {
+    try {
+      // Find this message and check if there are any messages AFTER this user turn
+      const messageIndex = messages.findIndex(m => m.id === messageId);
+      const hasLaterMessages = messageIndex !== -1 && messageIndex < messages.length - 1;
+
+      // Only show warning if there are conversation turns after this one
+      if (hasLaterMessages) {
+        const { confirm } = await import('@tauri-apps/plugin-dialog');
+        const shouldProceed = await confirm(
+          'This will restore the code to before this turn and remove all subsequent conversation. Continue?',
+          {
+            title: 'Restore Checkpoint',
+            kind: 'warning',
+            okLabel: 'Restore',
+            cancelLabel: 'Cancel',
+          }
+        );
+
+        if (!shouldProceed) return;
+      }
+
+      // Restore the checkpoint
+      await restoreToCheckpoint(checkpointId);
+
+      // Truncate messages - find the index of this message and remove it and everything after
+      // (Since we're restoring to BEFORE this user turn)
+      if (messageIndex !== -1 && onRestoreCheckpoint) {
+        const truncatedMessages = messages.slice(0, messageIndex);
+        onRestoreCheckpoint(checkpointId, truncatedMessages);
+      }
+    } catch (err) {
+      console.error('[AiPromptPanel] Failed to restore checkpoint:', err);
+      alert(`Failed to restore checkpoint: ${err}`);
     }
   };
 
@@ -131,14 +173,33 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
             // User message
             if (message.type === 'user') {
               return (
-                <div key={message.id} className="flex gap-2 justify-end">
-                  <div className="max-w-[85%] rounded-lg px-3 py-2" style={{
-                    backgroundColor: 'var(--accent-primary)',
-                    color: 'var(--text-inverse)'
-                  }}>
-                    <div className="text-xs mb-1" style={{ opacity: 0.8 }}>You</div>
-                    <div className="text-sm whitespace-pre-wrap font-mono">{message.content}</div>
+                <div key={message.id} className="space-y-1">
+                  <div className="flex gap-2 justify-end">
+                    <div className="max-w-[85%] rounded-lg px-3 py-2" style={{
+                      backgroundColor: 'var(--accent-primary)',
+                      color: 'var(--text-inverse)'
+                    }}>
+                      <div className="text-xs mb-1" style={{ opacity: 0.8 }}>You</div>
+                      <div className="text-sm whitespace-pre-wrap font-mono">{message.content}</div>
+                    </div>
                   </div>
+                  {/* Restore checkpoint button (if AI made changes in response to this) */}
+                  {message.checkpointId && (
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => handleRestoreCheckpoint(message.checkpointId!, message.id)}
+                        className="text-xs px-2 py-1 rounded transition-colors hover:bg-opacity-10"
+                        style={{
+                          color: 'var(--text-tertiary)',
+                          backgroundColor: 'transparent',
+                          border: '1px solid var(--border-secondary)',
+                        }}
+                        title="Restore code to before this turn"
+                      >
+                        ↶ Restore to before this turn
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             }

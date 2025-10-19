@@ -35,6 +35,7 @@ pub struct ApplyEditResult {
     pub success: bool,
     pub error: Option<String>,
     pub diagnostics: Vec<Diagnostic>,
+    pub checkpoint_id: Option<String>, // ID of checkpoint created before edit
 }
 
 /// Update editor state with current code (called when user types)
@@ -141,12 +142,31 @@ pub async fn apply_edit(
 ) -> Result<ApplyEditResult, String> {
     let current_code = state.current_code.lock().unwrap().clone();
 
+    // Create checkpoint before applying AI edit
+    use crate::history::HistoryState;
+    use crate::types::ChangeType;
+    let checkpoint_id = if let Some(history_state) = app.try_state::<HistoryState>() {
+        let diagnostics = state.diagnostics.lock().unwrap().clone();
+        let mut history = history_state.history.lock().unwrap();
+        let id = history.create_checkpoint(
+            current_code.clone(),
+            diagnostics,
+            "Before AI edit".to_string(),
+            ChangeType::Ai,
+        );
+        eprintln!("[AI Tools] Created checkpoint before applying edit: {}", id);
+        Some(id)
+    } else {
+        None
+    };
+
     // Check if old_string exists
     if !current_code.contains(&old_string) {
         return Ok(ApplyEditResult {
             success: false,
             error: Some("The old_string was not found in the current code.".to_string()),
             diagnostics: vec![],
+            checkpoint_id: None,
         });
     }
 
@@ -157,6 +177,7 @@ pub async fn apply_edit(
             success: false,
             error: Some(format!("The old_string appears {} times. It must be unique.", occurrences)),
             diagnostics: vec![],
+            checkpoint_id: None,
         });
     }
 
@@ -179,6 +200,7 @@ pub async fn apply_edit(
                 success: false,
                 error: Some(format!("Test compilation failed: {}", e)),
                 diagnostics: vec![],
+                checkpoint_id: None,
             });
         }
     };
@@ -194,6 +216,7 @@ pub async fn apply_edit(
             success: false,
             error: Some("New compilation errors introduced".to_string()),
             diagnostics: test_diagnostics,
+            checkpoint_id: None,
         });
     }
 
@@ -225,6 +248,7 @@ pub async fn apply_edit(
         success: true,
         error: None,
         diagnostics: test_diagnostics,
+        checkpoint_id,
     })
 }
 
