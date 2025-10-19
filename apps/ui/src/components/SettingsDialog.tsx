@@ -424,7 +424,7 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                                 if (theme.monacoTheme) {
                                   try {
                                     monaco.editor.defineTheme(id, theme.monacoTheme);
-                                  } catch (e) {
+                                  } catch {
                                     // Theme might already be registered, ignore error
                                   }
                                 }

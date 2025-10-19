@@ -139,7 +139,7 @@ export function useOpenScad(workingDir?: string | null) {
     if (openscadPath && source) {
       doRender(source, true); // Default to mesh rendering
     }
-  }, [openscadPath]); // Only run when openscadPath is set
+  }, [openscadPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Function to clear preview (for when opening new files)
   const clearPreview = useCallback(() => {

@@ -6,8 +6,8 @@ import { getProviderFromModel } from '../constants/models';
 
 export interface ToolCall {
   name: string;
-  args?: any;
-  result?: any;
+  args?: Record<string, unknown>;
+  result?: unknown;
 }
 
 // Base message type
@@ -33,7 +33,7 @@ export interface AssistantMessage extends BaseMessage {
 export interface ToolCallMessage extends BaseMessage {
   type: 'tool-call';
   toolName: string;
-  args?: any;
+  args?: Record<string, unknown>;
   completed?: boolean;  // Whether the tool has completed
 }
 
@@ -41,7 +41,7 @@ export interface ToolCallMessage extends BaseMessage {
 export interface ToolResultMessage extends BaseMessage {
   type: 'tool-result';
   toolName: string;
-  result: any;
+  result: unknown;
 }
 
 export type Message = UserMessage | AssistantMessage | ToolCallMessage | ToolResultMessage;
@@ -85,8 +85,8 @@ interface StreamEvent {
   rationale?: string;
   error?: string;
   toolName?: string;
-  args?: any;
-  result?: any;
+  args?: Record<string, unknown>;
+  result?: unknown;
 }
 
 // Helper to convert new message format to legacy format for backend
@@ -161,18 +161,12 @@ export function useAiAgent() {
     availableProviders: [],
   });
 
-  const sidecarRef = useRef<any>(null);
+  const sidecarRef = useRef<boolean | null>(null);
   const streamBufferRef = useRef<string>('');
   const lastChunkRef = useRef<string>('');
   const currentToolCallsRef = useRef<ToolCall[]>([]);
   const lastModeRef = useRef<'text' | 'tool' | null>(null); // Track what we were doing last
   const pendingCheckpointIdRef = useRef<string | null>(null); // Checkpoint ID from last tool result
-
-  // Load conversations, model, and available providers on mount
-  useEffect(() => {
-    loadConversations();
-    loadModelAndProviders();
-  }, []);
 
   const loadModelAndProviders = useCallback(async () => {
     try {
@@ -193,6 +187,12 @@ export function useAiAgent() {
       console.error('Failed to load model and providers:', err);
     }
   }, []);
+
+  // Load conversations, model, and available providers on mount
+  useEffect(() => {
+    loadConversations();
+    loadModelAndProviders();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Listen for streaming events from sidecar
   useEffect(() => {
@@ -259,7 +259,7 @@ export function useAiAgent() {
             }
             break;
 
-          case 'tool-call':
+          case 'tool-call': {
             if (payload.toolName) {
               console.log('[useAiAgent] Tool call:', payload.toolName);
 
@@ -296,8 +296,9 @@ export function useAiAgent() {
               }));
             }
             break;
+          }
 
-          case 'tool-result':
+          case 'tool-result': {
             if (payload.toolName) {
               console.log('[useAiAgent] Tool result:', payload.toolName);
 
@@ -321,6 +322,7 @@ export function useAiAgent() {
               }
             }
             break;
+          }
 
           case 'error':
             setState((prev) => ({
@@ -333,7 +335,7 @@ export function useAiAgent() {
             setState((prev) => ({ ...prev, currentToolCalls: [] }));
             break;
 
-          case 'done':
+          case 'done': {
             console.log('[useAiAgent] ===== DONE EVENT RECEIVED =====');
             console.log('[useAiAgent] streamBufferRef.current:', streamBufferRef.current);
             console.log('[useAiAgent] currentToolCallsRef.current:', currentToolCallsRef.current);
@@ -398,7 +400,7 @@ export function useAiAgent() {
               console.log('[useAiAgent] Final messages:', newMessages.map(m => ({ type: m.type, id: m.id, content: 'content' in m ? m.content.substring(0, 50) : 'N/A' })));
 
               // Save conversation after adding message
-              setTimeout(() => saveConversation(), 100);
+              setTimeout(() => void saveConversation(), 100);
 
               return {
                 ...prev,
@@ -417,6 +419,7 @@ export function useAiAgent() {
             // Note: pendingCheckpointIdRef is cleared when attached to message, not here
             console.log('[useAiAgent] ===== DONE EVENT PROCESSED =====');
             break;
+          }
         }
       });
     };
@@ -428,7 +431,7 @@ export function useAiAgent() {
         unlisten();
       }
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load conversations from storage
   const loadConversations = useCallback(async () => {
@@ -689,7 +692,7 @@ export function useAiAgent() {
     }));
 
     // Save the truncated conversation
-    setTimeout(() => saveConversation(), 100);
+    setTimeout(() => void saveConversation(), 100);
   }, [saveConversation]);
 
   return {

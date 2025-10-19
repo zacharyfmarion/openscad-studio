@@ -311,7 +311,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
                       <span className="font-semibold" style={{ color: tool.result ? 'var(--color-success)' : 'var(--color-warning)' }}>
                         {tool.name}
                       </span>
-                      {tool.result && <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>completed</span>}
+                      {tool.result ? <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>completed</span> : null}
                     </div>
                   </div>
                 ))}

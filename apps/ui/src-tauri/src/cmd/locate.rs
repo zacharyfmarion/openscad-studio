@@ -10,7 +10,7 @@ pub async fn locate_openscad(
         if std::path::Path::new(&path).exists() {
             return Ok(LocateOpenScadResponse { exe_path: path });
         } else {
-            return Err(format!("Provided path does not exist: {}", path));
+            return Err(format!("Provided path does not exist: {path}"));
         }
     }
 
@@ -63,10 +63,7 @@ pub async fn locate_openscad(
                 }
 
                 // Check Homebrew paths
-                let homebrew_paths = vec![
-                    "/opt/homebrew/bin/openscad",
-                    "/usr/local/bin/openscad",
-                ];
+                let homebrew_paths = vec!["/opt/homebrew/bin/openscad", "/usr/local/bin/openscad"];
 
                 for path in homebrew_paths {
                     if std::path::Path::new(path).exists() {
@@ -82,8 +79,7 @@ pub async fn locate_openscad(
                         let path = entry.path();
                         if let Some(name) = path.file_name() {
                             let name_str = name.to_string_lossy();
-                            if name_str.starts_with("OpenSCAD")
-                                && name_str.ends_with(".app") {
+                            if name_str.starts_with("OpenSCAD") && name_str.ends_with(".app") {
                                 let exe_path = path.join("Contents/MacOS/OpenSCAD");
                                 if exe_path.exists() {
                                     return Ok(LocateOpenScadResponse {

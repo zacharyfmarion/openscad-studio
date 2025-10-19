@@ -6,7 +6,7 @@ export interface EditorCheckpoint {
   id: string;
   timestamp: number;
   code: string;
-  diagnostics: any[];
+  diagnostics: unknown[];
   description: string;
   change_type: 'user' | 'ai' | 'fileload' | 'undo' | 'redo';
 }
@@ -51,7 +51,7 @@ export function useHistory() {
         unlisten();
       }
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refresh history state (can undo/redo)
   const refreshHistoryState = useCallback(async () => {
@@ -74,8 +74,8 @@ export function useHistory() {
 
   // Initial load
   useEffect(() => {
-    refreshHistoryState();
-  }, [refreshHistoryState]);
+    void refreshHistoryState();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Create checkpoint
   const createCheckpoint = useCallback(async (

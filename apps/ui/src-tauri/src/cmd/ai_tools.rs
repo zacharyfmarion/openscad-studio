@@ -15,7 +15,9 @@ pub struct EditorState {
 impl Default for EditorState {
     fn default() -> Self {
         Self {
-            current_code: Mutex::new("// Type your OpenSCAD code here\ncube([10, 10, 10]);".to_string()),
+            current_code: Mutex::new(
+                "// Type your OpenSCAD code here\ncube([10, 10, 10]);".to_string(),
+            ),
             diagnostics: Mutex::new(Vec::new()),
             last_preview_path: Mutex::new(String::new()),
             openscad_path: Mutex::new("openscad".to_string()),
@@ -40,10 +42,7 @@ pub struct ApplyEditResult {
 
 /// Update editor state with current code (called when user types)
 #[tauri::command]
-pub fn update_editor_state(
-    code: String,
-    state: State<'_, EditorState>,
-) -> Result<(), String> {
+pub fn update_editor_state(code: String, state: State<'_, EditorState>) -> Result<(), String> {
     *state.current_code.lock().unwrap() = code;
     Ok(())
 }
@@ -99,10 +98,7 @@ pub fn validate_edit(
     if occurrences > 1 {
         return Ok(EditValidation {
             ok: false,
-            error: Some(format!(
-                "The old_string appears {} times in the code. It must be unique. Include more surrounding context to make it unique.",
-                occurrences
-            )),
+            error: Some(format!("The old_string appears {occurrences} times in the code. It must be unique. Include more surrounding context to make it unique.")),
             lines_changed: 0,
         });
     }
@@ -116,10 +112,7 @@ pub fn validate_edit(
     if lines_changed > 120 {
         return Ok(EditValidation {
             ok: false,
-            error: Some(format!(
-                "Edit too large: {} lines changed (max 120). Please break into smaller changes.",
-                lines_changed
-            )),
+            error: Some(format!("Edit too large: {lines_changed} lines changed (max 120). Please break into smaller changes.")),
             lines_changed,
         });
     }
@@ -154,7 +147,7 @@ pub async fn apply_edit(
             "Before AI edit".to_string(),
             ChangeType::Ai,
         );
-        eprintln!("[AI Tools] Created checkpoint before applying edit: {}", id);
+        eprintln!("[AI Tools] Created checkpoint before applying edit: {id}");
         Some(id)
     } else {
         None
@@ -175,7 +168,9 @@ pub async fn apply_edit(
     if occurrences > 1 {
         return Ok(ApplyEditResult {
             success: false,
-            error: Some(format!("The old_string appears {} times. It must be unique.", occurrences)),
+            error: Some(format!(
+                "The old_string appears {occurrences} times. It must be unique."
+            )),
             diagnostics: vec![],
             checkpoint_id: None,
         });
@@ -198,7 +193,7 @@ pub async fn apply_edit(
         Err(e) => {
             return Ok(ApplyEditResult {
                 success: false,
-                error: Some(format!("Test compilation failed: {}", e)),
+                error: Some(format!("Test compilation failed: {e}")),
                 diagnostics: vec![],
                 checkpoint_id: None,
             });
@@ -221,14 +216,18 @@ pub async fn apply_edit(
     }
 
     // Apply changes to state
-    eprintln!("[AI Tools] Updating state with new code (length: {})", new_code.len());
+    let code_len = new_code.len();
+    eprintln!("[AI Tools] Updating state with new code (length: {code_len})");
     *state.current_code.lock().unwrap() = new_code.clone();
     *state.diagnostics.lock().unwrap() = test_diagnostics.clone();
 
     // Emit code update to frontend
-    eprintln!("[AI Tools] Emitting code-updated event with payload length: {}", new_code.len());
+    eprintln!(
+        "[AI Tools] Emitting code-updated event with payload length: {}",
+        new_code.len()
+    );
     if let Err(e) = app.emit("code-updated", &new_code) {
-        eprintln!("[AI Tools] ❌ Failed to emit code-updated: {}", e);
+        eprintln!("[AI Tools] ❌ Failed to emit code-updated: {e}");
     } else {
         eprintln!("[AI Tools] ✅ code-updated event emitted successfully");
     }
@@ -239,7 +238,7 @@ pub async fn apply_edit(
     // Trigger a render to show the changes
     eprintln!("[AI Tools] Emitting render-requested event");
     if let Err(e) = app.emit("render-requested", ()) {
-        eprintln!("[AI Tools] ❌ Failed to emit render-requested: {}", e);
+        eprintln!("[AI Tools] ❌ Failed to emit render-requested: {e}");
     } else {
         eprintln!("[AI Tools] ✅ render-requested event emitted successfully");
     }
@@ -275,13 +274,13 @@ async fn test_compile(
     let app_dir = app
         .path()
         .app_cache_dir()
-        .map_err(|e| format!("Failed to get cache dir: {}", e))?;
+        .map_err(|e| format!("Failed to get cache dir: {e}"))?;
 
-    std::fs::create_dir_all(&app_dir).map_err(|e| format!("Failed to create cache dir: {}", e))?;
+    std::fs::create_dir_all(&app_dir).map_err(|e| format!("Failed to create cache dir: {e}"))?;
 
     // Write code to temp file
     let temp_scad = app_dir.join("test_compile.scad");
-    std::fs::write(&temp_scad, code).map_err(|e| format!("Failed to write temp file: {}", e))?;
+    std::fs::write(&temp_scad, code).map_err(|e| format!("Failed to write temp file: {e}"))?;
 
     // Try to compile with OpenSCAD
     let output = tokio::process::Command::new(openscad_path)
@@ -290,7 +289,7 @@ async fn test_compile(
         .arg(&temp_scad)
         .output()
         .await
-        .map_err(|e| format!("Failed to run OpenSCAD: {}", e))?;
+        .map_err(|e| format!("Failed to run OpenSCAD: {e}"))?;
 
     // Parse diagnostics from stderr
     let stderr = String::from_utf8_lossy(&output.stderr);

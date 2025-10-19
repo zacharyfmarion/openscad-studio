@@ -1,13 +1,12 @@
+use crate::types::{ChangeType, CheckpointDiff, Diagnostic, EditorCheckpoint};
 /**
  * Editor History Management
  *
  * Provides undo/redo functionality with checkpoint system.
  * Tracks up to MAX_CHECKPOINTS snapshots of editor state.
  */
-
 use std::collections::VecDeque;
 use std::sync::Mutex;
-use crate::types::{EditorCheckpoint, ChangeType, Diagnostic, CheckpointDiff};
 
 const MAX_CHECKPOINTS: usize = 50;
 
@@ -65,6 +64,7 @@ impl EditorHistory {
     }
 
     /// Get current checkpoint (or latest if at head)
+    #[allow(dead_code)]
     pub fn get_current(&self) -> Option<&EditorCheckpoint> {
         if let Some(index) = self.current_index {
             self.checkpoints.get(index)
@@ -152,15 +152,15 @@ impl EditorHistory {
         for change in diff.iter_all_changes() {
             match change.tag() {
                 ChangeTag::Delete => {
-                    unified_diff.push_str(&format!("-{}", change));
+                    unified_diff.push_str(&format!("-{change}"));
                     removed_lines += 1;
                 }
                 ChangeTag::Insert => {
-                    unified_diff.push_str(&format!("+{}", change));
+                    unified_diff.push_str(&format!("+{change}"));
                     added_lines += 1;
                 }
                 ChangeTag::Equal => {
-                    unified_diff.push_str(&format!(" {}", change));
+                    unified_diff.push_str(&format!(" {change}"));
                 }
             }
         }
@@ -197,6 +197,7 @@ impl EditorHistory {
     }
 
     /// Clear all history
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.checkpoints.clear();
         self.current_index = None;

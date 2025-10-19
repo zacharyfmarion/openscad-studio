@@ -50,13 +50,15 @@ export interface ThemeColors {
   };
 }
 
+import type * as Monaco from 'monaco-editor';
+
 export interface Theme {
   id: string;
   name: string;
   category: string;
   monaco: string;
   colors: ThemeColors;
-  monacoTheme?: any; // Monaco theme definition
+  monacoTheme?: Monaco.editor.IStandaloneThemeData; // Monaco theme definition
 }
 
 // Solarized Dark Theme

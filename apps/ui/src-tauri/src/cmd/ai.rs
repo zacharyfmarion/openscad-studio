@@ -12,12 +12,12 @@ const AI_MODEL: &str = "ai_model";
 pub fn store_api_key(app: AppHandle, provider: String, key: String) -> Result<(), String> {
     let store = app
         .store("ai-settings.json")
-        .map_err(|e| format!("Failed to access store: {}", e))?;
+        .map_err(|e| format!("Failed to access store: {e}"))?;
 
     let store_key = match provider.as_str() {
         "anthropic" => ANTHROPIC_API_KEY,
         "openai" => OPENAI_API_KEY,
-        _ => return Err(format!("Unknown provider: {}", provider)),
+        _ => return Err(format!("Unknown provider: {provider}")),
     };
 
     store.set(store_key, key);
@@ -25,7 +25,7 @@ pub fn store_api_key(app: AppHandle, provider: String, key: String) -> Result<()
 
     store
         .save()
-        .map_err(|e| format!("Failed to save store: {}", e))?;
+        .map_err(|e| format!("Failed to save store: {e}"))?;
 
     Ok(())
 }
@@ -34,7 +34,7 @@ pub fn store_api_key(app: AppHandle, provider: String, key: String) -> Result<()
 pub fn get_api_key(app: AppHandle) -> Result<String, String> {
     let store = app
         .store("ai-settings.json")
-        .map_err(|e| format!("Failed to access store: {}", e))?;
+        .map_err(|e| format!("Failed to access store: {e}"))?;
 
     let provider = store
         .get(AI_PROVIDER)
@@ -51,7 +51,7 @@ pub fn get_api_key(app: AppHandle) -> Result<String, String> {
         .get(store_key)
         .and_then(|v| v.as_str().map(String::from))
         .ok_or_else(|| {
-            format!("No API key found for {}. Please set your API key in Settings", provider)
+            format!("No API key found for {provider}. Please set your API key in Settings")
         })?;
 
     Ok(key)
@@ -60,7 +60,10 @@ pub fn get_api_key(app: AppHandle) -> Result<String, String> {
 #[tauri::command]
 pub fn get_ai_provider(app: AppHandle) -> String {
     if let Ok(store) = app.store("ai-settings.json") {
-        if let Some(provider) = store.get(AI_PROVIDER).and_then(|v| v.as_str().map(String::from)) {
+        if let Some(provider) = store
+            .get(AI_PROVIDER)
+            .and_then(|v| v.as_str().map(String::from))
+        {
             return provider;
         }
     }
@@ -71,14 +74,14 @@ pub fn get_ai_provider(app: AppHandle) -> String {
 pub fn clear_api_key(app: AppHandle) -> Result<(), String> {
     let store = app
         .store("ai-settings.json")
-        .map_err(|e| format!("Failed to access store: {}", e))?;
+        .map_err(|e| format!("Failed to access store: {e}"))?;
 
     store.delete(ANTHROPIC_API_KEY);
     store.delete(OPENAI_API_KEY);
     store.delete(AI_PROVIDER);
     store
         .save()
-        .map_err(|e| format!("Failed to save store: {}", e))?;
+        .map_err(|e| format!("Failed to save store: {e}"))?;
 
     Ok(())
 }
@@ -112,10 +115,13 @@ pub fn get_ai_model(app: AppHandle) -> Result<String, String> {
 
     let store = app
         .store("ai-settings.json")
-        .map_err(|e| format!("Failed to access store: {}", e))?;
+        .map_err(|e| format!("Failed to access store: {e}"))?;
 
     // Check if a model is explicitly stored
-    if let Some(stored_model) = store.get(AI_MODEL).and_then(|v| v.as_str().map(String::from)) {
+    if let Some(stored_model) = store
+        .get(AI_MODEL)
+        .and_then(|v| v.as_str().map(String::from))
+    {
         return Ok(stored_model);
     }
 
@@ -138,12 +144,12 @@ pub fn get_ai_model(app: AppHandle) -> Result<String, String> {
 pub fn set_ai_model(app: AppHandle, model: String) -> Result<(), String> {
     let store = app
         .store("ai-settings.json")
-        .map_err(|e| format!("Failed to access store: {}", e))?;
+        .map_err(|e| format!("Failed to access store: {e}"))?;
 
     store.set(AI_MODEL, model);
     store
         .save()
-        .map_err(|e| format!("Failed to save store: {}", e))?;
+        .map_err(|e| format!("Failed to save store: {e}"))?;
 
     Ok(())
 }
@@ -171,19 +177,19 @@ pub fn get_available_providers(app: AppHandle) -> Vec<String> {
 pub fn get_api_key_for_provider(app: AppHandle, provider: &str) -> Result<String, String> {
     let store = app
         .store("ai-settings.json")
-        .map_err(|e| format!("Failed to access store: {}", e))?;
+        .map_err(|e| format!("Failed to access store: {e}"))?;
 
     let store_key = match provider {
         "anthropic" => ANTHROPIC_API_KEY,
         "openai" => OPENAI_API_KEY,
-        _ => return Err(format!("Unknown provider: {}", provider)),
+        _ => return Err(format!("Unknown provider: {provider}")),
     };
 
     let key = store
         .get(store_key)
         .and_then(|v| v.as_str().map(String::from))
         .ok_or_else(|| {
-            format!("No API key found for {}. Please set your API key in Settings", provider)
+            format!("No API key found for {provider}. Please set your API key in Settings")
         })?;
 
     Ok(key)

@@ -310,7 +310,7 @@ function VectorControl({ param, onChange }: ParameterControlProps) {
   // Sync local values when param value changes externally
   useEffect(() => {
     setLocalValues(values.map(String));
-  }, [param.value]);
+  }, [param.value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCommit = (index: number) => {
     const num = Number(localValues[index]);

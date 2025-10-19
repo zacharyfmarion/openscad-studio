@@ -63,7 +63,7 @@ export function registerVimConfigLanguage(monaco: typeof Monaco) {
         [/\b(normal|insert|visual|replace|command|terminal)\b/, 'type'],
 
         // Special keys in angle brackets
-        [/<[A-Za-z0-9\-]+>/, {
+        [/<[A-Za-z0-9-]+>/, {
           cases: {
             '<leader>': 'variable.special',
             '<Leader>': 'variable.special',

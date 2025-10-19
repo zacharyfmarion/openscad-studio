@@ -5,7 +5,7 @@
  * Supports vim-style commands for keybindings and custom commands.
  */
 
-import { VimMode } from 'monaco-vim';
+import { Vim } from 'monaco-vim';
 
 /**
  * Parse and apply vim configuration from a string
@@ -101,7 +101,7 @@ function parseMapCommand(tokens: string[], cmdType: string): void {
 
   // Apply the mapping
   try {
-    VimMode.Vim.map(from, to, mode);
+    Vim.map(from, to, mode);
   } catch (error) {
     throw new Error(`Failed to map ${from} → ${to} in ${mode} mode: ${error}`);
   }

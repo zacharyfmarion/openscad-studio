@@ -23,7 +23,7 @@ const CONVERSATIONS_KEY: &str = "conversations";
 pub fn save_conversation(app: AppHandle, conversation: Conversation) -> Result<(), String> {
     let store = app
         .store("conversations.json")
-        .map_err(|e| format!("Failed to access store: {}", e))?;
+        .map_err(|e| format!("Failed to access store: {e}"))?;
 
     // Get existing conversations
     let mut conversations: Vec<Conversation> = store
@@ -39,10 +39,13 @@ pub fn save_conversation(app: AppHandle, conversation: Conversation) -> Result<(
     }
 
     // Save back to store
-    store.set(CONVERSATIONS_KEY, serde_json::to_value(&conversations).unwrap());
+    store.set(
+        CONVERSATIONS_KEY,
+        serde_json::to_value(&conversations).unwrap(),
+    );
     store
         .save()
-        .map_err(|e| format!("Failed to save store: {}", e))?;
+        .map_err(|e| format!("Failed to save store: {e}"))?;
 
     Ok(())
 }
@@ -51,7 +54,7 @@ pub fn save_conversation(app: AppHandle, conversation: Conversation) -> Result<(
 pub fn load_conversations(app: AppHandle) -> Result<Vec<Conversation>, String> {
     let store = app
         .store("conversations.json")
-        .map_err(|e| format!("Failed to access store: {}", e))?;
+        .map_err(|e| format!("Failed to access store: {e}"))?;
 
     let conversations: Vec<Conversation> = store
         .get(CONVERSATIONS_KEY)
@@ -65,7 +68,7 @@ pub fn load_conversations(app: AppHandle) -> Result<Vec<Conversation>, String> {
 pub fn delete_conversation(app: AppHandle, conversation_id: String) -> Result<(), String> {
     let store = app
         .store("conversations.json")
-        .map_err(|e| format!("Failed to access store: {}", e))?;
+        .map_err(|e| format!("Failed to access store: {e}"))?;
 
     // Get existing conversations
     let mut conversations: Vec<Conversation> = store
@@ -77,10 +80,13 @@ pub fn delete_conversation(app: AppHandle, conversation_id: String) -> Result<()
     conversations.retain(|c| c.id != conversation_id);
 
     // Save back to store
-    store.set(CONVERSATIONS_KEY, serde_json::to_value(&conversations).unwrap());
+    store.set(
+        CONVERSATIONS_KEY,
+        serde_json::to_value(&conversations).unwrap(),
+    );
     store
         .save()
-        .map_err(|e| format!("Failed to save store: {}", e))?;
+        .map_err(|e| format!("Failed to save store: {e}"))?;
 
     Ok(())
 }

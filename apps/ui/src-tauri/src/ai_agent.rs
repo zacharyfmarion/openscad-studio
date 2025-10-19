@@ -1,15 +1,14 @@
+use futures_util::StreamExt;
 /**
  * Native Rust AI Agent using direct Anthropic API
  *
  * Replaces the Node.js sidecar with pure Rust implementation.
  */
-
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex;
-use futures_util::StreamExt;
 use tokio_util::sync::CancellationToken;
 
 use crate::cmd::{
@@ -115,70 +114,81 @@ async fn execute_tool(tool_name: &str, args: Value, app: &AppHandle) -> Result<S
     match tool_name {
         "get_current_code" => {
             let state: State<EditorState> = app.state();
-            get_current_code(state)
-                .map(|code| if code.is_empty() { "// Empty file".to_string() } else { code })
+            get_current_code(state).map(|code| {
+                if code.is_empty() {
+                    "// Empty file".to_string()
+                } else {
+                    code
+                }
+            })
         }
         "get_preview_screenshot" => {
             let state: State<EditorState> = app.state();
             get_preview_screenshot(state)
-                .map(|path| format!("Preview image saved at: {}\n\nThis shows the current rendered output of the OpenSCAD code.", path))
+                .map(|path| format!("Preview image saved at: {path}\n\nThis shows the current rendered output of the OpenSCAD code."))
         }
         "apply_edit" => {
-            let old_string = args["old_string"].as_str().ok_or("Missing old_string")?.to_string();
-            let new_string = args["new_string"].as_str().ok_or("Missing new_string")?.to_string();
-            let rationale = args["rationale"].as_str().ok_or("Missing rationale")?.to_string();
+            let old_string = args["old_string"]
+                .as_str()
+                .ok_or("Missing old_string")?
+                .to_string();
+            let new_string = args["new_string"]
+                .as_str()
+                .ok_or("Missing new_string")?
+                .to_string();
+            let rationale = args["rationale"]
+                .as_str()
+                .ok_or("Missing rationale")?
+                .to_string();
 
             let state: State<EditorState> = app.state();
             let openscad_path = state.openscad_path.lock().unwrap().clone();
 
-            let result = apply_edit(
-                app.clone(),
-                old_string,
-                new_string,
-                state,
-                openscad_path,
-            ).await?;
+            let result =
+                apply_edit(app.clone(), old_string, new_string, state, openscad_path).await?;
 
             if !result.success {
                 let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
 
                 // Format diagnostics in a readable way (same format as get_diagnostics)
                 let diag_text = if !result.diagnostics.is_empty() {
-                    let formatted: Vec<String> = result.diagnostics
+                    let formatted: Vec<String> = result
+                        .diagnostics
                         .iter()
                         .map(|d| {
                             let location = if let Some(line) = d.line {
                                 if let Some(col) = d.col {
-                                    format!(" (line {}, col {})", line, col)
+                                    format!(" (line {line}, col {col})")
                                 } else {
-                                    format!(" (line {})", line)
+                                    format!(" (line {line})")
                                 }
                             } else {
                                 String::new()
                             };
-                            format!("  [{:?}]{}: {}", d.severity, location, d.message)
+                            format!("  [{:?}]{location}: {}", d.severity, d.message)
                         })
                         .collect();
-                    format!("\n\nCompilation errors after applying edit:\n{}", formatted.join("\n"))
+                    format!(
+                        "\n\nCompilation errors after applying edit:\n{}",
+                        formatted.join("\n")
+                    )
                 } else {
                     String::new()
                 };
 
                 Ok(format!(
-                    "❌ Failed to apply edit: {}{}\n\nRationale: {}\n\nThe edit was rolled back. No changes were made. Please fix the errors and try again.",
-                    error_msg, diag_text, rationale
+                    "❌ Failed to apply edit: {error_msg}{diag_text}\n\nRationale: {rationale}\n\nThe edit was rolled back. No changes were made. Please fix the errors and try again."
                 ))
             } else {
                 // Include checkpoint_id in success message so frontend can associate it
                 let checkpoint_info = if let Some(checkpoint_id) = &result.checkpoint_id {
-                    format!("\n\n[CHECKPOINT:{}]", checkpoint_id)
+                    format!("\n\n[CHECKPOINT:{checkpoint_id}]")
                 } else {
                     String::new()
                 };
 
                 Ok(format!(
-                    "✅ Edit applied successfully!\n✅ Code compiles without new errors\n✅ Preview has been updated automatically\n\nRationale: {}\n\nThe changes are now live in the editor.{}",
-                    rationale, checkpoint_info
+                    "✅ Edit applied successfully!\n✅ Code compiles without new errors\n✅ Preview has been updated automatically\n\nRationale: {rationale}\n\nThe changes are now live in the editor.{checkpoint_info}"
                 ))
             }
         }
@@ -194,14 +204,14 @@ async fn execute_tool(tool_name: &str, args: Value, app: &AppHandle) -> Result<S
                     .map(|d| {
                         let location = if let Some(line) = d.line {
                             if let Some(col) = d.col {
-                                format!(" (line {}, col {})", line, col)
+                                format!(" (line {line}, col {col})")
                             } else {
-                                format!(" (line {})", line)
+                                format!(" (line {line})")
                             }
                         } else {
                             String::new()
                         };
-                        format!("[{:?}]{}: {}", d.severity, location, d.message)
+                        format!("[{:?}]{location}: {}", d.severity, d.message)
                     })
                     .collect();
 
@@ -212,7 +222,7 @@ async fn execute_tool(tool_name: &str, args: Value, app: &AppHandle) -> Result<S
             trigger_render(app.clone()).await?;
             Ok("✅ Render triggered. Check the preview pane for the updated output.".to_string())
         }
-        _ => Err(format!("Unknown tool: {}", tool_name))
+        _ => Err(format!("Unknown tool: {tool_name}")),
     }
 }
 
@@ -318,7 +328,7 @@ pub async fn start_ai_agent(
     provider: String,
     state: State<'_, AiAgentState>,
 ) -> Result<(), String> {
-    eprintln!("[AI Agent] Starting with provider: {}", provider);
+    eprintln!("[AI Agent] Starting with provider: {provider}");
     *state.api_key.lock().await = Some(api_key);
     *state.provider.lock().await = provider;
     Ok(())
@@ -341,18 +351,19 @@ pub async fn send_ai_query(
     provider: Option<String>,
     ai_state: State<'_, AiAgentState>,
 ) -> Result<(), String> {
-    eprintln!("[AI Agent] Received query with {} messages", messages.len());
+    let msg_count = messages.len();
+    eprintln!("[AI Agent] Received query with {msg_count} messages");
 
     // Use provided model or fall back to stored settings
     use crate::cmd::ai::{get_ai_model, get_api_key_for_provider};
     let model = match model {
         Some(m) => {
-            eprintln!("[AI Agent] Using provided model: {}", m);
+            eprintln!("[AI Agent] Using provided model: {m}");
             m
         }
         None => {
             let stored_model = get_ai_model(app.clone())?;
-            eprintln!("[AI Agent] Using stored model: {}", stored_model);
+            eprintln!("[AI Agent] Using stored model: {stored_model}");
             stored_model
         }
     };
@@ -361,19 +372,19 @@ pub async fn send_ai_query(
     use crate::cmd::ai::get_ai_provider;
     let provider = match provider {
         Some(p) => {
-            eprintln!("[AI Agent] Using provided provider: {}", p);
+            eprintln!("[AI Agent] Using provided provider: {p}");
             p
         }
         None => {
             let stored_provider = get_ai_provider(app.clone());
-            eprintln!("[AI Agent] Using stored provider: {}", stored_provider);
+            eprintln!("[AI Agent] Using stored provider: {stored_provider}");
             stored_provider
         }
     };
 
     // Get API key for the specific provider
     let api_key = get_api_key_for_provider(app.clone(), &provider)?;
-    eprintln!("[AI Agent] Retrieved API key for provider: {}", provider);
+    eprintln!("[AI Agent] Retrieved API key for provider: {provider}");
 
     // Create cancellation token for this request
     let cancel_token = CancellationToken::new();
@@ -389,15 +400,18 @@ pub async fn send_ai_query(
         };
 
         if let Err(e) = result {
-            eprintln!("[AI Agent] Error: {}", e);
-            let _ = app_for_error.emit("ai-stream", StreamEvent {
-                event_type: "error".to_string(),
-                content: None,
-                tool_name: None,
-                args: None,
-                result: None,
-                error: Some(e),
-            });
+            eprintln!("[AI Agent] Error: {e}");
+            let _ = app_for_error.emit(
+                "ai-stream",
+                StreamEvent {
+                    event_type: "error".to_string(),
+                    content: None,
+                    tool_name: None,
+                    args: None,
+                    result: None,
+                    error: Some(e),
+                },
+            );
         }
     });
 
@@ -405,8 +419,14 @@ pub async fn send_ai_query(
 }
 
 /// Run AI query with streaming (background task) - supports multi-turn tool calling
-async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String, model: String, cancel_token: CancellationToken) -> Result<(), String> {
-    eprintln!("[AI Agent] Starting API call to Anthropic with model: {}", model);
+async fn run_ai_query(
+    app: AppHandle,
+    messages: Vec<Message>,
+    api_key: String,
+    model: String,
+    cancel_token: CancellationToken,
+) -> Result<(), String> {
+    eprintln!("[AI Agent] Starting API call to Anthropic with model: {model}");
 
     // Convert messages to Anthropic format
     let mut api_messages = vec![];
@@ -437,23 +457,23 @@ async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String, m
 
         eprintln!("[AI Agent] Sending request to Anthropic API (conversation turn)");
 
-    let client = reqwest::Client::new();
-    let response = client
-        .post("https://api.anthropic.com/v1/messages")
-        .header("x-api-key", &api_key)
-        .header("anthropic-version", "2023-06-01")
-        .header("content-type", "application/json")
-        .json(&request_body)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to send request: {}", e))?;
+        let client = reqwest::Client::new();
+        let response = client
+            .post("https://api.anthropic.com/v1/messages")
+            .header("x-api-key", &api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("content-type", "application/json")
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to send request: {e}"))?;
 
-    if !response.status().is_success() {
-        let error_text = response.text().await.unwrap_or_default();
-        return Err(format!("API error: {}", error_text));
-    }
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(format!("API error: {error_text}"));
+        }
 
-    eprintln!("[AI Agent] Processing streaming response");
+        eprintln!("[AI Agent] Processing streaming response");
 
         // Process streaming response incrementally
         let mut stream = response.bytes_stream();
@@ -461,189 +481,223 @@ async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String, m
         let mut current_tool_use_id: Option<String> = None;
         let mut current_tool_name: Option<String> = None;
         let mut current_tool_input = String::new();
-        let mut assistant_content = Vec::new();  // Collect all content blocks
-        let mut tool_results = Vec::new();  // Collect tool results for next turn
+        let mut assistant_content = Vec::new(); // Collect all content blocks
+        let mut tool_results = Vec::new(); // Collect tool results for next turn
         let mut has_tool_use = false;
 
-    // Parse SSE format incrementally
-    while let Some(chunk_result) = stream.next().await {
-        // Check for cancellation in stream processing
-        if cancel_token.is_cancelled() {
-            eprintln!("[AI Agent] Stream cancelled by user");
-            return Ok(());
-        }
-
-        let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
-        let chunk_str = String::from_utf8_lossy(&chunk);
-        buffer.push_str(&chunk_str);
-
-        // Process complete lines
-        while let Some(newline_pos) = buffer.find('\n') {
-            let line = buffer[..newline_pos].trim().to_string();
-            buffer = buffer[newline_pos + 1..].to_string();
-
-            if line.is_empty() {
-                continue;
+        // Parse SSE format incrementally
+        while let Some(chunk_result) = stream.next().await {
+            // Check for cancellation in stream processing
+            if cancel_token.is_cancelled() {
+                eprintln!("[AI Agent] Stream cancelled by user");
+                return Ok(());
             }
-            if line.starts_with("data: ") {
-                let data = &line[6..];
-                if data == "[DONE]" {
-                    break;
+
+            let chunk = chunk_result.map_err(|e| format!("Stream error: {e}"))?;
+            let chunk_str = String::from_utf8_lossy(&chunk);
+            buffer.push_str(&chunk_str);
+
+            // Process complete lines
+            while let Some(newline_pos) = buffer.find('\n') {
+                let line = buffer[..newline_pos].trim().to_string();
+                buffer = buffer[newline_pos + 1..].to_string();
+
+                if line.is_empty() {
+                    continue;
                 }
+                if let Some(data) = line.strip_prefix("data: ") {
+                    if data == "[DONE]" {
+                        break;
+                    }
 
-                if let Ok(event) = serde_json::from_str::<Value>(data) {
-                    match event["type"].as_str() {
-                        Some("content_block_start") => {
-                            if let Some(content_block) = event["content_block"].as_object() {
-                                if content_block["type"].as_str() == Some("tool_use") {
-                                    let tool_name = content_block["name"].as_str().unwrap_or_default().to_string();
-                                    let tool_id = content_block["id"].as_str().unwrap_or_default().to_string();
+                    if let Ok(event) = serde_json::from_str::<Value>(data) {
+                        match event["type"].as_str() {
+                            Some("content_block_start") => {
+                                if let Some(content_block) = event["content_block"].as_object() {
+                                    if content_block["type"].as_str() == Some("tool_use") {
+                                        let tool_name = content_block["name"]
+                                            .as_str()
+                                            .unwrap_or_default()
+                                            .to_string();
+                                        let tool_id = content_block["id"]
+                                            .as_str()
+                                            .unwrap_or_default()
+                                            .to_string();
 
-                                    eprintln!("[AI Agent] Tool use started: {}", tool_name);
+                                        eprintln!("[AI Agent] Tool use started: {tool_name}");
 
-                                    current_tool_use_id = Some(tool_id);
-                                    current_tool_name = Some(tool_name.clone());
-                                    current_tool_input.clear();
+                                        current_tool_use_id = Some(tool_id);
+                                        current_tool_name = Some(tool_name.clone());
+                                        current_tool_input.clear();
 
-                                    let _ = app.emit("ai-stream", StreamEvent {
-                                        event_type: "tool-call".to_string(),
-                                        content: None,
-                                        tool_name: Some(tool_name),
-                                        args: Some(json!({})),
-                                        result: None,
-                                        error: None,
-                                    });
-                                } else if content_block["type"].as_str() == Some("text") {
-                                    // Track that we're starting a text block
-                                    let is_new_text_block = assistant_content.is_empty() ||
-                                        assistant_content.last()
-                                            .and_then(|v: &Value| v.get("type"))
-                                            .and_then(|v| v.as_str()) != Some("text");
+                                        let _ = app.emit(
+                                            "ai-stream",
+                                            StreamEvent {
+                                                event_type: "tool-call".to_string(),
+                                                content: None,
+                                                tool_name: Some(tool_name),
+                                                args: Some(json!({})),
+                                                result: None,
+                                                error: None,
+                                            },
+                                        );
+                                    } else if content_block["type"].as_str() == Some("text") {
+                                        // Track that we're starting a text block
+                                        let is_new_text_block = assistant_content.is_empty()
+                                            || assistant_content
+                                                .last()
+                                                .and_then(|v: &Value| v.get("type"))
+                                                .and_then(|v| v.as_str())
+                                                != Some("text");
 
-                                    if is_new_text_block {
-                                        assistant_content.push(json!({
-                                            "type": "text",
-                                            "text": ""
-                                        }));
-                                    }
-                                }
-                            }
-                        }
-                        Some("content_block_delta") => {
-                            if let Some(delta) = event["delta"].as_object() {
-                                if delta["type"].as_str() == Some("text_delta") {
-                                    if let Some(text) = delta["text"].as_str() {
-                                        eprintln!("[AI Agent] Text delta: {}", text);
-
-                                        // Add text to assistant content
-                                        if let Some(last_block) = assistant_content.last_mut() {
-                                            if last_block.get("type").and_then(|v| v.as_str()) == Some("text") {
-                                                if let Some(current_text) = last_block.get("text").and_then(|v| v.as_str()) {
-                                                    last_block["text"] = json!(format!("{}{}", current_text, text));
-                                                }
-                                            }
-                                        } else {
-                                            // First text block
+                                        if is_new_text_block {
                                             assistant_content.push(json!({
                                                 "type": "text",
-                                                "text": text
+                                                "text": ""
                                             }));
                                         }
-
-                                        let _ = app.emit("ai-stream", StreamEvent {
-                                            event_type: "text".to_string(),
-                                            content: Some(text.to_string()),
-                                            tool_name: None,
-                                            args: None,
-                                            result: None,
-                                            error: None,
-                                        });
-                                    }
-                                } else if delta["type"].as_str() == Some("input_json_delta") {
-                                    if let Some(partial_json) = delta["partial_json"].as_str() {
-                                        current_tool_input.push_str(partial_json);
                                     }
                                 }
                             }
-                        }
-                        Some("content_block_stop") => {
-                            // Tool use complete - execute it and store result for next turn
-                            if let (Some(tool_name), Some(tool_id)) = (current_tool_name.clone(), current_tool_use_id.clone()) {
-                                has_tool_use = true;
-                                eprintln!("[AI Agent] Executing tool: {}", tool_name);
-                                eprintln!("[AI Agent] Tool input: {}", current_tool_input);
+                            Some("content_block_delta") => {
+                                if let Some(delta) = event["delta"].as_object() {
+                                    if delta["type"].as_str() == Some("text_delta") {
+                                        if let Some(text) = delta["text"].as_str() {
+                                            eprintln!("[AI Agent] Text delta: {text}");
 
-                                let tool_args: Value = serde_json::from_str(&current_tool_input)
-                                    .unwrap_or_else(|_| json!({}));
+                                            // Add text to assistant content
+                                            if let Some(last_block) = assistant_content.last_mut() {
+                                                if last_block.get("type").and_then(|v| v.as_str())
+                                                    == Some("text")
+                                                {
+                                                    if let Some(current_text) = last_block
+                                                        .get("text")
+                                                        .and_then(|v| v.as_str())
+                                                    {
+                                                        last_block["text"] =
+                                                            json!(format!("{current_text}{text}"));
+                                                    }
+                                                }
+                                            } else {
+                                                // First text block
+                                                assistant_content.push(json!({
+                                                    "type": "text",
+                                                    "text": text
+                                                }));
+                                            }
 
-                                // Add tool use to assistant content
-                                assistant_content.push(json!({
-                                    "type": "tool_use",
-                                    "id": tool_id.clone(),
-                                    "name": tool_name.clone(),
-                                    "input": tool_args.clone()
-                                }));
-
-                                match execute_tool(&tool_name, tool_args, &app).await {
-                                    Ok(result) => {
-                                        eprintln!("[AI Agent] Tool result: {}", &result[..result.len().min(100)]);
-                                        let _ = app.emit("ai-stream", StreamEvent {
-                                            event_type: "tool-result".to_string(),
-                                            content: None,
-                                            tool_name: Some(tool_name.clone()),
-                                            args: None,
-                                            result: Some(json!(result.clone())),
-                                            error: None,
-                                        });
-
-                                        // Store tool result for next API call
-                                        tool_results.push(json!({
-                                            "type": "tool_result",
-                                            "tool_use_id": tool_id,
-                                            "content": result
-                                        }));
-                                    }
-                                    Err(e) => {
-                                        eprintln!("[AI Agent] Tool error: {}", e);
-                                        let _ = app.emit("ai-stream", StreamEvent {
-                                            event_type: "error".to_string(),
-                                            content: None,
-                                            tool_name: None,
-                                            args: None,
-                                            result: None,
-                                            error: Some(format!("Tool execution failed: {}", e)),
-                                        });
-
-                                        // Store error as tool result
-                                        tool_results.push(json!({
-                                            "type": "tool_result",
-                                            "tool_use_id": tool_id,
-                                            "content": format!("Error: {}", e),
-                                            "is_error": true
-                                        }));
+                                            let _ = app.emit(
+                                                "ai-stream",
+                                                StreamEvent {
+                                                    event_type: "text".to_string(),
+                                                    content: Some(text.to_string()),
+                                                    tool_name: None,
+                                                    args: None,
+                                                    result: None,
+                                                    error: None,
+                                                },
+                                            );
+                                        }
+                                    } else if delta["type"].as_str() == Some("input_json_delta") {
+                                        if let Some(partial_json) = delta["partial_json"].as_str() {
+                                            current_tool_input.push_str(partial_json);
+                                        }
                                     }
                                 }
-
-                                current_tool_use_id = None;
-                                current_tool_name = None;
-                                current_tool_input.clear();
                             }
+                            Some("content_block_stop") => {
+                                // Tool use complete - execute it and store result for next turn
+                                if let (Some(tool_name), Some(tool_id)) =
+                                    (current_tool_name.clone(), current_tool_use_id.clone())
+                                {
+                                    has_tool_use = true;
+                                    eprintln!("[AI Agent] Executing tool: {tool_name}");
+                                    eprintln!("[AI Agent] Tool input: {current_tool_input}");
+
+                                    let tool_args: Value =
+                                        serde_json::from_str(&current_tool_input)
+                                            .unwrap_or_else(|_| json!({}));
+
+                                    // Add tool use to assistant content
+                                    assistant_content.push(json!({
+                                        "type": "tool_use",
+                                        "id": tool_id.clone(),
+                                        "name": tool_name.clone(),
+                                        "input": tool_args.clone()
+                                    }));
+
+                                    match execute_tool(&tool_name, tool_args, &app).await {
+                                        Ok(result) => {
+                                            eprintln!(
+                                                "[AI Agent] Tool result: {}",
+                                                &result[..result.len().min(100)]
+                                            );
+                                            let _ = app.emit(
+                                                "ai-stream",
+                                                StreamEvent {
+                                                    event_type: "tool-result".to_string(),
+                                                    content: None,
+                                                    tool_name: Some(tool_name.clone()),
+                                                    args: None,
+                                                    result: Some(json!(result.clone())),
+                                                    error: None,
+                                                },
+                                            );
+
+                                            // Store tool result for next API call
+                                            tool_results.push(json!({
+                                                "type": "tool_result",
+                                                "tool_use_id": tool_id,
+                                                "content": result
+                                            }));
+                                        }
+                                        Err(e) => {
+                                            eprintln!("[AI Agent] Tool error: {e}");
+                                            let _ = app.emit(
+                                                "ai-stream",
+                                                StreamEvent {
+                                                    event_type: "error".to_string(),
+                                                    content: None,
+                                                    tool_name: None,
+                                                    args: None,
+                                                    result: None,
+                                                    error: Some(format!(
+                                                        "Tool execution failed: {e}"
+                                                    )),
+                                                },
+                                            );
+
+                                            // Store error as tool result
+                                            tool_results.push(json!({
+                                                "type": "tool_result",
+                                                "tool_use_id": tool_id,
+                                                "content": format!("Error: {e}"),
+                                                "is_error": true
+                                            }));
+                                        }
+                                    }
+
+                                    current_tool_use_id = None;
+                                    current_tool_name = None;
+                                    current_tool_input.clear();
+                                }
+                            }
+                            Some("message_stop") => {
+                                eprintln!("[AI Agent] Stream complete");
+                            }
+                            _ => {}
                         }
-                        Some("message_stop") => {
-                            eprintln!("[AI Agent] Stream complete");
-                        }
-                        _ => {}
                     }
                 }
             }
         }
-    }
 
-    eprintln!("[AI Agent] Stream processing complete");
+        eprintln!("[AI Agent] Stream processing complete");
 
         // Check if we need to continue conversation with tool results
         if has_tool_use && !tool_results.is_empty() {
-            eprintln!("[AI Agent] Continuing conversation with {} tool results", tool_results.len());
+            let result_count = tool_results.len();
+            eprintln!("[AI Agent] Continuing conversation with {result_count} tool results");
 
             // Add assistant message with tool uses
             api_messages.push(json!({
@@ -667,22 +721,31 @@ async fn run_ai_query(app: AppHandle, messages: Vec<Message>, api_key: String, m
     } // End of loop
 
     // Send final done event
-    let _ = app.emit("ai-stream", StreamEvent {
-        event_type: "done".to_string(),
-        content: None,
-        tool_name: None,
-        args: None,
-        result: None,
-        error: None,
-    });
+    let _ = app.emit(
+        "ai-stream",
+        StreamEvent {
+            event_type: "done".to_string(),
+            content: None,
+            tool_name: None,
+            args: None,
+            result: None,
+            error: None,
+        },
+    );
 
     eprintln!("[AI Agent] Query complete");
     Ok(())
 }
 
 /// Run OpenAI query with streaming (background task) - supports multi-turn tool calling
-async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: String, model: String, cancel_token: CancellationToken) -> Result<(), String> {
-    eprintln!("[AI Agent] Starting API call to OpenAI with model: {}", model);
+async fn run_openai_query(
+    app: AppHandle,
+    messages: Vec<Message>,
+    api_key: String,
+    model: String,
+    cancel_token: CancellationToken,
+) -> Result<(), String> {
+    eprintln!("[AI Agent] Starting API call to OpenAI with model: {model}");
 
     // Convert messages to OpenAI format
     let mut api_messages = vec![];
@@ -701,14 +764,19 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
     all_messages.extend(api_messages.clone());
 
     // Build tools array
-    let tools: Vec<Value> = get_tool_definitions().iter().map(|t| json!({
-        "type": "function",
-        "function": {
-            "name": t["name"],
-            "description": t["description"],
-            "parameters": t["input_schema"]
-        }
-    })).collect();
+    let tools: Vec<Value> = get_tool_definitions()
+        .iter()
+        .map(|t| {
+            json!({
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t["description"],
+                    "parameters": t["input_schema"]
+                }
+            })
+        })
+        .collect();
 
     // Multi-turn conversation loop
     loop {
@@ -731,16 +799,16 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
         let client = reqwest::Client::new();
         let response = client
             .post("https://api.openai.com/v1/chat/completions")
-            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Authorization", format!("Bearer {api_key}"))
             .header("content-type", "application/json")
             .json(&request_body)
             .send()
             .await
-            .map_err(|e| format!("Failed to send request: {}", e))?;
+            .map_err(|e| format!("Failed to send request: {e}"))?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(format!("API error: {}", error_text));
+            return Err(format!("API error: {error_text}"));
         }
 
         eprintln!("[AI Agent] Processing streaming response");
@@ -750,83 +818,109 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
         let mut buffer = String::new();
 
         // Track tool calls by index (OpenAI streams them incrementally)
-        let mut tool_calls: std::collections::HashMap<usize, (String, String)> = std::collections::HashMap::new();
-        let mut tool_call_emitted: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        let mut tool_calls: std::collections::HashMap<usize, (String, String)> =
+            std::collections::HashMap::new();
+        let mut tool_call_emitted: std::collections::HashSet<usize> =
+            std::collections::HashSet::new();
 
-    while let Some(chunk_result) = stream.next().await {
-        // Check for cancellation in stream processing
-        if cancel_token.is_cancelled() {
-            eprintln!("[AI Agent] Stream cancelled by user");
-            return Ok(());
-        }
-
-        let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
-        let chunk_str = String::from_utf8_lossy(&chunk);
-        buffer.push_str(&chunk_str);
-
-        // Process complete lines
-        while let Some(newline_pos) = buffer.find('\n') {
-            let line = buffer[..newline_pos].trim().to_string();
-            buffer = buffer[newline_pos + 1..].to_string();
-
-            if line.is_empty() || !line.starts_with("data: ") {
-                continue;
+        while let Some(chunk_result) = stream.next().await {
+            // Check for cancellation in stream processing
+            if cancel_token.is_cancelled() {
+                eprintln!("[AI Agent] Stream cancelled by user");
+                return Ok(());
             }
 
-            let data = &line[6..];
-            if data == "[DONE]" {
-                break;
-            }
+            let chunk = chunk_result.map_err(|e| format!("Stream error: {e}"))?;
+            let chunk_str = String::from_utf8_lossy(&chunk);
+            buffer.push_str(&chunk_str);
 
-            if let Ok(event) = serde_json::from_str::<Value>(data) {
-                if let Some(choices) = event.get("choices").and_then(|v| v.as_array()) {
-                    if let Some(choice) = choices.first() {
-                        if let Some(delta) = choice.get("delta").and_then(|v| v.as_object()) {
-                            // Handle text content
-                            if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
-                                eprintln!("[AI Agent] Text delta: {}", content);
-                                let _ = app.emit("ai-stream", StreamEvent {
-                                    event_type: "text".to_string(),
-                                    content: Some(content.to_string()),
-                                    tool_name: None,
-                                    args: None,
-                                    result: None,
-                                    error: None,
-                                });
-                            }
+            // Process complete lines
+            while let Some(newline_pos) = buffer.find('\n') {
+                let line = buffer[..newline_pos].trim().to_string();
+                buffer = buffer[newline_pos + 1..].to_string();
 
-                            // Handle tool calls (streamed incrementally)
-                            if let Some(tool_calls_delta) = delta.get("tool_calls").and_then(|v| v.as_array()) {
-                                for tool_call in tool_calls_delta {
-                                    if let Some(index) = tool_call.get("index").and_then(|v| v.as_u64()) {
-                                        let index = index as usize;
+                if line.is_empty() || !line.starts_with("data: ") {
+                    continue;
+                }
 
-                                        // Get or create entry for this tool call
-                                        let entry = tool_calls.entry(index).or_insert((String::new(), String::new()));
+                let data = &line[6..];
+                if data == "[DONE]" {
+                    break;
+                }
 
-                                        // Update name if provided
-                                        if let Some(function) = tool_call.get("function").and_then(|v| v.as_object()) {
-                                            if let Some(name) = function.get("name").and_then(|v| v.as_str()) {
-                                                entry.0 = name.to_string();
+                if let Ok(event) = serde_json::from_str::<Value>(data) {
+                    if let Some(choices) = event.get("choices").and_then(|v| v.as_array()) {
+                        if let Some(choice) = choices.first() {
+                            if let Some(delta) = choice.get("delta").and_then(|v| v.as_object()) {
+                                // Handle text content
+                                if let Some(content) = delta.get("content").and_then(|v| v.as_str())
+                                {
+                                    eprintln!("[AI Agent] Text delta: {content}");
+                                    let _ = app.emit(
+                                        "ai-stream",
+                                        StreamEvent {
+                                            event_type: "text".to_string(),
+                                            content: Some(content.to_string()),
+                                            tool_name: None,
+                                            args: None,
+                                            result: None,
+                                            error: None,
+                                        },
+                                    );
+                                }
 
-                                                // Emit tool-call event when we first see the name
-                                                if !tool_call_emitted.contains(&index) {
-                                                    eprintln!("[AI Agent] Tool call started: {}", name);
-                                                    let _ = app.emit("ai-stream", StreamEvent {
-                                                        event_type: "tool-call".to_string(),
-                                                        content: None,
-                                                        tool_name: Some(name.to_string()),
-                                                        args: Some(json!({})),
-                                                        result: None,
-                                                        error: None,
-                                                    });
-                                                    tool_call_emitted.insert(index);
+                                // Handle tool calls (streamed incrementally)
+                                if let Some(tool_calls_delta) =
+                                    delta.get("tool_calls").and_then(|v| v.as_array())
+                                {
+                                    for tool_call in tool_calls_delta {
+                                        if let Some(index) =
+                                            tool_call.get("index").and_then(|v| v.as_u64())
+                                        {
+                                            let index = index as usize;
+
+                                            // Get or create entry for this tool call
+                                            let entry = tool_calls
+                                                .entry(index)
+                                                .or_insert((String::new(), String::new()));
+
+                                            // Update name if provided
+                                            if let Some(function) = tool_call
+                                                .get("function")
+                                                .and_then(|v| v.as_object())
+                                            {
+                                                if let Some(name) =
+                                                    function.get("name").and_then(|v| v.as_str())
+                                                {
+                                                    entry.0 = name.to_string();
+
+                                                    // Emit tool-call event when we first see the name
+                                                    if !tool_call_emitted.contains(&index) {
+                                                        eprintln!(
+                                                            "[AI Agent] Tool call started: {name}"
+                                                        );
+                                                        let _ = app.emit(
+                                                            "ai-stream",
+                                                            StreamEvent {
+                                                                event_type: "tool-call".to_string(),
+                                                                content: None,
+                                                                tool_name: Some(name.to_string()),
+                                                                args: Some(json!({})),
+                                                                result: None,
+                                                                error: None,
+                                                            },
+                                                        );
+                                                        tool_call_emitted.insert(index);
+                                                    }
                                                 }
-                                            }
 
-                                            // Accumulate arguments
-                                            if let Some(args_delta) = function.get("arguments").and_then(|v| v.as_str()) {
-                                                entry.1.push_str(args_delta);
+                                                // Accumulate arguments
+                                                if let Some(args_delta) = function
+                                                    .get("arguments")
+                                                    .and_then(|v| v.as_str())
+                                                {
+                                                    entry.1.push_str(args_delta);
+                                                }
                                             }
                                         }
                                     }
@@ -837,19 +931,22 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
                 }
             }
         }
-    }
 
         eprintln!("[AI Agent] Stream processing complete");
 
         // Execute all accumulated tool calls and prepare for next turn
         if !tool_calls.is_empty() {
-            eprintln!("[AI Agent] Continuing conversation with {} tool calls", tool_calls.len());
+            eprintln!(
+                "[AI Agent] Continuing conversation with {} tool calls",
+                tool_calls.len()
+            );
 
             // Build assistant message with tool calls
-            let tool_calls_json: Vec<Value> = tool_calls.iter()
+            let tool_calls_json: Vec<Value> = tool_calls
+                .iter()
                 .map(|(index, (name, args_str))| {
                     json!({
-                        "id": format!("call_{}", index),
+                        "id": format!("call_{index}"),
                         "type": "function",
                         "function": {
                             "name": name,
@@ -867,52 +964,61 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
 
             // Execute tools and collect results
             for (index, (name, args_str)) in tool_calls.iter() {
-                eprintln!("[AI Agent] Executing tool #{}: {} with args: {}", index, name, args_str);
+                eprintln!("[AI Agent] Executing tool #{index}: {name} with args: {args_str}");
 
                 let args: Value = if args_str.is_empty() {
                     json!({})
                 } else {
                     serde_json::from_str(args_str).unwrap_or_else(|e| {
-                        eprintln!("[AI Agent] Failed to parse tool arguments: {}", e);
+                        eprintln!("[AI Agent] Failed to parse tool arguments: {e}");
                         json!({})
                     })
                 };
 
                 match execute_tool(name, args, &app).await {
                     Ok(result) => {
-                        eprintln!("[AI Agent] Tool result: {}", &result[..result.len().min(100)]);
-                        let _ = app.emit("ai-stream", StreamEvent {
-                            event_type: "tool-result".to_string(),
-                            content: None,
-                            tool_name: Some(name.to_string()),
-                            args: None,
-                            result: Some(json!(result.clone())),
-                            error: None,
-                        });
+                        eprintln!(
+                            "[AI Agent] Tool result: {}",
+                            &result[..result.len().min(100)]
+                        );
+                        let _ = app.emit(
+                            "ai-stream",
+                            StreamEvent {
+                                event_type: "tool-result".to_string(),
+                                content: None,
+                                tool_name: Some(name.to_string()),
+                                args: None,
+                                result: Some(json!(result.clone())),
+                                error: None,
+                            },
+                        );
 
                         // Add tool result message
                         all_messages.push(json!({
                             "role": "tool",
-                            "tool_call_id": format!("call_{}", index),
+                            "tool_call_id": format!("call_{index}"),
                             "content": result
                         }));
                     }
                     Err(e) => {
-                        eprintln!("[AI Agent] Tool error: {}", e);
-                        let _ = app.emit("ai-stream", StreamEvent {
-                            event_type: "error".to_string(),
-                            content: None,
-                            tool_name: None,
-                            args: None,
-                            result: None,
-                            error: Some(format!("Tool execution failed: {}", e)),
-                        });
+                        eprintln!("[AI Agent] Tool error: {e}");
+                        let _ = app.emit(
+                            "ai-stream",
+                            StreamEvent {
+                                event_type: "error".to_string(),
+                                content: None,
+                                tool_name: None,
+                                args: None,
+                                result: None,
+                                error: Some(format!("Tool execution failed: {e}")),
+                            },
+                        );
 
                         // Add error as tool result
                         all_messages.push(json!({
                             "role": "tool",
-                            "tool_call_id": format!("call_{}", index),
-                            "content": format!("Error: {}", e)
+                            "tool_call_id": format!("call_{index}"),
+                            "content": format!("Error: {e}")
                         }));
                     }
                 }
@@ -928,14 +1034,17 @@ async fn run_openai_query(app: AppHandle, messages: Vec<Message>, api_key: Strin
     } // End of loop
 
     // Send final done event
-    let _ = app.emit("ai-stream", StreamEvent {
-        event_type: "done".to_string(),
-        content: None,
-        tool_name: None,
-        args: None,
-        result: None,
-        error: None,
-    });
+    let _ = app.emit(
+        "ai-stream",
+        StreamEvent {
+            event_type: "done".to_string(),
+            content: None,
+            tool_name: None,
+            args: None,
+            result: None,
+            error: None,
+        },
+    );
 
     eprintln!("[AI Agent] Query complete");
     Ok(())

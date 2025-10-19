@@ -29,7 +29,7 @@ export interface Tab {
   // Cached render state
   previewSrc?: string;
   previewKind?: 'mesh' | 'png' | 'svg';
-  diagnostics?: any[];
+  diagnostics?: unknown[];
   dimensionMode?: '2d' | '3d';
 }
 

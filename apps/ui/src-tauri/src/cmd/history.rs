@@ -1,11 +1,10 @@
+use crate::cmd::EditorState;
+use crate::history::HistoryState;
+use crate::types::{ChangeType, CheckpointDiff, EditorCheckpoint};
 /**
  * History-related Tauri commands
  */
-
-use tauri::{AppHandle, State, Emitter};
-use crate::history::HistoryState;
-use crate::types::{EditorCheckpoint, ChangeType, CheckpointDiff};
-use crate::cmd::EditorState;
+use tauri::{AppHandle, Emitter, State};
 
 /// Create a checkpoint in the history
 #[tauri::command]
@@ -99,7 +98,7 @@ pub fn restore_to_checkpoint(
 
         Ok(checkpoint.clone())
     } else {
-        Err(format!("Checkpoint not found: {}", checkpoint_id))
+        Err(format!("Checkpoint not found: {checkpoint_id}"))
     }
 }
 
@@ -112,24 +111,21 @@ pub fn get_checkpoint_diff(
 ) -> Result<CheckpointDiff, String> {
     let history = history_state.history.lock().unwrap();
 
-    history.get_diff(&from_id, &to_id)
+    history
+        .get_diff(&from_id, &to_id)
         .ok_or_else(|| "Failed to generate diff".to_string())
 }
 
 /// Check if undo is available
 #[tauri::command]
-pub fn can_undo(
-    history_state: State<'_, HistoryState>,
-) -> Result<bool, String> {
+pub fn can_undo(history_state: State<'_, HistoryState>) -> Result<bool, String> {
     let history = history_state.history.lock().unwrap();
     Ok(history.can_undo())
 }
 
 /// Check if redo is available
 #[tauri::command]
-pub fn can_redo(
-    history_state: State<'_, HistoryState>,
-) -> Result<bool, String> {
+pub fn can_redo(history_state: State<'_, HistoryState>) -> Result<bool, String> {
     let history = history_state.history.lock().unwrap();
     Ok(history.can_redo())
 }
@@ -146,5 +142,5 @@ pub fn get_checkpoint_by_id(
     checkpoints
         .into_iter()
         .find(|c| c.id == checkpoint_id)
-        .ok_or_else(|| format!("Checkpoint not found: {}", checkpoint_id))
+        .ok_or_else(|| format!("Checkpoint not found: {checkpoint_id}"))
 }
