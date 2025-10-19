@@ -203,19 +203,22 @@ pnpm type-check         # Type check all workspaces
 ✅ Tool call visualization
 ✅ Conversation history and management
 
-### Planned (Phase 4)
-- Multi-file project support (use/include)
-- Code formatting and linting
+### Planned (Phase 4+)
+- Customizer panel for OpenSCAD parameters
+- Special operators preview (`#`, `%`, `*`, `!`)
+- Configurable preview resolution
 - Advanced 3D viewer features (measurement, section planes)
-- Testing and CI/CD
-- Code signing and distribution
+- Cross-platform testing (Windows/Linux)
+- Code signing for macOS/Windows
+- Auto-update mechanism
+- CI/CD and automated testing
 
 ## Known Issues & Gotchas
 
 1. **Image caching**: Browser caches preview images. Use cache-busting query params (`?t=${timestamp}`)
 2. **OpenSCAD `--imgsize` format**: Must be `W,H` (comma), not `WxH` (x)
 3. **Monaco line numbers**: Line numbers in diagnostics are 1-indexed, Monaco uses 0-indexed
-4. **Multi-file rendering**: `use`/`include` directives require `working_dir` parameter (derived from file path)
+4. **Cross-platform**: Only tested on macOS; Windows/Linux testing pending
 
 ## Code Style
 

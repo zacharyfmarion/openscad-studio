@@ -43,10 +43,11 @@ This checklist covers everything needed before open sourcing the project.
   - [ ] Test on Linux (Secret Service)
 
 ### GitHub Repository Setup
-- [ ] Create GitHub repository
-- [ ] Add repository description: "A modern cross-platform OpenSCAD editor with live preview and AI copilot"
-- [ ] Add topics/tags: `openscad`, `3d-modeling`, `tauri`, `rust`, `react`, `ai-assistant`, `cad`, `editor`
-- [ ] Set up branch protection for `main`
+- [x] Create GitHub repository (public)
+- [x] Add repository description
+- [x] Add topics/tags for discoverability
+- [x] Documentation website with marketing materials
+- [ ] Set up branch protection for `main` (optional)
 - [ ] Configure GitHub Actions (optional)
   - [ ] Build verification on PR
   - [ ] Automated releases
@@ -58,44 +59,49 @@ This checklist covers everything needed before open sourcing the project.
 - [ ] Create pull request template (`.github/pull_request_template.md`)
 
 ### Contributing Guidelines
-- [ ] Create CONTRIBUTING.md with:
-  - [ ] Development setup instructions
-  - [ ] Code style guidelines
-  - [ ] Commit message conventions
-  - [ ] PR submission process
-  - [ ] Code of conduct reference
+- [x] Create CONTRIBUTING.md with:
+  - [x] Development setup instructions
+  - [x] Code style guidelines
+  - [x] Commit message conventions
+  - [x] PR submission process
+  - [x] Code of conduct reference
 
 ### Testing
-- [ ] Manual smoke test checklist:
-  - [ ] App launches successfully
-  - [ ] Monaco editor works (syntax highlighting, editing)
-  - [ ] OpenSCAD auto-detection works
-  - [ ] Live preview renders (PNG mode)
-  - [ ] 3D mesh viewer loads STL files
-  - [ ] 2D SVG mode works
-  - [ ] Export to STL/OBJ/etc. works
-  - [ ] File open/save works
-  - [ ] Multi-tab management works
-  - [ ] Settings dialog saves preferences
-  - [ ] Theme switching works
-  - [ ] AI copilot can be configured (with test API key)
-  - [ ] AI tools work (get_current_code, apply_edit, etc.)
-  - [ ] Diagnostics panel shows errors correctly
-  - [ ] Keyboard shortcuts work (⌘K, ⌘T, ⌘W, etc.)
+- [x] Manual smoke test checklist (macOS):
+  - [x] App launches successfully
+  - [x] Monaco editor works (syntax highlighting, editing)
+  - [x] OpenSCAD auto-detection works
+  - [x] Live preview renders (PNG mode)
+  - [x] 3D mesh viewer loads STL files
+  - [x] 2D SVG mode works
+  - [x] Export to STL/OBJ/etc. works
+  - [x] File open/save works
+  - [x] Multi-tab management works
+  - [x] Settings dialog saves preferences
+  - [x] Theme switching works
+  - [x] AI copilot can be configured (with test API key)
+  - [x] AI tools work (get_current_code, apply_edit, etc.)
+  - [x] Diagnostics panel shows errors correctly
+  - [x] Keyboard shortcuts work (⌘K, ⌘T, ⌘W, etc.)
+  - [x] Recent files list works
+  - [x] Code formatting works (⌘Shift+F)
+  - [x] Autocomplete works
+  - [x] Multi-file imports work (use/include)
 
 ### Platform Testing
-- [ ] Test on macOS (Intel and Apple Silicon)
-- [ ] Test on Windows 10/11
-- [ ] Test on Linux (Ubuntu/Fedora recommended)
+- [x] Test on macOS (Apple Silicon) - primary development platform
+- [ ] Test on macOS (Intel) - needs verification
+- [ ] Test on Windows 10/11 - not yet tested
+- [ ] Test on Linux (Ubuntu/Fedora) - not yet tested
 - [ ] Verify OpenSCAD detection on all platforms
 
 ### Known Issues Documentation
-- [ ] Create KNOWN_ISSUES.md or add to README:
-  - [ ] No multi-file support yet (use/include directives)
-  - [ ] OpenSCAD stderr parsing is regex-based (may miss some errors)
-  - [ ] No undo/redo stack (Monaco has built-in, but not tracked across renders)
-  - [ ] Preview resolution is fixed (not yet configurable)
-  - [ ] AI features require API key (no offline mode yet)
+- [x] Document known limitations in README:
+  - [x] Special operators (`#`, `%`, `*`, `!`) not visually distinguished
+  - [x] No customizer panel for OpenSCAD parameters yet
+  - [x] Preview resolution is fixed at 800x600 (not yet configurable)
+  - [x] AI features require API key (no offline mode yet)
+  - [x] Only tested on macOS (Windows/Linux pending)
 
 ### Dependencies Audit
 - [ ] Run `pnpm audit` and address critical vulnerabilities

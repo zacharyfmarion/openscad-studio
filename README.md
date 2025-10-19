@@ -37,7 +37,7 @@ As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precis
 - 📐 **2D mode** - Dedicated SVG viewer for laser cutting and engraving
 - 🔍 **Real-time diagnostics** - Inline error markers with line/column precision
 
-**Limitations:** No special operators (!, #, %, *) or customizer support yet
+**Limitations:** Special operators (!, #, %, *) and customizer panel not yet implemented
 
 ## 📦 Installation
 

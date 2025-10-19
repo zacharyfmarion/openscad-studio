@@ -88,15 +88,11 @@ openscad-tauri/
 
 **Next Checkpoints:**
 
-### Checkpoint 2.1: Backend Detection & Configuration
-- [ ] Implement full `detect_backend` logic (test Manifold vs CGAL)
-- [ ] Add settings modal for:
-  - [ ] OpenSCAD path override
-  - [ ] Default backend selection (Auto/Manifold/CGAL)
-  - [ ] Preview resolution settings
-- [ ] Store settings in Tauri plugin-store
-
-**Estimated Duration:** 3-4 days
+### Checkpoint 2.1: Settings & Configuration
+- [x] Settings modal implemented with theme, editor, and AI tabs
+- [x] OpenSCAD path override via settings
+- [x] Store settings in localStorage (Tauri plugin-store for API keys)
+- [ ] Backend selection UI (Auto/Manifold/CGAL) - deferred
 
 ---
 
@@ -247,39 +243,51 @@ apps/ui/
 
 ## 🔧 Phase 4: Production Polish
 
-**Goal:** Production-ready application with full feature set
+**Goal:** Cross-platform distribution and production-ready quality
 
-### Checkpoint 4.1: Project Management
-- [ ] File browser sidebar
-- [ ] Open/save .scad files
-- [ ] Recent files list
-- [ ] Multi-file project support (use/include handling)
+### ✅ Checkpoint 4.1: Project Management (COMPLETED)
+- [x] Multi-tab editor with tab bar
+- [x] Open/save .scad files with native dialogs
+- [x] Recent files list on welcome screen
+- [x] Multi-file project support (`use`/`include` via working_dir)
+- [x] Unsaved changes tracking and prompts
+- [x] File path display in window title
 
-### Checkpoint 4.2: Advanced Editor Features
-- [ ] Implement `lint` command (static analysis rules)
-- [ ] Code formatting (basic indent/whitespace)
-- [ ] Snippet library (common shapes/operations)
-- [ ] Find/replace
-- [ ] Multi-cursor editing
+### ✅ Checkpoint 4.2: Advanced Editor Features (MOSTLY COMPLETED)
+- [x] Code formatting with Tree-sitter (format on save, ⌘Shift+F)
+- [x] Autocomplete for OpenSCAD primitives, transformations, booleans
+- [x] Snippet support via Monaco snippets
+- [x] Multi-cursor editing (Monaco built-in)
+- [x] Find/replace (Monaco built-in: ⌘F, ⌘H)
+- [ ] Static linting - not yet implemented
 
-### Checkpoint 4.3: Viewer Enhancements
+### Checkpoint 4.3: Viewer Enhancements (Planned)
 - [ ] Section plane toggle for 3D viewer
 - [ ] Measurement tools (distance, angle)
 - [ ] Screenshot/export camera view
 - [ ] Wireframe/solid toggle
 - [ ] Custom camera positions (top, front, side)
+- [ ] Customizer panel for OpenSCAD parameters
+- [ ] Special operators preview (`#`, `%`, `*`, `!`)
+- [ ] Configurable preview resolution (currently 800x600)
 
-### Checkpoint 4.4: Testing & Quality
-- [ ] Golden tests for Rust render pipeline
-- [ ] Error parsing test fixtures
-- [ ] E2E smoke tests with Playwright
-- [ ] Unit tests for React components
-- [ ] CI/CD pipeline (GitHub Actions)
+### Checkpoint 4.4: Cross-Platform Support & Testing
+- [x] macOS testing and builds (primary development platform)
+- [ ] Windows 10/11 testing and MSI builds
+- [ ] Linux (Ubuntu/Fedora) testing and AppImage/deb builds
+- [ ] Verify OpenSCAD detection on all platforms
+- [ ] Cross-platform keyboard shortcuts verification
+- [ ] Manual smoke test checklist completion
+- [ ] Dependency security audit (`pnpm audit`)
+- [ ] CI/CD pipeline (GitHub Actions) - optional
 
 ### Checkpoint 4.5: Packaging & Distribution
-- [ ] Code-sign for macOS/Windows
-- [ ] Create installers (DMG, MSI, AppImage)
-- [ ] Auto-update mechanism
+- [x] DMG installer for macOS (v0.2.0)
+- [ ] Code signing for macOS (prevents Gatekeeper warnings)
+- [ ] MSI installer for Windows
+- [ ] Code signing for Windows
+- [ ] AppImage/deb for Linux
+- [ ] Auto-update mechanism (Tauri built-in updater)
 - [ ] Crash reporting (optional)
 
 **Estimated Duration:** 5-6 days
@@ -384,11 +392,12 @@ apps/ui/
 ## Known Issues & Technical Debt
 
 ### Current Limitations
-1. No undo/redo stack yet (Monaco has built-in, but not tracked across renders)
-2. No multi-file support (use/include directives won't resolve)
-3. Preview resolution fixed at 800x600 (should be configurable)
-4. No way to save/load projects (just live editing)
-5. OpenSCAD stderr parsing is regex-based (brittle, may miss some errors)
+1. Preview resolution fixed at 800x600 (not yet configurable)
+2. No customizer panel for OpenSCAD parameters
+3. Special operators (`#`, `%`, `*`, `!`) not visually distinguished
+4. OpenSCAD stderr parsing is regex-based (may miss edge cases)
+5. Not tested on Windows/Linux platforms yet
+6. No code signing (users see security warnings on install)
 
 ### Future Refactoring
 - Consider moving to structured error output if OpenSCAD adds JSON support
