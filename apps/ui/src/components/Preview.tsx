@@ -41,10 +41,12 @@ export function Preview({ src, kind, isRendering, error, code, onCodeChange }: P
 
   console.log('[Preview] Render:', { src: src?.substring(0, 80), kind, isRendering, hasError: !!error });
 
-  // Always show error first if present
+  // Render the preview content (always show, don't unmount during rendering)
+  let previewContent;
+
   if (error) {
     console.log('[Preview] Showing error:', error.substring(0, 100));
-    return (
+    previewContent = (
       <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="px-4 py-2 rounded border max-w-2xl" style={{
           color: 'var(--color-error)',
@@ -56,40 +58,15 @@ export function Preview({ src, kind, isRendering, error, code, onCodeChange }: P
         </div>
       </div>
     );
-  }
-
-  if (isRendering) {
-    console.log('[Preview] Showing rendering state');
-    return (
-      <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div style={{ color: 'var(--text-secondary)' }}>
-          <div
-            className="animate-spin h-8 w-8 border-4 rounded-full mx-auto mb-2"
-            style={{
-              borderColor: 'var(--border-primary)',
-              borderTopColor: 'var(--accent-primary)'
-            }}
-          />
-          <p>Rendering...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render anything if no src
-  if (!src) {
+  } else if (!src && !isRendering) {
     console.log('[Preview] No src, showing placeholder');
-    return (
+    previewContent = (
       <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <p style={{ color: 'var(--text-tertiary)' }}>No preview available</p>
       </div>
     );
-  }
-
-  // Render the preview content
-  let previewContent;
-  if (kind === 'mesh') {
-    previewContent = <ThreeViewer stlPath={src} />;
+  } else if (kind === 'mesh') {
+    previewContent = <ThreeViewer stlPath={src} isLoading={isRendering} />;
   } else if (kind === 'svg') {
     previewContent = <SvgViewer src={src} />;
   } else {
