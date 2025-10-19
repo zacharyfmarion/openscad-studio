@@ -32,12 +32,14 @@ As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precis
 ## Features
 
 - 🤖 **AI copilot** - Chat with Claude/GPT to generate and fix code (bring your own API key)
-- 🎨 **Modern editor** - OpenSCAD syntax highlighting, multi-tab editing, format on save
-- 🖼️ **Live 3D preview** - Interactive mesh viewer with orbit controls and content-hash caching
+- 🎨 **Modern editor** - OpenSCAD syntax highlighting, multi-tab editing, format on save, vim mode support
 - 📐 **2D mode** - Dedicated SVG viewer for laser cutting and engraving
+- 🖼️ **Live 3D preview** - Interactive mesh viewer with orbit controls and content-hash caching
 - 🔍 **Real-time diagnostics** - Inline error markers with line/column precision
+- ⚙️ **Customizer panel** - Interactive controls for OpenSCAD parameters with auto-rendering
+- 🌈 **22+ themes** - Popular themes like Catppuccin, Dracula, One Dark Pro, GitHub, Nord, Tokyo Night, and more
 
-**Limitations:** Special operators (!, #, %, *) and customizer panel not yet implemented
+**Limitations:** Special operators (!, #, %, *) preview not yet implemented
 
 ## 📦 Installation
 

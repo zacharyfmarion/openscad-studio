@@ -4,6 +4,7 @@
 
 import { type ChangeEvent, useState, useEffect, useRef } from 'react';
 import type { CustomizerParam } from '../../utils/customizer/types';
+import { Select } from '../ui';
 
 interface ParameterControlProps {
   param: CustomizerParam;
@@ -181,7 +182,7 @@ function DropdownControl({ param, onChange }: ParameterControlProps) {
       >
         {param.name}
       </label>
-      <select
+      <Select
         id={`param-${param.name}`}
         value={value}
         onChange={(e) => {
@@ -190,19 +191,14 @@ function DropdownControl({ param, onChange }: ParameterControlProps) {
             onChange(option.value);
           }
         }}
-        className="w-full px-2 py-1 text-xs rounded border"
-        style={{
-          backgroundColor: 'var(--bg-elevated)',
-          borderColor: 'var(--border-primary)',
-          color: 'var(--text-primary)',
-        }}
+        size="sm"
       >
         {param.options?.map((option) => (
           <option key={String(option.value)} value={String(option.value)}>
             {option.label}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }

@@ -86,8 +86,11 @@ Anthropic API (Claude)
 - **`apps/ui/src/hooks/useOpenScad.ts`**: Core rendering logic. Manages OpenSCAD subprocess execution, debouncing, diagnostics parsing.
 - **`apps/ui/src/hooks/useAiAgent.ts`**: AI agent communication. Handles streaming responses, diff proposals, tool call visualization.
 - **`apps/ui/src/components/Editor.tsx`**: Monaco editor wrapper with OpenSCAD syntax highlighting.
-- **`apps/ui/src/components/Preview.tsx`**: Conditional preview renderer (PNG/STL/SVG).
+- **`apps/ui/src/components/Preview.tsx`**: Conditional preview renderer (PNG/STL/SVG) with customizer integration.
+- **`apps/ui/src/components/CustomizerPanel.tsx`**: Interactive parameter controls panel with collapsible tabs.
+- **`apps/ui/src/components/customizer/ParameterControl.tsx`**: Individual control components (sliders, inputs, dropdowns, etc.).
 - **`apps/ui/src/components/AiPromptPanel.tsx`**: AI chat interface with mode selection (Generate/Edit/Fix/Explain).
+- **`apps/ui/src/utils/customizer/parser.ts`**: Tree-sitter based OpenSCAD parameter parser.
 - **`apps/ui/src/api/tauri.ts`**: Typed wrappers for all Tauri commands.
 
 ### Backend (Rust)
@@ -153,11 +156,23 @@ pnpm type-check         # Type check all workspaces
 - Regex patterns match OpenSCAD stderr format: `ERROR: ... in file ..., line N`
 - Returns `Vec<Diagnostic>` with line, column, severity, message
 
-### Changing the Theme
+### Adding or Modifying Themes
 
-- Edit or add theme in `apps/ui/src/themes/index.ts`
-- Themes use CSS custom properties for easy switching
-- Applied in `App.tsx` via `applyTheme()`
+**Current Themes (22 total):**
+- Classic: Solarized Dark/Light
+- Popular Dark: Monokai, Dracula, One Dark Pro, GitHub Dark, Tokyo Night, Ayu Dark, Material Palenight, Night Owl
+- Popular Light: GitHub Light, Atom One Light
+- Pastel & Cozy: Nord, Catppuccin Mocha, Rosé Pine
+- Vibrant & Fun: Synthwave '84, Shades of Purple, Cobalt2, Horizon
+- Nature Inspired: Everforest Dark
+- Retro: Gruvbox Dark/Light
+
+**To add a new theme:**
+1. Add theme definition in `apps/ui/src/themes/index.ts` with full `ThemeColors` and Monaco syntax highlighting
+2. Add to `themes` registry at bottom of file
+3. Add theme ID to registration list in `apps/ui/src/components/Editor.tsx` (`handleEditorDidMount`)
+4. Themes are automatically grouped by `category` field in Settings dropdown
+5. Themes use CSS custom properties for UI consistency and are applied via `applyTheme()`
 
 ## Important Constraints
 
@@ -189,12 +204,12 @@ pnpm type-check         # Type check all workspaces
 
 ## Current Status
 
-### Completed (Phase 1-3)
+### Completed (Phase 1-4.3)
 ✅ Monaco editor with OpenSCAD syntax
 ✅ Live PNG/STL/SVG preview
 ✅ Error diagnostics with inline markers
 ✅ Auto-detect OpenSCAD installation
-✅ 3D mesh viewer (Three.js)
+✅ 3D mesh viewer (Three.js) with wireframe/orthographic/shadows
 ✅ Export to STL, OBJ, AMF, 3MF, PNG, SVG, DXF
 ✅ Content-hash caching
 ✅ 2D mode with SVG viewer
@@ -202,9 +217,13 @@ pnpm type-check         # Type check all workspaces
 ✅ Diff-based code editing with validation
 ✅ Tool call visualization
 ✅ Conversation history and management
+✅ Customizer panel with interactive parameter controls
+✅ Tree-sitter based parameter parsing
+✅ Resizable customizer panel with persistent width
+✅ 22+ editor themes with categorized dropdown (Catppuccin, Dracula, One Dark Pro, etc.)
+✅ Vim mode with configurable keybindings
 
 ### Planned (Phase 4+)
-- Customizer panel for OpenSCAD parameters
 - Special operators preview (`#`, `%`, `*`, `!`)
 - Configurable preview resolution
 - Advanced 3D viewer features (measurement, section planes)
@@ -260,5 +279,5 @@ pnpm type-check         # Type check all workspaces
 
 ---
 
-**Last Updated**: 2025-10-18
-**Current Phase**: Phase 3 Complete, Phase 4 (Production Polish) Planning
+**Last Updated**: 2025-10-19
+**Current Phase**: Phase 4.3 Complete (Customizer), Phase 4.4-4.5 (Testing & Distribution) Planning

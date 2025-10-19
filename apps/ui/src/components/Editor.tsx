@@ -150,6 +150,17 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
         'tokyo-night',
         'gruvbox-dark',
         'gruvbox-light',
+        'catppuccin-mocha',
+        'ayu-dark',
+        'material-palenight',
+        'night-owl',
+        'synthwave-84',
+        'rose-pine',
+        'everforest-dark',
+        'atom-one-light',
+        'shades-of-purple',
+        'cobalt2',
+        'horizon',
       ];
 
       themeIds.forEach((id) => {

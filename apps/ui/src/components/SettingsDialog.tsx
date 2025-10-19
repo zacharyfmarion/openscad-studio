@@ -14,6 +14,24 @@ interface SettingsDialogProps {
   onSettingsChange?: (settings: Settings) => void;
 }
 
+function saveVimConfigIfChanged(
+  localVimConfig: string,
+  currentSettings: Settings,
+  onSettingsChange?: (settings: Settings) => void
+) {
+  if (localVimConfig !== currentSettings.editor.vimConfig) {
+    const updated = {
+      ...currentSettings,
+      editor: {
+        ...currentSettings.editor,
+        vimConfig: localVimConfig,
+      },
+    };
+    saveSettings(updated);
+    onSettingsChange?.(updated);
+  }
+}
+
 type SettingsSection = 'appearance' | 'editor' | 'ai';
 type EditorSubTab = 'general' | 'vim';
 
@@ -24,6 +42,9 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
   const { updateTheme } = useTheme();
   const availableThemes = getAvailableThemes();
   const vimEditorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+
+  // Local vim config state (not saved to settings until dialog closes)
+  const [localVimConfig, setLocalVimConfig] = useState<string>(settings.editor.vimConfig);
 
   // AI Settings
   const [provider, setProvider] = useState<'anthropic' | 'openai'>('anthropic');
@@ -38,7 +59,9 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
   // Load settings when dialog opens
   useEffect(() => {
     if (isOpen) {
-      setSettings(loadSettings());
+      const loadedSettings = loadSettings();
+      setSettings(loadedSettings);
+      setLocalVimConfig(loadedSettings.editor.vimConfig);
       loadAISettings();
     }
   }, [isOpen]);
@@ -164,6 +187,12 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
     }
   };
 
+  const handleClose = () => {
+    // Save vim config changes before closing
+    saveVimConfigIfChanged(localVimConfig, settings, onSettingsChange);
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -217,7 +246,7 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                activeSection === 'editor' ? 'Editor Settings' : 'AI Assistant Settings'}
             </h3>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="transition-colors"
               style={{ color: 'var(--text-secondary)' }}
             >
@@ -239,10 +268,14 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                     value={settings.appearance.theme}
                     onChange={(e) => handleAppearanceSettingChange('theme', e.target.value)}
                   >
-                    {availableThemes.map((theme) => (
-                      <option key={theme.id} value={theme.id}>
-                        {theme.name}
-                      </option>
+                    {availableThemes.map((section) => (
+                      <optgroup key={section.category} label={section.category}>
+                        {section.themes.map((theme) => (
+                          <option key={theme.id} value={theme.id}>
+                            {theme.name}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </Select>
                 </div>
@@ -346,7 +379,7 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                         <div className="flex items-center justify-between">
                           <Label className="mb-0">Vim Configuration</Label>
                           <button
-                            onClick={() => handleEditorSettingChange('vimConfig', getDefaultVimConfig())}
+                            onClick={() => setLocalVimConfig(getDefaultVimConfig())}
                             className="text-xs px-2 py-1 rounded transition-colors"
                             style={{
                               color: 'var(--accent-primary)',
@@ -361,15 +394,14 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                         </p>
                         <div style={{ height: '300px', border: '1px solid var(--border-primary)', borderRadius: '4px', overflow: 'hidden' }}>
                           <MonacoEditor
+                            key={`vim-config-editor-${settings.editor.vimMode}`}
                             height="100%"
                             defaultLanguage="vimconfig"
                             theme={getTheme(settings.appearance.theme).monaco}
-                            value={settings.editor.vimConfig}
-                            onChange={(val) => handleEditorSettingChange('vimConfig', val ?? '')}
-                            onMount={(editor, monaco) => {
-                              vimEditorRef.current = editor;
-
-                              // Register vim config language
+                            value={localVimConfig}
+                            onChange={(val) => setLocalVimConfig(val ?? '')}
+                            beforeMount={(monaco) => {
+                              // Register vim config language before mounting
                               registerVimConfigLanguage(monaco);
 
                               // Register all custom themes
@@ -390,12 +422,25 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                               themeIds.forEach((id) => {
                                 const theme = getTheme(id);
                                 if (theme.monacoTheme) {
-                                  monaco.editor.defineTheme(id, theme.monacoTheme);
+                                  try {
+                                    monaco.editor.defineTheme(id, theme.monacoTheme);
+                                  } catch (e) {
+                                    // Theme might already be registered, ignore error
+                                  }
                                 }
                               });
+                            }}
+                            onMount={(editor) => {
+                              vimEditorRef.current = editor;
 
-                              // Apply current theme
-                              monaco.editor.setTheme(getTheme(settings.appearance.theme).monaco);
+                              // Ensure this editor is completely independent
+                              editor.updateOptions({
+                                readOnly: false,
+                                domReadOnly: false,
+                              });
+
+                              // Focus the editor to ensure it's active
+                              editor.focus();
                             }}
                             options={{
                               minimap: { enabled: false },
@@ -406,14 +451,36 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                               wordWrap: 'on',
                               tabSize: 2,
                               renderLineHighlight: 'line',
+                              contextmenu: true,
+                              // Ensure the editor captures all keyboard events
+                              quickSuggestions: false,
+                              parameterHints: { enabled: false },
                             }}
                           />
                         </div>
-                        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                          Supported: <code style={{ color: 'var(--text-primary)' }}>map</code>, <code style={{ color: 'var(--text-primary)' }}>imap</code>, <code style={{ color: 'var(--text-primary)' }}>nmap</code>, <code style={{ color: 'var(--text-primary)' }}>vmap</code>
-                          {' • '}
-                          Example: <code style={{ color: 'var(--text-primary)' }}>map kj &lt;Esc&gt; insert</code>
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                            Supported: <code style={{ color: 'var(--text-primary)' }}>map</code>, <code style={{ color: 'var(--text-primary)' }}>imap</code>, <code style={{ color: 'var(--text-primary)' }}>nmap</code>, <code style={{ color: 'var(--text-primary)' }}>vmap</code>
+                            {' • '}
+                            Example: <code style={{ color: 'var(--text-primary)' }}>map kj &lt;Esc&gt; insert</code>
+                          </p>
+                          <button
+                            onClick={() => {
+                              handleEditorSettingChange('vimConfig', localVimConfig);
+                            }}
+                            disabled={localVimConfig === settings.editor.vimConfig}
+                            className="text-sm px-4 py-2 rounded transition-colors"
+                            style={{
+                              backgroundColor: localVimConfig !== settings.editor.vimConfig ? 'var(--accent-primary)' : 'transparent',
+                              color: localVimConfig !== settings.editor.vimConfig ? 'white' : 'var(--text-tertiary)',
+                              border: '1px solid var(--border-primary)',
+                              opacity: localVimConfig !== settings.editor.vimConfig ? 1 : 0.5,
+                              cursor: localVimConfig !== settings.editor.vimConfig ? 'pointer' : 'not-allowed',
+                            }}
+                          >
+                            Apply
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -628,7 +695,7 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
           {activeSection === 'ai' && (
             <div className="flex items-center justify-end px-6 py-4" style={{ backgroundColor: 'var(--bg-secondary)', borderTop: '1px solid var(--border-primary)' }}>
               <div className="flex items-center gap-2">
-                <Button variant="secondary" onClick={onClose} disabled={isLoading}>
+                <Button variant="secondary" onClick={handleClose} disabled={isLoading}>
                   Close
                 </Button>
                 <Button
@@ -645,7 +712,7 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
           {/* Footer for Appearance and Editor sections */}
           {(activeSection === 'appearance' || activeSection === 'editor') && (
             <div className="flex items-center justify-end px-6 py-4" style={{ backgroundColor: 'var(--bg-secondary)', borderTop: '1px solid var(--border-primary)' }}>
-              <Button variant="secondary" onClick={onClose}>
+              <Button variant="secondary" onClick={handleClose}>
                 Close
               </Button>
             </div>

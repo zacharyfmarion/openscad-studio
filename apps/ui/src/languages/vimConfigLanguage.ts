@@ -6,7 +6,15 @@
 
 import type * as Monaco from 'monaco-editor';
 
+let isRegistered = false;
+
 export function registerVimConfigLanguage(monaco: typeof Monaco) {
+  // Only register once to avoid conflicts
+  if (isRegistered) {
+    return;
+  }
+  isRegistered = true;
+
   // Register the language
   monaco.languages.register({ id: 'vimconfig' });
 
