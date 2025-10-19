@@ -10,7 +10,6 @@ import { SettingsDialog } from './components/SettingsDialog';
 import { WelcomeScreen, addToRecentFiles } from './components/WelcomeScreen';
 import { OpenScadSetupScreen } from './components/OpenScadSetupScreen';
 import { TabBar, type Tab } from './components/TabBar';
-import { CustomizerPanel } from './components/CustomizerPanel';
 import { Button } from './components/ui';
 import { useOpenScad } from './hooks/useOpenScad';
 import { useAiAgent } from './hooks/useAiAgent';

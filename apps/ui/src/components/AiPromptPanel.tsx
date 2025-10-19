@@ -3,7 +3,6 @@ import type { Message } from '../hooks/useAiAgent';
 import { Button } from './ui';
 import { ModelSelector } from './ModelSelector';
 import { useHistory } from '../hooks/useHistory';
-import { invoke } from '@tauri-apps/api/core';
 
 export type AiMode = 'edit';
 

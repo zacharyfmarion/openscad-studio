@@ -88,7 +88,7 @@ function SliderControl({ param, onChange }: ParameterControlProps) {
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     // Only update local state, don't commit yet
-    setLocalValue(e.target.value);
+    setLocalValue(Number(e.target.value));
   };
 
   const handleInputCommit = () => {
@@ -343,7 +343,7 @@ function VectorControl({ param, onChange }: ParameterControlProps) {
         {param.name}
       </label>
       <div className="flex gap-1">
-        {values.map((val, idx) => (
+        {values.map((_val, idx) => (
           <input
             key={idx}
             type="number"
