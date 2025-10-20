@@ -10,6 +10,10 @@ on:
       - main
       - master
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -105,12 +109,7 @@ jobs:
 
   build:
     name: Build
-    needs: [lint, type-check, rust-check]
-    runs-on: ${{ matrix.platform }}
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [macos-latest, ubuntu-latest]
+    runs-on: macos-latest
 
     steps:
       - name: Checkout
@@ -134,19 +133,6 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/ui/src-tauri
-
-      - name: Install system dependencies (Ubuntu)
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libssl-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
