@@ -276,12 +276,10 @@ const monarchLanguage: OpenScadMonarchLanguage = {
     ],
 
     comment: [
-      [/[^\/*]+/, 'comment'],
-      // eslint-disable-next-line no-useless-escape
+      [/[^/*]+/, 'comment'],
       [/\/\*/, 'comment', '@push'],
-      // eslint-disable-next-line no-useless-escape
       [/\*\//, 'comment', '@pop'],
-      [/\/[\/*]/, 'comment'],
+      [/[/*]/, 'comment'],
     ],
 
     string: [

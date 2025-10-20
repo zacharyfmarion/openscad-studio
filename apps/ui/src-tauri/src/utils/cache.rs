@@ -23,6 +23,12 @@ pub struct RenderCache {
     entries: Mutex<HashMap<String, CacheEntry>>,
 }
 
+impl Default for RenderCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RenderCache {
     pub fn new() -> Self {
         Self {
@@ -59,7 +65,13 @@ impl RenderCache {
     }
 
     /// Store an entry in the cache
-    pub fn set(&self, key: String, output_path: PathBuf, kind: String, diagnostics: Vec<Diagnostic>) {
+    pub fn set(
+        &self,
+        key: String,
+        output_path: PathBuf,
+        kind: String,
+        diagnostics: Vec<Diagnostic>,
+    ) {
         if let Ok(mut entries) = self.entries.lock() {
             let timestamp = SystemTime::now()
                 .duration_since(UNIX_EPOCH)

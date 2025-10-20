@@ -18,11 +18,11 @@ pub async fn render_preview(
     let app_dir = app
         .path()
         .app_cache_dir()
-        .map_err(|e| format!("Failed to get app cache directory: {}", e))?;
+        .map_err(|e| format!("Failed to get app cache directory: {e}"))?;
 
     // Ensure temp directory exists
     std::fs::create_dir_all(&app_dir)
-        .map_err(|e| format!("Failed to create cache directory: {}", e))?;
+        .map_err(|e| format!("Failed to create cache directory: {e}"))?;
 
     // Determine render parameters
     let view = request.view.as_ref().unwrap_or(&ViewMode::ThreeD);
@@ -43,7 +43,7 @@ pub async fn render_preview(
 
     // Check cache
     if let Some(cached_entry) = state.render_cache.get(&cache_key) {
-        println!("Cache HIT for key: {}", cache_key);
+        println!("Cache HIT for key: {cache_key}");
         return Ok(RenderPreviewResponse {
             kind: match cached_entry.kind.as_str() {
                 "mesh" => RenderKind::Mesh,
@@ -56,7 +56,7 @@ pub async fn render_preview(
         });
     }
 
-    println!("Cache MISS for key: {}", cache_key);
+    println!("Cache MISS for key: {cache_key}");
 
     // Write source to temp file
     // If working_dir is provided, write temp file there so relative imports work
@@ -68,7 +68,7 @@ pub async fn render_preview(
     };
 
     std::fs::write(&scad_path, &request.source)
-        .map_err(|e| format!("Failed to write temp .scad file: {}", e))?;
+        .map_err(|e| format!("Failed to write temp .scad file: {e}"))?;
 
     // Determine output file and kind based on view mode and mesh flag
     // Use cache key in filename to avoid overwriting cached files
@@ -137,14 +137,9 @@ pub async fn render_preview(
         command.current_dir(working_dir);
     }
 
-    let output = command
-        .output()
-        .map_err(|e| {
-            format!(
-                "Failed to execute OpenSCAD: {}. Is OpenSCAD installed at {}?",
-                e, openscad_path
-            )
-        })?;
+    let output = command.output().map_err(|e| {
+        format!("Failed to execute OpenSCAD: {e}. Is OpenSCAD installed at {openscad_path}?")
+    })?;
 
     // Parse diagnostics from stderr
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -175,23 +170,29 @@ pub async fn render_preview(
             return Err(error_msg);
         } else {
             // Check for common dimension mismatch issues
-            let error_msg = if matches!(view, ViewMode::TwoD) && (stderr.contains("3D object") || stderr.contains("not a 2D object")) {
+            let error_msg = if matches!(view, ViewMode::TwoD)
+                && (stderr.contains("3D object") || stderr.contains("not a 2D object"))
+            {
                 "Cannot render 3D objects in 2D mode. Switch to 3D mode or use a 2D shape (e.g., square, circle, polygon).".to_string()
-            } else if matches!(view, ViewMode::ThreeD) && (stderr.contains("not a 3D object") || stderr.contains("2D object")) {
+            } else if matches!(view, ViewMode::ThreeD)
+                && (stderr.contains("not a 3D object") || stderr.contains("2D object"))
+            {
                 "Cannot render 2D objects in 3D mode. Switch to 2D mode or use a 3D shape (e.g., cube, sphere, cylinder).".to_string()
             } else if stderr.contains("WARNING: Can't convert") {
-                "OpenSCAD cannot convert this geometry. Try switching between 2D and 3D modes.".to_string()
+                "OpenSCAD cannot convert this geometry. Try switching between 2D and 3D modes."
+                    .to_string()
             } else {
                 // For debugging, include full stderr
                 let stderr_preview = if stderr.len() > 1000 {
-                    format!("{}...\n\n(Output truncated. Full output in console.)", &stderr[..1000])
+                    format!(
+                        "{}...\n\n(Output truncated. Full output in console.)",
+                        &stderr[..1000]
+                    )
                 } else {
                     stderr.to_string()
                 };
 
-                format!("OpenSCAD failed to create output file.\n\nThis usually means the geometry doesn't match the current mode (2D/3D).\n\nOpenSCAD output:\n{}",
-                    stderr_preview
-                )
+                format!("OpenSCAD failed to create output file.\n\nThis usually means the geometry doesn't match the current mode (2D/3D).\n\nOpenSCAD output:\n{stderr_preview}")
             };
 
             return Err(error_msg);
@@ -204,9 +205,12 @@ pub async fn render_preview(
         RenderKind::Png => "png",
         RenderKind::Svg => "svg",
     };
-    state
-        .render_cache
-        .set(cache_key, out_path.clone(), kind_str.to_string(), diagnostics.clone());
+    state.render_cache.set(
+        cache_key,
+        out_path.clone(),
+        kind_str.to_string(),
+        diagnostics.clone(),
+    );
 
     // Update EditorState with render results
     *editor_state.current_code.lock().unwrap() = request.source.clone();
@@ -236,15 +240,15 @@ pub async fn render_exact(
         let app_dir = app
             .path()
             .app_cache_dir()
-            .map_err(|e| format!("Failed to get app cache directory: {}", e))?;
+            .map_err(|e| format!("Failed to get app cache directory: {e}"))?;
         std::fs::create_dir_all(&app_dir)
-            .map_err(|e| format!("Failed to create cache directory: {}", e))?;
+            .map_err(|e| format!("Failed to create cache directory: {e}"))?;
         app_dir.join("export.scad")
     };
 
     // Write source to temp file
     std::fs::write(&scad_path, &request.source)
-        .map_err(|e| format!("Failed to write temp .scad file: {}", e))?;
+        .map_err(|e| format!("Failed to write temp .scad file: {e}"))?;
 
     // Determine file extension from format
     let extension = match request.format {
@@ -259,17 +263,16 @@ pub async fn render_exact(
 
     // Validate output path has correct extension
     let out_path = std::path::PathBuf::from(&request.out_path);
-    if !request.out_path.ends_with(&format!(".{}", extension)) {
+    if !request.out_path.ends_with(&format!(".{extension}")) {
         return Err(format!(
-            "Output path must end with .{} for this format",
-            extension
+            "Output path must end with .{extension} for this format"
         ));
     }
 
     // Ensure output directory exists
     if let Some(parent) = out_path.parent() {
         std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create output directory: {}", e))?;
+            .map_err(|e| format!("Failed to create output directory: {e}"))?;
     }
 
     // Build command arguments
@@ -294,7 +297,10 @@ pub async fn render_exact(
         args.push("--preview".to_string());
     }
 
-    println!("[render_exact] Format: {:?}, Output: {}", request.format, request.out_path);
+    println!(
+        "[render_exact] Format: {:?}, Output: {}",
+        request.format, request.out_path
+    );
     println!("[render_exact] Working dir: {:?}", request.working_dir);
 
     // Execute OpenSCAD with working directory if provided
@@ -303,27 +309,23 @@ pub async fn render_exact(
 
     // Set working directory if provided (for resolving relative imports)
     if let Some(working_dir) = &request.working_dir {
-        println!("[render_exact] Setting working directory to: {}", working_dir);
+        println!("[render_exact] Setting working directory to: {working_dir}");
         command.current_dir(working_dir);
     } else {
         println!("[render_exact] WARNING: No working directory provided!");
     }
 
-    println!("[render_exact] Executing: {} {:?}", openscad_path, args);
+    println!("[render_exact] Executing: {openscad_path} {args:?}");
 
-    let output = command
-        .output()
-        .map_err(|e| {
-            format!(
-                "Failed to execute OpenSCAD: {}. Is OpenSCAD installed at {}?",
-                e, openscad_path
-            )
-        })?;
+    let output = command.output().map_err(|e| {
+        format!("Failed to execute OpenSCAD: {e}. Is OpenSCAD installed at {openscad_path}?")
+    })?;
 
     // Parse diagnostics from stderr
     let stderr = String::from_utf8_lossy(&output.stderr);
-    println!("[render_exact] OpenSCAD stderr:\n{}", stderr);
-    println!("[render_exact] OpenSCAD exit status: {}", output.status);
+    let exit_status = output.status;
+    println!("[render_exact] OpenSCAD stderr:\n{stderr}");
+    println!("[render_exact] OpenSCAD exit status: {exit_status}");
     let diagnostics = parse_openscad_stderr(&stderr);
 
     // Check if output file was created
@@ -359,9 +361,13 @@ pub async fn render_exact(
                 crate::types::ExportFormat::Svg | crate::types::ExportFormat::Dxf
             );
 
-            let error_msg = if is_2d_format && (stderr.contains("3D object") || stderr.contains("not a 2D object")) {
+            let error_msg = if is_2d_format
+                && (stderr.contains("3D object") || stderr.contains("not a 2D object"))
+            {
                 format!("Cannot export 3D objects as {}. Use a 2D shape (e.g., square, circle, polygon) or choose a 3D export format (STL, OBJ, etc.).", extension.to_uppercase())
-            } else if is_3d_format && (stderr.contains("not a 3D object") || stderr.contains("2D object")) {
+            } else if is_3d_format
+                && (stderr.contains("not a 3D object") || stderr.contains("2D object"))
+            {
                 format!("Cannot export 2D objects as {}. Use a 3D shape (e.g., cube, sphere, cylinder) or choose a 2D export format (SVG, DXF).", extension.to_uppercase())
             } else {
                 let stderr_preview = if stderr.len() > 1000 {
@@ -369,7 +375,9 @@ pub async fn render_exact(
                 } else {
                     stderr.to_string()
                 };
-                format!("OpenSCAD failed to create output file.\n\nOpenSCAD output:\n{}", stderr_preview)
+                format!(
+                    "OpenSCAD failed to create output file.\n\nOpenSCAD output:\n{stderr_preview}"
+                )
             };
 
             return Err(error_msg);
@@ -390,7 +398,7 @@ pub async fn detect_backend(
     let version_output = Command::new(&openscad_path)
         .arg("--version")
         .output()
-        .map_err(|e| format!("Failed to execute OpenSCAD: {}", e))?;
+        .map_err(|e| format!("Failed to execute OpenSCAD: {e}"))?;
 
     let version_str = String::from_utf8_lossy(&version_output.stdout);
     let version = version_str.lines().next().unwrap_or("unknown").to_string();
@@ -398,9 +406,9 @@ pub async fn detect_backend(
     // Try to detect Manifold support by checking if --backend=manifold is accepted
     // We'll do a dry run with a trivial file
     let test_output = Command::new(&openscad_path)
-        .args(&["--backend=manifold", "--help"])
+        .args(["--backend=manifold", "--help"])
         .output()
-        .map_err(|e| format!("Failed to check Manifold support: {}", e))?;
+        .map_err(|e| format!("Failed to check Manifold support: {e}"))?;
 
     // If the command succeeded (exit code 0), manifold is likely supported
     // This is a heuristic - newer OpenSCAD versions support manifold

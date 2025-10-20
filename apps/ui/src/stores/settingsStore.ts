@@ -8,25 +8,52 @@ export interface EditorSettings {
   formatOnSave: boolean;
   indentSize: number;
   useTabs: boolean;
+  vimMode: boolean;
+  vimConfig: string;
 }
 
 export interface AppearanceSettings {
   theme: string;
 }
 
+export interface UiSettings {
+  customizerWidth: number; // Width of customizer panel in pixels
+}
+
 export interface Settings {
   editor: EditorSettings;
   appearance: AppearanceSettings;
+  ui: UiSettings;
 }
+
+const DEFAULT_VIM_CONFIG = `# Vim Configuration
+# Use vim-style commands to customize your editor experience
+# Lines starting with # are comments
+
+# Popular escape mappings (exit insert mode)
+map kj <Esc> insert
+map jk <Esc> insert
+map jj <Esc> insert
+
+# Add your custom mappings below:
+# Examples:
+# map <Space>w :w<CR> normal
+# map <C-h> <C-w>h normal
+`;
 
 const DEFAULT_SETTINGS: Settings = {
   editor: {
     formatOnSave: true,
     indentSize: 4,
     useTabs: false,
+    vimMode: false,
+    vimConfig: DEFAULT_VIM_CONFIG,
   },
   appearance: {
     theme: 'solarized-dark',
+  },
+  ui: {
+    customizerWidth: 420,
   },
 };
 
@@ -51,6 +78,10 @@ export function loadSettings(): Settings {
         appearance: {
           ...DEFAULT_SETTINGS.appearance,
           ...(parsed.appearance || {}),
+        },
+        ui: {
+          ...DEFAULT_SETTINGS.ui,
+          ...(parsed.ui || {}),
         },
       };
     }
@@ -96,4 +127,11 @@ export function updateSetting<K extends keyof Settings>(
 export function resetSettings(): Settings {
   saveSettings(DEFAULT_SETTINGS);
   return DEFAULT_SETTINGS;
+}
+
+/**
+ * Get default vim configuration
+ */
+export function getDefaultVimConfig(): string {
+  return DEFAULT_VIM_CONFIG;
 }

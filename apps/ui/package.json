@@ -1,7 +1,7 @@
 {
   "name": "ui",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -29,6 +29,7 @@
     "@tauri-apps/plugin-store": "^2",
     "diff": "^7.0.0",
     "monaco-editor": "^0.52.0",
+    "monaco-vim": "^0.4.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-icons": "^5.5.0",

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { CameraControls, Grid, GizmoHelper, GizmoViewcube, OrthographicCamera, PerspectiveCamera, ContactShadows, Environment, Wireframe as DreiWireframe } from '@react-three/drei';
+import type { CameraControls as CameraControlsType } from '@react-three/drei';
 import { STLLoader } from 'three-stdlib';
 import * as THREE from 'three';
 import { useTheme } from '../contexts/ThemeContext';
@@ -78,7 +79,7 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
   const [orthographic, setOrthographic] = useState(false);
   const [wireframe, setWireframe] = useState(false);
   const [showShadows, setShowShadows] = useState(true);
-  const cameraControlsRef = useRef<any>(null);
+  const cameraControlsRef = useRef<CameraControlsType>(null);
   const meshRef = useRef<THREE.Mesh>(null);
 
   const handleFitToView = () => {
@@ -88,28 +89,29 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div
-        className="w-full h-full flex items-center justify-center"
-        style={{ backgroundColor: themeColors.background }}
-      >
-        <div style={{ color: 'var(--text-secondary)' }}>
-          <div
-            className="animate-spin h-8 w-8 border-4 rounded-full mx-auto mb-2"
-            style={{
-              borderColor: 'var(--border-primary)',
-              borderTopColor: 'var(--accent-primary)'
-            }}
-          />
-          <p>Loading 3D model...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full h-full relative" style={{ backgroundColor: themeColors.background }}>
+      {/* Loading overlay - shows on top of viewer during rendering */}
+      {isLoading && (
+        <div
+          className="absolute inset-0 flex items-center justify-center z-50"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div style={{ color: 'var(--text-secondary)' }}>
+            <div
+              className="animate-spin h-8 w-8 border-4 rounded-full mx-auto mb-2"
+              style={{
+                borderColor: 'var(--border-primary)',
+                borderTopColor: 'var(--accent-primary)'
+              }}
+            />
+            <p>Rendering...</p>
+          </div>
+        </div>
+      )}
       {/* Control Panel - Top Right */}
       <div className="absolute top-2 right-2 z-10 flex gap-2">
         {/* Display Options */}

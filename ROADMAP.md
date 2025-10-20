@@ -205,6 +205,25 @@ openscad-tauri/
   - [x] OpenAI (GPT-4)
   - [x] Model selector with auto-provider detection
 
+### ✅ Checkpoint 3.7: Checkpoint System & Undo (COMPLETED)
+- [x] Checkpoint-based history system:
+  - [x] Automatic checkpoints created before AI edits
+  - [x] Up to 50 checkpoints stored in memory
+  - [x] Checkpoint metadata (timestamp, diagnostics, change type)
+- [x] Inline restore functionality:
+  - [x] "Restore to before this turn" button on user messages
+  - [x] Checkpoint ID associated with user messages that trigger AI edits
+  - [x] Restore button appears only when AI made code changes
+- [x] Conversation time travel:
+  - [x] Restoring reverts both code and conversation
+  - [x] Removes user message and all subsequent AI responses
+  - [x] Warning dialog if subsequent turns would be lost
+- [x] Backend integration:
+  - [x] History commands: create_checkpoint, restore_to_checkpoint, get_checkpoint_by_id
+  - [x] VecDeque-based storage with automatic cleanup (50 max)
+  - [x] Diff generation using similar crate
+  - [x] Event-based restoration (history:restore event)
+
 ### Success Criteria (All Met ✅)
 - ✅ API keys never exposed to renderer (encrypted Tauri store only)
 - ✅ All edits via exact string replacement (≤120 lines, validated)
@@ -261,13 +280,22 @@ apps/ui/
 - [x] Find/replace (Monaco built-in: ⌘F, ⌘H)
 - [ ] Static linting - not yet implemented
 
-### Checkpoint 4.3: Viewer Enhancements (Planned)
+### ✅ Checkpoint 4.3: Viewer Enhancements (MOSTLY COMPLETED)
+- [x] Wireframe/solid toggle
+- [x] Custom camera positions (orthographic/perspective, fit to view)
+- [x] Shadow toggle for 3D viewer
+- [x] Customizer panel for OpenSCAD parameters:
+  - [x] Tree-sitter based parameter parsing
+  - [x] Supports sliders, dropdowns, checkboxes, text inputs, vectors
+  - [x] Filters derived/computed values (primitives only)
+  - [x] Resizable panel with persistent width
+  - [x] Slide-out design from preview pane
+  - [x] Debounced updates (sliders) and commit-on-blur (text inputs)
+  - [x] Collapsible tab sections with state preservation
+  - [x] Automatic re-rendering on parameter changes
 - [ ] Section plane toggle for 3D viewer
 - [ ] Measurement tools (distance, angle)
 - [ ] Screenshot/export camera view
-- [ ] Wireframe/solid toggle
-- [ ] Custom camera positions (top, front, side)
-- [ ] Customizer panel for OpenSCAD parameters
 - [ ] Special operators preview (`#`, `%`, `*`, `!`)
 - [ ] Configurable preview resolution (currently 800x600)
 
@@ -393,11 +421,10 @@ apps/ui/
 
 ### Current Limitations
 1. Preview resolution fixed at 800x600 (not yet configurable)
-2. No customizer panel for OpenSCAD parameters
-3. Special operators (`#`, `%`, `*`, `!`) not visually distinguished
-4. OpenSCAD stderr parsing is regex-based (may miss edge cases)
-5. Not tested on Windows/Linux platforms yet
-6. No code signing (users see security warnings on install)
+2. Special operators (`#`, `%`, `*`, `!`) not visually distinguished
+3. OpenSCAD stderr parsing is regex-based (may miss edge cases)
+4. Not tested on Windows/Linux platforms yet
+5. No code signing (users see security warnings on install)
 
 ### Future Refactoring
 - Consider moving to structured error output if OpenSCAD adds JSON support

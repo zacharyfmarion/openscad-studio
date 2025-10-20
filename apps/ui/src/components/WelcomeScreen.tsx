@@ -203,6 +203,7 @@ export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent
 }
 
 // Helper function to add a file to recent files
+// eslint-disable-next-line react-refresh/only-export-components
 export function addToRecentFiles(path: string) {
   try {
     const stored = localStorage.getItem(RECENT_FILES_KEY);

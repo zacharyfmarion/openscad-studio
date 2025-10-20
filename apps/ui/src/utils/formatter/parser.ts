@@ -21,19 +21,19 @@ export async function initParser(): Promise<void> {
   initPromise = (async () => {
     try {
       // Detect if we're running in Node.js or browser
-      // @ts-ignore - process is a Node.js global that may not be defined in browser
+      // @ts-expect-error - process is a Node.js global that may not be defined in browser
       const isNode = typeof process !== 'undefined' && process.versions?.node;
 
       if (isNode) {
         // Node.js environment (tests)
-        // @ts-ignore - path is a Node.js module
+        // @ts-expect-error - path is a Node.js module
         const path = await import('path');
 
         // Initialize web-tree-sitter for Node
         await TreeSitter.Parser.init();
 
         // Load WASM from public directory in project root
-        // @ts-ignore - process.cwd() is Node.js only
+        // @ts-expect-error - process.cwd() is Node.js only
         const wasmPath = path.resolve(process.cwd(), 'public/tree-sitter-openscad.wasm');
         language = await TreeSitter.Language.load(wasmPath);
       } else {
