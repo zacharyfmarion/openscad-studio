@@ -156,3 +156,44 @@ pub struct CheckpointDiff {
     pub added_lines: usize,
     pub removed_lines: usize,
 }
+
+// ============================================================================
+// AI Model Types
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelInfo {
+    pub id: String,
+    pub display_name: String,
+    pub provider: String,      // "anthropic" | "openai"
+    pub model_type: String,    // "alias" | "snapshot"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_window: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedModels {
+    pub models: Vec<ModelInfo>,
+    pub fetched_at: i64,
+    pub ttl_hours: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FetchModelsResponse {
+    pub models: Vec<ModelInfo>,
+    pub from_cache: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_age_minutes: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelValidation {
+    pub is_valid: bool,
+    pub model_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fallback_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}

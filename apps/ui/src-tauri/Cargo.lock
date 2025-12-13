@@ -2557,6 +2557,7 @@ dependencies = [
  "diffy",
  "futures-util",
  "hex",
+ "lazy_static",
  "once_cell",
  "regex",
  "reqwest",

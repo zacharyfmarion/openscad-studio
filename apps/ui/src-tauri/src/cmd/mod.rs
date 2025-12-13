@@ -3,6 +3,7 @@ pub mod ai_tools;
 pub mod conversations;
 pub mod history;
 pub mod locate;
+pub mod models;
 pub mod render;
 
 pub use ai::{
@@ -15,4 +16,5 @@ pub use ai_tools::{
 };
 pub use conversations::{delete_conversation, load_conversations, save_conversation};
 pub use locate::locate_openscad;
+pub use models::{fetch_models, get_cached_models, validate_model};
 pub use render::{detect_backend, render_exact, render_preview};
