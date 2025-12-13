@@ -247,7 +247,7 @@ fn is_relevant_openai_model(model: &OpenAiModel) -> bool {
 
     // Only include o-series (o1, o3, o4, etc.) and gpt-5 models
     let is_o_series =
-        id.starts_with("o") && id.chars().nth(1).map_or(false, |c| c.is_ascii_digit());
+        id.starts_with("o") && id.chars().nth(1).is_some_and(|c| c.is_ascii_digit());
 
     is_o_series || id.starts_with("gpt-5")
 }
@@ -321,7 +321,7 @@ async fn fetch_openai_models(api_key: &str) -> Result<Vec<ModelInfo>, String> {
     let models: Vec<ModelInfo> = models_response
         .data
         .into_iter()
-        .filter(|m| is_relevant_openai_model(m))
+        .filter(is_relevant_openai_model)
         .map(normalize_openai_model)
         .collect();
 
