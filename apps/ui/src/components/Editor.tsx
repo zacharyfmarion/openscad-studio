@@ -24,6 +24,7 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
   const monacoRef = useRef<typeof Monaco | null>(null);
   const onManualRenderRef = useRef(onManualRender);
   const [themesRegistered, setThemesRegistered] = useState(false);
+  const [editorMounted, setEditorMounted] = useState(false);
   const vimModeRef = useRef<{ dispose: () => void } | null>(null);
   const statusBarRef = useRef<HTMLDivElement | null>(null);
 
@@ -56,14 +57,16 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
 
   // Initialize or dispose vim mode when settings change
   useEffect(() => {
-    if (!editorRef.current) return;
+    // Wait for editor to be mounted
+    if (!editorMounted || !editorRef.current) return;
 
     if (settings.editor.vimMode) {
       // Wait for status bar to be mounted
-      if (!statusBarRef.current) return;
+      if (!statusBarMounted || !statusBarRef.current) return;
 
       // Initialize vim mode
       if (!vimModeRef.current) {
+        console.log('[Editor] Initializing vim mode');
         vimModeRef.current = initVimMode(editorRef.current, statusBarRef.current);
       }
 
@@ -76,6 +79,7 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
     } else {
       // Dispose vim mode if it exists
       if (vimModeRef.current) {
+        console.log('[Editor] Disposing vim mode');
         vimModeRef.current.dispose();
         vimModeRef.current = null;
       }
@@ -88,7 +92,7 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
         vimModeRef.current = null;
       }
     };
-  }, [settings.editor.vimMode, settings.editor.vimConfig, statusBarMounted]);
+  }, [settings.editor.vimMode, settings.editor.vimConfig, statusBarMounted, editorMounted]);
 
   // Listen for code updates from AI agent
   useEffect(() => {
@@ -145,6 +149,7 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
   ) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    setEditorMounted(true);
 
     // Register custom themes
     if (!themesRegistered) {
