@@ -50,6 +50,59 @@ pub enum RenderKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CameraView {
+    Front,
+    Back,
+    Left,
+    Right,
+    Top,
+    Bottom,
+    FrontLeft,
+    FrontRight,
+    BackLeft,
+    BackRight,
+}
+
+impl CameraView {
+    pub fn to_camera_args(&self) -> Vec<String> {
+        let rotation = match self {
+            CameraView::Front => "0,0,0",
+            CameraView::Back => "0,0,180",
+            CameraView::Left => "0,0,90",
+            CameraView::Right => "0,0,270",
+            CameraView::Top => "90,0,0",
+            CameraView::Bottom => "-90,0,0",
+            CameraView::FrontLeft => "55,0,45",
+            CameraView::FrontRight => "55,0,315",
+            CameraView::BackLeft => "55,0,135",
+            CameraView::BackRight => "55,0,225",
+        };
+        vec![
+            format!("--camera=0,0,0,{}", rotation),
+            "--viewall".to_string(),
+            "--autocenter".to_string(),
+        ]
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s {
+            "front" => Ok(CameraView::Front),
+            "back" => Ok(CameraView::Back),
+            "left" => Ok(CameraView::Left),
+            "right" => Ok(CameraView::Right),
+            "top" => Ok(CameraView::Top),
+            "bottom" => Ok(CameraView::Bottom),
+            "front-left" => Ok(CameraView::FrontLeft),
+            "front-right" => Ok(CameraView::FrontRight),
+            "back-left" => Ok(CameraView::BackLeft),
+            "back-right" => Ok(CameraView::BackRight),
+            _ => Err(format!("Unknown camera view: {}", s)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ExportFormat {
     Stl,

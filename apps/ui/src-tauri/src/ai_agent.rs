@@ -59,10 +59,16 @@ fn get_tool_definitions() -> Vec<Value> {
         }),
         json!({
             "name": "get_preview_screenshot",
-            "description": "Get the file path to the current 3D/2D preview render. Use this to see what the design looks like.",
+            "description": "Get a screenshot of the 3D model from a specific camera angle. Available views: front, back, left, right, top, bottom, front-left, front-right, back-left, back-right. If no view is specified, returns the current preview.",
             "input_schema": {
                 "type": "object",
-                "properties": {},
+                "properties": {
+                    "view": {
+                        "type": "string",
+                        "description": "Camera view angle. Options: front, back, left, right, top, bottom, front-left, front-right, back-left, back-right",
+                        "enum": ["front", "back", "left", "right", "top", "bottom", "front-left", "front-right", "back-left", "back-right"]
+                    }
+                },
                 "required": []
             }
         }),
@@ -123,9 +129,24 @@ async fn execute_tool(tool_name: &str, args: Value, app: &AppHandle) -> Result<S
             })
         }
         "get_preview_screenshot" => {
+            let view = args
+                .get("view")
+                .and_then(|v| v.as_str())
+                .map(String::from);
             let state: State<EditorState> = app.state();
-            get_preview_screenshot(state)
-                .map(|path| format!("Preview image saved at: {path}\n\nThis shows the current rendered output of the OpenSCAD code."))
+            let view_name = view.clone().unwrap_or_else(|| "default".to_string());
+            match get_preview_screenshot(app.clone(), state, view).await {
+                Ok(path) => {
+                    // Return JSON with image path and view name for frontend rendering
+                    Ok(serde_json::json!({
+                        "image_path": path,
+                        "view": view_name,
+                        "message": format!("Preview from {} view", view_name)
+                    })
+                    .to_string())
+                }
+                Err(e) => Err(e),
+            }
         }
         "apply_edit" => {
             let old_string = args["old_string"]

@@ -1,5 +1,5 @@
 use crate::types::{
-    BackendType, RenderKind, RenderPreviewRequest, RenderPreviewResponse, ViewMode,
+    BackendType, CameraView, RenderKind, RenderPreviewRequest, RenderPreviewResponse, ViewMode,
 };
 use crate::utils::cache::RenderCache;
 use crate::utils::parser::parse_openscad_stderr;
@@ -418,4 +418,83 @@ pub async fn detect_backend(
         has_manifold,
         version,
     })
+}
+
+/// Render a preview image from a specific camera view angle
+pub async fn render_with_view(
+    app: AppHandle,
+    openscad_path: String,
+    source: String,
+    camera_view: CameraView,
+    working_dir: Option<String>,
+) -> Result<String, String> {
+    // Get cache directory
+    let app_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| format!("Failed to get app cache directory: {e}"))?;
+
+    std::fs::create_dir_all(&app_dir)
+        .map_err(|e| format!("Failed to create cache directory: {e}"))?;
+
+    // Write source to temp file
+    let scad_path = if let Some(ref wd) = working_dir {
+        let work_path = std::path::PathBuf::from(wd);
+        work_path.join(".openscad_temp_view.scad")
+    } else {
+        app_dir.join("view_preview.scad")
+    };
+
+    std::fs::write(&scad_path, &source)
+        .map_err(|e| format!("Failed to write temp .scad file: {e}"))?;
+
+    // Generate unique output filename based on view and timestamp
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let view_name = format!("{:?}", camera_view).to_lowercase();
+    let out_path = app_dir.join(format!("view_{}_{}.png", view_name, timestamp));
+
+    // Build command arguments
+    let mut args: Vec<String> = vec![
+        "-o".to_string(),
+        out_path.to_string_lossy().to_string(),
+        scad_path.to_string_lossy().to_string(),
+    ];
+
+    // Add camera view arguments
+    args.extend(camera_view.to_camera_args());
+
+    // Add standard preview settings
+    args.push("--imgsize=800,600".to_string());
+    args.push("--preview".to_string());
+
+    // Execute OpenSCAD
+    let mut command = Command::new(&openscad_path);
+    command.args(&args);
+
+    if let Some(ref wd) = working_dir {
+        command.current_dir(wd);
+    }
+
+    let output = command.output().map_err(|e| {
+        format!("Failed to execute OpenSCAD: {e}. Is OpenSCAD installed at {openscad_path}?")
+    })?;
+
+    // Check if output file was created
+    if !out_path.exists() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr_preview = if stderr.len() > 500 {
+            format!("{}...", &stderr[..500])
+        } else {
+            stderr.to_string()
+        };
+        return Err(format!(
+            "OpenSCAD failed to create preview image.\n\n{}",
+            stderr_preview
+        ));
+    }
+
+    Ok(out_path.to_string_lossy().to_string())
 }

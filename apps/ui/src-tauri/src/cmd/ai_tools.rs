@@ -1,4 +1,5 @@
-use crate::types::Diagnostic;
+use crate::cmd::render::render_with_view;
+use crate::types::{CameraView, Diagnostic};
 use crate::utils::parser::parse_openscad_stderr;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -10,6 +11,7 @@ pub struct EditorState {
     pub diagnostics: Mutex<Vec<Diagnostic>>,
     pub last_preview_path: Mutex<String>,
     pub openscad_path: Mutex<String>,
+    pub working_dir: Mutex<Option<String>>,
 }
 
 impl Default for EditorState {
@@ -21,6 +23,7 @@ impl Default for EditorState {
             diagnostics: Mutex::new(Vec::new()),
             last_preview_path: Mutex::new(String::new()),
             openscad_path: Mutex::new("openscad".to_string()),
+            working_dir: Mutex::new(None),
         }
     }
 }
@@ -57,6 +60,16 @@ pub fn update_openscad_path(
     Ok(())
 }
 
+/// Update working directory in editor state (called when file is opened/saved)
+#[tauri::command]
+pub fn update_working_dir(
+    working_dir: Option<String>,
+    state: State<'_, EditorState>,
+) -> Result<(), String> {
+    *state.working_dir.lock().unwrap() = working_dir;
+    Ok(())
+}
+
 /// Get current code from editor
 #[tauri::command]
 pub fn get_current_code(state: State<'_, EditorState>) -> Result<String, String> {
@@ -64,14 +77,35 @@ pub fn get_current_code(state: State<'_, EditorState>) -> Result<String, String>
     Ok(code)
 }
 
-/// Get preview screenshot path
+/// Get preview screenshot path, optionally from a specific camera view
 #[tauri::command]
-pub fn get_preview_screenshot(state: State<'_, EditorState>) -> Result<String, String> {
-    let path = state.last_preview_path.lock().unwrap().clone();
-    if path.is_empty() {
-        Ok("No preview available yet. Trigger a render first.".to_string())
-    } else {
+pub async fn get_preview_screenshot(
+    app: AppHandle,
+    state: State<'_, EditorState>,
+    view: Option<String>,
+) -> Result<String, String> {
+    // If a view is specified, render a new screenshot from that angle
+    if let Some(view_name) = view {
+        let camera_view = CameraView::from_str(&view_name)?;
+        let code = state.current_code.lock().unwrap().clone();
+        let openscad_path = state.openscad_path.lock().unwrap().clone();
+        let working_dir = state.working_dir.lock().unwrap().clone();
+
+        if code.is_empty() {
+            return Err("No code to render. Add some OpenSCAD code first.".to_string());
+        }
+
+        // Render with the specified view
+        let path = render_with_view(app, openscad_path, code, camera_view, working_dir).await?;
         Ok(path)
+    } else {
+        // Return the existing preview path
+        let path = state.last_preview_path.lock().unwrap().clone();
+        if path.is_empty() {
+            Ok("No preview available yet. Trigger a render first.".to_string())
+        } else {
+            Ok(path)
+        }
     }
 }
 

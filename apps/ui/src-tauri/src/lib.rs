@@ -10,7 +10,8 @@ use cmd::{
     get_ai_provider, get_api_key, get_available_providers, get_cached_models, get_current_code,
     get_diagnostics, get_preview_screenshot, has_api_key, load_conversations, locate_openscad,
     render_exact, render_preview, save_conversation, set_ai_model, store_api_key, trigger_render,
-    update_editor_state, update_openscad_path, validate_edit, validate_model, EditorState,
+    update_editor_state, update_openscad_path, update_working_dir, validate_edit, validate_model,
+    EditorState,
 };
 use history::HistoryState;
 use std::sync::Arc;
@@ -59,6 +60,7 @@ pub fn run() {
             get_current_code,
             update_editor_state,
             update_openscad_path,
+            update_working_dir,
             get_preview_screenshot,
             validate_edit,
             apply_edit,

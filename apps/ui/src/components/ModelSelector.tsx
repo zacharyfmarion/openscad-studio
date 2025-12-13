@@ -30,11 +30,14 @@ export function ModelSelector({ currentModel, availableProviders, onChange, disa
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled || isLoading}
         size="sm"
-        className="border-none bg-transparent font-semibold"
+        className="model-selector font-semibold"
         style={{
           color: 'var(--text-secondary)',
           width: 'auto',
           minWidth: '120px',
+          backgroundColor: 'var(--bg-tertiary)',
+          border: '1px solid var(--border-primary)',
+          borderRadius: '4px',
         }}
       >
         {anthropicModels.length > 0 && (
@@ -97,6 +100,18 @@ export function ModelSelector({ currentModel, availableProviders, onChange, disa
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        .model-selector {
+          transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+        .model-selector:hover:not(:disabled) {
+          background-color: var(--bg-elevated) !important;
+          border-color: var(--border-secondary) !important;
+        }
+        .model-selector:focus {
+          border-color: var(--accent-primary) !important;
+          outline: none;
+          box-shadow: 0 0 0 1px var(--accent-primary);
         }
       `}</style>
     </div>

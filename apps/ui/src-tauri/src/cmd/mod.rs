@@ -12,7 +12,7 @@ pub use ai::{
 };
 pub use ai_tools::{
     apply_edit, get_current_code, get_diagnostics, get_preview_screenshot, trigger_render,
-    update_editor_state, update_openscad_path, validate_edit, EditorState,
+    update_editor_state, update_openscad_path, update_working_dir, validate_edit, EditorState,
 };
 pub use conversations::{delete_conversation, load_conversations, save_conversation};
 pub use locate::locate_openscad;
