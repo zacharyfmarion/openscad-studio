@@ -2,7 +2,18 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { AiMode } from '../components/AiPromptPanel';
-import { getProviderFromModel } from '../constants/models';
+import { validateModel, ModelValidation } from '../api/tauri';
+
+// Determine provider from model ID
+function getProviderFromModel(modelId: string): string {
+  if (modelId.startsWith('claude') || modelId.startsWith('anthropic')) {
+    return 'anthropic';
+  }
+  if (modelId.startsWith('gpt') || modelId.startsWith('o1') || modelId.startsWith('o3') || modelId.startsWith('chatgpt')) {
+    return 'openai';
+  }
+  return 'anthropic'; // Default
+}
 
 export interface ToolCall {
   name: string;
@@ -35,6 +46,7 @@ export interface ToolCallMessage extends BaseMessage {
   toolName: string;
   args?: Record<string, unknown>;
   completed?: boolean;  // Whether the tool has completed
+  result?: unknown;     // The result of the tool call (for displaying images, etc.)
 }
 
 // Tool result message
@@ -225,6 +237,7 @@ export function useAiAgent() {
                   toolName: tool.name,
                   args: tool.args,
                   completed: !!tool.result,
+                  result: tool.result,  // Include the result for displaying images
                 }));
 
                 setState((prev) => ({
@@ -362,6 +375,7 @@ export function useAiAgent() {
                   toolName: tool.name,
                   args: tool.args,
                   completed: !!tool.result,
+                  result: tool.result,  // Include the result for displaying images
                 }));
                 newMessages.push(...toolMessages);
               }
@@ -516,6 +530,31 @@ export function useAiAgent() {
       return;
     }
 
+    // Lazy validation: check if the current model is still available
+    let modelToUse = state.currentModel;
+    try {
+      console.log('[useAiAgent] Validating model:', state.currentModel);
+      const validation: ModelValidation = await validateModel(state.currentModel);
+      if (!validation.is_valid) {
+        console.warn('[useAiAgent] Model not available:', state.currentModel, 'falling back to:', validation.fallback_model);
+        const fallback = validation.fallback_model || 'claude-sonnet-4-5';
+        modelToUse = fallback;
+
+        // Update state with fallback model
+        setState((prev) => ({
+          ...prev,
+          currentModel: fallback,
+          error: `Model "${state.currentModel}" is no longer available. Switched to "${fallback}".`,
+        }));
+
+        // Persist the new model selection
+        await invoke('set_ai_model', { model: fallback });
+      }
+    } catch (err) {
+      console.warn('[useAiAgent] Model validation failed, continuing with current model:', err);
+      // Continue with current model if validation fails - it might still work
+    }
+
     // Create new conversation if needed
     const conversationId = state.currentConversationId || crypto.randomUUID();
 
@@ -567,13 +606,13 @@ export function useAiAgent() {
       const legacyMessages = convertMessagesToLegacy(updatedMessages);
 
       // Determine provider from current model
-      const provider = getProviderFromModel(state.currentModel) || 'anthropic';
+      const provider = getProviderFromModel(modelToUse) || 'anthropic';
 
       // Send query to sidecar with full message history, current model, and provider
-      console.log('[useAiAgent] Sending query to sidecar with', legacyMessages.length, 'messages', 'using model:', state.currentModel, 'provider:', provider);
+      console.log('[useAiAgent] Sending query to sidecar with', legacyMessages.length, 'messages', 'using model:', modelToUse, 'provider:', provider);
       await invoke('send_ai_query', {
         messages: legacyMessages,
-        model: state.currentModel,
+        model: modelToUse,
         provider,
         mode,
       });
@@ -674,13 +713,21 @@ export function useAiAgent() {
     }));
   }, []);
 
-  // Set current model
-  const setCurrentModel = useCallback((model: string) => {
+  // Set current model and persist to backend
+  const setCurrentModel = useCallback(async (model: string) => {
     console.log('[useAiAgent] Setting current model to:', model);
     setState((prev) => ({
       ...prev,
       currentModel: model,
     }));
+
+    // Persist the model selection to backend storage
+    try {
+      await invoke('set_ai_model', { model });
+      console.log('[useAiAgent] Model persisted to backend:', model);
+    } catch (err) {
+      console.error('[useAiAgent] Failed to persist model:', err);
+    }
   }, []);
 
   // Handle checkpoint restoration with conversation truncation

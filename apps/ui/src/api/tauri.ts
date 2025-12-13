@@ -100,6 +100,52 @@ export async function updateOpenscadPath(openscadPath: string): Promise<void> {
   return await invoke('update_openscad_path', { openscadPath });
 }
 
+export async function updateWorkingDir(workingDir: string | null): Promise<void> {
+  return await invoke('update_working_dir', { workingDir });
+}
+
 export async function getDiagnostics(): Promise<Diagnostic[]> {
   return await invoke('get_diagnostics');
+}
+
+// Model API types and functions
+export type AiProvider = 'anthropic' | 'openai';
+export type ModelType = 'alias' | 'snapshot';
+
+export interface ModelInfo {
+  id: string;
+  display_name: string;
+  provider: AiProvider;
+  model_type: ModelType;
+  context_window?: number;
+  created_at?: number;
+}
+
+export interface FetchModelsResponse {
+  models: ModelInfo[];
+  from_cache: boolean;
+  cache_age_minutes?: number;
+}
+
+export interface ModelValidation {
+  is_valid: boolean;
+  model_id: string;
+  fallback_model?: string;
+  message?: string;
+}
+
+export async function fetchModels(
+  forceRefresh = false
+): Promise<FetchModelsResponse> {
+  return await invoke('fetch_models', { forceRefresh });
+}
+
+export async function getCachedModels(): Promise<FetchModelsResponse> {
+  return await invoke('get_cached_models');
+}
+
+export async function validateModel(
+  modelId: string
+): Promise<ModelValidation> {
+  return await invoke('validate_model', { modelId });
 }

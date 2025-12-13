@@ -16,8 +16,13 @@
     {
       "identifier": "fs:scope",
       "allow": [
-        "$HOME/**"
+        "$HOME/**",
+        "$APPCACHE/**"
       ]
+    },
+    {
+      "identifier": "core:app:allow-app-show",
+      "allow": []
     }
   ]
 }
