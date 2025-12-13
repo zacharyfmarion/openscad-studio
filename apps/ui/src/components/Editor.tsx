@@ -47,11 +47,21 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
     }
   }, [settings.appearance.theme, themesRegistered]);
 
+  // Track when status bar is mounted for vim mode initialization
+  const [statusBarMounted, setStatusBarMounted] = useState(false);
+  const statusBarCallbackRef = (node: HTMLDivElement | null) => {
+    statusBarRef.current = node;
+    setStatusBarMounted(node !== null);
+  };
+
   // Initialize or dispose vim mode when settings change
   useEffect(() => {
-    if (!editorRef.current || !statusBarRef.current) return;
+    if (!editorRef.current) return;
 
     if (settings.editor.vimMode) {
+      // Wait for status bar to be mounted
+      if (!statusBarRef.current) return;
+
       // Initialize vim mode
       if (!vimModeRef.current) {
         vimModeRef.current = initVimMode(editorRef.current, statusBarRef.current);
@@ -78,7 +88,7 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
         vimModeRef.current = null;
       }
     };
-  }, [settings.editor.vimMode, settings.editor.vimConfig]);
+  }, [settings.editor.vimMode, settings.editor.vimConfig, statusBarMounted]);
 
   // Listen for code updates from AI agent
   useEffect(() => {
@@ -459,7 +469,7 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
       </div>
       {settings.editor.vimMode && (
         <div
-          ref={statusBarRef}
+          ref={statusBarCallbackRef}
           className="vim-status-bar px-2 py-1 text-xs font-mono"
           style={{
             borderTop: '1px solid var(--border-primary)',

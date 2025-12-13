@@ -1,8 +1,34 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import type { Message } from '../hooks/useAiAgent';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import type { Message, ToolCallMessage } from '../hooks/useAiAgent';
 import { Button } from './ui';
 import { ModelSelector } from './ModelSelector';
 import { useHistory } from '../hooks/useHistory';
+
+// Helper to extract image path from a tool result
+function getImagePathFromResult(result: unknown): string | null {
+  if (!result) return null;
+
+  // If result is a string, try to parse it as JSON
+  if (typeof result === 'string') {
+    try {
+      const parsed = JSON.parse(result);
+      if (parsed.image_path) return parsed.image_path;
+    } catch {
+      // Check if it's a direct path to an image
+      if (result.endsWith('.png') || result.endsWith('.svg') || result.endsWith('.jpg')) {
+        return result;
+      }
+    }
+  }
+
+  // If result is an object with image_path
+  if (typeof result === 'object' && result !== null && 'image_path' in result) {
+    return (result as { image_path: string }).image_path;
+  }
+
+  return null;
+}
 
 export type AiMode = 'edit';
 
@@ -221,6 +247,11 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
 
             // Tool call message (permanent, after completion)
             if (message.type === 'tool-call') {
+              const toolMessage = message as ToolCallMessage;
+              const imagePath = toolMessage.toolName === 'get_preview_screenshot'
+                ? getImagePathFromResult(toolMessage.result)
+                : null;
+
               return (
                 <div key={message.id} className="flex gap-2 justify-start">
                   <div
@@ -261,6 +292,25 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
                       </span>
                       {message.completed && <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>completed</span>}
                     </div>
+                    {/* Display image for get_preview_screenshot tool */}
+                    {imagePath && (
+                      <div className="mt-2">
+                        <img
+                          src={convertFileSrc(imagePath)}
+                          alt={`Preview - ${toolMessage.args?.view || 'default'}`}
+                          className="max-w-full rounded border"
+                          style={{
+                            maxHeight: '300px',
+                            borderColor: 'var(--border-secondary)'
+                          }}
+                        />
+                        {toolMessage.args?.view && (
+                          <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                            View: {String(toolMessage.args.view)}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -273,48 +323,73 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
           {currentToolCalls.length > 0 && (
             <div className="flex gap-2 justify-start">
               <div className="space-y-2">
-                {currentToolCalls.map((tool, idx) => (
-                  <div
-                    key={idx}
-                    className="rounded-lg px-3 py-2 border"
-                    style={{
-                      backgroundColor: 'var(--bg-primary)',
-                      borderColor: tool.result ? 'var(--color-success)' : 'var(--color-warning)'
-                    }}
-                  >
-                    <div className="flex items-center gap-2 text-sm">
-                      {tool.result ? (
-                        <span style={{ color: 'var(--color-success)' }}>✓</span>
-                      ) : (
-                        <svg
-                          className="animate-spin h-4 w-4"
-                          style={{ color: 'var(--color-warning)' }}
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
+                {currentToolCalls.map((tool, idx) => {
+                  const imagePath = tool.name === 'get_preview_screenshot'
+                    ? getImagePathFromResult(tool.result)
+                    : null;
+
+                  return (
+                    <div
+                      key={idx}
+                      className="rounded-lg px-3 py-2 border"
+                      style={{
+                        backgroundColor: 'var(--bg-primary)',
+                        borderColor: tool.result ? 'var(--color-success)' : 'var(--color-warning)'
+                      }}
+                    >
+                      <div className="flex items-center gap-2 text-sm">
+                        {tool.result ? (
+                          <span style={{ color: 'var(--color-success)' }}>✓</span>
+                        ) : (
+                          <svg
+                            className="animate-spin h-4 w-4"
+                            style={{ color: 'var(--color-warning)' }}
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                        )}
+                        <span className="font-semibold" style={{ color: tool.result ? 'var(--color-success)' : 'var(--color-warning)' }}>
+                          {tool.name}
+                        </span>
+                        {tool.result ? <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>completed</span> : null}
+                      </div>
+                      {/* Display image for get_preview_screenshot tool */}
+                      {imagePath && (
+                        <div className="mt-2">
+                          <img
+                            src={convertFileSrc(imagePath)}
+                            alt={`Preview - ${tool.args?.view || 'default'}`}
+                            className="max-w-full rounded border"
+                            style={{
+                              maxHeight: '300px',
+                              borderColor: 'var(--border-secondary)'
+                            }}
+                          />
+                          {tool.args?.view && (
+                            <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                              View: {String(tool.args.view)}
+                            </div>
+                          )}
+                        </div>
                       )}
-                      <span className="font-semibold" style={{ color: tool.result ? 'var(--color-success)' : 'var(--color-warning)' }}>
-                        {tool.name}
-                      </span>
-                      {tool.result ? <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>completed</span> : null}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

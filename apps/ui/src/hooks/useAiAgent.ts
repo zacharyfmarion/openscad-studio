@@ -46,6 +46,7 @@ export interface ToolCallMessage extends BaseMessage {
   toolName: string;
   args?: Record<string, unknown>;
   completed?: boolean;  // Whether the tool has completed
+  result?: unknown;     // The result of the tool call (for displaying images, etc.)
 }
 
 // Tool result message
@@ -236,6 +237,7 @@ export function useAiAgent() {
                   toolName: tool.name,
                   args: tool.args,
                   completed: !!tool.result,
+                  result: tool.result,  // Include the result for displaying images
                 }));
 
                 setState((prev) => ({
@@ -373,6 +375,7 @@ export function useAiAgent() {
                   toolName: tool.name,
                   args: tool.args,
                   completed: !!tool.result,
+                  result: tool.result,  // Include the result for displaying images
                 }));
                 newMessages.push(...toolMessages);
               }
