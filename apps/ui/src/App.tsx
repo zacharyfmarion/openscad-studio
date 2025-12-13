@@ -17,7 +17,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
-import { renderExact, type ExportFormat, updateEditorState } from './api/tauri';
+import { renderExact, type ExportFormat, updateEditorState, updateWorkingDir } from './api/tauri';
 import { loadSettings, type Settings } from './stores/settingsStore';
 import { formatOpenScadCode } from './utils/formatter';
 import { TbSettings, TbBox, TbRuler2 } from 'react-icons/tb';
@@ -284,6 +284,10 @@ function App() {
 
   useEffect(() => {
     workingDirRef.current = workingDir;
+    // Update backend with current working directory for AI tools
+    updateWorkingDir(workingDir).catch((err) => {
+      console.error('[App] Failed to update working dir:', err);
+    });
   }, [workingDir]);
 
   useEffect(() => {

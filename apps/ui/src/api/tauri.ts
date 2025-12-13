@@ -100,6 +100,10 @@ export async function updateOpenscadPath(openscadPath: string): Promise<void> {
   return await invoke('update_openscad_path', { openscadPath });
 }
 
+export async function updateWorkingDir(workingDir: string | null): Promise<void> {
+  return await invoke('update_working_dir', { workingDir });
+}
+
 export async function getDiagnostics(): Promise<Diagnostic[]> {
   return await invoke('get_diagnostics');
 }

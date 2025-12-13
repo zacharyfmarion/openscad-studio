@@ -7,16 +7,23 @@ import { useHistory } from '../hooks/useHistory';
 
 // Helper to extract image path from a tool result
 function getImagePathFromResult(result: unknown): string | null {
+  console.log('[getImagePathFromResult] Input:', result, 'Type:', typeof result);
+
   if (!result) return null;
 
   // If result is a string, try to parse it as JSON
   if (typeof result === 'string') {
     try {
       const parsed = JSON.parse(result);
-      if (parsed.image_path) return parsed.image_path;
+      console.log('[getImagePathFromResult] Parsed JSON:', parsed);
+      if (parsed.image_path) {
+        console.log('[getImagePathFromResult] Found image_path:', parsed.image_path);
+        return parsed.image_path;
+      }
     } catch {
       // Check if it's a direct path to an image
       if (result.endsWith('.png') || result.endsWith('.svg') || result.endsWith('.jpg')) {
+        console.log('[getImagePathFromResult] Direct path:', result);
         return result;
       }
     }
@@ -24,9 +31,12 @@ function getImagePathFromResult(result: unknown): string | null {
 
   // If result is an object with image_path
   if (typeof result === 'object' && result !== null && 'image_path' in result) {
-    return (result as { image_path: string }).image_path;
+    const path = (result as { image_path: string }).image_path;
+    console.log('[getImagePathFromResult] Object image_path:', path);
+    return path;
   }
 
+  console.log('[getImagePathFromResult] No image path found');
   return null;
 }
 
@@ -252,6 +262,11 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
                 ? getImagePathFromResult(toolMessage.result)
                 : null;
 
+              if (imagePath) {
+                console.log('[AiPromptPanel] Image path:', imagePath);
+                console.log('[AiPromptPanel] Converted src:', convertFileSrc(imagePath));
+              }
+
               return (
                 <div key={message.id} className="flex gap-2 justify-start">
                   <div
@@ -296,17 +311,20 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
                     {imagePath && (
                       <div className="mt-2">
                         <img
-                          src={convertFileSrc(imagePath)}
+                          src={`${convertFileSrc(imagePath)}?t=${Date.now()}`}
                           alt={`Preview - ${toolMessage.args?.view || 'default'}`}
                           className="max-w-full rounded border"
                           style={{
                             maxHeight: '300px',
                             borderColor: 'var(--border-secondary)'
                           }}
+                          onError={(e) => {
+                            console.error('[AiPromptPanel] Failed to load image:', imagePath, e);
+                          }}
                         />
-                        {toolMessage.args?.view && (
+                        {typeof toolMessage.args?.view === 'string' && (
                           <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                            View: {String(toolMessage.args.view)}
+                            View: {toolMessage.args.view}
                           </div>
                         )}
                       </div>
@@ -372,17 +390,20 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(({
                       {imagePath && (
                         <div className="mt-2">
                           <img
-                            src={convertFileSrc(imagePath)}
+                            src={`${convertFileSrc(imagePath)}?t=${Date.now()}`}
                             alt={`Preview - ${tool.args?.view || 'default'}`}
                             className="max-w-full rounded border"
                             style={{
                               maxHeight: '300px',
                               borderColor: 'var(--border-secondary)'
                             }}
+                            onError={(e) => {
+                              console.error('[AiPromptPanel] Failed to load realtime image:', imagePath, e);
+                            }}
                           />
-                          {tool.args?.view && (
+                          {typeof tool.args?.view === 'string' && (
                             <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                              View: {String(tool.args.view)}
+                              View: {tool.args.view}
                             </div>
                           )}
                         </div>

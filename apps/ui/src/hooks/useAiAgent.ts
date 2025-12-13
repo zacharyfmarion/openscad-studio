@@ -713,13 +713,21 @@ export function useAiAgent() {
     }));
   }, []);
 
-  // Set current model
-  const setCurrentModel = useCallback((model: string) => {
+  // Set current model and persist to backend
+  const setCurrentModel = useCallback(async (model: string) => {
     console.log('[useAiAgent] Setting current model to:', model);
     setState((prev) => ({
       ...prev,
       currentModel: model,
     }));
+
+    // Persist the model selection to backend storage
+    try {
+      await invoke('set_ai_model', { model });
+      console.log('[useAiAgent] Model persisted to backend:', model);
+    } catch (err) {
+      console.error('[useAiAgent] Failed to persist model:', err);
+    }
   }, []);
 
   // Handle checkpoint restoration with conversation truncation
