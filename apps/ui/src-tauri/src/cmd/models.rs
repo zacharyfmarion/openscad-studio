@@ -13,7 +13,11 @@ const DEFAULT_TTL_HOURS: u32 = 4;
 
 // Default aliases that always work - shown before first fetch
 const DEFAULT_ALIASES: &[(&str, &str, &str)] = &[
-    ("claude-sonnet-4-5", "Claude Sonnet 4.5 (Latest)", "anthropic"),
+    (
+        "claude-sonnet-4-5",
+        "Claude Sonnet 4.5 (Latest)",
+        "anthropic",
+    ),
     ("claude-opus-4", "Claude Opus 4 (Latest)", "anthropic"),
     ("claude-haiku-3-5", "Claude Haiku 3.5 (Latest)", "anthropic"),
     ("o1", "o1 (Latest)", "openai"),
@@ -140,20 +144,13 @@ fn is_cache_valid(cached: &CachedModels) -> bool {
     now < expires_at
 }
 
-fn get_cached_models_for_provider(
-    app: &AppHandle,
-    provider: &str,
-) -> Option<CachedModels> {
+fn get_cached_models_for_provider(app: &AppHandle, provider: &str) -> Option<CachedModels> {
     let store = app.store(MODELS_CACHE_FILE).ok()?;
     let value = store.get(provider)?;
     serde_json::from_value(value.clone()).ok()
 }
 
-fn save_cached_models(
-    app: &AppHandle,
-    provider: &str,
-    models: &[ModelInfo],
-) -> Result<(), String> {
+fn save_cached_models(app: &AppHandle, provider: &str, models: &[ModelInfo]) -> Result<(), String> {
     let store = app
         .store(MODELS_CACHE_FILE)
         .map_err(|e| format!("Failed to access cache store: {e}"))?;
@@ -205,7 +202,12 @@ fn normalize_anthropic_model(model: AnthropicModel) -> ModelInfo {
         id: model.id.clone(),
         display_name,
         provider: "anthropic".to_string(),
-        model_type: if is_alias(&model.id) { "alias" } else { "snapshot" }.to_string(),
+        model_type: if is_alias(&model.id) {
+            "alias"
+        } else {
+            "snapshot"
+        }
+        .to_string(),
         context_window,
         created_at,
     }
@@ -224,7 +226,12 @@ fn normalize_openai_model(model: OpenAiModel) -> ModelInfo {
         id: model.id.clone(),
         display_name,
         provider: "openai".to_string(),
-        model_type: if is_alias(&model.id) { "alias" } else { "snapshot" }.to_string(),
+        model_type: if is_alias(&model.id) {
+            "alias"
+        } else {
+            "snapshot"
+        }
+        .to_string(),
         context_window,
         created_at: model.created,
     }
@@ -239,8 +246,8 @@ fn is_relevant_openai_model(model: &OpenAiModel) -> bool {
     }
 
     // Only include o-series (o1, o3, o4, etc.) and gpt-5 models
-    let is_o_series = id.starts_with("o")
-        && id.chars().nth(1).map_or(false, |c| c.is_ascii_digit());
+    let is_o_series =
+        id.starts_with("o") && id.chars().nth(1).map_or(false, |c| c.is_ascii_digit());
 
     is_o_series || id.starts_with("gpt-5")
 }
@@ -268,11 +275,7 @@ async fn fetch_anthropic_models(api_key: &str) -> Result<Vec<ModelInfo>, String>
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(format!(
-                "Anthropic API error ({}): {}",
-                status,
-                body
-            ));
+            return Err(format!("Anthropic API error ({}): {}", status, body));
         }
 
         let models_response: AnthropicModelsResponse = response
@@ -307,11 +310,7 @@ async fn fetch_openai_models(api_key: &str) -> Result<Vec<ModelInfo>, String> {
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
-        return Err(format!(
-            "OpenAI API error ({}): {}",
-            status,
-            body
-        ));
+        return Err(format!("OpenAI API error ({}): {}", status, body));
     }
 
     let models_response: OpenAiModelsResponse = response
@@ -370,7 +369,8 @@ pub async fn fetch_models(
             if let Some(cached) = get_cached_models_for_provider(&app, provider) {
                 if is_cache_valid(&cached) {
                     let age_minutes = ((current_timestamp() - cached.fetched_at) / 60) as u64;
-                    oldest_cache_age = Some(oldest_cache_age.map_or(age_minutes, |a| a.max(age_minutes)));
+                    oldest_cache_age =
+                        Some(oldest_cache_age.map_or(age_minutes, |a| a.max(age_minutes)));
                     all_models.extend(cached.models);
                     any_from_cache = true;
                     continue;
@@ -478,10 +478,7 @@ pub fn get_cached_models(app: AppHandle) -> Result<FetchModelsResponse, String> 
 }
 
 #[tauri::command]
-pub async fn validate_model(
-    app: AppHandle,
-    model_id: String,
-) -> Result<ModelValidation, String> {
+pub async fn validate_model(app: AppHandle, model_id: String) -> Result<ModelValidation, String> {
     // First check if the model is a known alias - these always work
     if DEFAULT_ALIASES.iter().any(|(id, _, _)| *id == model_id) {
         return Ok(ModelValidation {
@@ -532,7 +529,10 @@ pub async fn validate_model(
     // Determine provider from model ID prefix
     let provider = if model_id.starts_with("claude") || model_id.starts_with("anthropic") {
         "anthropic"
-    } else if model_id.starts_with("gpt") || model_id.starts_with("o1") || model_id.starts_with("o3") {
+    } else if model_id.starts_with("gpt")
+        || model_id.starts_with("o1")
+        || model_id.starts_with("o3")
+    {
         "openai"
     } else {
         model_provider.as_deref().unwrap_or("anthropic")

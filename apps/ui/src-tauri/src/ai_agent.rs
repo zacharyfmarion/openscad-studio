@@ -129,10 +129,7 @@ async fn execute_tool(tool_name: &str, args: Value, app: &AppHandle) -> Result<S
             })
         }
         "get_preview_screenshot" => {
-            let view = args
-                .get("view")
-                .and_then(|v| v.as_str())
-                .map(String::from);
+            let view = args.get("view").and_then(|v| v.as_str()).map(String::from);
             let state: State<EditorState> = app.state();
             let view_name = view.clone().unwrap_or_else(|| "default".to_string());
             match get_preview_screenshot(app.clone(), state, view).await {

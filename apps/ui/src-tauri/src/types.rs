@@ -218,8 +218,8 @@ pub struct CheckpointDiff {
 pub struct ModelInfo {
     pub id: String,
     pub display_name: String,
-    pub provider: String,      // "anthropic" | "openai"
-    pub model_type: String,    // "alias" | "snapshot"
+    pub provider: String,   // "anthropic" | "openai"
+    pub model_type: String, // "alias" | "snapshot"
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context_window: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
