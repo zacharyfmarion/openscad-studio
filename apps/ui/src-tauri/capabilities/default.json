@@ -23,6 +23,8 @@
     {
       "identifier": "core:app:allow-app-show",
       "allow": []
-    }
+    },
+    "updater:default",
+    "process:allow-restart"
   ]
 }
