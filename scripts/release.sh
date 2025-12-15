@@ -116,6 +116,10 @@ jq ".version = \"$NEW_VERSION\"" apps/ui/package.json > apps/ui/package.json.tmp
 sed -i.bak "s/^version = \".*\"/version = \"$NEW_VERSION\"/" apps/ui/src-tauri/Cargo.toml
 rm -f apps/ui/src-tauri/Cargo.toml.bak
 
+# Update version in tauri.conf.json
+TAURI_CONF="apps/ui/src-tauri/tauri.conf.json"
+jq ".version = \"$NEW_VERSION\"" "$TAURI_CONF" > "$TAURI_CONF.tmp" && mv "$TAURI_CONF.tmp" "$TAURI_CONF"
+
 # Update Cargo.lock
 (cd apps/ui/src-tauri && cargo update -p openscad-studio)
 
@@ -206,13 +210,13 @@ if pnpm tauri:build; then
 else
     # Revert version changes if build fails
     warn "Build failed. Reverting version changes..."
-    git checkout package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock CHANGELOG.md .gitignore docs/index.html 2>/dev/null || true
+    git checkout package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock apps/ui/src-tauri/tauri.conf.json CHANGELOG.md .gitignore docs/index.html 2>/dev/null || true
     error "Build failed. All changes have been reverted. Please fix the build errors and try again."
 fi
 
 # Commit version bump
 info "Committing version bump..."
-git add package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock CHANGELOG.md .gitignore docs/index.html
+git add package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock apps/ui/src-tauri/tauri.conf.json CHANGELOG.md .gitignore docs/index.html
 git commit -m "chore: bump version to $NEW_VERSION"
 success "Version bump committed"
 
@@ -231,81 +235,76 @@ success "Changes and tag pushed to remote"
 TAURI_DIR="apps/ui/src-tauri"
 BUNDLE_DIR="$TAURI_DIR/target/release/bundle"
 
-# Detect platform
+# Detect platform and find artifacts
 PLATFORM=$(uname -s)
 ARTIFACTS=()
 
 if [ "$PLATFORM" == "Darwin" ]; then
-    # macOS
-    if [ -f "$BUNDLE_DIR/dmg"/*.dmg ]; then
-        ARTIFACTS+=("$BUNDLE_DIR/dmg"/*.dmg)
-    fi
-    if [ -f "$BUNDLE_DIR/macos"/*.app.tar.gz ]; then
-        ARTIFACTS+=("$BUNDLE_DIR/macos"/*.app.tar.gz)
-    fi
+    # macOS - use compgen to safely check for glob matches
+    shopt -s nullglob
+    for f in "$BUNDLE_DIR/dmg"/*.dmg; do
+        ARTIFACTS+=("$f")
+    done
+    for f in "$BUNDLE_DIR/macos"/*.app.tar.gz; do
+        ARTIFACTS+=("$f")
+    done
+    # Also include signature files for updater
+    for f in "$BUNDLE_DIR/macos"/*.app.tar.gz.sig; do
+        ARTIFACTS+=("$f")
+    done
+    shopt -u nullglob
 elif [ "$PLATFORM" == "Linux" ]; then
-    # Linux
-    if [ -f "$BUNDLE_DIR/appimage"/*.AppImage ]; then
-        ARTIFACTS+=("$BUNDLE_DIR/appimage"/*.AppImage)
-    fi
-    if [ -f "$BUNDLE_DIR/deb"/*.deb ]; then
-        ARTIFACTS+=("$BUNDLE_DIR/deb"/*.deb)
-    fi
+    shopt -s nullglob
+    for f in "$BUNDLE_DIR/appimage"/*.AppImage; do
+        ARTIFACTS+=("$f")
+    done
+    for f in "$BUNDLE_DIR/deb"/*.deb; do
+        ARTIFACTS+=("$f")
+    done
+    # Signature files
+    for f in "$BUNDLE_DIR/appimage"/*.AppImage.sig; do
+        ARTIFACTS+=("$f")
+    done
+    shopt -u nullglob
 elif [ "$PLATFORM" == "Windows_NT" ] || [[ "$PLATFORM" == MINGW* ]]; then
-    # Windows
-    if [ -f "$BUNDLE_DIR/msi"/*.msi ]; then
-        ARTIFACTS+=("$BUNDLE_DIR/msi"/*.msi)
-    fi
-    if [ -f "$BUNDLE_DIR/nsis"/*.exe ]; then
-        ARTIFACTS+=("$BUNDLE_DIR/nsis"/*.exe)
-    fi
+    shopt -s nullglob
+    for f in "$BUNDLE_DIR/msi"/*.msi; do
+        ARTIFACTS+=("$f")
+    done
+    for f in "$BUNDLE_DIR/nsis"/*.exe; do
+        ARTIFACTS+=("$f")
+    done
+    # Signature files
+    for f in "$BUNDLE_DIR/nsis"/*.exe.sig; do
+        ARTIFACTS+=("$f")
+    done
+    shopt -u nullglob
 fi
 
 if [ ${#ARTIFACTS[@]} -eq 0 ]; then
-    warn "No build artifacts found. Skipping artifact upload."
+    warn "No build artifacts found locally. GitHub Actions will build for all platforms."
 else
-    info "Found ${#ARTIFACTS[@]} artifact(s) to upload"
+    info "Found ${#ARTIFACTS[@]} local artifact(s)"
 fi
 
-# Create GitHub release
-info "Creating GitHub release..."
-
-# Prepare release notes for GitHub (escape special characters)
-GITHUB_NOTES=$(echo "$RELEASE_NOTES" | sed 's/"/\\"/g')
-
-# Unset GH_HOST to avoid conflicts with git remotes
-unset GH_HOST
-
-# Create release with gh CLI
-if [ ${#ARTIFACTS[@]} -eq 0 ]; then
-    # Create release without artifacts
-    gh release create "v$NEW_VERSION" \
-        --title "v$NEW_VERSION" \
-        --notes "$GITHUB_NOTES" \
-        --verify-tag
-else
-    # Create release with artifacts
-    gh release create "v$NEW_VERSION" \
-        --title "v$NEW_VERSION" \
-        --notes "$GITHUB_NOTES" \
-        --verify-tag \
-        "${ARTIFACTS[@]}"
-fi
-
-success "GitHub release created successfully"
+# Note: We don't create a GitHub release here because tauri-action in GitHub Actions
+# will create a draft release with all platform builds. The tag push triggers that workflow.
+info "Tag pushed. GitHub Actions will now build for all platforms and create a draft release."
+info "Monitor progress at: https://github.com/zacharyfmarion/openscad-studio/actions"
 
 # Summary
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
-echo -e "${GREEN}Release v$NEW_VERSION completed successfully!${NC}"
+echo -e "${GREEN}Release v$NEW_VERSION initiated successfully!${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
 echo ""
-echo -e "Release URL: ${BLUE}$(gh release view "v$NEW_VERSION" --json url -q .url)${NC}"
-echo ""
 echo -e "${YELLOW}Next steps:${NC}"
-echo "  1. Verify the release on GitHub"
-echo "  2. Test the downloadable artifacts"
-echo "  3. Announce the release to users"
+echo "  1. GitHub Actions is now building for all platforms (macOS, Windows, Linux)"
+echo "  2. Monitor build progress: ${BLUE}https://github.com/zacharyfmarion/openscad-studio/actions${NC}"
+echo "  3. Once builds complete, a draft release will be created automatically"
+echo "  4. Review and publish the draft release on GitHub"
+echo "  5. Test the downloadable artifacts"
+echo "  6. Announce the release to users"
 echo ""
 
 success "All done! 🎉"
