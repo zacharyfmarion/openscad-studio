@@ -16,7 +16,11 @@ function findScadFiles(dir: string): string[] {
     const fullPath = path.join(dir, item.name);
     if (item.isDirectory()) {
       files.push(...findScadFiles(fullPath));
-    } else if (item.isFile() && item.name.endsWith('.scad') && !item.name.endsWith('.expected.scad')) {
+    } else if (
+      item.isFile() &&
+      item.name.endsWith('.scad') &&
+      !item.name.endsWith('.expected.scad')
+    ) {
       files.push(fullPath);
     }
   }
@@ -29,14 +33,14 @@ console.log(`Found ${scadFiles.length} .scad files`);
 let updated = 0;
 for (const scadFile of scadFiles) {
   const expectedFile = scadFile.replace(/\.scad$/, '.expected.scad');
-  
+
   const source = fs.readFileSync(scadFile, 'utf-8');
   const formatted = await formatOpenScadCode(source);
-  
+
   // Write formatted output as expected
   fs.writeFileSync(expectedFile, formatted, 'utf-8');
   updated++;
-  
+
   if (updated % 10 === 0) {
     console.log(`Updated ${updated}/${scadFiles.length} files...`);
   }

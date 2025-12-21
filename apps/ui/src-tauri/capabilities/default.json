@@ -2,9 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": [
-    "main"
-  ],
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:allow-set-title",
@@ -15,10 +13,7 @@
     "fs:allow-write-text-file",
     {
       "identifier": "fs:scope",
-      "allow": [
-        "$HOME/**",
-        "$APPCACHE/**"
-      ]
+      "allow": ["$HOME/**", "$APPCACHE/**"]
     },
     {
       "identifier": "core:app:allow-app-show",

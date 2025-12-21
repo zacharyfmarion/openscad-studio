@@ -79,7 +79,9 @@ function parseVimCommand(command: string): void {
  */
 function parseMapCommand(tokens: string[], cmdType: string): void {
   if (tokens.length < 3) {
-    throw new Error(`Invalid ${cmdType} command: requires at least 3 arguments (${cmdType} <from> <to> [mode])`);
+    throw new Error(
+      `Invalid ${cmdType} command: requires at least 3 arguments (${cmdType} <from> <to> [mode])`
+    );
   }
 
   const from = tokens[1];

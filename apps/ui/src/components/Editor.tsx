@@ -18,7 +18,13 @@ interface EditorProps {
   settings?: Settings;
 }
 
-export function Editor({ value, onChange, diagnostics, onManualRender, settings: propSettings }: EditorProps) {
+export function Editor({
+  value,
+  onChange,
+  diagnostics,
+  onManualRender,
+  settings: propSettings,
+}: EditorProps) {
   const [settings, setSettings] = useState<Settings>(propSettings || loadSettings());
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof Monaco | null>(null);
@@ -101,7 +107,10 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
     const setupListener = async () => {
       console.log('[Editor] Setting up code-updated listener');
       unlisten = await listen<string>('code-updated', (event) => {
-        console.log('[Editor] ✅ Received code-updated event, payload length:', event.payload.length);
+        console.log(
+          '[Editor] ✅ Received code-updated event, payload length:',
+          event.payload.length
+        );
         console.log('[Editor] Calling onChange with new code');
         onChange(event.payload);
       });
@@ -127,12 +136,13 @@ export function Editor({ value, onChange, diagnostics, onManualRender, settings:
     if (!model) return;
 
     // Convert diagnostics to Monaco markers
-    const markers: Monaco.editor.IMarkerData[] = diagnostics.map(diag => ({
-      severity: diag.severity === 'error'
-        ? monaco.MarkerSeverity.Error
-        : diag.severity === 'warning'
-        ? monaco.MarkerSeverity.Warning
-        : monaco.MarkerSeverity.Info,
+    const markers: Monaco.editor.IMarkerData[] = diagnostics.map((diag) => ({
+      severity:
+        diag.severity === 'error'
+          ? monaco.MarkerSeverity.Error
+          : diag.severity === 'warning'
+            ? monaco.MarkerSeverity.Warning
+            : monaco.MarkerSeverity.Info,
       startLineNumber: diag.line ?? 1,
       startColumn: diag.col ?? 1,
       endLineNumber: diag.line ?? 1,

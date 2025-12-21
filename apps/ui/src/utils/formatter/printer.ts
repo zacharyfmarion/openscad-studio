@@ -24,19 +24,81 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
   const { type, text } = node;
 
   // Debug log for unhandled node types
-  if (!['source_file', 'module_declaration', 'function_declaration', 'block', 'union_block',
-        'if_statement', 'if_block', 'for_statement', 'for_block', 'assignment', 'binary_expression',
-        'unary_expression', 'call_expression', 'module_call', 'function_call',
-        'transform_chain', 'arguments', 'parameters_declaration', 'parameter', 'parenthesized_assignments',
-        'parenthesized_expression', 'ternary_expression', 'index_expression', 'dot_index_expression',
-        'list', 'vector', 'array', 'range', 'list_comprehension', 'for_clause',
-        'comment', 'identifier', 'number', 'decimal', 'integer', 'float', 'string', 'boolean',
-        'special_variable', 'use_statement', 'include_statement', 'include_path',
-        'assert_statement', 'assert_expression',
-        'modifier', 'modifier_chain', 'intersection_for', 'intersection_for_block',
-        'use', 'if', 'else', 'module',
-        '(', ')', '[', ']', '{', '}', ',', ';', '=', ':', 'for', 'whitespace', '\n',
-        '$', '.', '#', '%', '?', '!'].includes(type)) {
+  if (
+    ![
+      'source_file',
+      'module_declaration',
+      'function_declaration',
+      'block',
+      'union_block',
+      'if_statement',
+      'if_block',
+      'for_statement',
+      'for_block',
+      'assignment',
+      'binary_expression',
+      'unary_expression',
+      'call_expression',
+      'module_call',
+      'function_call',
+      'transform_chain',
+      'arguments',
+      'parameters_declaration',
+      'parameter',
+      'parenthesized_assignments',
+      'parenthesized_expression',
+      'ternary_expression',
+      'index_expression',
+      'dot_index_expression',
+      'list',
+      'vector',
+      'array',
+      'range',
+      'list_comprehension',
+      'for_clause',
+      'comment',
+      'identifier',
+      'number',
+      'decimal',
+      'integer',
+      'float',
+      'string',
+      'boolean',
+      'special_variable',
+      'use_statement',
+      'include_statement',
+      'include_path',
+      'assert_statement',
+      'assert_expression',
+      'modifier',
+      'modifier_chain',
+      'intersection_for',
+      'intersection_for_block',
+      'use',
+      'if',
+      'else',
+      'module',
+      '(',
+      ')',
+      '[',
+      ']',
+      '{',
+      '}',
+      ',',
+      ';',
+      '=',
+      ':',
+      'for',
+      'whitespace',
+      '\n',
+      '$',
+      '.',
+      '#',
+      '%',
+      '?',
+      '!',
+    ].includes(type)
+  ) {
     console.log(`[Formatter] Unknown node type: "${type}", text: "${text.substring(0, 50)}"`);
   }
 
@@ -160,8 +222,10 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
     }
 
     // Check if this is an inline comment (comment on same line as previous statement)
-    const isInlineComment = child.type === 'comment' && prevChild &&
-                            child.startPosition.row === prevChild.endPosition.row;
+    const isInlineComment =
+      child.type === 'comment' &&
+      prevChild &&
+      child.startPosition.row === prevChild.endPosition.row;
 
     if (isInlineComment && prevChild) {
       // Preserve the original spacing before the inline comment
@@ -209,8 +273,10 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
       }
     }
 
-    const nextIsInlineComment = nextChild && nextChild.type === 'comment' &&
-                                nextChild.startPosition.row === child.endPosition.row;
+    const nextIsInlineComment =
+      nextChild &&
+      nextChild.type === 'comment' &&
+      nextChild.startPosition.row === child.endPosition.row;
 
     if (!nextIsInlineComment) {
       parts.push(hardline());
@@ -223,7 +289,7 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
 }
 
 function printModuleDeclaration(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
-  const parts: Doc[] = ['module', ' '];  // Always add space after 'module'
+  const parts: Doc[] = ['module', ' ']; // Always add space after 'module'
 
   for (const child of node.children) {
     if (!child) continue;
@@ -311,24 +377,20 @@ function printParameters(node: TreeSitter.Node, options: Required<FormatOptions>
       }
     });
 
-    return concat([
-      '(',
-      indent(concat([hardline(), ...parts])),
-      hardline(),
-      ')',
-    ]);
+    return concat(['(', indent(concat([hardline(), ...parts])), hardline(), ')']);
   }
 
   // Keep single-line parameters compact
-  return concat([
-    '(',
-    join(', ', params),
-    ')',
-  ]);
+  return concat(['(', join(', ', params), ')']);
 }
 
 function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
-  const items: Array<{ stmt: Doc; needsSemi: boolean; blankLineBefore: boolean; child: TreeSitter.Node }> = [];
+  const items: Array<{
+    stmt: Doc;
+    needsSemi: boolean;
+    blankLineBefore: boolean;
+    child: TreeSitter.Node;
+  }> = [];
   let prevChild: TreeSitter.Node | null = null;
 
   for (const child of node.children) {
@@ -416,12 +478,7 @@ function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Do
     }
   });
 
-  return group(concat([
-    '{',
-    indent(concat([hardline(), ...statements])),
-    hardline(),
-    '}',
-  ]));
+  return group(concat(['{', indent(concat([hardline(), ...statements])), hardline(), '}']));
 }
 
 function printIfStatement(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
@@ -509,7 +566,10 @@ function printForStatement(node: TreeSitter.Node, options: Required<FormatOption
   return concat(parts);
 }
 
-function printParenthesizedAssignments(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+function printParenthesizedAssignments(
+  node: TreeSitter.Node,
+  options: Required<FormatOptions>
+): Doc {
   const parts: Doc[] = ['('];
 
   for (const child of node.children) {
@@ -560,7 +620,11 @@ function printTransformChain(node: TreeSitter.Node, options: Required<FormatOpti
   // Track line positions of module/function calls to detect multiline chains
   for (const child of node.children) {
     if (!child) continue;
-    if (child.type === 'module_call' || child.type === 'function_call' || child.type === 'transform_chain') {
+    if (
+      child.type === 'module_call' ||
+      child.type === 'function_call' ||
+      child.type === 'transform_chain'
+    ) {
       calls.push(child);
       if (firstCallLine === -1) {
         firstCallLine = child.startPosition.row;
@@ -698,20 +762,11 @@ function printArguments(node: TreeSitter.Node, options: Required<FormatOptions>)
       }
     });
 
-    return concat([
-      '(',
-      indent(concat([hardline(), ...parts])),
-      hardline(),
-      ')',
-    ]);
+    return concat(['(', indent(concat([hardline(), ...parts])), hardline(), ')']);
   }
 
   // Keep single-line arguments compact
-  return concat([
-    '(',
-    join(', ', args),
-    ')',
-  ]);
+  return concat(['(', join(', ', args), ')']);
 }
 
 function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
@@ -759,20 +814,11 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       }
     });
 
-    return concat([
-      '[',
-      indent(concat([hardline(), ...parts])),
-      hardline(),
-      ']',
-    ]);
+    return concat(['[', indent(concat([hardline(), ...parts])), hardline(), ']']);
   }
 
   // Keep single-line arrays compact: [1, 2, 3] not [ 1, 2, 3 ]
-  return concat([
-    '[',
-    join(', ', items),
-    ']',
-  ]);
+  return concat(['[', join(', ', items), ']']);
 }
 
 function printRange(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
@@ -904,7 +950,10 @@ function printDotIndexExpression(node: TreeSitter.Node, options: Required<Format
   return concat(parts);
 }
 
-function printParenthesizedExpression(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+function printParenthesizedExpression(
+  node: TreeSitter.Node,
+  options: Required<FormatOptions>
+): Doc {
   const parts: Doc[] = ['('];
 
   for (const child of node.children) {
@@ -1001,7 +1050,11 @@ function printModifierChain(node: TreeSitter.Node, options: Required<FormatOptio
     if (child.type === 'modifier') {
       // No space after modifier characters like %, #, !, *
       parts.push(child.text);
-    } else if (child.type === 'module_call' || child.type === 'function_call' || child.type === 'transform_chain') {
+    } else if (
+      child.type === 'module_call' ||
+      child.type === 'function_call' ||
+      child.type === 'transform_chain'
+    ) {
       // Just add the node directly, no space before it
       parts.push(printNode(child, options));
     } else {
@@ -1113,13 +1166,19 @@ function hasChildOfType(node: TreeSitter.Node, type: string): boolean {
 }
 
 function isOperator(text: string): boolean {
-  return ['+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '&&', '||', '!'].includes(text);
+  return ['+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '&&', '||', '!'].includes(
+    text
+  );
 }
 
 /**
  * Convert Doc IR to actual string output
  */
-function printDoc(doc: Doc, options: Required<FormatOptions>, mode: 'flat' | 'break' = 'break'): string {
+function printDoc(
+  doc: Doc,
+  options: Required<FormatOptions>,
+  mode: 'flat' | 'break' = 'break'
+): string {
   const indentStr = options.useTabs ? '\t' : ' '.repeat(options.indentSize);
   let output = '';
   let indentLevel = 0;
@@ -1177,7 +1236,10 @@ function printDoc(doc: Doc, options: Required<FormatOptions>, mode: 'flat' | 'br
   print(doc);
 
   // Remove trailing whitespace from each line and ensure single trailing newline
-  let result = output.split('\n').map(line => line.trimEnd()).join('\n');
+  let result = output
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n');
 
   // Ensure exactly one trailing newline (all text files should end with newline)
   // Unless the result is empty

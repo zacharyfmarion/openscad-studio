@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { CameraControls, Grid, GizmoHelper, GizmoViewcube, OrthographicCamera, PerspectiveCamera, ContactShadows, Environment, Wireframe as DreiWireframe } from '@react-three/drei';
+import {
+  CameraControls,
+  Grid,
+  GizmoHelper,
+  GizmoViewcube,
+  OrthographicCamera,
+  PerspectiveCamera,
+  ContactShadows,
+  Environment,
+  Wireframe as DreiWireframe,
+} from '@react-three/drei';
 import type { CameraControls as CameraControlsType } from '@react-three/drei';
 import { STLLoader } from 'three-stdlib';
 import * as THREE from 'three';
@@ -12,7 +22,17 @@ interface ThreeViewerProps {
   isLoading?: boolean;
 }
 
-function STLModel({ url, wireframe, meshRef, modelColor }: { url: string; wireframe: boolean; meshRef: React.RefObject<THREE.Mesh>; modelColor: string }) {
+function STLModel({
+  url,
+  wireframe,
+  meshRef,
+  modelColor,
+}: {
+  url: string;
+  wireframe: boolean;
+  meshRef: React.RefObject<THREE.Mesh>;
+  modelColor: string;
+}) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
 
   useEffect(() => {
@@ -44,12 +64,7 @@ function STLModel({ url, wireframe, meshRef, modelColor }: { url: string; wirefr
     >
       {wireframe ? (
         <>
-          <meshBasicMaterial
-            color={modelColor}
-            transparent
-            opacity={0.2}
-            side={THREE.DoubleSide}
-          />
+          <meshBasicMaterial color={modelColor} transparent opacity={0.2} side={THREE.DoubleSide} />
           <DreiWireframe
             geometry={geometry}
             stroke={modelColor}
@@ -69,12 +84,15 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
   const { theme } = useTheme();
 
   // Derive theme colors from context
-  const themeColors = useMemo(() => ({
-    background: theme.colors.bg.primary,
-    grid: theme.colors.border.secondary,
-    gridSection: theme.colors.border.primary,
-    model: theme.colors.accent.secondary,
-  }), [theme]);
+  const themeColors = useMemo(
+    () => ({
+      background: theme.colors.bg.primary,
+      grid: theme.colors.border.secondary,
+      gridSection: theme.colors.border.primary,
+      model: theme.colors.accent.secondary,
+    }),
+    [theme]
+  );
 
   const [orthographic, setOrthographic] = useState(false);
   const [wireframe, setWireframe] = useState(false);
@@ -105,7 +123,7 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
               className="animate-spin h-8 w-8 border-4 rounded-full mx-auto mb-2"
               style={{
                 borderColor: 'var(--border-primary)',
-                borderTopColor: 'var(--accent-primary)'
+                borderTopColor: 'var(--accent-primary)',
               }}
             />
             <p>Rendering...</p>
@@ -121,7 +139,7 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
           style={{
             backgroundColor: 'var(--bg-elevated)',
             border: '1px solid var(--border-secondary)',
-            color: 'var(--text-secondary)'
+            color: 'var(--text-secondary)',
           }}
           title="Fit to View"
         >
@@ -134,7 +152,7 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
           style={{
             backgroundColor: orthographic ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
             border: '1px solid var(--border-secondary)',
-            color: orthographic ? 'var(--text-inverse)' : 'var(--text-secondary)'
+            color: orthographic ? 'var(--text-inverse)' : 'var(--text-secondary)',
           }}
           title="Orthographic Projection"
         >
@@ -147,7 +165,7 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
           style={{
             backgroundColor: wireframe ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
             border: '1px solid var(--border-secondary)',
-            color: wireframe ? 'var(--text-inverse)' : 'var(--text-secondary)'
+            color: wireframe ? 'var(--text-inverse)' : 'var(--text-secondary)',
           }}
           title="Wireframe Mode"
         >
@@ -160,7 +178,7 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
           style={{
             backgroundColor: showShadows ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
             border: '1px solid var(--border-secondary)',
-            color: showShadows ? 'var(--text-inverse)' : 'var(--text-secondary)'
+            color: showShadows ? 'var(--text-inverse)' : 'var(--text-secondary)',
           }}
           title="Toggle Shadows"
         >
@@ -168,15 +186,24 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
         </button>
       </div>
 
-      <Canvas
-        shadows
-        style={{ width: '100%', height: '100%', background: themeColors.background }}
-      >
+      <Canvas shadows style={{ width: '100%', height: '100%', background: themeColors.background }}>
         {/* Camera */}
         {orthographic ? (
-          <OrthographicCamera makeDefault position={[100, 100, 100]} zoom={2} near={-1000} far={2000} />
+          <OrthographicCamera
+            makeDefault
+            position={[100, 100, 100]}
+            zoom={2}
+            near={-1000}
+            far={2000}
+          />
         ) : (
-          <PerspectiveCamera makeDefault position={[100, 100, 100]} fov={50} near={0.1} far={2000} />
+          <PerspectiveCamera
+            makeDefault
+            position={[100, 100, 100]}
+            fov={50}
+            near={0.1}
+            far={2000}
+          />
         )}
 
         {/* Lighting */}
@@ -190,26 +217,20 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
         />
 
         {/* Grid */}
-        <Grid
-          infiniteGrid
-          cellSize={10}
-          sectionSize={50}
-          fadeDistance={500}
-        />
+        <Grid infiniteGrid cellSize={10} sectionSize={50} fadeDistance={500} />
 
         {/* Contact Shadows */}
         {showShadows && (
-          <ContactShadows
-            position={[0, 0, 0]}
-            opacity={0.3}
-            scale={200}
-            blur={2}
-            far={50}
-          />
+          <ContactShadows position={[0, 0, 0]} opacity={0.3} scale={200} blur={2} far={50} />
         )}
 
         {/* STL Model */}
-        <STLModel url={stlPath} wireframe={wireframe} meshRef={meshRef} modelColor={themeColors.model} />
+        <STLModel
+          url={stlPath}
+          wireframe={wireframe}
+          meshRef={meshRef}
+          modelColor={themeColors.model}
+        />
 
         {/* Camera Controls */}
         <CameraControls

@@ -1,10 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  fetchModels,
-  getCachedModels,
-  ModelInfo,
-  FetchModelsResponse,
-} from '../api/tauri';
+import { fetchModels, getCachedModels, ModelInfo, FetchModelsResponse } from '../api/tauri';
 
 export interface GroupedModels {
   anthropic: ModelInfo[];

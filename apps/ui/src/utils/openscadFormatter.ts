@@ -24,7 +24,7 @@ export function formatOpenScadCode(code: string, options: FormatOptions = {}): s
   const indentStr = opts.useTabs ? '\t' : ' '.repeat(opts.indentSize);
 
   // Split into lines and remove trailing whitespace
-  const lines = code.split('\n').map(line => line.trimEnd());
+  const lines = code.split('\n').map((line) => line.trimEnd());
 
   const formatted: string[] = [];
   let indentLevel = 0;
@@ -202,7 +202,13 @@ function formatLineContent(line: string): string {
         }
         result += twoChar;
         const followingChar = line[i + 2];
-        if (followingChar && followingChar !== ' ' && followingChar !== ')' && followingChar !== ';' && followingChar !== ',') {
+        if (
+          followingChar &&
+          followingChar !== ' ' &&
+          followingChar !== ')' &&
+          followingChar !== ';' &&
+          followingChar !== ','
+        ) {
           result += ' ';
         }
         i++;
@@ -226,8 +232,9 @@ function formatLineContent(line: string): string {
       const isActuallyBinary =
         (char === '=' && nextChar !== '=') ||
         (char === '!' && nextChar === '=') ||
-        (char === '<' || char === '>') ||
-        (['+', '-', '*', '/', '%'].includes(char));
+        char === '<' ||
+        char === '>' ||
+        ['+', '-', '*', '/', '%'].includes(char);
 
       if (isActuallyBinary) {
         // Add space before if needed
@@ -249,7 +256,7 @@ function formatLineContent(line: string): string {
 
   const singleLineCommentIndex = result.indexOf('//');
   const blockCommentIndex = result.indexOf('/*');
-  const commentIndexes = [singleLineCommentIndex, blockCommentIndex].filter(index => index >= 0);
+  const commentIndexes = [singleLineCommentIndex, blockCommentIndex].filter((index) => index >= 0);
   const prefixEnd = commentIndexes.length > 0 ? Math.min(...commentIndexes) : result.length;
   const prefix = result.slice(0, prefixEnd);
   const suffix = result.slice(prefixEnd);
@@ -263,7 +270,10 @@ function formatLineContent(line: string): string {
     .replace(/\bwhile\s*\(/g, 'while (')
     .replace(/\)\s*\{/g, ') {')
     .replace(/else if\s*\(([^)]*)\)\s*\{/g, 'else if ($1) {')
-    .replace(/\b(if|for|while)\s*\(([^)]*)\)\s*\{/g, (_match, keyword, condition) => `${keyword} (${condition}) {`)
+    .replace(
+      /\b(if|for|while)\s*\(([^)]*)\)\s*\{/g,
+      (_match, keyword, condition) => `${keyword} (${condition}) {`
+    )
     .replace(/^(use|include)\s*<\s*([^>]+?)\s*>/g, '$1 <$2>');
 
   return normalizedPrefix + suffix;
