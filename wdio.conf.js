@@ -8,6 +8,7 @@ let tauriDriver;
 
 exports.config = {
   specs: ['./tests/e2e/**/*.spec.js'],
+  exclude: [],
   maxInstances: 1,
 
   capabilities: [{
