@@ -13,11 +13,14 @@ export function SvgViewer({ src }: SvgViewerProps) {
   const { theme } = useTheme();
 
   // Derive theme colors from context
-  const themeColors = useMemo(() => ({
-    background: theme.colors.bg.primary,
-    stroke: theme.colors.accent.primary,
-    axes: theme.colors.border.secondary,
-  }), [theme]);
+  const themeColors = useMemo(
+    () => ({
+      background: theme.colors.bg.primary,
+      stroke: theme.colors.accent.primary,
+      axes: theme.colors.border.secondary,
+    }),
+    [theme]
+  );
 
   // Load SVG content and inject axes
   useEffect(() => {
@@ -39,7 +42,10 @@ export function SvgViewer({ src }: SvgViewerProps) {
         const viewBox = svgElement.getAttribute('viewBox');
         console.log('[SvgViewer] Original viewBox:', viewBox);
 
-        let width = 10, height = 10, minX = 0, minY = -10;
+        let width = 10,
+          height = 10,
+          minX = 0,
+          minY = -10;
         if (viewBox) {
           const [x, y, w, h] = viewBox.split(' ').map(Number);
           minX = x;
@@ -131,8 +137,22 @@ export function SvgViewer({ src }: SvgViewerProps) {
         console.log('[SvgViewer] Final SVG length:', finalSvg.length);
         console.log('[SvgViewer] Axes group added:', axesGroup.childNodes.length, 'elements');
         console.log('[SvgViewer] Axis details:', {
-          xAxis: { x1: xAxis.getAttribute('x1'), y1: xAxis.getAttribute('y1'), x2: xAxis.getAttribute('x2'), y2: xAxis.getAttribute('y2'), stroke: xAxis.getAttribute('stroke'), width: xAxis.getAttribute('stroke-width') },
-          yAxis: { x1: yAxis.getAttribute('x1'), y1: yAxis.getAttribute('y1'), x2: yAxis.getAttribute('x2'), y2: yAxis.getAttribute('y2'), stroke: yAxis.getAttribute('stroke'), width: yAxis.getAttribute('stroke-width') }
+          xAxis: {
+            x1: xAxis.getAttribute('x1'),
+            y1: xAxis.getAttribute('y1'),
+            x2: xAxis.getAttribute('x2'),
+            y2: xAxis.getAttribute('y2'),
+            stroke: xAxis.getAttribute('stroke'),
+            width: xAxis.getAttribute('stroke-width'),
+          },
+          yAxis: {
+            x1: yAxis.getAttribute('x1'),
+            y1: yAxis.getAttribute('y1'),
+            x2: yAxis.getAttribute('x2'),
+            y2: yAxis.getAttribute('y2'),
+            stroke: yAxis.getAttribute('stroke'),
+            width: yAxis.getAttribute('stroke-width'),
+          },
         });
         console.log('[SvgViewer] First 1000 chars of SVG:', finalSvg.substring(0, 1000));
         console.log('[SvgViewer] SVG contains axes group?', finalSvg.includes('coordinate-axes'));
@@ -154,7 +174,10 @@ export function SvgViewer({ src }: SvgViewerProps) {
   // Show error if SVG failed to load
   if (error) {
     return (
-      <div className="h-full w-full flex items-center justify-center" style={{ backgroundColor: themeColors.background }}>
+      <div
+        className="h-full w-full flex items-center justify-center"
+        style={{ backgroundColor: themeColors.background }}
+      >
         <div className="text-center max-w-md px-4" style={{ color: 'var(--text-secondary)' }}>
           <p className="text-lg mb-2">{error}</p>
           <p className="text-sm">The SVG file may not have been created by OpenSCAD.</p>
@@ -166,7 +189,10 @@ export function SvgViewer({ src }: SvgViewerProps) {
   // Show loading state if no content yet
   if (!svgContent) {
     return (
-      <div className="h-full w-full flex items-center justify-center" style={{ backgroundColor: themeColors.background }}>
+      <div
+        className="h-full w-full flex items-center justify-center"
+        style={{ backgroundColor: themeColors.background }}
+      >
         <p style={{ color: 'var(--text-tertiary)' }}>Loading SVG...</p>
       </div>
     );
@@ -191,7 +217,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
                 style={{
                   backgroundColor: 'var(--bg-elevated)',
                   border: '1px solid var(--border-secondary)',
-                  color: 'var(--text-secondary)'
+                  color: 'var(--text-secondary)',
                 }}
                 title="Zoom In"
               >
@@ -203,7 +229,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
                 style={{
                   backgroundColor: 'var(--bg-elevated)',
                   border: '1px solid var(--border-secondary)',
-                  color: 'var(--text-secondary)'
+                  color: 'var(--text-secondary)',
                 }}
                 title="Zoom Out"
               >
@@ -215,7 +241,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
                 style={{
                   backgroundColor: 'var(--bg-elevated)',
                   border: '1px solid var(--border-secondary)',
-                  color: 'var(--text-secondary)'
+                  color: 'var(--text-secondary)',
                 }}
                 title="Fit to View"
               >

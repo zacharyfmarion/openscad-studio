@@ -24,22 +24,30 @@ export function Preview({ src, kind, isRendering, error, code, onCodeChange }: P
   // This is approximate - panels will use actual pixel measurements
   const defaultCustomizerSize = (settings.ui.customizerWidth / 1920) * 100;
 
-  const handlePanelResize = useCallback((sizes: number[]) => {
-    if (sizes.length === 2 && showCustomizer) {
-      // sizes[1] is the customizer panel size as percentage
-      // Convert to approximate pixel width (assuming 1920px container)
-      const pixelWidth = Math.round((sizes[1] / 100) * 1920);
-      // Clamp between min and max
-      const clampedWidth = Math.max(350, Math.min(900, pixelWidth));
+  const handlePanelResize = useCallback(
+    (sizes: number[]) => {
+      if (sizes.length === 2 && showCustomizer) {
+        // sizes[1] is the customizer panel size as percentage
+        // Convert to approximate pixel width (assuming 1920px container)
+        const pixelWidth = Math.round((sizes[1] / 100) * 1920);
+        // Clamp between min and max
+        const clampedWidth = Math.max(350, Math.min(900, pixelWidth));
 
-      // Only update if significantly different (avoid spam)
-      if (Math.abs(settings.ui.customizerWidth - clampedWidth) > 5) {
-        updateSetting('ui', { customizerWidth: clampedWidth });
+        // Only update if significantly different (avoid spam)
+        if (Math.abs(settings.ui.customizerWidth - clampedWidth) > 5) {
+          updateSetting('ui', { customizerWidth: clampedWidth });
+        }
       }
-    }
-  }, [showCustomizer, settings.ui.customizerWidth]);
+    },
+    [showCustomizer, settings.ui.customizerWidth]
+  );
 
-  console.log('[Preview] Render:', { src: src?.substring(0, 80), kind, isRendering, hasError: !!error });
+  console.log('[Preview] Render:', {
+    src: src?.substring(0, 80),
+    kind,
+    isRendering,
+    hasError: !!error,
+  });
 
   // Render the preview content (always show, don't unmount during rendering)
   let previewContent;
@@ -47,12 +55,18 @@ export function Preview({ src, kind, isRendering, error, code, onCodeChange }: P
   if (error) {
     console.log('[Preview] Showing error:', error.substring(0, 100));
     previewContent = (
-      <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="px-4 py-2 rounded border max-w-2xl" style={{
-          color: 'var(--color-error)',
-          backgroundColor: 'rgba(220, 50, 47, 0.2)',
-          borderColor: 'var(--color-error)'
-        }}>
+      <div
+        className="h-full flex items-center justify-center"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+      >
+        <div
+          className="px-4 py-2 rounded border max-w-2xl"
+          style={{
+            color: 'var(--color-error)',
+            backgroundColor: 'rgba(220, 50, 47, 0.2)',
+            borderColor: 'var(--color-error)',
+          }}
+        >
           <p className="font-semibold">Render Error</p>
           <p className="text-sm mt-1 whitespace-pre-wrap">{error}</p>
         </div>
@@ -61,7 +75,10 @@ export function Preview({ src, kind, isRendering, error, code, onCodeChange }: P
   } else if (!src && !isRendering) {
     console.log('[Preview] No src, showing placeholder');
     previewContent = (
-      <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div
+        className="h-full flex items-center justify-center"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+      >
         <p style={{ color: 'var(--text-tertiary)' }}>No preview available</p>
       </div>
     );
@@ -72,7 +89,10 @@ export function Preview({ src, kind, isRendering, error, code, onCodeChange }: P
   } else {
     console.error('[Preview] Unexpected render kind:', kind);
     previewContent = (
-      <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div
+        className="h-full flex items-center justify-center"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+      >
         <p style={{ color: 'var(--color-error)' }}>Unexpected render format: {kind}</p>
       </div>
     );
@@ -132,7 +152,10 @@ export function Preview({ src, kind, isRendering, error, code, onCodeChange }: P
       </Panel>
 
       {/* Resize handle */}
-      <PanelResizeHandle className="w-1 transition-colors hover:w-1.5" style={{ backgroundColor: 'var(--border-primary)' }} />
+      <PanelResizeHandle
+        className="w-1 transition-colors hover:w-1.5"
+        style={{ backgroundColor: 'var(--border-primary)' }}
+      />
 
       {/* Customizer panel */}
       <Panel defaultSize={defaultCustomizerSize} minSize={18} maxSize={50}>
@@ -144,7 +167,10 @@ export function Preview({ src, kind, isRendering, error, code, onCodeChange }: P
           }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-primary)' }}>
+          <div
+            className="flex items-center justify-between px-4 py-3 border-b"
+            style={{ borderColor: 'var(--border-primary)' }}
+          >
             <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
               Customizer
             </h3>

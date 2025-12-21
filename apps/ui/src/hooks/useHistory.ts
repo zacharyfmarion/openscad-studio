@@ -78,24 +78,27 @@ export function useHistory() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Create checkpoint
-  const createCheckpoint = useCallback(async (
-    code: string,
-    description: string,
-    changeType: 'user' | 'ai' | 'fileload' | 'undo' | 'redo' = 'user'
-  ): Promise<string> => {
-    try {
-      const id = await invoke<string>('create_checkpoint', {
-        code,
-        description,
-        changeType,
-      });
-      await refreshHistoryState();
-      return id;
-    } catch (err) {
-      console.error('[useHistory] Failed to create checkpoint:', err);
-      throw err;
-    }
-  }, [refreshHistoryState]);
+  const createCheckpoint = useCallback(
+    async (
+      code: string,
+      description: string,
+      changeType: 'user' | 'ai' | 'fileload' | 'undo' | 'redo' = 'user'
+    ): Promise<string> => {
+      try {
+        const id = await invoke<string>('create_checkpoint', {
+          code,
+          description,
+          changeType,
+        });
+        await refreshHistoryState();
+        return id;
+      } catch (err) {
+        console.error('[useHistory] Failed to create checkpoint:', err);
+        throw err;
+      }
+    },
+    [refreshHistoryState]
+  );
 
   // Undo
   const undo = useCallback(async (): Promise<EditorCheckpoint | null> => {
@@ -122,31 +125,37 @@ export function useHistory() {
   }, [refreshHistoryState]);
 
   // Restore to specific checkpoint
-  const restoreToCheckpoint = useCallback(async (checkpointId: string): Promise<EditorCheckpoint | null> => {
-    try {
-      const checkpoint = await invoke<EditorCheckpoint>('restore_to_checkpoint', {
-        checkpointId,
-      });
-      await refreshHistoryState();
-      return checkpoint;
-    } catch (err) {
-      console.error('[useHistory] Failed to restore checkpoint:', err);
-      return null;
-    }
-  }, [refreshHistoryState]);
+  const restoreToCheckpoint = useCallback(
+    async (checkpointId: string): Promise<EditorCheckpoint | null> => {
+      try {
+        const checkpoint = await invoke<EditorCheckpoint>('restore_to_checkpoint', {
+          checkpointId,
+        });
+        await refreshHistoryState();
+        return checkpoint;
+      } catch (err) {
+        console.error('[useHistory] Failed to restore checkpoint:', err);
+        return null;
+      }
+    },
+    [refreshHistoryState]
+  );
 
   // Get diff between checkpoints
-  const getCheckpointDiff = useCallback(async (fromId: string, toId: string): Promise<CheckpointDiff | null> => {
-    try {
-      return await invoke<CheckpointDiff>('get_checkpoint_diff', {
-        fromId,
-        toId,
-      });
-    } catch (err) {
-      console.error('[useHistory] Failed to get checkpoint diff:', err);
-      return null;
-    }
-  }, []);
+  const getCheckpointDiff = useCallback(
+    async (fromId: string, toId: string): Promise<CheckpointDiff | null> => {
+      try {
+        return await invoke<CheckpointDiff>('get_checkpoint_diff', {
+          fromId,
+          toId,
+        });
+      } catch (err) {
+        console.error('[useHistory] Failed to get checkpoint diff:', err);
+        return null;
+      }
+    },
+    []
+  );
 
   return {
     ...state,

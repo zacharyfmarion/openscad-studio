@@ -266,12 +266,10 @@ pub async fn apply_edit(
         eprintln!("[AI Tools] ✅ code-updated event emitted successfully");
     }
 
-    // Small delay to ensure frontend processes the code update before render
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
-    // Trigger a render to show the changes
-    eprintln!("[AI Tools] Emitting render-requested event");
-    if let Err(e) = app.emit("render-requested", ()) {
+    // Trigger a render to show the changes - pass the new code directly
+    // to avoid race condition with React state updates
+    eprintln!("[AI Tools] Emitting render-requested event with code");
+    if let Err(e) = app.emit("render-requested", &new_code) {
         eprintln!("[AI Tools] ❌ Failed to emit render-requested: {e}");
     } else {
         eprintln!("[AI Tools] ✅ render-requested event emitted successfully");

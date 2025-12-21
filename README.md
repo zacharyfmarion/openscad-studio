@@ -17,7 +17,7 @@
 </p>
 
 > **⚠️ Early Alpha Software**
-> This project is in early alpha and has only been tested on macOS. Windows and Linux support is planned but not yet implemented or tested.
+> This project is in early alpha. It has been tested on macOS and Linux (including WSL2). Windows support is planned but not yet tested.
 
 ---
 
@@ -45,20 +45,38 @@ As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precis
 
 ### Prerequisites
 
-1. The **opescad** cli binary must be installed and available in your PATH. You can install via package manager:
-  - macOS: `brew install openscad`
-  - Ubuntu: `sudo apt install openscad`
-  - Windows: Download installer from website
+1. **OpenSCAD** CLI binary must be installed and available in your PATH:
+   - macOS: `brew install openscad`
+   - Ubuntu/Debian: `sudo apt install openscad`
+   - Fedora: `sudo dnf install openscad`
+   - Snap: `sudo snap install openscad`
+   - Windows: Download installer from [openscad.org](https://openscad.org/)
 
-2. For development, you'll need:
+2. **Development dependencies**:
+
+   **All platforms:**
    - **Node.js** 18+ and **pnpm**
      ```bash
      npm install -g pnpm
      ```
-   - **Rust** toolchain (for building Tauri backend)
+   - **Rust** toolchain
      ```bash
      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
      ```
+
+   **Linux/WSL2 only** - Tauri requires these system libraries:
+   ```bash
+   sudo apt install libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev \
+     libsoup-3.0-dev libayatana-appindicator3-dev librsvg2-dev \
+     build-essential curl wget file libssl-dev libgtk-3-dev libxdo-dev
+   ```
+
+   **WSL2 GPU acceleration (optional):**
+   ```bash
+   # Add your user to the render group for GPU access
+   sudo usermod -aG render $USER
+   # Log out and back in for changes to take effect
+   ```
 
 ### Development
 
@@ -74,6 +92,36 @@ pnpm tauri:build
 ```
 
 The built application will be in `apps/ui/src-tauri/target/release/bundle/`.
+
+### Code Formatting
+
+```bash
+# Format all code (TypeScript + Rust)
+pnpm format
+
+# Format TypeScript/JavaScript only
+pnpm format:ts
+
+# Format Rust only
+pnpm format:rust
+
+# Check formatting without making changes
+pnpm format:check
+```
+
+### Testing
+
+```bash
+# Run E2E tests (requires built app)
+pnpm test:e2e
+
+# Build debug app and run E2E tests
+pnpm test:e2e:build
+```
+
+**E2E Test Requirements:**
+- WebKitGTK driver: `sudo apt install webkit2gtk-driver`
+- Tauri driver: `cargo install tauri-driver`
 
 ## 🏗️ Project Structure
 

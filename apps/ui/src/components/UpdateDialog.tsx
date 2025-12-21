@@ -51,7 +51,10 @@ export function UpdateDialog({
 
         {isDownloading && (
           <div className="mb-4">
-            <div className="w-full rounded-full h-2" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+            <div
+              className="w-full rounded-full h-2"
+              style={{ backgroundColor: 'var(--bg-tertiary)' }}
+            >
               <div
                 className="h-2 rounded-full transition-all"
                 style={{

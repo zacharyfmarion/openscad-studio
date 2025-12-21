@@ -197,18 +197,62 @@ pnpm type-check         # Type check all workspaces
 
 ## Testing Strategy
 
-- **Manual testing**: Primary method during development (Phase 1-3)
-- **Golden tests**: Planned for Rust render pipeline (Phase 4)
-- **E2E tests**: Playwright tests planned (Phase 4)
-- **Unit tests**: Planned for React components (Phase 4)
+### E2E Tests (WebdriverIO + Tauri Driver)
+
+E2E tests use WebdriverIO with tauri-driver to test the full application.
+
+**Prerequisites:**
+```bash
+# Install WebKitGTK driver (Linux)
+sudo apt install webkit2gtk-driver
+
+# Install tauri-driver
+cargo install tauri-driver
+```
+
+**Running Tests:**
+```bash
+# Build debug app and run tests
+pnpm test:e2e:build
+
+# Run tests only (requires pre-built app)
+pnpm test:e2e
+```
+
+**Test Files:**
+- `tests/e2e/helpers.js` - Shared test utilities (waitForAppReady, editor helpers)
+- `tests/e2e/editor.spec.js` - Monaco editor tests
+- `tests/e2e/preview.spec.js` - 3D preview and rendering tests
+- `tests/e2e/tabs.spec.js` - Tab management tests
+- `tests/e2e/themes.spec.js` - Theme switching tests
+- `tests/e2e/settings.spec.js` - Settings dialog tests
+
+**Key Helper Functions:**
+- `waitForAppReady()` - Handles OpenSCAD setup screen and welcome screen dismissal
+- `getEditorContent()` / `setEditorContent()` - Monaco editor content access
+- `focusEditor()` - Focus editor for keyboard input
+
+### Code Formatting
+
+**Prettier** for TypeScript/JavaScript, **rustfmt** for Rust:
+```bash
+pnpm format        # Format all
+pnpm format:ts     # TypeScript/JS only
+pnpm format:rust   # Rust only
+pnpm format:check  # Check without changes
+```
+
+### Future Testing (Planned)
+- **Golden tests**: For Rust render pipeline
+- **Unit tests**: For React components
 
 ## Current Status
 
-### Completed (Phase 1-4.3)
+### Completed (Phase 1-4.4)
 ✅ Monaco editor with OpenSCAD syntax
 ✅ Live PNG/STL/SVG preview
 ✅ Error diagnostics with inline markers
-✅ Auto-detect OpenSCAD installation
+✅ Auto-detect OpenSCAD installation (including Linux Snap/Flatpak)
 ✅ 3D mesh viewer (Three.js) with wireframe/orthographic/shadows
 ✅ Export to STL, OBJ, AMF, 3MF, PNG, SVG, DXF
 ✅ Content-hash caching
@@ -222,22 +266,25 @@ pnpm type-check         # Type check all workspaces
 ✅ Resizable customizer panel with persistent width
 ✅ 22+ editor themes with categorized dropdown (Catppuccin, Dracula, One Dark Pro, etc.)
 ✅ Vim mode with configurable keybindings
+✅ Linux/WSL2 support
+✅ E2E testing with WebdriverIO + tauri-driver
+✅ Code formatting (rustfmt + prettier)
 
-### Planned (Phase 4+)
+### Planned (Phase 4.5+)
 - Special operators preview (`#`, `%`, `*`, `!`)
 - Configurable preview resolution
 - Advanced 3D viewer features (measurement, section planes)
-- Cross-platform testing (Windows/Linux)
+- Windows testing
 - Code signing for macOS/Windows
 - Auto-update mechanism
-- CI/CD and automated testing
+- CI/CD integration
 
 ## Known Issues & Gotchas
 
 1. **Image caching**: Browser caches preview images. Use cache-busting query params (`?t=${timestamp}`)
 2. **OpenSCAD `--imgsize` format**: Must be `W,H` (comma), not `WxH` (x)
 3. **Monaco line numbers**: Line numbers in diagnostics are 1-indexed, Monaco uses 0-indexed
-4. **Cross-platform**: Only tested on macOS; Windows/Linux testing pending
+4. **Cross-platform**: Tested on macOS and Linux/WSL2; Windows testing pending
 
 ## Code Style
 
@@ -279,5 +326,5 @@ pnpm type-check         # Type check all workspaces
 
 ---
 
-**Last Updated**: 2025-10-19
-**Current Phase**: Phase 4.3 Complete (Customizer), Phase 4.4-4.5 (Testing & Distribution) Planning
+**Last Updated**: 2025-12-20
+**Current Phase**: Phase 4.4 Complete (E2E Testing & Formatting), Phase 4.5 (Distribution) Planning

@@ -59,13 +59,11 @@ export async function renderPreview(
 ): Promise<RenderPreviewResponse> {
   return await invoke('render_preview', {
     openscadPath,
-    request
+    request,
   });
 }
 
-export async function detectBackend(
-  openscadPath: string
-): Promise<DetectBackendResponse> {
+export async function detectBackend(openscadPath: string): Promise<DetectBackendResponse> {
   return await invoke('detect_backend', { openscadPath });
 }
 
@@ -88,7 +86,7 @@ export async function renderExact(
 ): Promise<RenderExactResponse> {
   return await invoke('render_exact', {
     openscadPath,
-    request
+    request,
   });
 }
 
@@ -134,9 +132,7 @@ export interface ModelValidation {
   message?: string;
 }
 
-export async function fetchModels(
-  forceRefresh = false
-): Promise<FetchModelsResponse> {
+export async function fetchModels(forceRefresh = false): Promise<FetchModelsResponse> {
   return await invoke('fetch_models', { forceRefresh });
 }
 
@@ -144,8 +140,6 @@ export async function getCachedModels(): Promise<FetchModelsResponse> {
   return await invoke('get_cached_models');
 }
 
-export async function validateModel(
-  modelId: string
-): Promise<ModelValidation> {
+export async function validateModel(modelId: string): Promise<ModelValidation> {
   return await invoke('validate_model', { modelId });
 }

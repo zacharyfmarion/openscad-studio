@@ -17,16 +17,32 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variantStyles = {
       primary: disabled
-        ? { backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', cursor: 'not-allowed' }
+        ? {
+            backgroundColor: 'var(--bg-tertiary)',
+            color: 'var(--text-tertiary)',
+            cursor: 'not-allowed',
+          }
         : { backgroundColor: 'var(--accent-primary)', color: 'var(--text-inverse)' },
       secondary: disabled
-        ? { backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', cursor: 'not-allowed' }
+        ? {
+            backgroundColor: 'var(--bg-tertiary)',
+            color: 'var(--text-tertiary)',
+            cursor: 'not-allowed',
+          }
         : { backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' },
       success: disabled
-        ? { backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', cursor: 'not-allowed' }
+        ? {
+            backgroundColor: 'var(--bg-tertiary)',
+            color: 'var(--text-tertiary)',
+            cursor: 'not-allowed',
+          }
         : { backgroundColor: 'var(--color-success)', color: 'var(--text-inverse)' },
       danger: disabled
-        ? { backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', cursor: 'not-allowed' }
+        ? {
+            backgroundColor: 'var(--bg-tertiary)',
+            color: 'var(--text-tertiary)',
+            cursor: 'not-allowed',
+          }
         : { backgroundColor: 'var(--color-error)', color: 'var(--text-inverse)' },
       ghost: disabled
         ? { backgroundColor: 'transparent', color: 'var(--text-tertiary)', cursor: 'not-allowed' }

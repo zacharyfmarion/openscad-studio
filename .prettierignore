@@ -1,0 +1,11 @@
+# Ignore build artifacts and generated files
+dist/
+build/
+target/
+node_modules/
+*.min.js
+*.min.css
+pnpm-lock.yaml
+
+# Tauri generated files
+apps/ui/src-tauri/gen/

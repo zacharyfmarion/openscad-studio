@@ -8,7 +8,12 @@ interface ModelSelectorProps {
   disabled?: boolean;
 }
 
-export function ModelSelector({ currentModel, availableProviders, onChange, disabled }: ModelSelectorProps) {
+export function ModelSelector({
+  currentModel,
+  availableProviders,
+  onChange,
+  disabled,
+}: ModelSelectorProps) {
   const { groupedByProvider, isLoading, fromCache, refreshModels } = useModels(availableProviders);
 
   const { anthropic: anthropicModels, openai: openaiModels } = groupedByProvider;
