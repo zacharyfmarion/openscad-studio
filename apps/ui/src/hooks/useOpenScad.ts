@@ -179,6 +179,23 @@ export function useOpenScad(workingDir?: string | null) {
     doRender(source, true, dimensionMode);
   }, [source, dimensionMode, doRender]);
 
+  // Render with specific code (used by AI to avoid race conditions with state)
+  const renderWithCode = useCallback(
+    (code: string) => {
+      console.log('[useOpenScad] renderWithCode called', {
+        codeLength: code.length,
+        dimensionMode,
+      });
+      // Also update source state to keep in sync
+      setSource(code);
+      updateEditorState(code).catch((err) => {
+        console.error('Failed to update editor state:', err);
+      });
+      doRender(code, true, dimensionMode);
+    },
+    [dimensionMode, doRender]
+  );
+
   // Render on save function (stable callback)
   const renderOnSave = useCallback(() => {
     doRender(source, true, dimensionMode);
@@ -196,6 +213,7 @@ export function useOpenScad(workingDir?: string | null) {
     setOpenscadPath,
     dimensionMode,
     manualRender,
+    renderWithCode,
     renderOnSave,
     clearPreview,
   };

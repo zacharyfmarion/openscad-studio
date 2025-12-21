@@ -11,9 +11,11 @@
     "fs:default",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
+    "fs:allow-read-file",
+    "fs:read-all",
     {
       "identifier": "fs:scope",
-      "allow": ["$HOME/**", "$APPCACHE/**"]
+      "allow": ["$HOME/**", "$APPCACHE/**", "$CACHE/**", "/home/**", "/tmp/**"]
     },
     {
       "identifier": "core:app:allow-app-show",

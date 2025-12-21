@@ -70,6 +70,7 @@ function App() {
     openscadPath,
     dimensionMode,
     manualRender,
+    renderWithCode,
     renderOnSave,
   } = useOpenScad(workingDir);
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -277,6 +278,7 @@ function App() {
   const workingDirRef = useRef<string | null>(workingDir);
   const renderOnSaveRef = useRef(renderOnSave);
   const manualRenderRef = useRef(manualRender);
+  const renderWithCodeRef = useRef(renderWithCode);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -310,6 +312,10 @@ function App() {
   useEffect(() => {
     manualRenderRef.current = manualRender;
   }, [manualRender]);
+
+  useEffect(() => {
+    renderWithCodeRef.current = renderWithCode;
+  }, [renderWithCode]);
 
   // Centralized render-on-tab-change effect
   // This ensures ANY tab switch triggers a render, regardless of how it happened
@@ -806,14 +812,25 @@ function App() {
 
     const setupListener = async () => {
       console.log('[App] Setting up render-requested listener');
-      unlisten = await listen('render-requested', () => {
+      unlisten = await listen<string>('render-requested', (event) => {
         console.log('[App] ✅ Received render-requested event from AI');
-        console.log('[App] manualRenderRef.current exists:', !!manualRenderRef.current);
-        if (manualRenderRef.current) {
-          console.log('[App] Calling manualRenderRef.current()');
-          manualRenderRef.current();
+        const code = event.payload;
+        if (code && typeof code === 'string' && code.length > 0) {
+          // AI provided code directly - use renderWithCode to avoid race condition
+          console.log('[App] Using renderWithCode with AI-provided code, length:', code.length);
+          if (renderWithCodeRef.current) {
+            renderWithCodeRef.current(code);
+          } else {
+            console.error('[App] ❌ renderWithCodeRef.current is not set!');
+          }
         } else {
-          console.error('[App] ❌ manualRenderRef.current is not set!');
+          // No code provided - use manualRender (for customizer, etc.)
+          console.log('[App] Using manualRender (no code in event)');
+          if (manualRenderRef.current) {
+            manualRenderRef.current();
+          } else {
+            console.error('[App] ❌ manualRenderRef.current is not set!');
+          }
         }
       });
       console.log('[App] render-requested listener setup complete');

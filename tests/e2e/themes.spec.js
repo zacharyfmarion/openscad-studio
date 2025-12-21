@@ -31,23 +31,45 @@ describe('Theme Switching', () => {
   it('should change theme', async () => {
     const themeSelect = await $('select');
 
-    // Get initial background color
+    // Get initial theme value and background color
+    const initialValue = await themeSelect.getValue();
     const initialBg = await browser.execute(() => {
       return getComputedStyle(document.body).getPropertyValue('--bg-primary');
     });
-    console.log('Initial bg:', initialBg);
+    console.log('Initial theme:', initialValue, 'bg:', initialBg);
 
-    // Select a different theme
-    await themeSelect.selectByIndex(3); // Select 4th theme
+    // Get all available options using JavaScript (works with optgroups)
+    const options = await browser.execute(() => {
+      const select = document.querySelector('select');
+      if (!select) return [];
+      return Array.from(select.options).map(opt => ({
+        value: opt.value,
+        text: opt.text
+      }));
+    });
+    console.log('Available themes:', options.length);
+
+    // Find a different theme to select
+    const differentTheme = options.find(opt => opt.value !== initialValue && opt.value);
+    if (!differentTheme) {
+      console.log('No different theme available, skipping');
+      return;
+    }
+    console.log('Selecting theme:', differentTheme.value);
+
+    // Use selectByAttribute which works with optgroups
+    await themeSelect.selectByAttribute('value', differentTheme.value);
     await browser.pause(500);
 
     // Check if CSS variables changed
     const newBg = await browser.execute(() => {
       return getComputedStyle(document.body).getPropertyValue('--bg-primary');
     });
-    console.log('New bg:', newBg);
+    const newValue = await themeSelect.getValue();
+    console.log('New theme:', newValue, 'bg:', newBg);
 
-    // Background should have changed (or at least not crash)
+    // Theme value should have changed
+    expect(newValue).toBe(differentTheme.value);
   });
 
   it('should close settings after theme change', async () => {
