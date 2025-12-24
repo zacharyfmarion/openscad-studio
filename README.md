@@ -107,8 +107,10 @@ The AI copilot uses a native Rust implementation with direct API integration and
 4. Key is securely stored using Tauri's encrypted store plugin
 
 **Supported Providers:**
-- Anthropic (Claude Sonnet 4.5, Claude Sonnet 3.5)
-- OpenAI (GPT-4)
+All models from the following providers are supported:
+
+- Anthropic 
+- OpenAI
 
 The AI can:
 - View your current code and preview
