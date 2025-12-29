@@ -15,7 +15,13 @@ interface DiffLine {
   lineNumber: number | null;
 }
 
-export function DiffViewer({ oldCode, newCode, onAccept, onReject, isApplying = false }: DiffViewerProps) {
+export function DiffViewer({
+  oldCode,
+  newCode,
+  onAccept,
+  onReject,
+  isApplying = false,
+}: DiffViewerProps) {
   // Generate unified diff
   const diffLines = useMemo(() => {
     const diff = Diff.diffLines(oldCode, newCode);
@@ -109,15 +115,15 @@ export function DiffViewer({ oldCode, newCode, onAccept, onReject, isApplying = 
             line.type === 'add'
               ? 'bg-green-900/20 border-l-2 border-green-500'
               : line.type === 'remove'
-              ? 'bg-red-900/20 border-l-2 border-red-500'
-              : 'bg-gray-900';
+                ? 'bg-red-900/20 border-l-2 border-red-500'
+                : 'bg-gray-900';
 
           const textColor =
             line.type === 'add'
               ? 'text-green-300'
               : line.type === 'remove'
-              ? 'text-red-300'
-              : 'text-gray-400';
+                ? 'text-red-300'
+                : 'text-gray-400';
 
           const prefix = line.type === 'add' ? '+' : line.type === 'remove' ? '-' : ' ';
 

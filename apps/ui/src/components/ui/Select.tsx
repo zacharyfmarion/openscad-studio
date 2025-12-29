@@ -16,7 +16,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       w-full rounded appearance-none bg-no-repeat
       focus:outline-none focus:ring-1
       transition-all duration-100 ease-in-out
-    `.trim().replace(/\s+/g, ' ');
+    `
+      .trim()
+      .replace(/\s+/g, ' ');
 
     // Size-specific padding and text
     const sizeStyles = {
@@ -25,7 +27,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     };
 
     // VSCode-style dropdown arrow SVG (clean chevron down)
-    const dropdownArrow = "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3e%3cpath d='M4 6 L8 10 L12 6' stroke='%23cccccc' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e";
+    const dropdownArrow =
+      "data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3e%3cpath d='M4 6 L8 10 L12 6' stroke='%23cccccc' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e";
 
     const styles = {
       backgroundColor: disabled ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',

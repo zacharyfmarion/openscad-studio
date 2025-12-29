@@ -190,7 +190,8 @@ function getLanguageConfiguration(monaco: typeof Monaco): Monaco.languages.Langu
     surroundingPairs: SURROUNDING_PAIRS,
     wordPattern: WORD_PATTERN,
     indentationRules: {
-      increaseIndentPattern: /(^.*\{[^}"']*$)|(^\s*(module|function|if|else|for|each|intersection_for|let|assign)\b(?!.*;).*?$)/,
+      increaseIndentPattern:
+        /(^.*\{[^}"']*$)|(^\s*(module|function|if|else|for|each|intersection_for|let|assign)\b(?!.*;).*?$)/,
       decreaseIndentPattern: /^\s*[}\]]/,
     },
     onEnterRules: [
@@ -235,32 +236,41 @@ const monarchLanguage: OpenScadMonarchLanguage = {
   escapes: /\\(?:[btnrf"'\\]|x[0-9A-Fa-f]{1,2}|u[0-9A-Fa-f]{4})/,
   tokenizer: {
     root: [
-      [/[a-zA-Z_]\w*/, {
-        cases: {
-          '@keywords': 'keyword.control.openscad',
-          '@directives': 'keyword.directive.openscad',
-          '@literals': 'constant.language.openscad',
-          '@builtinModules': 'support.module.openscad',
-          '@builtinFunctions': 'support.function.openscad',
-          '@constants': 'constant.language.openscad',
-          '@default': 'identifier',
+      [
+        /[a-zA-Z_]\w*/,
+        {
+          cases: {
+            '@keywords': 'keyword.control.openscad',
+            '@directives': 'keyword.directive.openscad',
+            '@literals': 'constant.language.openscad',
+            '@builtinModules': 'support.module.openscad',
+            '@builtinFunctions': 'support.function.openscad',
+            '@constants': 'constant.language.openscad',
+            '@default': 'identifier',
+          },
         },
-      }],
-      [/\$[a-zA-Z_]\w*/, {
-        cases: {
-          '@specialVariables': 'variable.predefined.openscad',
-          '@default': 'identifier',
+      ],
+      [
+        /\$[a-zA-Z_]\w*/,
+        {
+          cases: {
+            '@specialVariables': 'variable.predefined.openscad',
+            '@default': 'identifier',
+          },
         },
-      }],
+      ],
       [/[#%!]/, 'keyword.operator'],
       [/\$\d+/, 'variable.predefined.openscad'],
       { include: '@whitespace' },
-      [/@symbols/, {
-        cases: {
-          '@operators': 'operator',
-          '@default': '',
+      [
+        /@symbols/,
+        {
+          cases: {
+            '@operators': 'operator',
+            '@default': '',
+          },
         },
-      }],
+      ],
       [/0[xX][0-9a-fA-F_]+/, 'number.hex'],
       [/0[bB][0-1_]+/, 'number.binary'],
       [/0[oO]?[0-7_]+/, 'number.octal'],
@@ -305,7 +315,7 @@ export function ensureOpenScadLanguage(monaco: typeof Monaco): void {
 
   const alreadyRegistered = monaco.languages
     .getLanguages()
-    .some(language => language.id === LANGUAGE_ID);
+    .some((language) => language.id === LANGUAGE_ID);
 
   if (!alreadyRegistered) {
     monaco.languages.register({

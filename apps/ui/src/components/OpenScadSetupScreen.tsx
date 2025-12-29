@@ -16,15 +16,28 @@ export function OpenScadSetupScreen({ onRetry, onSkip }: OpenScadSetupScreenProp
   });
 
   return (
-    <div className="h-screen flex flex-col items-center justify-center px-8" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div
+      className="h-screen flex flex-col items-center justify-center px-8"
+      style={{ backgroundColor: 'var(--bg-primary)' }}
+    >
       <div className="w-full max-w-2xl space-y-8">
         {/* Icon */}
         <div className="flex justify-center mb-4">
-          <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg-elevated)' }}>
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-              <line x1="12" y1="22.08" x2="12" y2="12"/>
+          <div
+            className="w-20 h-20 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: 'var(--bg-elevated)' }}
+          >
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+              <line x1="12" y1="22.08" x2="12" y2="12" />
             </svg>
           </div>
         </div>
@@ -42,7 +55,15 @@ export function OpenScadSetupScreen({ onRetry, onSkip }: OpenScadSetupScreenProp
         </div>
 
         {/* Installation instructions */}
-        <div className="rounded-lg p-6 space-y-4" style={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border-primary)', borderWidth: '1px', borderStyle: 'solid' }}>
+        <div
+          className="rounded-lg p-6 space-y-4"
+          style={{
+            backgroundColor: 'var(--bg-elevated)',
+            borderColor: 'var(--border-primary)',
+            borderWidth: '1px',
+            borderStyle: 'solid',
+          }}
+        >
           <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
             How to install OpenSCAD
           </h2>
@@ -53,21 +74,38 @@ export function OpenScadSetupScreen({ onRetry, onSkip }: OpenScadSetupScreenProp
                 <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                   Step 1: Install OpenSCAD with Homebrew
                 </p>
-                <div className="rounded p-3 font-mono text-sm" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                <div
+                  className="rounded p-3 font-mono text-sm"
+                  style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                >
                   brew install openscad
                 </div>
               </div>
 
-              <div className="space-y-2 p-3 rounded" style={{ backgroundColor: 'rgba(255, 193, 7, 0.1)', borderColor: 'rgba(255, 193, 7, 0.3)', borderWidth: '1px', borderStyle: 'solid' }}>
+              <div
+                className="space-y-2 p-3 rounded"
+                style={{
+                  backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                  borderColor: 'rgba(255, 193, 7, 0.3)',
+                  borderWidth: '1px',
+                  borderStyle: 'solid',
+                }}
+              >
                 <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                   ⚠️ If macOS blocks OpenSCAD ("cannot verify")
                 </p>
-                <ol className="text-sm space-y-1 ml-4 list-decimal" style={{ color: 'var(--text-tertiary)' }}>
+                <ol
+                  className="text-sm space-y-1 ml-4 list-decimal"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
                   <li>Open System Settings → Privacy & Security</li>
                   <li>Scroll down and click "Open Anyway" next to OpenSCAD</li>
                   <li>Or run this command in Terminal:</li>
                 </ol>
-                <div className="rounded p-2 font-mono text-xs mt-2" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                <div
+                  className="rounded p-2 font-mono text-xs mt-2"
+                  style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                >
                   xattr -cr /Applications/OpenSCAD-2021.01.app
                 </div>
               </div>
@@ -86,8 +124,8 @@ export function OpenScadSetupScreen({ onRetry, onSkip }: OpenScadSetupScreenProp
                     style={{ color: 'var(--accent-primary)' }}
                   >
                     openscad.org/downloads.html
-                  </a>
-                  {' '}and download the macOS version (you may still need to run the xattr command above)
+                  </a>{' '}
+                  and download the macOS version (you may still need to run the xattr command above)
                 </p>
               </div>
             </div>
@@ -99,7 +137,10 @@ export function OpenScadSetupScreen({ onRetry, onSkip }: OpenScadSetupScreenProp
                 <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                   Option 1: Install with Chocolatey
                 </p>
-                <div className="rounded p-3 font-mono text-sm" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                <div
+                  className="rounded p-3 font-mono text-sm"
+                  style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                >
                   choco install openscad
                 </div>
               </div>
@@ -117,8 +158,8 @@ export function OpenScadSetupScreen({ onRetry, onSkip }: OpenScadSetupScreenProp
                     style={{ color: 'var(--accent-primary)' }}
                   >
                     openscad.org/downloads.html
-                  </a>
-                  {' '}and download the Windows installer
+                  </a>{' '}
+                  and download the Windows installer
                 </p>
               </div>
             </div>
@@ -132,20 +173,35 @@ export function OpenScadSetupScreen({ onRetry, onSkip }: OpenScadSetupScreenProp
                 </p>
                 <div className="space-y-2">
                   <div>
-                    <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Ubuntu/Debian:</p>
-                    <div className="rounded p-3 font-mono text-sm" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                    <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                      Ubuntu/Debian:
+                    </p>
+                    <div
+                      className="rounded p-3 font-mono text-sm"
+                      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                    >
                       sudo apt install openscad
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Fedora:</p>
-                    <div className="rounded p-3 font-mono text-sm" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                    <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                      Fedora:
+                    </p>
+                    <div
+                      className="rounded p-3 font-mono text-sm"
+                      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                    >
                       sudo dnf install openscad
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Arch:</p>
-                    <div className="rounded p-3 font-mono text-sm" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                    <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                      Arch:
+                    </p>
+                    <div
+                      className="rounded p-3 font-mono text-sm"
+                      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                    >
                       sudo pacman -S openscad
                     </div>
                   </div>
@@ -166,8 +222,8 @@ export function OpenScadSetupScreen({ onRetry, onSkip }: OpenScadSetupScreenProp
                   style={{ color: 'var(--accent-primary)' }}
                 >
                   openscad.org/downloads.html
-                </a>
-                {' '}to download OpenSCAD for your platform
+                </a>{' '}
+                to download OpenSCAD for your platform
               </p>
             </div>
           )}
@@ -175,18 +231,10 @@ export function OpenScadSetupScreen({ onRetry, onSkip }: OpenScadSetupScreenProp
 
         {/* Action buttons */}
         <div className="flex justify-center gap-4">
-          <Button
-            variant="secondary"
-            onClick={onSkip}
-            className="text-sm"
-          >
+          <Button variant="secondary" onClick={onSkip} className="text-sm">
             Skip for now
           </Button>
-          <Button
-            variant="primary"
-            onClick={onRetry}
-            className="text-sm"
-          >
+          <Button variant="primary" onClick={onRetry} className="text-sm">
             I've installed it — Try again
           </Button>
         </div>

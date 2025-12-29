@@ -161,7 +161,10 @@ function SliderControl({ param, onChange }: ParameterControlProps) {
           background: `linear-gradient(to right, var(--accent-primary) 0%, var(--accent-primary) ${((localValue - min) / (max - min)) * 100}%, var(--bg-tertiary) ${((localValue - min) / (max - min)) * 100}%, var(--bg-tertiary) 100%)`,
         }}
       />
-      <div className="flex justify-between mt-0.5" style={{ color: 'var(--text-secondary)', fontSize: '10px' }}>
+      <div
+        className="flex justify-between mt-0.5"
+        style={{ color: 'var(--text-secondary)', fontSize: '10px' }}
+      >
         <span>{min}</span>
         <span>{max}</span>
       </div>
@@ -186,7 +189,7 @@ function DropdownControl({ param, onChange }: ParameterControlProps) {
         id={`param-${param.name}`}
         value={value}
         onChange={(e) => {
-          const option = param.options?.find(opt => String(opt.value) === e.target.value);
+          const option = param.options?.find((opt) => String(opt.value) === e.target.value);
           if (option) {
             onChange(option.value);
           }
@@ -336,10 +339,7 @@ function VectorControl({ param, onChange }: ParameterControlProps) {
 
   return (
     <div className="py-1.5">
-      <label
-        className="text-xs font-medium block mb-0.5"
-        style={{ color: 'var(--text-primary)' }}
-      >
+      <label className="text-xs font-medium block mb-0.5" style={{ color: 'var(--text-primary)' }}>
         {param.name}
       </label>
       <div className="flex gap-1">

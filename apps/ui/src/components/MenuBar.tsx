@@ -20,7 +20,13 @@ const EXPORT_FORMATS: { value: ExportFormat; label: string; ext: string }[] = [
   { value: 'dxf', label: 'DXF (2D CAD)', ext: 'dxf' },
 ];
 
-export function MenuBar({ source, onSourceChange, currentFilePath, onFilePathChange, openscadPath }: MenuBarProps) {
+export function MenuBar({
+  source,
+  onSourceChange,
+  currentFilePath,
+  onFilePathChange,
+  openscadPath,
+}: MenuBarProps) {
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -47,10 +53,12 @@ export function MenuBar({ source, onSourceChange, currentFilePath, onFilePathCha
       if (!savePath) {
         // Show save dialog if no current file
         savePath = await save({
-          filters: [{
-            name: 'OpenSCAD Files',
-            extensions: ['scad']
-          }]
+          filters: [
+            {
+              name: 'OpenSCAD Files',
+              extensions: ['scad'],
+            },
+          ],
         });
 
         if (!savePath) return; // User cancelled
@@ -71,16 +79,19 @@ export function MenuBar({ source, onSourceChange, currentFilePath, onFilePathCha
 
     try {
       const selected = await open({
-        filters: [{
-          name: 'OpenSCAD Files',
-          extensions: ['scad']
-        }],
-        multiple: false
+        filters: [
+          {
+            name: 'OpenSCAD Files',
+            extensions: ['scad'],
+          },
+        ],
+        multiple: false,
       });
 
       if (!selected) return; // User cancelled
 
-      const filePath = typeof selected === 'string' ? selected : (selected as { path: string }).path;
+      const filePath =
+        typeof selected === 'string' ? selected : (selected as { path: string }).path;
 
       // Read file using Tauri's fs
       const { readTextFile } = await import('@tauri-apps/plugin-fs');
@@ -99,14 +110,16 @@ export function MenuBar({ source, onSourceChange, currentFilePath, onFilePathCha
     setExportMenuOpen(false);
 
     try {
-      const formatInfo = EXPORT_FORMATS.find(f => f.value === format);
+      const formatInfo = EXPORT_FORMATS.find((f) => f.value === format);
       if (!formatInfo) return;
 
       const savePath = await save({
-        filters: [{
-          name: formatInfo.label,
-          extensions: [formatInfo.ext]
-        }]
+        filters: [
+          {
+            name: formatInfo.label,
+            extensions: [formatInfo.ext],
+          },
+        ],
       });
 
       if (!savePath) return; // User cancelled
@@ -167,7 +180,7 @@ export function MenuBar({ source, onSourceChange, currentFilePath, onFilePathCha
                 className="absolute left-full top-0 ml-1 w-48 bg-gray-800 border border-gray-700 rounded shadow-lg"
                 onMouseLeave={() => setExportMenuOpen(false)}
               >
-                {EXPORT_FORMATS.map(format => (
+                {EXPORT_FORMATS.map((format) => (
                   <button
                     key={format.value}
                     onClick={() => handleExport(format.value)}

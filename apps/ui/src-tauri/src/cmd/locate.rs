@@ -104,7 +104,22 @@ pub async fn locate_openscad(
                     }
                 }
             } else {
-                let common_paths = vec!["/usr/bin/openscad", "/usr/local/bin/openscad"];
+                // Linux: check standard paths, Snap, and Flatpak installations
+                let home = std::env::var("HOME").unwrap_or_default();
+                let user_flatpak = format!(
+                    "{}/.local/share/flatpak/exports/bin/org.openscad.OpenSCAD",
+                    home
+                );
+                let common_paths = vec![
+                    "/usr/bin/openscad",
+                    "/usr/local/bin/openscad",
+                    // Snap installation
+                    "/snap/bin/openscad",
+                    // Flatpak system installation
+                    "/var/lib/flatpak/exports/bin/org.openscad.OpenSCAD",
+                    // Flatpak user installation
+                    &user_flatpak,
+                ];
 
                 for path in common_paths {
                     if std::path::Path::new(path).exists() {

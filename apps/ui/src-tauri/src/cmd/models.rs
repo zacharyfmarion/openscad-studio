@@ -22,7 +22,7 @@ const DEFAULT_ALIASES: &[(&str, &str, &str)] = &[
     ("claude-haiku-3-5", "Claude Haiku 3.5 (Latest)", "anthropic"),
     ("o1", "o1 (Latest)", "openai"),
     ("o3-mini", "o3 Mini (Latest)", "openai"),
-    ("gpt-5", "GPT-5 (Latest)", "openai"),
+    ("gpt-5.2", "GPT-5.2 (Latest)", "openai"),
 ];
 
 // Known model metadata for enrichment
@@ -90,6 +90,10 @@ lazy_static::lazy_static! {
         m.insert("gpt-4-turbo", ModelMetadata {
             display_name: "GPT-4 Turbo",
             context_window: Some(128_000),
+        });
+        m.insert("gpt-5.2", ModelMetadata {
+            display_name: "GPT-5.2 (Latest)",
+            context_window: Some(200_000),
         });
 
         m
@@ -248,7 +252,7 @@ fn is_relevant_openai_model(model: &OpenAiModel) -> bool {
     // Only include o-series (o1, o3, o4, etc.) and gpt-5 models
     let is_o_series = id.starts_with("o") && id.chars().nth(1).is_some_and(|c| c.is_ascii_digit());
 
-    is_o_series || id.starts_with("gpt-5")
+    is_o_series || id.starts_with("gpt-5") || id.starts_with("gpt-5.")
 }
 
 async fn fetch_anthropic_models(api_key: &str) -> Result<Vec<ModelInfo>, String> {
@@ -538,7 +542,7 @@ pub async fn validate_model(app: AppHandle, model_id: String) -> Result<ModelVal
     };
 
     let fallback = match provider {
-        "openai" => "gpt-4o",
+        "openai" => "gpt-5.2",
         _ => "claude-sonnet-4-5",
     };
 
