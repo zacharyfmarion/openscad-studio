@@ -153,7 +153,6 @@ jobs:
           prerelease: false
 
       - name: Update Homebrew Cask
-        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ steps.get_version.outputs.version }}
