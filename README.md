@@ -18,6 +18,8 @@
 
 > **⚠️ Early Alpha Software**
 > This project is in early alpha and has only been tested on macOS. Windows and Linux support is planned but not yet implemented or tested.
+>
+> **System Requirements:** macOS 10.15 (Catalina) or later. Older macOS versions are not supported due to Tauri 2's WKWebView requirements.
 
 ---
 
