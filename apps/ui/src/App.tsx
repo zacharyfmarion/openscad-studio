@@ -7,14 +7,12 @@ import { ExportDialog } from './components/ExportDialog';
 import { AiPromptPanel, type AiPromptPanelRef } from './components/AiPromptPanel';
 import { DiffViewer } from './components/DiffViewer';
 import { SettingsDialog } from './components/SettingsDialog';
-import { UpdateDialog } from './components/UpdateDialog';
 import { WelcomeScreen, addToRecentFiles } from './components/WelcomeScreen';
 import { OpenScadSetupScreen } from './components/OpenScadSetupScreen';
 import { TabBar, type Tab } from './components/TabBar';
 import { Button } from './components/ui';
 import { useOpenScad } from './hooks/useOpenScad';
 import { useAiAgent } from './hooks/useAiAgent';
-import { useUpdater } from './hooks/useUpdater';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { save, open } from '@tauri-apps/plugin-dialog';
@@ -98,14 +96,6 @@ function App() {
     handleRestoreCheckpoint,
   } = useAiAgent();
 
-  // Updater state
-  const {
-    updateAvailable,
-    isDownloading,
-    downloadProgress,
-    downloadAndInstall,
-    dismissUpdate,
-  } = useUpdater();
 
   // Tab management functions
   const createNewTab = useCallback((filePath?: string | null, content?: string, name?: string): string => {
@@ -1132,15 +1122,6 @@ function App() {
         </div>
       )}
 
-      {/* Update dialog */}
-      <UpdateDialog
-        isOpen={!!updateAvailable}
-        update={updateAvailable}
-        isDownloading={isDownloading}
-        downloadProgress={downloadProgress}
-        onInstall={downloadAndInstall}
-        onDismiss={dismissUpdate}
-      />
     </div>
   );
 }

@@ -45,9 +45,7 @@ if [ ! -f "package.json" ] || [ ! -d "apps/ui/src-tauri" ]; then
 fi
 
 # Check for required tools
-command -v gh >/dev/null 2>&1 || error "GitHub CLI (gh) is required. Install with: brew install gh"
 command -v jq >/dev/null 2>&1 || error "jq is required. Install with: brew install jq"
-command -v pnpm >/dev/null 2>&1 || error "pnpm is required. Install with: npm install -g pnpm"
 
 info "Starting release process for OpenSCAD Studio"
 
@@ -67,10 +65,14 @@ fi
 CURRENT_VERSION=$(jq -r '.version' package.json)
 info "Current version: $CURRENT_VERSION"
 
-# Prompt for new version
-echo ""
-echo -ne "${BLUE}Enter new version number (e.g., 0.2.0): ${NC}"
-read NEW_VERSION
+# Get new version from argument or prompt
+if [ -n "$1" ]; then
+    NEW_VERSION="$1"
+else
+    echo ""
+    echo -ne "${BLUE}Enter new version number (e.g., 0.5.0): ${NC}"
+    read NEW_VERSION
+fi
 
 if [ -z "$NEW_VERSION" ]; then
     error "Version number cannot be empty"
@@ -78,7 +80,7 @@ fi
 
 # Validate version format (semantic versioning)
 if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    error "Invalid version format. Use semantic versioning (e.g., 0.2.0)"
+    error "Invalid version format. Use semantic versioning (e.g., 0.5.0)"
 fi
 
 info "New version will be: $NEW_VERSION"
@@ -177,46 +179,9 @@ rm -f "$TEMP_ENTRY"
 
 success "CHANGELOG.md updated"
 
-# Update website download links
-info "Updating website download links..."
-WEBSITE_FILE="docs/index.html"
-if [ -f "$WEBSITE_FILE" ]; then
-    # Update download links to point to new version
-    # Pattern: releases/download/v{VERSION}/OpenSCAD-Studio-{VERSION}-aarch64.dmg
-    sed -i.bak "s|releases/download/v[0-9]*\.[0-9]*\.[0-9]*/OpenSCAD-Studio-[0-9]*\.[0-9]*\.[0-9]*-aarch64\.dmg|releases/download/v$NEW_VERSION/OpenSCAD-Studio-$NEW_VERSION-aarch64.dmg|g" "$WEBSITE_FILE"
-    rm -f "$WEBSITE_FILE.bak"
-    success "Website download links updated"
-else
-    warn "Website file not found at $WEBSITE_FILE, skipping"
-fi
-
-# Fix .gitignore to allow Cargo.lock for Tauri app (application should track Cargo.lock)
-info "Updating .gitignore to track Tauri app's Cargo.lock..."
-if grep -q "^Cargo.lock$" .gitignore; then
-    # Replace global Cargo.lock ignore with specific patterns
-    sed -i.bak 's/^Cargo\.lock$/# Note: Cargo.lock is tracked for Tauri apps (apps\/ui\/src-tauri\/Cargo.lock)\n# Only ignore Cargo.lock in workspace root or packages\n\/Cargo.lock\npackages\/**\/Cargo.lock/' .gitignore
-    rm -f .gitignore.bak
-    success ".gitignore updated to allow Tauri app's Cargo.lock"
-else
-    info ".gitignore already configured correctly for Cargo.lock"
-fi
-
-# Build the application BEFORE committing/tagging (verify it works first)
-info "Building application for release..."
-info "This may take several minutes..."
-
-if pnpm tauri:build; then
-    success "Application built successfully"
-else
-    # Revert version changes if build fails
-    warn "Build failed. Reverting version changes..."
-    git checkout package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock apps/ui/src-tauri/tauri.conf.json CHANGELOG.md .gitignore docs/index.html 2>/dev/null || true
-    error "Build failed. All changes have been reverted. Please fix the build errors and try again."
-fi
-
 # Commit version bump
 info "Committing version bump..."
-git add package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock apps/ui/src-tauri/tauri.conf.json CHANGELOG.md .gitignore docs/index.html
+git add package.json apps/ui/package.json apps/ui/src-tauri/Cargo.toml apps/ui/src-tauri/Cargo.lock apps/ui/src-tauri/tauri.conf.json CHANGELOG.md
 git commit -m "chore: bump version to $NEW_VERSION"
 success "Version bump committed"
 
@@ -231,80 +196,17 @@ git push origin "$CURRENT_BRANCH"
 git push origin "v$NEW_VERSION"
 success "Changes and tag pushed to remote"
 
-# Find the built artifacts
-TAURI_DIR="apps/ui/src-tauri"
-BUNDLE_DIR="$TAURI_DIR/target/release/bundle"
-
-# Detect platform and find artifacts
-PLATFORM=$(uname -s)
-ARTIFACTS=()
-
-if [ "$PLATFORM" == "Darwin" ]; then
-    # macOS - use compgen to safely check for glob matches
-    shopt -s nullglob
-    for f in "$BUNDLE_DIR/dmg"/*.dmg; do
-        ARTIFACTS+=("$f")
-    done
-    for f in "$BUNDLE_DIR/macos"/*.app.tar.gz; do
-        ARTIFACTS+=("$f")
-    done
-    # Also include signature files for updater
-    for f in "$BUNDLE_DIR/macos"/*.app.tar.gz.sig; do
-        ARTIFACTS+=("$f")
-    done
-    shopt -u nullglob
-elif [ "$PLATFORM" == "Linux" ]; then
-    shopt -s nullglob
-    for f in "$BUNDLE_DIR/appimage"/*.AppImage; do
-        ARTIFACTS+=("$f")
-    done
-    for f in "$BUNDLE_DIR/deb"/*.deb; do
-        ARTIFACTS+=("$f")
-    done
-    # Signature files
-    for f in "$BUNDLE_DIR/appimage"/*.AppImage.sig; do
-        ARTIFACTS+=("$f")
-    done
-    shopt -u nullglob
-elif [ "$PLATFORM" == "Windows_NT" ] || [[ "$PLATFORM" == MINGW* ]]; then
-    shopt -s nullglob
-    for f in "$BUNDLE_DIR/msi"/*.msi; do
-        ARTIFACTS+=("$f")
-    done
-    for f in "$BUNDLE_DIR/nsis"/*.exe; do
-        ARTIFACTS+=("$f")
-    done
-    # Signature files
-    for f in "$BUNDLE_DIR/nsis"/*.exe.sig; do
-        ARTIFACTS+=("$f")
-    done
-    shopt -u nullglob
-fi
-
-if [ ${#ARTIFACTS[@]} -eq 0 ]; then
-    warn "No build artifacts found locally. GitHub Actions will build for all platforms."
-else
-    info "Found ${#ARTIFACTS[@]} local artifact(s)"
-fi
-
-# Note: We don't create a GitHub release here because tauri-action in GitHub Actions
-# will create a draft release with all platform builds. The tag push triggers that workflow.
-info "Tag pushed. GitHub Actions will now build for all platforms and create a draft release."
-info "Monitor progress at: https://github.com/zacharyfmarion/openscad-studio/actions"
-
 # Summary
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
-echo -e "${GREEN}Release v$NEW_VERSION initiated successfully!${NC}"
+echo -e "${GREEN}Release v$NEW_VERSION triggered!${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
 echo ""
-echo -e "${YELLOW}Next steps:${NC}"
-echo "  1. GitHub Actions is now building for all platforms (macOS, Windows, Linux)"
-echo "  2. Monitor build progress: ${BLUE}https://github.com/zacharyfmarion/openscad-studio/actions${NC}"
-echo "  3. Once builds complete, a draft release will be created automatically"
-echo "  4. Review and publish the draft release on GitHub"
-echo "  5. Test the downloadable artifacts"
-echo "  6. Announce the release to users"
+echo "GitHub Actions will now:"
+echo "  1. Build macOS DMGs (ARM + Intel)"
+echo "  2. Create a GitHub Release"
+echo "  3. Update the Homebrew cask automatically"
 echo ""
-
-success "All done! 🎉"
+echo -e "Monitor: ${BLUE}https://github.com/zacharyfmarion/openscad-studio/actions${NC}"
+echo ""
+success "Done! No further action needed. 🎉"

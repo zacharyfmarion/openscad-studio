@@ -28,7 +28,6 @@
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-store": "^2",
-    "@tauri-apps/plugin-updater": "^2.9.0",
     "diff": "^7.0.0",
     "monaco-editor": "^0.52.0",
     "monaco-vim": "^0.4.2",

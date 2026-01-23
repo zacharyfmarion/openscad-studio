@@ -1,7 +1,6 @@
 name: Release
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v*'
@@ -13,7 +12,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  publish-tauri:
+  build:
     strategy:
       fail-fast: false
       matrix:
@@ -22,19 +21,12 @@ jobs:
           - platform: 'macos-latest'
             args: '--target aarch64-apple-darwin'
             rust_target: 'aarch64-apple-darwin'
+            arch: 'aarch64'
           # macOS Intel
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
             rust_target: 'x86_64-apple-darwin'
-          # TODO: Enable Linux and Windows builds after testing
-          # # Linux x64
-          # - platform: 'ubuntu-22.04'
-          #   args: ''
-          #   rust_target: ''
-          # # Windows x64
-          # - platform: 'windows-latest'
-          #   args: ''
-          #   rust_target: ''
+            arch: 'x86_64'
 
     runs-on: ${{ matrix.platform }}
 
@@ -42,19 +34,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # TODO: Re-enable when Linux builds are enabled
-      # - name: Install Linux dependencies
-      #   if: matrix.platform == 'ubuntu-22.04'
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y libwebkit2gtk-4.1-dev \
-      #       build-essential \
-      #       curl \
-      #       wget \
-      #       file \
-      #       libssl-dev \
-      #       libayatana-appindicator3-dev \
-      #       librsvg2-dev
+      - name: Get version from tag
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -80,27 +62,149 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # NOTE: Apple code signing is disabled until secrets are configured
-      # To enable, add these repository secrets:
-      # - APPLE_CERTIFICATE (base64-encoded .p12)
-      # - APPLE_CERTIFICATE_PASSWORD
-      # - APPLE_SIGNING_IDENTITY (e.g., "Developer ID Application: Name (TEAM)")
-      # - APPLE_TEAM_ID
-      # - APPLE_API_KEY, APPLE_API_ISSUER (for notarization)
-      # - KEYCHAIN_PASSWORD (any secure password)
+      - name: Build Tauri app
+        run: pnpm tauri build ${{ matrix.args }}
+        working-directory: apps/ui
 
-      - name: Build and Release
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Tauri updater signing
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Find DMG and calculate SHA256
+        id: dmg_info
+        run: |
+          # Find the DMG file
+          DMG_PATH=$(find apps/ui/src-tauri/target -name "*.dmg" -type f | head -1)
+          echo "Found DMG: $DMG_PATH"
+          
+          # Get filename
+          DMG_NAME=$(basename "$DMG_PATH")
+          echo "dmg_name=$DMG_NAME" >> $GITHUB_OUTPUT
+          echo "dmg_path=$DMG_PATH" >> $GITHUB_OUTPUT
+          
+          # Calculate SHA256
+          SHA256=$(shasum -a 256 "$DMG_PATH" | cut -d ' ' -f 1)
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "SHA256: $SHA256"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'OpenSCAD Studio ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download and install this version.'
-          releaseDraft: true
+          name: dmg-${{ matrix.arch }}
+          path: ${{ steps.dmg_info.outputs.dmg_path }}
+
+      - name: Save SHA256 to file
+        run: echo "${{ steps.dmg_info.outputs.sha256 }}" > sha256-${{ matrix.arch }}.txt
+
+      - name: Upload SHA256 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sha256-${{ matrix.arch }}
+          path: sha256-${{ matrix.arch }}.txt
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Read SHA256 hashes
+        id: hashes
+        run: |
+          SHA256_ARM=$(cat artifacts/sha256-aarch64/sha256-aarch64.txt)
+          SHA256_INTEL=$(cat artifacts/sha256-x86_64/sha256-x86_64.txt)
+          echo "sha256_arm=$SHA256_ARM" >> $GITHUB_OUTPUT
+          echo "sha256_intel=$SHA256_INTEL" >> $GITHUB_OUTPUT
+          echo "ARM SHA256: $SHA256_ARM"
+          echo "Intel SHA256: $SHA256_INTEL"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: OpenSCAD Studio v${{ steps.get_version.outputs.version }}
+          body: |
+            ## Installation
+
+            ```bash
+            brew tap zacharyfmarion/openscad-studio
+            brew install --cask openscad-studio
+            ```
+
+            Or if you already have it installed:
+            ```bash
+            brew update && brew upgrade openscad-studio
+            ```
+
+            See [CHANGELOG.md](https://github.com/zacharyfmarion/openscad-studio/blob/main/CHANGELOG.md) for what's new in this release.
+          files: |
+            artifacts/dmg-aarch64/*.dmg
+            artifacts/dmg-x86_64/*.dmg
+          draft: false
           prerelease: false
-          args: ${{ matrix.args }}
-          projectPath: apps/ui
+
+      - name: Update Homebrew Cask
+        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.get_version.outputs.version }}
+          SHA256_ARM: ${{ steps.hashes.outputs.sha256_arm }}
+          SHA256_INTEL: ${{ steps.hashes.outputs.sha256_intel }}
+        run: |
+          # Clone the tap repo
+          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/zacharyfmarion/homebrew-openscad-studio.git tap
+          cd tap
+
+          # Create the cask formula
+          mkdir -p Casks
+          cat > Casks/openscad-studio.rb << 'CASK_EOF'
+          cask "openscad-studio" do
+            arch arm: "aarch64", intel: "x86_64"
+
+            version "VERSION_PLACEHOLDER"
+            sha256 arm:   "SHA256_ARM_PLACEHOLDER",
+                   intel: "SHA256_INTEL_PLACEHOLDER"
+
+            url "https://github.com/zacharyfmarion/openscad-studio/releases/download/v#{version}/OpenSCAD.Studio_#{version}_#{arch}.dmg",
+                verified: "github.com/zacharyfmarion/"
+
+            name "OpenSCAD Studio"
+            desc "Modern OpenSCAD editor with live preview and AI copilot"
+            homepage "https://github.com/zacharyfmarion/openscad-studio"
+
+            depends_on cask: "openscad"
+
+            app "OpenSCAD Studio.app"
+
+            zap trash: [
+              "~/Library/Application Support/com.openscad.studio",
+              "~/Library/Caches/com.openscad.studio",
+              "~/Library/Preferences/com.openscad.studio.plist",
+            ]
+          end
+          CASK_EOF
+
+          # Replace placeholders with actual values
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" Casks/openscad-studio.rb
+          sed -i "s/SHA256_ARM_PLACEHOLDER/${SHA256_ARM}/g" Casks/openscad-studio.rb
+          sed -i "s/SHA256_INTEL_PLACEHOLDER/${SHA256_INTEL}/g" Casks/openscad-studio.rb
+
+          # Show the result
+          echo "Generated cask formula:"
+          cat Casks/openscad-studio.rb
+
+          # Commit and push
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/openscad-studio.rb
+          git commit -m "Update openscad-studio to v${VERSION}" || echo "No changes to commit"
+          git push

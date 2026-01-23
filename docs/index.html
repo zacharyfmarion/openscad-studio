@@ -47,10 +47,9 @@
                    class="text-gray-300 hover:text-white transition">
                     GitHub
                 </a>
-                <a href="https://github.com/zacharyfmarion/openscad-studio/releases/download/v0.4.0/OpenSCAD.Studio_0.4.0_aarch64.dmg"
-                   class="bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-6 py-2 rounded-lg transition"
-                   onclick="plausible('Download', {props: {platform: 'macOS', version: 'v0.4.0', location: 'header'}})">
-                    Download
+                <a href="#install"
+                   class="bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-6 py-2 rounded-lg transition">
+                    Install
                 </a>
             </div>
         </nav>
@@ -71,16 +70,24 @@
                 A cross-platform OpenSCAD editor with <span class="text-primary">live preview</span>, <span class="text-primary">smart formatting</span>, and <span class="text-primary">AI copilot</span>
             </p>
 
-            <div class="flex gap-4 justify-center mb-16">
-                <a href="https://github.com/zacharyfmarion/openscad-studio/releases/download/v0.4.0/OpenSCAD.Studio_0.4.0_aarch64.dmg"
-                   class="bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-8 py-3 rounded-lg transition text-lg"
-                   onclick="plausible('Download', {props: {platform: 'macOS', version: 'v0.4.0', location: 'hero'}})">
-                    Download for macOS
-                </a>
-                <a href="https://github.com/zacharyfmarion/openscad-studio"
-                   class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-8 py-3 rounded-lg transition text-lg">
-                    View on GitHub
-                </a>
+            <!-- Install Box -->
+            <div id="install" class="bg-slate-800/50 rounded-xl p-6 text-left max-w-lg mx-auto border border-slate-700 mb-16">
+                <p class="text-sm text-gray-400 mb-3">Install via Homebrew (macOS):</p>
+                <div class="bg-slate-900 p-4 rounded-lg font-mono text-sm mb-3 border border-slate-800">
+                    <div class="flex items-center gap-2 text-gray-500 mb-1"><span>$</span></div>
+                    <div class="text-primary">brew tap zacharyfmarion/openscad-studio</div>
+                    <div class="text-primary">brew install --cask openscad-studio</div>
+                </div>
+                <p class="text-xs text-gray-500">
+                    Requires <a href="https://brew.sh" class="text-primary hover:underline">Homebrew</a>.
+                    OpenSCAD will be installed automatically as a dependency.
+                </p>
+                <div class="mt-4 flex gap-3">
+                    <a href="https://github.com/zacharyfmarion/openscad-studio"
+                       class="bg-slate-700 hover:bg-slate-600 text-white font-semibold px-6 py-2 rounded-lg transition text-sm">
+                        View on GitHub
+                    </a>
+                </div>
             </div>
 
             <!-- Main Screenshot -->
@@ -191,15 +198,16 @@
                 Ready to design smarter?
             </h2>
             <p class="text-xl text-gray-400 mb-8">
-                Download OpenSCAD Studio and start creating with AI-powered assistance
+                Install OpenSCAD Studio and start creating with AI-powered assistance
             </p>
-            <a href="https://github.com/zacharyfmarion/openscad-studio/releases/download/v0.4.0/OpenSCAD.Studio_0.4.0_aarch64.dmg"
-               class="inline-block bg-primary hover:bg-primary-dark text-slate-950 font-semibold px-8 py-3 rounded-lg transition text-lg"
-               onclick="plausible('Download', {props: {platform: 'macOS', version: 'v0.4.0', location: 'cta'}})">
-                Download for macOS
-            </a>
+            <div class="bg-slate-800/50 rounded-xl p-6 text-left max-w-lg mx-auto border border-slate-700">
+                <div class="bg-slate-900 p-4 rounded-lg font-mono text-sm border border-slate-800">
+                    <div class="text-primary">brew tap zacharyfmarion/openscad-studio</div>
+                    <div class="text-primary">brew install --cask openscad-studio</div>
+                </div>
+            </div>
             <p class="text-sm text-gray-500 mt-4">
-                Requires OpenSCAD installed on your system
+                Requires <a href="https://brew.sh" class="text-primary hover:underline">Homebrew</a> on macOS
             </p>
         </div>
     </section>

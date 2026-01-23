@@ -133,43 +133,42 @@ This checklist covers everything needed before open sourcing the project.
   - [ ] OpenSCAD forums/Discord
   - [ ] Dev.to / Hashnode
 
-## 🚀 Release Process
+## 🚀 Release Process (Fully Automated)
 
-### 1. Final Checks
+### One-Time Setup (Required First Time Only)
+1. Create GitHub Personal Access Token (PAT) with repo scope for `homebrew-openscad-studio`
+2. Add `HOMEBREW_TAP_TOKEN` secret to the openscad-studio repository
+3. Create the `zacharyfmarion/homebrew-openscad-studio` repository with initial cask formula
+
+### Release a New Version
 ```bash
-# Clean build
-pnpm install
-pnpm build
-cd apps/ui && pnpm tauri build
-
-# Verify bundle
-ls -lh apps/ui/src-tauri/target/release/bundle/
+# Run from project root - this does EVERYTHING
+./scripts/release.sh 0.5.0
 ```
 
-### 2. Tag Release
-```bash
-# Create annotated tag
-git tag -a v0.1.0 -m "Release v0.1.0 - Initial public release"
-git push origin v0.1.0
-```
+The script will:
+1. Bump version numbers in all files
+2. Update CHANGELOG.md
+3. Commit and push tag
 
-### 3. GitHub Release
-- [ ] Create GitHub release from tag v0.1.0
-- [ ] Upload build artifacts:
-  - [ ] macOS DMG (OpenSCAD Studio_0.1.0_aarch64.dmg)
-  - [ ] Windows MSI (if built)
-  - [ ] Linux AppImage/deb (if built)
-- [ ] Write release notes highlighting:
-  - [ ] Key features
-  - [ ] Known limitations
-  - [ ] Installation instructions
-  - [ ] Link to documentation
+GitHub Actions will then automatically:
+1. Build macOS DMGs (ARM + Intel)
+2. Create a published GitHub Release with artifacts
+3. Update the Homebrew cask formula with new version and SHA256 hashes
 
-### 4. Post-Release
+**No manual steps required after running the release script.**
+
+### Post-Release Verification
+- [ ] Monitor GitHub Actions workflow completion
+- [ ] Verify release appears on GitHub Releases page
+- [ ] Test installation: `brew tap zacharyfmarion/openscad-studio && brew install --cask openscad-studio`
 - [ ] Monitor GitHub issues for bug reports
-- [ ] Respond to community feedback
-- [ ] Plan next release (v0.2.0) based on feedback
-- [ ] Update ROADMAP.md based on priorities
+
+### Troubleshooting
+If the Homebrew cask update fails:
+1. Check if `HOMEBREW_TAP_TOKEN` secret is set correctly
+2. Check GitHub Actions logs for specific error
+3. Manually update the cask formula if needed
 
 ## 📝 Optional Enhancements (Not Blocking)
 
