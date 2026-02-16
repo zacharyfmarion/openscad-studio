@@ -9,12 +9,11 @@ import { WelcomeScreen, addToRecentFiles } from './components/WelcomeScreen';
 import { OpenScadSetupScreen } from './components/OpenScadSetupScreen';
 import type { Tab } from './components/TabBar';
 import { Button } from './components/ui';
-import { panelComponents, tabComponents, WorkspaceTab, NewTabButton } from './components/panels/PanelComponents';
+import { panelComponents, tabComponents, WorkspaceTab } from './components/panels/PanelComponents';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import type { WorkspaceState } from './contexts/WorkspaceContext';
 import {
   setDockviewApi, getDockviewApi, applyDefaultLayout, saveLayout, clearSavedLayout,
-  addEditorPanel, removeEditorPanel, isEditorPanel, findEditorGroupId,
 } from './stores/layoutStore';
 import { useOpenScad } from './hooks/useOpenScad';
 import { useAiAgent } from './hooks/useAiAgent';
@@ -124,13 +123,6 @@ function App() {
       console.error('Failed to update editor state:', err);
     });
 
-    const api = getDockviewApi();
-    if (api) {
-      const groupId = findEditorGroupId(api);
-      addEditorPanel(api, newId, tabName, groupId);
-      api.getPanel(newId)?.api.setActive();
-    }
-
     return newId;
   }, [updateSource]);
 
@@ -156,12 +148,6 @@ function App() {
       } catch (err) {
         console.error('Failed to update editor state:', err);
       }
-    }
-
-    const api = getDockviewApi();
-    const panel = api?.getPanel(id);
-    if (panel && panel.api.isActive === false) {
-      panel.api.setActive();
     }
 
     switchingRef.current = false;
@@ -199,13 +185,6 @@ function App() {
       }
     }
 
-    const api = getDockviewApi();
-    const dockPanel = api?.getPanel(id);
-    if (dockPanel) {
-      api!.removePanel(dockPanel);
-    }
-    removeEditorPanel(id);
-
     const filtered = tabs.filter(t => t.id !== id);
 
     if (filtered.length === 0) {
@@ -233,11 +212,6 @@ function App() {
       setActiveTabId(newActiveTab.id);
       updateSource(newActiveTab.content);
 
-      const nextPanel = api?.getPanel(newActiveTab.id);
-      if (nextPanel) {
-        nextPanel.api.setActive();
-      }
-
       try {
         await updateEditorState(newActiveTab.content);
       } catch (err) {
@@ -254,6 +228,10 @@ function App() {
         ? { ...tab, content, isDirty: content !== tab.savedContent }
         : tab
     ));
+  }, []);
+
+  const reorderTabs = useCallback((newTabs: Tab[]) => {
+    setTabs(newTabs);
   }, []);
 
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
@@ -890,26 +868,12 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [createNewTab, closeTab, activeTabId]);
 
-  const switchTabRef = useRef(switchTab);
-  useEffect(() => {
-    switchTabRef.current = switchTab;
-  }, [switchTab]);
-
   const onDockviewReady = useCallback((event: DockviewReadyEvent) => {
     const { api } = event;
     setDockviewApi(api);
 
     clearSavedLayout();
-    const initialTabData = tabsRef.current[0];
-    applyDefaultLayout(api, { id: initialTabData.id, title: initialTabData.name });
-
-    api.onDidActivePanelChange((e) => {
-      if (!e || switchingRef.current) return;
-      const panelId = e.id;
-      if (isEditorPanel(panelId)) {
-        switchTabRef.current(panelId);
-      }
-    });
+    applyDefaultLayout(api);
 
     let timer: ReturnType<typeof setTimeout> | null = null;
     api.onDidLayoutChange(() => {
@@ -931,6 +895,7 @@ function App() {
     onTabClick: switchTab,
     onTabClose: closeTab,
     onNewTab: () => createNewTab(),
+    onReorderTabs: reorderTabs,
     previewSrc,
     previewKind,
     isRendering,
@@ -957,7 +922,7 @@ function App() {
     onRejectDiff: rejectDiff,
   }), [
     source, updateSource, diagnostics, manualRender, settings,
-    tabs, activeTabId, switchTab, closeTab, createNewTab,
+    tabs, activeTabId, switchTab, closeTab, createNewTab, reorderTabs,
     previewSrc, previewKind, isRendering, error,
     isStreaming, streamingResponse, proposedDiff, aiError, isApplyingDiff,
     messages, currentToolCalls, currentModel, availableProviders,
@@ -1005,7 +970,7 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      <header className="flex items-center justify-end gap-1.5 px-3 py-1" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+      <header className="flex items-center justify-end gap-1.5 px-3 py-1" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)' }}>
         {isRendering && (
           <div className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
             <div className="animate-spin h-2.5 w-2.5 border-2 rounded-full" style={{ borderColor: 'var(--border-primary)', borderTopColor: 'var(--accent-primary)' }} />
@@ -1073,7 +1038,6 @@ function App() {
             components={panelComponents}
             tabComponents={tabComponents}
             defaultTabComponent={WorkspaceTab}
-            rightHeaderActionsComponent={NewTabButton}
             onReady={onDockviewReady}
             className="dockview-theme-openscad"
             disableFloatingGroups={true}

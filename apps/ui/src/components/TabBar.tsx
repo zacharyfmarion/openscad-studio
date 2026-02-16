@@ -183,6 +183,7 @@ export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onNewTab, on
     >
       <div className="flex items-stretch overflow-x-auto" style={{
         backgroundColor: 'var(--bg-secondary)',
+        borderBottom: '1px solid var(--border-subtle)',
       }}>
         <SortableContext
           items={tabs.map(t => t.id)}

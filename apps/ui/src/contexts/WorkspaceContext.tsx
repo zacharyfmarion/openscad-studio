@@ -19,6 +19,7 @@ export interface WorkspaceState {
   onTabClick: (id: string) => void;
   onTabClose: (id: string) => void;
   onNewTab: () => void;
+  onReorderTabs: (tabs: Tab[]) => void;
 
   // Preview
   previewSrc: string;
