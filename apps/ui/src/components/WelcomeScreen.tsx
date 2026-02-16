@@ -24,7 +24,12 @@ const EXAMPLE_PROMPTS = [
 
 const RECENT_FILES_KEY = 'openscad-studio-recent-files';
 
-export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent, onOpenFile }: WelcomeScreenProps) {
+export function WelcomeScreen({
+  onStartWithPrompt,
+  onStartManually,
+  onOpenRecent,
+  onOpenFile,
+}: WelcomeScreenProps) {
   const [prompt, setPrompt] = useState('');
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -57,10 +62,16 @@ export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent
   };
 
   return (
-    <div className="h-full flex flex-col items-center justify-center px-8" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div
+      className="h-full flex flex-col items-center justify-center px-8"
+      style={{ backgroundColor: 'var(--bg-primary)' }}
+    >
       <div className="w-full max-w-3xl space-y-8">
         {/* Main heading */}
-        <h1 className="text-4xl font-bold text-center mb-8" style={{ color: 'var(--text-primary)' }}>
+        <h1
+          className="text-4xl font-bold text-center mb-8"
+          style={{ color: 'var(--text-primary)' }}
+        >
           What do you want to create?
         </h1>
 
@@ -95,7 +106,14 @@ export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent
                 }}
                 title="Start with AI (⌘↵)"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
                 </svg>
               </button>
@@ -155,7 +173,11 @@ export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent
                       <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {file.name}
                       </div>
-                      <div className="text-xs truncate" style={{ color: 'var(--text-tertiary)' }} title={file.path}>
+                      <div
+                        className="text-xs truncate"
+                        style={{ color: 'var(--text-tertiary)' }}
+                        title={file.path}
+                      >
                         {file.path}
                       </div>
                     </div>
@@ -170,7 +192,7 @@ export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent
                     style={{ color: 'var(--text-tertiary)' }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                    <path d="M5 12h14M12 5l7 7-7 7" />
                   </svg>
                 </button>
               ))}
@@ -181,19 +203,11 @@ export function WelcomeScreen({ onStartWithPrompt, onStartManually, onOpenRecent
         {/* Action buttons */}
         <div className="flex justify-center gap-4 pt-4">
           {onOpenFile && (
-            <Button
-              variant="secondary"
-              onClick={onOpenFile}
-              className="text-sm"
-            >
+            <Button variant="secondary" onClick={onOpenFile} className="text-sm">
               Open File
             </Button>
           )}
-          <Button
-            variant="ghost"
-            onClick={onStartManually}
-            className="text-sm"
-          >
+          <Button variant="ghost" onClick={onStartManually} className="text-sm">
             Start with empty project →
           </Button>
         </div>
@@ -210,7 +224,7 @@ export function addToRecentFiles(path: string) {
     let files: RecentFile[] = stored ? JSON.parse(stored) : [];
 
     // Remove if already exists
-    files = files.filter(f => f.path !== path);
+    files = files.filter((f) => f.path !== path);
 
     // Add to front
     const name = path.split('/').pop() || path;

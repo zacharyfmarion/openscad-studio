@@ -50,14 +50,9 @@ interface SortableTabProps {
 }
 
 function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: tab.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: tab.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -140,7 +135,14 @@ function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps
   );
 }
 
-export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onNewTab, onReorderTabs }: TabBarProps) {
+export function TabBar({
+  tabs,
+  activeTabId,
+  onTabClick,
+  onTabClose,
+  onNewTab,
+  onReorderTabs,
+}: TabBarProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -181,14 +183,14 @@ export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onNewTab, on
       onDragEnd={handleDragEnd}
       modifiers={[restrictToHorizontalAxis]}
     >
-      <div className="flex items-stretch overflow-x-auto" style={{
-        backgroundColor: 'var(--bg-secondary)',
-        borderBottom: '1px solid var(--border-subtle)',
-      }}>
-        <SortableContext
-          items={tabs.map(t => t.id)}
-          strategy={horizontalListSortingStrategy}
-        >
+      <div
+        className="flex items-stretch overflow-x-auto"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          borderBottom: '1px solid var(--border-subtle)',
+        }}
+      >
+        <SortableContext items={tabs.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
           {tabs.map((tab) => (
             <SortableTab
               key={tab.id}

@@ -9,7 +9,12 @@ function getProviderFromModel(modelId: string): string {
   if (modelId.startsWith('claude') || modelId.startsWith('anthropic')) {
     return 'anthropic';
   }
-  if (modelId.startsWith('gpt') || modelId.startsWith('o1') || modelId.startsWith('o3') || modelId.startsWith('chatgpt')) {
+  if (
+    modelId.startsWith('gpt') ||
+    modelId.startsWith('o1') ||
+    modelId.startsWith('o3') ||
+    modelId.startsWith('chatgpt')
+  ) {
     return 'openai';
   }
   return 'anthropic'; // Default
@@ -31,7 +36,7 @@ export interface BaseMessage {
 export interface UserMessage extends BaseMessage {
   type: 'user';
   content: string;
-  checkpointId?: string;  // Checkpoint ID from AI edits in response to this message
+  checkpointId?: string; // Checkpoint ID from AI edits in response to this message
 }
 
 // Assistant text response
@@ -45,8 +50,8 @@ export interface ToolCallMessage extends BaseMessage {
   type: 'tool-call';
   toolName: string;
   args?: Record<string, unknown>;
-  completed?: boolean;  // Whether the tool has completed
-  result?: unknown;     // The result of the tool call (for displaying images, etc.)
+  completed?: boolean; // Whether the tool has completed
+  result?: unknown; // The result of the tool call (for displaying images, etc.)
 }
 
 // Tool result message
@@ -85,9 +90,9 @@ export interface AiAgentState {
   messages: Message[];
   conversations: Conversation[];
   currentConversationId: string | null;
-  currentToolCalls: ToolCall[];  // Real-time tool calls for current streaming response
-  currentModel: string;  // Currently selected model for this session
-  availableProviders: string[];  // Providers with API keys
+  currentToolCalls: ToolCall[]; // Real-time tool calls for current streaming response
+  currentModel: string; // Currently selected model for this session
+  availableProviders: string[]; // Providers with API keys
 }
 
 interface StreamEvent {
@@ -138,7 +143,7 @@ function convertMessagesToLegacy(messages: Message[]): LegacyMessage[] {
       });
     } else if (message.type === 'tool-result') {
       // Find matching tool call and add result
-      const toolCall = currentToolCalls.find(tc => tc.name === message.toolName && !tc.result);
+      const toolCall = currentToolCalls.find((tc) => tc.name === message.toolName && !tc.result);
       if (toolCall) {
         toolCall.result = message.result;
       }
@@ -169,7 +174,7 @@ export function useAiAgent() {
     conversations: [],
     currentConversationId: null,
     currentToolCalls: [],
-    currentModel: 'claude-sonnet-4-5-20250929',  // Default, will be loaded from settings
+    currentModel: 'claude-sonnet-4-5-20250929', // Default, will be loaded from settings
     availableProviders: [],
   });
 
@@ -230,14 +235,14 @@ export function useAiAgent() {
               if (lastModeRef.current === 'tool' && currentToolCallsRef.current.length > 0) {
                 console.log('[useAiAgent] Switching from tool to text mode, flushing tools');
                 // Add completed tools as permanent messages
-                const toolMessages = currentToolCallsRef.current.map(tool => ({
+                const toolMessages = currentToolCallsRef.current.map((tool) => ({
                   type: 'tool-call' as const,
                   id: crypto.randomUUID(),
                   timestamp: Date.now(),
                   toolName: tool.name,
                   args: tool.args,
                   completed: !!tool.result,
-                  result: tool.result,  // Include the result for displaying images
+                  result: tool.result, // Include the result for displaying images
                 }));
 
                 setState((prev) => ({
@@ -320,12 +325,17 @@ export function useAiAgent() {
                 const checkpointMatch = payload.result.match(/\[CHECKPOINT:([\w-]+)\]/);
                 if (checkpointMatch) {
                   pendingCheckpointIdRef.current = checkpointMatch[1];
-                  console.log('[useAiAgent] Extracted checkpoint ID from tool result:', pendingCheckpointIdRef.current);
+                  console.log(
+                    '[useAiAgent] Extracted checkpoint ID from tool result:',
+                    pendingCheckpointIdRef.current
+                  );
                 }
               }
 
               // Update the tool call with result (for checkmark display)
-              const toolCall = currentToolCallsRef.current.find(tc => tc.name === payload.toolName && !tc.result);
+              const toolCall = currentToolCallsRef.current.find(
+                (tc) => tc.name === payload.toolName && !tc.result
+              );
               if (toolCall) {
                 toolCall.result = payload.result;
                 setState((prev) => ({
@@ -360,7 +370,10 @@ export function useAiAgent() {
 
             // Flush any remaining content
             setState((prev) => {
-              console.log('[useAiAgent] Current messages count before flush:', prev.messages.length);
+              console.log(
+                '[useAiAgent] Current messages count before flush:',
+                prev.messages.length
+              );
               console.log('[useAiAgent] Current streamingResponse:', prev.streamingResponse);
 
               const newMessages = [...prev.messages];
@@ -368,21 +381,24 @@ export function useAiAgent() {
               // Flush remaining tools if any
               if (finalToolCalls.length > 0) {
                 console.log('[useAiAgent] Flushing', finalToolCalls.length, 'remaining tool calls');
-                const toolMessages = finalToolCalls.map(tool => ({
+                const toolMessages = finalToolCalls.map((tool) => ({
                   type: 'tool-call' as const,
                   id: crypto.randomUUID(),
                   timestamp: Date.now(),
                   toolName: tool.name,
                   args: tool.args,
                   completed: !!tool.result,
-                  result: tool.result,  // Include the result for displaying images
+                  result: tool.result, // Include the result for displaying images
                 }));
                 newMessages.push(...toolMessages);
               }
 
               // Flush remaining text if any
               if (finalStreamBuffer && finalStreamBuffer.trim()) {
-                console.log('[useAiAgent] Flushing final text on done. Length:', finalStreamBuffer.length);
+                console.log(
+                  '[useAiAgent] Flushing final text on done. Length:',
+                  finalStreamBuffer.length
+                );
                 console.log('[useAiAgent] Final text content:', finalStreamBuffer);
                 const assistantMessage: AssistantMessage = {
                   type: 'assistant',
@@ -393,25 +409,40 @@ export function useAiAgent() {
 
                 newMessages.push(assistantMessage);
               } else {
-                console.log('[useAiAgent] No text to flush (finalStreamBuffer is empty or whitespace)');
+                console.log(
+                  '[useAiAgent] No text to flush (finalStreamBuffer is empty or whitespace)'
+                );
               }
 
               // Attach checkpoint ID to the last user message if we have one
               if (pendingCheckpointIdRef.current) {
-                console.log('[useAiAgent] Attaching checkpoint ID to last user message:', pendingCheckpointIdRef.current);
+                console.log(
+                  '[useAiAgent] Attaching checkpoint ID to last user message:',
+                  pendingCheckpointIdRef.current
+                );
                 // Find the last user message and attach checkpoint
                 for (let i = newMessages.length - 1; i >= 0; i--) {
                   if (newMessages[i].type === 'user') {
                     (newMessages[i] as UserMessage).checkpointId = pendingCheckpointIdRef.current;
-                    console.log('[useAiAgent] Attached checkpoint to user message:', newMessages[i].id);
+                    console.log(
+                      '[useAiAgent] Attached checkpoint to user message:',
+                      newMessages[i].id
+                    );
                     break;
                   }
                 }
-                pendingCheckpointIdRef.current = null;  // Clear after use
+                pendingCheckpointIdRef.current = null; // Clear after use
               }
 
               console.log('[useAiAgent] Final messages count after flush:', newMessages.length);
-              console.log('[useAiAgent] Final messages:', newMessages.map(m => ({ type: m.type, id: m.id, content: 'content' in m ? m.content.substring(0, 50) : 'N/A' })));
+              console.log(
+                '[useAiAgent] Final messages:',
+                newMessages.map((m) => ({
+                  type: m.type,
+                  id: m.id,
+                  content: 'content' in m ? m.content.substring(0, 50) : 'N/A',
+                }))
+              );
 
               // Save conversation after adding message
               setTimeout(() => void saveConversation(), 100);
@@ -421,7 +452,7 @@ export function useAiAgent() {
                 isStreaming: false,
                 streamingResponse: null,
                 messages: newMessages,
-                currentToolCalls: [],  // Clear real-time tool calls
+                currentToolCalls: [], // Clear real-time tool calls
               };
             });
 
@@ -462,7 +493,9 @@ export function useAiAgent() {
     if (!state.currentConversationId || state.messages.length === 0) return;
 
     // Get title from first user message
-    const firstUserMessage = state.messages.find(m => m.type === 'user') as UserMessage | undefined;
+    const firstUserMessage = state.messages.find((m) => m.type === 'user') as
+      | UserMessage
+      | undefined;
     const title = firstUserMessage?.content.slice(0, 50) || 'New Conversation';
 
     const conversation: Conversation = {
@@ -492,141 +525,160 @@ export function useAiAgent() {
   }, []);
 
   // Load a conversation
-  const loadConversation = useCallback((conversationId: string) => {
-    const convo = state.conversations.find((c) => c.id === conversationId);
-    if (convo) {
-      setState((prev) => ({
-        ...prev,
-        currentConversationId: convo.id,
-        messages: convo.messages,
-        streamingResponse: null,
-        error: null,
-      }));
-    }
-  }, [state.conversations]);
-
-  // Submit prompt to AI agent
-  const submitPrompt = useCallback(async (prompt: string, mode: AiMode) => {
-    console.log('[useAiAgent] submitPrompt called', { prompt, mode });
-
-    // Check if API key exists
-    try {
-      console.log('[useAiAgent] Checking for API key...');
-      const hasKey = await invoke<boolean>('has_api_key');
-      console.log('[useAiAgent] Has API key:', hasKey);
-      if (!hasKey) {
+  const loadConversation = useCallback(
+    (conversationId: string) => {
+      const convo = state.conversations.find((c) => c.id === conversationId);
+      if (convo) {
         setState((prev) => ({
           ...prev,
-          error: 'Please set your API key in Settings first',
+          currentConversationId: convo.id,
+          messages: convo.messages,
+          streamingResponse: null,
+          error: null,
+        }));
+      }
+    },
+    [state.conversations]
+  );
+
+  // Submit prompt to AI agent
+  const submitPrompt = useCallback(
+    async (prompt: string, mode: AiMode) => {
+      console.log('[useAiAgent] submitPrompt called', { prompt, mode });
+
+      // Check if API key exists
+      try {
+        console.log('[useAiAgent] Checking for API key...');
+        const hasKey = await invoke<boolean>('has_api_key');
+        console.log('[useAiAgent] Has API key:', hasKey);
+        if (!hasKey) {
+          setState((prev) => ({
+            ...prev,
+            error: 'Please set your API key in Settings first',
+          }));
+          return;
+        }
+      } catch (err) {
+        console.error('[useAiAgent] Failed to check API key:', err);
+        setState((prev) => ({
+          ...prev,
+          error: `Failed to check API key: ${err}`,
         }));
         return;
       }
-    } catch (err) {
-      console.error('[useAiAgent] Failed to check API key:', err);
-      setState((prev) => ({
-        ...prev,
-        error: `Failed to check API key: ${err}`,
-      }));
-      return;
-    }
 
-    // Lazy validation: check if the current model is still available
-    let modelToUse = state.currentModel;
-    try {
-      console.log('[useAiAgent] Validating model:', state.currentModel);
-      const validation: ModelValidation = await validateModel(state.currentModel);
-      if (!validation.is_valid) {
-        console.warn('[useAiAgent] Model not available:', state.currentModel, 'falling back to:', validation.fallback_model);
-        const fallback = validation.fallback_model || 'claude-sonnet-4-5';
-        modelToUse = fallback;
+      // Lazy validation: check if the current model is still available
+      let modelToUse = state.currentModel;
+      try {
+        console.log('[useAiAgent] Validating model:', state.currentModel);
+        const validation: ModelValidation = await validateModel(state.currentModel);
+        if (!validation.is_valid) {
+          console.warn(
+            '[useAiAgent] Model not available:',
+            state.currentModel,
+            'falling back to:',
+            validation.fallback_model
+          );
+          const fallback = validation.fallback_model || 'claude-sonnet-4-5';
+          modelToUse = fallback;
 
-        // Update state with fallback model
-        setState((prev) => ({
-          ...prev,
-          currentModel: fallback,
-          error: `Model "${state.currentModel}" is no longer available. Switched to "${fallback}".`,
-        }));
+          // Update state with fallback model
+          setState((prev) => ({
+            ...prev,
+            currentModel: fallback,
+            error: `Model "${state.currentModel}" is no longer available. Switched to "${fallback}".`,
+          }));
 
-        // Persist the new model selection
-        await invoke('set_ai_model', { model: fallback });
-      }
-    } catch (err) {
-      console.warn('[useAiAgent] Model validation failed, continuing with current model:', err);
-      // Continue with current model if validation fails - it might still work
-    }
-
-    // Create new conversation if needed
-    const conversationId = state.currentConversationId || crypto.randomUUID();
-
-    // Add user message
-    const userMessage: UserMessage = {
-      type: 'user',
-      id: crypto.randomUUID(),
-      content: prompt,
-      timestamp: Date.now(),
-    };
-
-    const updatedMessages = [...state.messages, userMessage];
-
-    // Reset streaming state
-    console.log('[useAiAgent] Starting stream with', updatedMessages.length, 'messages');
-    setState((prev) => ({
-      ...prev,
-      isStreaming: true,
-      streamingResponse: '',
-      proposedDiff: null,
-      error: null,
-      isApplyingDiff: false,
-      messages: updatedMessages,
-      currentConversationId: conversationId,
-      currentToolCalls: [],  // Reset real-time tool calls
-    }));
-    streamBufferRef.current = '';
-    lastChunkRef.current = '';
-    currentToolCallsRef.current = [];
-    lastModeRef.current = null;
-    pendingCheckpointIdRef.current = null;
-
-    try {
-      // Start sidecar if not running
-      if (!sidecarRef.current) {
-        console.log('[useAiAgent] Starting sidecar...');
-        const provider = await invoke<string>('get_ai_provider');
-        const apiKey = await invoke<string>('get_api_key');
-        const model = await invoke<string>('get_ai_model');
-        console.log('[useAiAgent] Got API key for provider:', provider, 'model:', model);
-        await invoke('start_ai_agent', { apiKey, provider });
-        console.log('[useAiAgent] Sidecar started successfully');
-        sidecarRef.current = true;
-      } else {
-        console.log('[useAiAgent] Sidecar already running');
+          // Persist the new model selection
+          await invoke('set_ai_model', { model: fallback });
+        }
+      } catch (err) {
+        console.warn('[useAiAgent] Model validation failed, continuing with current model:', err);
+        // Continue with current model if validation fails - it might still work
       }
 
-      // Convert to legacy format for backend
-      const legacyMessages = convertMessagesToLegacy(updatedMessages);
+      // Create new conversation if needed
+      const conversationId = state.currentConversationId || crypto.randomUUID();
 
-      // Determine provider from current model
-      const provider = getProviderFromModel(modelToUse) || 'anthropic';
+      // Add user message
+      const userMessage: UserMessage = {
+        type: 'user',
+        id: crypto.randomUUID(),
+        content: prompt,
+        timestamp: Date.now(),
+      };
 
-      // Send query to sidecar with full message history, current model, and provider
-      console.log('[useAiAgent] Sending query to sidecar with', legacyMessages.length, 'messages', 'using model:', modelToUse, 'provider:', provider);
-      await invoke('send_ai_query', {
-        messages: legacyMessages,
-        model: modelToUse,
-        provider,
-        mode,
-      });
-      console.log('[useAiAgent] Query sent successfully');
-    } catch (err) {
-      console.error('[useAiAgent] Error submitting prompt:', err);
+      const updatedMessages = [...state.messages, userMessage];
+
+      // Reset streaming state
+      console.log('[useAiAgent] Starting stream with', updatedMessages.length, 'messages');
       setState((prev) => ({
         ...prev,
-        error: `Failed to submit prompt: ${err}`,
-        isStreaming: false,
+        isStreaming: true,
+        streamingResponse: '',
+        proposedDiff: null,
+        error: null,
+        isApplyingDiff: false,
+        messages: updatedMessages,
+        currentConversationId: conversationId,
+        currentToolCalls: [], // Reset real-time tool calls
       }));
       streamBufferRef.current = '';
-    }
-  }, [state.currentConversationId, state.messages, state.currentModel]);
+      lastChunkRef.current = '';
+      currentToolCallsRef.current = [];
+      lastModeRef.current = null;
+      pendingCheckpointIdRef.current = null;
+
+      try {
+        // Start sidecar if not running
+        if (!sidecarRef.current) {
+          console.log('[useAiAgent] Starting sidecar...');
+          const provider = await invoke<string>('get_ai_provider');
+          const apiKey = await invoke<string>('get_api_key');
+          const model = await invoke<string>('get_ai_model');
+          console.log('[useAiAgent] Got API key for provider:', provider, 'model:', model);
+          await invoke('start_ai_agent', { apiKey, provider });
+          console.log('[useAiAgent] Sidecar started successfully');
+          sidecarRef.current = true;
+        } else {
+          console.log('[useAiAgent] Sidecar already running');
+        }
+
+        // Convert to legacy format for backend
+        const legacyMessages = convertMessagesToLegacy(updatedMessages);
+
+        // Determine provider from current model
+        const provider = getProviderFromModel(modelToUse) || 'anthropic';
+
+        // Send query to sidecar with full message history, current model, and provider
+        console.log(
+          '[useAiAgent] Sending query to sidecar with',
+          legacyMessages.length,
+          'messages',
+          'using model:',
+          modelToUse,
+          'provider:',
+          provider
+        );
+        await invoke('send_ai_query', {
+          messages: legacyMessages,
+          model: modelToUse,
+          provider,
+          mode,
+        });
+        console.log('[useAiAgent] Query sent successfully');
+      } catch (err) {
+        console.error('[useAiAgent] Error submitting prompt:', err);
+        setState((prev) => ({
+          ...prev,
+          error: `Failed to submit prompt: ${err}`,
+          isStreaming: false,
+        }));
+        streamBufferRef.current = '';
+      }
+    },
+    [state.currentConversationId, state.messages, state.currentModel]
+  );
 
   // Cancel streaming
   const cancelStream = useCallback(async () => {
@@ -731,16 +783,19 @@ export function useAiAgent() {
   }, []);
 
   // Handle checkpoint restoration with conversation truncation
-  const handleRestoreCheckpoint = useCallback((checkpointId: string, truncatedMessages: Message[]) => {
-    console.log('[useAiAgent] Restoring checkpoint and truncating conversation:', checkpointId);
-    setState((prev) => ({
-      ...prev,
-      messages: truncatedMessages,
-    }));
+  const handleRestoreCheckpoint = useCallback(
+    (checkpointId: string, truncatedMessages: Message[]) => {
+      console.log('[useAiAgent] Restoring checkpoint and truncating conversation:', checkpointId);
+      setState((prev) => ({
+        ...prev,
+        messages: truncatedMessages,
+      }));
 
-    // Save the truncated conversation
-    setTimeout(() => void saveConversation(), 100);
-  }, [saveConversation]);
+      // Save the truncated conversation
+      setTimeout(() => void saveConversation(), 100);
+    },
+    [saveConversation]
+  );
 
   return {
     ...state,

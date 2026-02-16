@@ -62,7 +62,10 @@
 }
 
 .dockview-theme-openscad .dv-split-view-container .dv-sash-container .dv-sash:not(.disabled):hover,
-.dockview-theme-openscad .dv-split-view-container .dv-sash-container .dv-sash:not(.disabled):active {
+.dockview-theme-openscad
+  .dv-split-view-container
+  .dv-sash-container
+  .dv-sash:not(.disabled):active {
   background-color: var(--accent-primary);
   transition: background-color 0.15s ease;
   transition-delay: 0.2s;

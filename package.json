@@ -10,10 +10,17 @@
     "tauri:dev": "cd apps/ui && pnpm tauri dev",
     "tauri:build": "cd apps/ui && pnpm tauri build",
     "lint": "pnpm -r lint",
-    "type-check": "pnpm -r type-check"
+    "type-check": "pnpm -r type-check",
+    "format": "pnpm format:ts && pnpm format:rust",
+    "format:ts": "prettier --write \"apps/**/*.{ts,tsx,js,jsx,json,css}\" \"packages/**/*.{ts,tsx,js,jsx,json}\"",
+    "format:rust": "cd apps/ui/src-tauri && cargo fmt",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,js,jsx,json,css}\" \"packages/**/*.{ts,tsx,js,jsx,json}\" && cd apps/ui/src-tauri && cargo fmt --check"
   },
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "prettier": "^3.7.4"
+  }
 }

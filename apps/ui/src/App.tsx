@@ -13,7 +13,11 @@ import { panelComponents, tabComponents, WorkspaceTab } from './components/panel
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import type { WorkspaceState } from './contexts/WorkspaceContext';
 import {
-  setDockviewApi, getDockviewApi, applyDefaultLayout, saveLayout, clearSavedLayout,
+  setDockviewApi,
+  getDockviewApi,
+  applyDefaultLayout,
+  saveLayout,
+  clearSavedLayout,
 } from './stores/layoutStore';
 import { useOpenScad } from './hooks/useOpenScad';
 import { useAiAgent } from './hooks/useAiAgent';
@@ -53,12 +57,13 @@ function App() {
   const [setupScreenDismissed, setSetupScreenDismissed] = useState(false);
 
   // Computed active tab
-  const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
+  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
   // Get working directory from active tab's file path (for resolving relative imports)
-  const workingDir = activeTab?.filePath && typeof activeTab.filePath === 'string'
-    ? activeTab.filePath.substring(0, activeTab.filePath.lastIndexOf('/'))
-    : null;
+  const workingDir =
+    activeTab?.filePath && typeof activeTab.filePath === 'string'
+      ? activeTab.filePath.substring(0, activeTab.filePath.lastIndexOf('/'))
+      : null;
 
   const {
     source,
@@ -99,135 +104,139 @@ function App() {
     handleRestoreCheckpoint,
   } = useAiAgent();
 
-
   // Tab management functions
-  const createNewTab = useCallback((filePath?: string | null, content?: string, name?: string): string => {
-    const newId = generateId();
-    const defaultContent = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';
-    const tabContent = content || defaultContent;
-    const tabName = name || generateUntitledName();
-    const newTab: Tab = {
-      id: newId,
-      filePath: filePath || null,
-      name: tabName,
-      content: tabContent,
-      savedContent: tabContent,
-      isDirty: false,
-    };
-    setTabs(prev => [...prev, newTab]);
-    setActiveTabId(newId);
+  const createNewTab = useCallback(
+    (filePath?: string | null, content?: string, name?: string): string => {
+      const newId = generateId();
+      const defaultContent = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';
+      const tabContent = content || defaultContent;
+      const tabName = name || generateUntitledName();
+      const newTab: Tab = {
+        id: newId,
+        filePath: filePath || null,
+        name: tabName,
+        content: tabContent,
+        savedContent: tabContent,
+        isDirty: false,
+      };
+      setTabs((prev) => [...prev, newTab]);
+      setActiveTabId(newId);
 
-    updateSource(tabContent);
+      updateSource(tabContent);
 
-    updateEditorState(tabContent).catch(err => {
-      console.error('Failed to update editor state:', err);
-    });
+      updateEditorState(tabContent).catch((err) => {
+        console.error('Failed to update editor state:', err);
+      });
 
-    return newId;
-  }, [updateSource]);
+      return newId;
+    },
+    [updateSource]
+  );
 
   const switchingRef = useRef(false);
 
-  const switchTab = useCallback(async (id: string) => {
-    if (id === activeTabId || switchingRef.current) return;
-    switchingRef.current = true;
+  const switchTab = useCallback(
+    async (id: string) => {
+      if (id === activeTabId || switchingRef.current) return;
+      switchingRef.current = true;
 
-    setTabs(prev => prev.map(tab =>
-      tab.id === activeTabId
-        ? { ...tab, previewSrc, previewKind, diagnostics, dimensionMode, content: source }
-        : tab
-    ));
+      setTabs((prev) =>
+        prev.map((tab) =>
+          tab.id === activeTabId
+            ? { ...tab, previewSrc, previewKind, diagnostics, dimensionMode, content: source }
+            : tab
+        )
+      );
 
-    setActiveTabId(id);
-    const newTab = tabs.find(t => t.id === id);
-    if (newTab) {
-      updateSource(newTab.content);
+      setActiveTabId(id);
+      const newTab = tabs.find((t) => t.id === id);
+      if (newTab) {
+        updateSource(newTab.content);
 
-      try {
-        await updateEditorState(newTab.content);
-      } catch (err) {
-        console.error('Failed to update editor state:', err);
+        try {
+          await updateEditorState(newTab.content);
+        } catch (err) {
+          console.error('Failed to update editor state:', err);
+        }
       }
-    }
 
-    switchingRef.current = false;
-  }, [activeTabId, tabs, previewSrc, previewKind, diagnostics, dimensionMode, source, updateSource]);
+      switchingRef.current = false;
+    },
+    [activeTabId, tabs, previewSrc, previewKind, diagnostics, dimensionMode, source, updateSource]
+  );
 
-  const closeTab = useCallback(async (id: string) => {
-    const tab = tabs.find(t => t.id === id);
-    if (!tab) return;
+  const closeTab = useCallback(
+    async (id: string) => {
+      const tab = tabs.find((t) => t.id === id);
+      if (!tab) return;
 
-    if (tab.isDirty) {
-      const { ask, confirm } = await import('@tauri-apps/plugin-dialog');
-      const wantsToSave = await ask(
-        `Save changes to ${tab.name}?`,
-        {
+      if (tab.isDirty) {
+        const { ask, confirm } = await import('@tauri-apps/plugin-dialog');
+        const wantsToSave = await ask(`Save changes to ${tab.name}?`, {
           title: 'Unsaved Changes',
           kind: 'warning',
           okLabel: 'Save',
           cancelLabel: "Don't Save",
-        }
-      );
+        });
 
-      if (wantsToSave) {
-        return;
-      } else {
-        const confirmDiscard = await confirm(
-          'Are you sure you want to discard your changes?',
-          {
+        if (wantsToSave) {
+          return;
+        } else {
+          const confirmDiscard = await confirm('Are you sure you want to discard your changes?', {
             title: 'Discard Changes',
             kind: 'warning',
             okLabel: 'Discard',
             cancelLabel: 'Cancel',
-          }
-        );
-        if (!confirmDiscard) return;
+          });
+          if (!confirmDiscard) return;
+        }
       }
-    }
 
-    const filtered = tabs.filter(t => t.id !== id);
+      const filtered = tabs.filter((t) => t.id !== id);
 
-    if (filtered.length === 0) {
-      setShowWelcome(true);
-      const newId = generateId();
-      const tabName = generateUntitledName();
-      const newTab: Tab = {
-        id: newId,
-        filePath: null,
-        name: tabName,
-        content: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
-        savedContent: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
-        isDirty: false,
-      };
-      setTabs([newTab]);
-      setActiveTabId(newId);
-      updateSource(newTab.content);
-      return;
-    }
-
-    if (id === activeTabId) {
-      const idx = tabs.findIndex(t => t.id === id);
-      const newActiveTab = filtered[Math.max(0, idx - 1)];
-      setTabs(filtered);
-      setActiveTabId(newActiveTab.id);
-      updateSource(newActiveTab.content);
-
-      try {
-        await updateEditorState(newActiveTab.content);
-      } catch (err) {
-        console.error('Failed to update editor state:', err);
+      if (filtered.length === 0) {
+        setShowWelcome(true);
+        const newId = generateId();
+        const tabName = generateUntitledName();
+        const newTab: Tab = {
+          id: newId,
+          filePath: null,
+          name: tabName,
+          content: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
+          savedContent: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
+          isDirty: false,
+        };
+        setTabs([newTab]);
+        setActiveTabId(newId);
+        updateSource(newTab.content);
+        return;
       }
-    } else {
-      setTabs(filtered);
-    }
-  }, [tabs, activeTabId, updateSource]);
+
+      if (id === activeTabId) {
+        const idx = tabs.findIndex((t) => t.id === id);
+        const newActiveTab = filtered[Math.max(0, idx - 1)];
+        setTabs(filtered);
+        setActiveTabId(newActiveTab.id);
+        updateSource(newActiveTab.content);
+
+        try {
+          await updateEditorState(newActiveTab.content);
+        } catch (err) {
+          console.error('Failed to update editor state:', err);
+        }
+      } else {
+        setTabs(filtered);
+      }
+    },
+    [tabs, activeTabId, updateSource]
+  );
 
   const updateTabContent = useCallback((id: string, content: string) => {
-    setTabs(prev => prev.map(tab =>
-      tab.id === id
-        ? { ...tab, content, isDirty: content !== tab.savedContent }
-        : tab
-    ));
+    setTabs((prev) =>
+      prev.map((tab) =>
+        tab.id === id ? { ...tab, content, isDirty: content !== tab.savedContent } : tab
+      )
+    );
   }, []);
 
   const reorderTabs = useCallback((newTabs: Tab[]) => {
@@ -323,7 +332,7 @@ function App() {
       // Debounced render - handles rapid tab switching gracefully
       tabSwitchRenderTimerRef.current = window.setTimeout(() => {
         if (manualRenderRef.current) {
-          const currentTab = tabs.find(t => t.id === activeTabId);
+          const currentTab = tabs.find((t) => t.id === activeTabId);
           console.log('[App] Auto-rendering after tab change to:', currentTab?.name);
           manualRenderRef.current();
         }
@@ -349,83 +358,97 @@ function App() {
   }, [source, activeTab, activeTabId, updateTabContent]);
 
   // Helper function to save file to current path or prompt for new path
-  const saveFile = useCallback(async (promptForPath: boolean = false): Promise<boolean> => {
-    try {
-      const currentTab = activeTabRef.current;
-      let savePath: string | null = currentTab.filePath;
+  const saveFile = useCallback(
+    async (promptForPath: boolean = false): Promise<boolean> => {
+      try {
+        const currentTab = activeTabRef.current;
+        let savePath: string | null = currentTab.filePath;
 
-      if (promptForPath || !savePath) {
-        const result = await save({
-          filters: [{ name: 'OpenSCAD Files', extensions: ['scad'] }],
-          defaultPath: savePath || undefined,
-        });
-        if (!result) return false; // User cancelled save dialog
-        savePath = result;
-      }
+        if (promptForPath || !savePath) {
+          const result = await save({
+            filters: [{ name: 'OpenSCAD Files', extensions: ['scad'] }],
+            defaultPath: savePath || undefined,
+          });
+          if (!result) return false; // User cancelled save dialog
+          savePath = result;
+        }
 
-      // Ensure savePath is valid before proceeding
-      if (!savePath) {
-        console.error('[saveFile] Invalid save path');
-        alert('Failed to save file: No path specified');
+        // Ensure savePath is valid before proceeding
+        if (!savePath) {
+          console.error('[saveFile] Invalid save path');
+          alert('Failed to save file: No path specified');
+          return false;
+        }
+
+        let currentSource = sourceRef.current;
+
+        // Format code before saving if enabled
+        const currentSettings = loadSettings();
+        if (currentSettings.editor.formatOnSave) {
+          try {
+            currentSource = await formatOpenScadCode(currentSource, {
+              indentSize: currentSettings.editor.indentSize,
+              useTabs: currentSettings.editor.useTabs,
+            });
+            // Update the editor with formatted code
+            updateSource(currentSource);
+          } catch (err) {
+            console.error('[saveFile] Failed to format code:', err);
+            // Continue with save even if formatting fails
+          }
+        }
+
+        await writeTextFile(savePath, currentSource);
+
+        const fileName = savePath.split('/').pop() || savePath;
+        setTabs((prev) =>
+          prev.map((tab) =>
+            tab.id === currentTab.id
+              ? {
+                  ...tab,
+                  filePath: savePath,
+                  name: fileName,
+                  savedContent: currentSource,
+                  isDirty: false,
+                }
+              : tab
+          )
+        );
+
+        const dockPanel = getDockviewApi()?.getPanel(currentTab.id);
+        if (dockPanel) {
+          dockPanel.api.setTitle(fileName);
+        }
+
+        addToRecentFiles(savePath);
+
+        // Trigger render on save (only if OpenSCAD is available)
+        if (openscadPathRef.current && renderOnSaveRef.current) {
+          renderOnSaveRef.current();
+        }
+
+        return true;
+      } catch (err) {
+        console.error('[saveFile] Save failed:', err);
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        alert(`Failed to save file: ${errorMsg}`);
         return false;
       }
-
-      let currentSource = sourceRef.current;
-
-      // Format code before saving if enabled
-      const currentSettings = loadSettings();
-      if (currentSettings.editor.formatOnSave) {
-        try {
-          currentSource = await formatOpenScadCode(currentSource, {
-            indentSize: currentSettings.editor.indentSize,
-            useTabs: currentSettings.editor.useTabs,
-          });
-          // Update the editor with formatted code
-          updateSource(currentSource);
-        } catch (err) {
-          console.error('[saveFile] Failed to format code:', err);
-          // Continue with save even if formatting fails
-        }
-      }
-
-      await writeTextFile(savePath, currentSource);
-
-      const fileName = savePath.split('/').pop() || savePath;
-      setTabs(prev => prev.map(tab =>
-        tab.id === currentTab.id
-          ? { ...tab, filePath: savePath, name: fileName, savedContent: currentSource, isDirty: false }
-          : tab
-      ));
-
-      const dockPanel = getDockviewApi()?.getPanel(currentTab.id);
-      if (dockPanel) {
-        dockPanel.api.setTitle(fileName);
-      }
-
-      addToRecentFiles(savePath);
-
-      // Trigger render on save (only if OpenSCAD is available)
-      if (openscadPathRef.current && renderOnSaveRef.current) {
-        renderOnSaveRef.current();
-      }
-
-      return true;
-    } catch (err) {
-      console.error('[saveFile] Save failed:', err);
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      alert(`Failed to save file: ${errorMsg}`);
-      return false;
-    }
-  }, [updateSource]);
+    },
+    [updateSource]
+  );
 
   // Handle starting with AI prompt from welcome screen
-  const handleStartWithPrompt = useCallback((prompt: string) => {
-    setShowWelcome(false);
-    // Submit prompt after a small delay to ensure UI is ready
-    setTimeout(() => {
-      submitPrompt(prompt, 'edit');
-    }, 100);
-  }, [submitPrompt]);
+  const handleStartWithPrompt = useCallback(
+    (prompt: string) => {
+      setShowWelcome(false);
+      // Submit prompt after a small delay to ensure UI is ready
+      setTimeout(() => {
+        submitPrompt(prompt, 'edit');
+      }, 100);
+    },
+    [submitPrompt]
+  );
 
   // Handle starting manually from welcome screen
   const handleStartManually = useCallback(() => {
@@ -433,80 +456,84 @@ function App() {
   }, []);
 
   // Handle opening recent file from welcome screen
-  const handleOpenRecent = useCallback(async (path: string) => {
-    try {
-      // Check if file is already open in a tab
-      const existingTab = tabs.find(t => t.filePath === path);
-      if (existingTab) {
-        // Switch to existing tab
-        await switchTab(existingTab.id);
+  const handleOpenRecent = useCallback(
+    async (path: string) => {
+      try {
+        // Check if file is already open in a tab
+        const existingTab = tabs.find((t) => t.filePath === path);
+        if (existingTab) {
+          // Switch to existing tab
+          await switchTab(existingTab.id);
+          setShowWelcome(false);
+          return;
+        }
+
+        const contents = await readTextFile(path);
+        const fileName = path.split('/').pop() || path;
+
+        // Check if we should replace the first tab (if it's untitled and unmodified)
+        const firstTab = tabs[0];
+        const shouldReplaceFirstTab =
+          showWelcome && tabs.length === 1 && !firstTab.filePath && !firstTab.isDirty;
+
+        if (shouldReplaceFirstTab) {
+          // Replace the first tab instead of creating a new one
+          setTabs([
+            {
+              ...firstTab,
+              filePath: path,
+              name: fileName,
+              content: contents,
+              savedContent: contents,
+              isDirty: false,
+            },
+          ]);
+          updateSource(contents);
+
+          // Update backend EditorState for AI agent
+          updateEditorState(contents).catch((err) => {
+            console.error('Failed to update editor state:', err);
+          });
+        } else {
+          // Create new tab as usual
+          createNewTab(path, contents, fileName);
+        }
+
         setShowWelcome(false);
-        return;
+
+        // Add to recent files
+        addToRecentFiles(path);
+
+        // Automatically render the opened file
+        if (openscadPathRef.current && manualRenderRef.current) {
+          setTimeout(() => {
+            if (manualRenderRef.current) {
+              manualRenderRef.current();
+            }
+          }, 100);
+        }
+      } catch (err) {
+        console.error('Failed to open recent file:', err);
+        alert(`Failed to open file: ${err}`);
       }
-
-      const contents = await readTextFile(path);
-      const fileName = path.split('/').pop() || path;
-
-      // Check if we should replace the first tab (if it's untitled and unmodified)
-      const firstTab = tabs[0];
-      const shouldReplaceFirstTab = showWelcome &&
-                                    tabs.length === 1 &&
-                                    !firstTab.filePath &&
-                                    !firstTab.isDirty;
-
-      if (shouldReplaceFirstTab) {
-        // Replace the first tab instead of creating a new one
-        setTabs([{
-          ...firstTab,
-          filePath: path,
-          name: fileName,
-          content: contents,
-          savedContent: contents,
-          isDirty: false,
-        }]);
-        updateSource(contents);
-
-        // Update backend EditorState for AI agent
-        updateEditorState(contents).catch(err => {
-          console.error('Failed to update editor state:', err);
-        });
-      } else {
-        // Create new tab as usual
-        createNewTab(path, contents, fileName);
-      }
-
-      setShowWelcome(false);
-
-      // Add to recent files
-      addToRecentFiles(path);
-
-      // Automatically render the opened file
-      if (openscadPathRef.current && manualRenderRef.current) {
-        setTimeout(() => {
-          if (manualRenderRef.current) {
-            manualRenderRef.current();
-          }
-        }, 100);
-      }
-    } catch (err) {
-      console.error('Failed to open recent file:', err);
-      alert(`Failed to open file: ${err}`);
-    }
-  }, [tabs, showWelcome, switchTab, createNewTab, updateSource]);
+    },
+    [tabs, showWelcome, switchTab, createNewTab, updateSource]
+  );
 
   // Handle opening file dialog from welcome screen
   const handleOpenFile = useCallback(async () => {
     try {
       const selected = await open({
         filters: [{ name: 'OpenSCAD Files', extensions: ['scad'] }],
-        multiple: false
+        multiple: false,
       });
       if (!selected) return; // User cancelled
 
-      const filePath = typeof selected === 'string' ? selected : (selected as { path: string }).path;
+      const filePath =
+        typeof selected === 'string' ? selected : (selected as { path: string }).path;
 
       // Check if already open
-      const existingTab = tabs.find(t => t.filePath === filePath);
+      const existingTab = tabs.find((t) => t.filePath === filePath);
       if (existingTab) {
         await switchTab(existingTab.id);
         setShowWelcome(false);
@@ -518,25 +545,25 @@ function App() {
 
       // Check if we should replace the first tab (if it's untitled and unmodified)
       const firstTab = tabs[0];
-      const shouldReplaceFirstTab = showWelcome &&
-                                    tabs.length === 1 &&
-                                    !firstTab.filePath &&
-                                    !firstTab.isDirty;
+      const shouldReplaceFirstTab =
+        showWelcome && tabs.length === 1 && !firstTab.filePath && !firstTab.isDirty;
 
       if (shouldReplaceFirstTab) {
         // Replace the first tab instead of creating a new one
-        setTabs([{
-          ...firstTab,
-          filePath,
-          name: fileName,
-          content: contents,
-          savedContent: contents,
-          isDirty: false,
-        }]);
+        setTabs([
+          {
+            ...firstTab,
+            filePath,
+            name: fileName,
+            content: contents,
+            savedContent: contents,
+            isDirty: false,
+          },
+        ]);
         updateSource(contents);
 
         // Update backend EditorState for AI agent
-        updateEditorState(contents).catch(err => {
+        updateEditorState(contents).catch((err) => {
           console.error('Failed to update editor state:', err);
         });
       } else {
@@ -573,30 +600,24 @@ function App() {
     const { ask, confirm } = await import('@tauri-apps/plugin-dialog');
 
     // First ask if they want to save
-    const wantsToSave = await ask(
-      'Do you want to save the changes you made?',
-      {
-        title: 'Unsaved Changes',
-        kind: 'warning',
-        okLabel: 'Save',
-        cancelLabel: "Don't Save",
-      }
-    );
+    const wantsToSave = await ask('Do you want to save the changes you made?', {
+      title: 'Unsaved Changes',
+      kind: 'warning',
+      okLabel: 'Save',
+      cancelLabel: "Don't Save",
+    });
 
     if (wantsToSave) {
       // User wants to save - attempt save
       return await saveFile(false);
     } else {
       // User chose "Don't Save" - confirm they want to discard
-      const confirmDiscard = await confirm(
-        'Are you sure you want to discard your changes?',
-        {
-          title: 'Discard Changes',
-          kind: 'warning',
-          okLabel: 'Discard',
-          cancelLabel: 'Cancel',
-        }
-      );
+      const confirmDiscard = await confirm('Are you sure you want to discard your changes?', {
+        title: 'Discard Changes',
+        kind: 'warning',
+        okLabel: 'Discard',
+        cancelLabel: 'Cancel',
+      });
       return confirmDiscard; // true if they want to discard, false if they cancelled
     }
   };
@@ -613,7 +634,9 @@ function App() {
       const unlistenNew = await listen('menu:file:new', async () => {
         if (!isMounted) return;
 
-        const canProceed = checkUnsavedChangesRef.current ? await checkUnsavedChangesRef.current() : true;
+        const canProceed = checkUnsavedChangesRef.current
+          ? await checkUnsavedChangesRef.current()
+          : true;
         if (!canProceed) return;
 
         createNewTab();
@@ -628,14 +651,15 @@ function App() {
         try {
           const selected = await open({
             filters: [{ name: 'OpenSCAD Files', extensions: ['scad'] }],
-            multiple: false
+            multiple: false,
           });
           if (!selected) return; // User cancelled
 
-          const filePath = typeof selected === 'string' ? selected : (selected as { path: string }).path;
+          const filePath =
+            typeof selected === 'string' ? selected : (selected as { path: string }).path;
 
           // Check if already open
-          const existingTab = tabsRef.current.find(t => t.filePath === filePath);
+          const existingTab = tabsRef.current.find((t) => t.filePath === filePath);
           if (existingTab) {
             await switchTab(existingTab.id);
             setShowWelcome(false);
@@ -690,17 +714,17 @@ function App() {
         try {
           const format = event.payload;
           const formatLabels: Record<ExportFormat, { label: string; ext: string }> = {
-            'stl': { label: 'STL (3D Model)', ext: 'stl' },
-            'obj': { label: 'OBJ (3D Model)', ext: 'obj' },
-            'amf': { label: 'AMF (3D Model)', ext: 'amf' },
+            stl: { label: 'STL (3D Model)', ext: 'stl' },
+            obj: { label: 'OBJ (3D Model)', ext: 'obj' },
+            amf: { label: 'AMF (3D Model)', ext: 'amf' },
             '3mf': { label: '3MF (3D Model)', ext: '3mf' },
-            'png': { label: 'PNG (Image)', ext: 'png' },
-            'svg': { label: 'SVG (2D Vector)', ext: 'svg' },
-            'dxf': { label: 'DXF (2D CAD)', ext: 'dxf' },
+            png: { label: 'PNG (Image)', ext: 'png' },
+            svg: { label: 'SVG (2D Vector)', ext: 'svg' },
+            dxf: { label: 'DXF (2D CAD)', ext: 'dxf' },
           };
           const formatInfo = formatLabels[format];
           const savePath = await save({
-            filters: [{ name: formatInfo.label, extensions: [formatInfo.ext] }]
+            filters: [{ name: formatInfo.label, extensions: [formatInfo.ext] }],
           });
           if (!savePath) return; // User cancelled
 
@@ -710,7 +734,7 @@ function App() {
             source: sourceRef.current,
             format,
             out_path: savePath,
-            working_dir: workingDirRef.current || undefined
+            working_dir: workingDirRef.current || undefined,
           });
 
           if (isMounted) {
@@ -730,7 +754,7 @@ function App() {
 
     return () => {
       isMounted = false;
-      unlistenFns.forEach(fn => fn());
+      unlistenFns.forEach((fn) => fn());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run once on mount, using refs for latest values
@@ -742,10 +766,12 @@ function App() {
 
     const setup = async () => {
       unlisten = await appWindow.onCloseRequested(async (event) => {
-        const anyDirty = tabsRef.current.some(t => t.isDirty);
+        const anyDirty = tabsRef.current.some((t) => t.isDirty);
         if (anyDirty) {
           event.preventDefault();
-          const canClose = checkUnsavedChangesRef.current ? await checkUnsavedChangesRef.current() : true;
+          const canClose = checkUnsavedChangesRef.current
+            ? await checkUnsavedChangesRef.current()
+            : true;
           if (canClose) {
             await appWindow.close();
           }
@@ -813,16 +839,18 @@ function App() {
         updateSource(code);
 
         // Update backend EditorState
-        updateEditorState(code).catch(err => {
+        updateEditorState(code).catch((err) => {
           console.error('Failed to update editor state:', err);
         });
 
         // Update active tab content
-        setTabs(prev => prev.map(tab =>
-          tab.id === activeTabId
-            ? { ...tab, content: code, isDirty: code !== tab.savedContent }
-            : tab
-        ));
+        setTabs((prev) =>
+          prev.map((tab) =>
+            tab.id === activeTabId
+              ? { ...tab, content: code, isDirty: code !== tab.savedContent }
+              : tab
+          )
+        );
       });
       console.log('[App] history:restore listener setup complete');
     };
@@ -884,51 +912,79 @@ function App() {
     });
   }, []);
 
-  const workspaceState: WorkspaceState = useMemo(() => ({
-    source,
-    updateSource,
-    diagnostics,
-    onManualRender: manualRender,
-    settings,
-    tabs,
-    activeTabId,
-    onTabClick: switchTab,
-    onTabClose: closeTab,
-    onNewTab: () => createNewTab(),
-    onReorderTabs: reorderTabs,
-    previewSrc,
-    previewKind,
-    isRendering,
-    error,
-    isStreaming,
-    streamingResponse,
-    proposedDiff,
-    aiError,
-    isApplyingDiff,
-    messages,
-    currentToolCalls,
-    currentModel,
-    availableProviders,
-    submitPrompt,
-    cancelStream,
-    acceptDiff,
-    rejectDiff,
-    clearAiError,
-    newConversation,
-    setCurrentModel,
-    handleRestoreCheckpoint,
-    aiPromptPanelRef,
-    onAcceptDiff: acceptDiff,
-    onRejectDiff: rejectDiff,
-  }), [
-    source, updateSource, diagnostics, manualRender, settings,
-    tabs, activeTabId, switchTab, closeTab, createNewTab, reorderTabs,
-    previewSrc, previewKind, isRendering, error,
-    isStreaming, streamingResponse, proposedDiff, aiError, isApplyingDiff,
-    messages, currentToolCalls, currentModel, availableProviders,
-    submitPrompt, cancelStream, acceptDiff, rejectDiff, clearAiError,
-    newConversation, setCurrentModel, handleRestoreCheckpoint,
-  ]);
+  const workspaceState: WorkspaceState = useMemo(
+    () => ({
+      source,
+      updateSource,
+      diagnostics,
+      onManualRender: manualRender,
+      settings,
+      tabs,
+      activeTabId,
+      onTabClick: switchTab,
+      onTabClose: closeTab,
+      onNewTab: () => createNewTab(),
+      onReorderTabs: reorderTabs,
+      previewSrc,
+      previewKind,
+      isRendering,
+      error,
+      isStreaming,
+      streamingResponse,
+      proposedDiff,
+      aiError,
+      isApplyingDiff,
+      messages,
+      currentToolCalls,
+      currentModel,
+      availableProviders,
+      submitPrompt,
+      cancelStream,
+      acceptDiff,
+      rejectDiff,
+      clearAiError,
+      newConversation,
+      setCurrentModel,
+      handleRestoreCheckpoint,
+      aiPromptPanelRef,
+      onAcceptDiff: acceptDiff,
+      onRejectDiff: rejectDiff,
+    }),
+    [
+      source,
+      updateSource,
+      diagnostics,
+      manualRender,
+      settings,
+      tabs,
+      activeTabId,
+      switchTab,
+      closeTab,
+      createNewTab,
+      reorderTabs,
+      previewSrc,
+      previewKind,
+      isRendering,
+      error,
+      isStreaming,
+      streamingResponse,
+      proposedDiff,
+      aiError,
+      isApplyingDiff,
+      messages,
+      currentToolCalls,
+      currentModel,
+      availableProviders,
+      submitPrompt,
+      cancelStream,
+      acceptDiff,
+      rejectDiff,
+      clearAiError,
+      newConversation,
+      setCurrentModel,
+      handleRestoreCheckpoint,
+    ]
+  );
 
   // Show setup screen if OpenSCAD not found
   if (showSetupScreen) {
@@ -969,8 +1025,17 @@ function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      <header className="flex items-center gap-1.5 shrink-0" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)' }}>
+    <div
+      className="h-screen flex flex-col"
+      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+    >
+      <header
+        className="flex items-center gap-1.5 shrink-0"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          borderBottom: '1px solid var(--border-subtle)',
+        }}
+      >
         <div className="flex-1 min-w-0 overflow-hidden">
           <TabBar
             tabs={tabs}
@@ -983,64 +1048,80 @@ function App() {
         </div>
 
         <div className="flex items-center gap-1.5 px-3 shrink-0">
-        {isRendering && (
-          <div className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
-            <div className="animate-spin h-2.5 w-2.5 border-2 rounded-full" style={{ borderColor: 'var(--border-primary)', borderTopColor: 'var(--accent-primary)' }} />
-            <span>Rendering</span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-1 text-xs px-2 py-1 rounded border" style={{
-          color: 'var(--text-secondary)',
-          backgroundColor: 'var(--bg-elevated)',
-          borderColor: 'var(--border-secondary)'
-        }}>
-          {dimensionMode === '2d' ? (
-            <>
-              <TbRuler2 size={12} />
-              <span className="font-medium">2D</span>
-            </>
-          ) : (
-            <>
-              <TbBox size={12} />
-              <span className="font-medium">3D</span>
-            </>
+          {isRendering && (
+            <div
+              className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+            >
+              <div
+                className="animate-spin h-2.5 w-2.5 border-2 rounded-full"
+                style={{
+                  borderColor: 'var(--border-primary)',
+                  borderTopColor: 'var(--accent-primary)',
+                }}
+              />
+              <span>Rendering</span>
+            </div>
           )}
-        </div>
 
-        <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }} />
+          <div
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded border"
+            style={{
+              color: 'var(--text-secondary)',
+              backgroundColor: 'var(--bg-elevated)',
+              borderColor: 'var(--border-secondary)',
+            }}
+          >
+            {dimensionMode === '2d' ? (
+              <>
+                <TbRuler2 size={12} />
+                <span className="font-medium">2D</span>
+              </>
+            ) : (
+              <>
+                <TbBox size={12} />
+                <span className="font-medium">3D</span>
+              </>
+            )}
+          </div>
 
-        <Button
-          variant="primary"
-          onClick={manualRender}
-          disabled={isRendering || !openscadPath}
-          className="text-xs px-2 py-1"
-        >
-          Render (⌘↵)
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => setShowExportDialog(true)}
-          disabled={isRendering || !openscadPath}
-          className="text-xs px-2 py-1"
-        >
-          Export
-        </Button>
+          <div
+            style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }}
+          />
 
-        <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }} />
+          <Button
+            variant="primary"
+            onClick={manualRender}
+            disabled={isRendering || !openscadPath}
+            className="text-xs px-2 py-1"
+          >
+            Render (⌘↵)
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setShowExportDialog(true)}
+            disabled={isRendering || !openscadPath}
+            className="text-xs px-2 py-1"
+          >
+            Export
+          </Button>
 
-        <button
-          type="button"
-          onClick={() => setShowSettingsDialog(true)}
-          className="p-1 rounded-md transition-colors"
-          style={{
-            backgroundColor: 'transparent',
-            color: 'var(--text-secondary)',
-          }}
-          title="Settings (⌘,)"
-        >
-          <TbSettings size={16} />
-        </button>
+          <div
+            style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }}
+          />
+
+          <button
+            type="button"
+            onClick={() => setShowSettingsDialog(true)}
+            className="p-1 rounded-md transition-colors"
+            style={{
+              backgroundColor: 'transparent',
+              color: 'var(--text-secondary)',
+            }}
+            title="Settings (⌘,)"
+          >
+            <TbSettings size={16} />
+          </button>
         </div>
       </header>
 
@@ -1076,7 +1157,15 @@ function App() {
 
       {/* AI Error notification */}
       {aiError && (
-        <div className="fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg max-w-md z-50" style={{ backgroundColor: 'var(--color-error)', border: '1px solid var(--color-error)', color: 'var(--text-inverse)', opacity: 0.9 }}>
+        <div
+          className="fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg max-w-md z-50"
+          style={{
+            backgroundColor: 'var(--color-error)',
+            border: '1px solid var(--color-error)',
+            color: 'var(--text-inverse)',
+            opacity: 0.9,
+          }}
+        >
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="font-semibold mb-1">AI Error</div>
@@ -1092,7 +1181,6 @@ function App() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

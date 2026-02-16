@@ -17,7 +17,9 @@ export function readFixture(fixturePath: string): string {
  * Get all test cases in a fixtures directory
  * Returns pairs of [inputPath, expectedPath]
  */
-export function getTestCases(fixturesDir: string): Array<{ name: string; input: string; expected: string }> {
+export function getTestCases(
+  fixturesDir: string
+): Array<{ name: string; input: string; expected: string }> {
   const fullDir = path.join(__dirname, 'fixtures', fixturesDir);
 
   if (!fs.existsSync(fullDir)) {
@@ -28,7 +30,7 @@ export function getTestCases(fixturesDir: string): Array<{ name: string; input: 
   const testCases: Array<{ name: string; input: string; expected: string }> = [];
 
   // Find all .scad files that don't end with .expected.scad
-  const inputFiles = files.filter(f => f.endsWith('.scad') && !f.endsWith('.expected.scad'));
+  const inputFiles = files.filter((f) => f.endsWith('.scad') && !f.endsWith('.expected.scad'));
 
   for (const inputFile of inputFiles) {
     const baseName = inputFile.replace(/\.scad$/, '');
@@ -67,7 +69,11 @@ export function getAllTestCases(): Array<{ name: string; input: string; expected
     for (const entry of entries) {
       if (entry.isDirectory()) {
         scan(path.join(dir, entry.name), path.join(relativePath, entry.name));
-      } else if (entry.isFile() && entry.name.endsWith('.scad') && !entry.name.endsWith('.expected.scad')) {
+      } else if (
+        entry.isFile() &&
+        entry.name.endsWith('.scad') &&
+        !entry.name.endsWith('.expected.scad')
+      ) {
         const baseName = entry.name.replace(/\.scad$/, '');
         const expectedFile = `${baseName}.expected.scad`;
         const expectedPath = path.join(dir, expectedFile);

@@ -9,7 +9,8 @@ use <lib/spacing_utils.scad>`;
 
     const result = formatOpenScadCode(input);
 
-    expect(result).toBe(`// Import the library (modules/functions only; no top-level geometry executed)
+    expect(result)
+      .toBe(`// Import the library (modules/functions only; no top-level geometry executed)
 use <lib/holes.scad>
 use <lib/line.scad>
 use <lib/spacing_utils.scad>

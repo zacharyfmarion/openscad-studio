@@ -32,10 +32,10 @@ function parseCommentConfig(comment: string): {
 
   // Check for labeled dropdown: "10:Small, 20:Medium"
   if (content.includes(':') && content.includes(',')) {
-    const parts = content.split(',').map(s => s.trim());
-    if (parts.every(p => p.includes(':'))) {
-      const options = parts.map(part => {
-        const [val, label] = part.split(':').map(s => s.trim());
+    const parts = content.split(',').map((s) => s.trim());
+    if (parts.every((p) => p.includes(':'))) {
+      const options = parts.map((part) => {
+        const [val, label] = part.split(':').map((s) => s.trim());
         return {
           value: isNaN(Number(val)) ? val : Number(val),
           label: label || val,
@@ -77,10 +77,13 @@ function parseCommentConfig(comment: string): {
 
   // Check for string dropdown: "foo, bar, baz"
   if (content.includes(',')) {
-    const options = content.split(',').map(s => s.trim()).map(val => ({
-      value: val,
-      label: val,
-    }));
+    const options = content
+      .split(',')
+      .map((s) => s.trim())
+      .map((val) => ({
+        value: val,
+        label: val,
+      }));
     return { type: 'dropdown', options };
   }
 
@@ -103,7 +106,10 @@ function getTrailingComment(node: TreeSitter.Node, sourceCode: string): string |
  * Extract value from an assignment node
  * Returns null if the value is not a simple literal (i.e., it's an expression)
  */
-function extractValue(valueNode: TreeSitter.Node, sourceCode: string): {
+function extractValue(
+  valueNode: TreeSitter.Node,
+  sourceCode: string
+): {
   value: string | number | boolean | number[];
   rawValue: string;
   inferredType: ParameterType;
@@ -112,12 +118,14 @@ function extractValue(valueNode: TreeSitter.Node, sourceCode: string): {
   const rawValue = text;
 
   // Skip expressions (binary operations, function calls, etc.)
-  if (valueNode.type === 'binary_expression' ||
-      valueNode.type === 'unary_expression' ||
-      valueNode.type === 'call_expression' ||
-      valueNode.type === 'function_call' ||
-      valueNode.type === 'ternary_expression' ||
-      valueNode.type === 'index_expression') {
+  if (
+    valueNode.type === 'binary_expression' ||
+    valueNode.type === 'unary_expression' ||
+    valueNode.type === 'call_expression' ||
+    valueNode.type === 'function_call' ||
+    valueNode.type === 'ternary_expression' ||
+    valueNode.type === 'index_expression'
+  ) {
     return null; // Not a simple literal
   }
 
@@ -135,9 +143,18 @@ function extractValue(valueNode: TreeSitter.Node, sourceCode: string): {
     // Check if all children are literals (no expressions)
     for (let i = 0; i < valueNode.childCount; i++) {
       const child = valueNode.child(i);
-      if (child && child.type !== '[' && child.type !== ']' && child.type !== ',' &&
-          child.type !== 'number' && child.type !== 'decimal' && child.type !== 'integer' &&
-          child.type !== 'float' && child.type !== 'whitespace' && child.type !== '\n') {
+      if (
+        child &&
+        child.type !== '[' &&
+        child.type !== ']' &&
+        child.type !== ',' &&
+        child.type !== 'number' &&
+        child.type !== 'decimal' &&
+        child.type !== 'integer' &&
+        child.type !== 'float' &&
+        child.type !== 'whitespace' &&
+        child.type !== '\n'
+      ) {
         return null; // Contains non-literal
       }
     }
@@ -161,7 +178,12 @@ function extractValue(valueNode: TreeSitter.Node, sourceCode: string): {
   }
 
   // Number (simple literal only)
-  if (valueNode.type === 'number' || valueNode.type === 'decimal' || valueNode.type === 'integer' || valueNode.type === 'float') {
+  if (
+    valueNode.type === 'number' ||
+    valueNode.type === 'decimal' ||
+    valueNode.type === 'integer' ||
+    valueNode.type === 'float'
+  ) {
     return {
       value: Number(text),
       rawValue,
@@ -238,7 +260,11 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
 
           if (subChild.type === 'identifier' && !identifier) {
             identifier = subChild;
-          } else if (subChild.type !== 'identifier' && subChild.type !== '=' && subChild.type !== ';') {
+          } else if (
+            subChild.type !== 'identifier' &&
+            subChild.type !== '=' &&
+            subChild.type !== ';'
+          ) {
             valueNode = subChild;
           }
         }

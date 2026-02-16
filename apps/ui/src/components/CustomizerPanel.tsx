@@ -31,58 +31,58 @@ export function CustomizerPanel({ code, onChange }: CustomizerPanelProps) {
   }, [code]);
 
   // Handle parameter value change
-  const handleParameterChange = useCallback(async (param: CustomizerParam, newValue: string | number | boolean | number[]) => {
-    // Format the new value as OpenSCAD code
-    let formattedValue: string;
+  const handleParameterChange = useCallback(
+    async (param: CustomizerParam, newValue: string | number | boolean | number[]) => {
+      // Format the new value as OpenSCAD code
+      let formattedValue: string;
 
-    if (typeof newValue === 'boolean') {
-      formattedValue = String(newValue);
-    } else if (Array.isArray(newValue)) {
-      formattedValue = `[${newValue.join(', ')}]`;
-    } else if (typeof newValue === 'string') {
-      // Check if it was originally a string literal
-      if (param.rawValue.startsWith('"') || param.rawValue.startsWith("'")) {
-        formattedValue = `"${newValue}"`;
+      if (typeof newValue === 'boolean') {
+        formattedValue = String(newValue);
+      } else if (Array.isArray(newValue)) {
+        formattedValue = `[${newValue.join(', ')}]`;
+      } else if (typeof newValue === 'string') {
+        // Check if it was originally a string literal
+        if (param.rawValue.startsWith('"') || param.rawValue.startsWith("'")) {
+          formattedValue = `"${newValue}"`;
+        } else {
+          formattedValue = newValue;
+        }
       } else {
-        formattedValue = newValue;
+        formattedValue = String(newValue);
       }
-    } else {
-      formattedValue = String(newValue);
-    }
 
-    // Find the assignment in the code and replace the value
-    // Pattern: variableName = oldValue;
-    let newCode = code;
+      // Find the assignment in the code and replace the value
+      // Pattern: variableName = oldValue;
+      let newCode = code;
 
-    // Find the line with this parameter assignment
-    // We'll use a more robust approach: find by variable name and replace the value
-    const assignmentPattern = new RegExp(
-      `^(\\s*${param.name}\\s*=\\s*)([^;]+)(;.*)$`,
-      'gm'
-    );
+      // Find the line with this parameter assignment
+      // We'll use a more robust approach: find by variable name and replace the value
+      const assignmentPattern = new RegExp(`^(\\s*${param.name}\\s*=\\s*)([^;]+)(;.*)$`, 'gm');
 
-    newCode = code.replace(assignmentPattern, (_, prefix, __, suffix) => {
-      // Preserve trailing comment if exists
-      return prefix + formattedValue + suffix;
-    });
+      newCode = code.replace(assignmentPattern, (_, prefix, __, suffix) => {
+        // Preserve trailing comment if exists
+        return prefix + formattedValue + suffix;
+      });
 
-    if (newCode !== code) {
-      onChange(newCode);
+      if (newCode !== code) {
+        onChange(newCode);
 
-      // Trigger a render after updating the code
-      try {
-        await emit('render-requested');
-        console.log('[Customizer] Triggered render after parameter change:', param.name);
-      } catch (err) {
-        console.error('[Customizer] Failed to emit render-requested event:', err);
+        // Trigger a render after updating the code
+        try {
+          await emit('render-requested');
+          console.log('[Customizer] Triggered render after parameter change:', param.name);
+        } catch (err) {
+          console.error('[Customizer] Failed to emit render-requested event:', err);
+        }
+      } else {
+        console.warn('[Customizer] Failed to update parameter:', param.name);
       }
-    } else {
-      console.warn('[Customizer] Failed to update parameter:', param.name);
-    }
-  }, [code, onChange]);
+    },
+    [code, onChange]
+  );
 
   const toggleTab = useCallback((tabName: string) => {
-    setCollapsedTabs(prev => {
+    setCollapsedTabs((prev) => {
       const next = new Set(prev);
       if (next.has(tabName)) {
         next.delete(tabName);
@@ -96,7 +96,10 @@ export function CustomizerPanel({ code, onChange }: CustomizerPanelProps) {
   // If no parameters found, show helpful message
   if (tabs.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center p-3" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+      <div
+        className="h-full flex items-center justify-center p-3"
+        style={{ backgroundColor: 'var(--bg-secondary)' }}
+      >
         <div className="text-center">
           <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
             No parameters found
@@ -104,8 +107,15 @@ export function CustomizerPanel({ code, onChange }: CustomizerPanelProps) {
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
             Add customizer comments:
           </p>
-          <pre className="mt-2 text-left text-xs p-2 rounded" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: '10px' }}>
-{`width = 10; // [0:100]`}
+          <pre
+            className="mt-2 text-left text-xs p-2 rounded"
+            style={{
+              backgroundColor: 'var(--bg-tertiary)',
+              color: 'var(--text-secondary)',
+              fontSize: '10px',
+            }}
+          >
+            {`width = 10; // [0:100]`}
           </pre>
         </div>
       </div>
@@ -131,7 +141,10 @@ export function CustomizerPanel({ code, onChange }: CustomizerPanelProps) {
               >
                 {isCollapsed ? <TbChevronRight size={14} /> : <TbChevronDown size={14} />}
                 <span className="font-medium text-xs">{tab.name}</span>
-                <span className="text-xs ml-auto" style={{ color: 'var(--text-secondary)', fontSize: '10px' }}>
+                <span
+                  className="text-xs ml-auto"
+                  style={{ color: 'var(--text-secondary)', fontSize: '10px' }}
+                >
                   {tab.params.length}
                 </span>
               </button>

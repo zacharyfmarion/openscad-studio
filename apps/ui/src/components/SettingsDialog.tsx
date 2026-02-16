@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { loadSettings, saveSettings, getDefaultVimConfig, type Settings } from '../stores/settingsStore';
+import {
+  loadSettings,
+  saveSettings,
+  getDefaultVimConfig,
+  type Settings,
+} from '../stores/settingsStore';
 import { getAvailableThemes, getTheme } from '../themes';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button, Input, Select, Label, Toggle } from './ui';
@@ -137,7 +142,9 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
 
     try {
       await invoke('store_api_key', { provider, key: apiKey });
-      setSuccessMessage(`${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key saved successfully!`);
+      setSuccessMessage(
+        `${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key saved successfully!`
+      );
 
       // Update the appropriate key status
       if (provider === 'anthropic') {
@@ -159,7 +166,9 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
   };
 
   const handleClear = async () => {
-    const confirmed = confirm(`Are you sure you want to remove your ${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key?`);
+    const confirmed = confirm(
+      `Are you sure you want to remove your ${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key?`
+    );
     if (!confirmed) return;
 
     setIsLoading(true);
@@ -217,10 +226,18 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
         {/* Left Sidebar */}
         <div
           className="w-52 flex flex-col"
-          style={{ backgroundColor: 'var(--bg-primary)', borderRight: '1px solid var(--border-primary)' }}
+          style={{
+            backgroundColor: 'var(--bg-primary)',
+            borderRight: '1px solid var(--border-primary)',
+          }}
         >
           <div className="px-5 py-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Settings</h2>
+            <h2
+              className="text-sm font-semibold uppercase tracking-wider"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              Settings
+            </h2>
           </div>
           <nav className="flex-1 px-3 space-y-1">
             {navItems.map((item) => (
@@ -230,8 +247,10 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                 onClick={() => setActiveSection(item.key)}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150"
                 style={{
-                  backgroundColor: activeSection === item.key ? 'var(--accent-primary)' : 'transparent',
-                  color: activeSection === item.key ? 'var(--text-inverse)' : 'var(--text-secondary)',
+                  backgroundColor:
+                    activeSection === item.key ? 'var(--accent-primary)' : 'transparent',
+                  color:
+                    activeSection === item.key ? 'var(--text-inverse)' : 'var(--text-secondary)',
                   fontWeight: activeSection === item.key ? '500' : 'normal',
                 }}
                 onMouseEnter={(e) => {
@@ -262,8 +281,11 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
             style={{ borderBottom: '1px solid var(--border-primary)' }}
           >
             <h3 className="text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>
-              {activeSection === 'appearance' ? 'Appearance' :
-               activeSection === 'editor' ? 'Editor' : 'AI Assistant'}
+              {activeSection === 'appearance'
+                ? 'Appearance'
+                : activeSection === 'editor'
+                  ? 'Editor'
+                  : 'AI Assistant'}
             </h3>
             <button
               type="button"
@@ -290,7 +312,10 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                 {/* Theme Selector */}
                 <div
                   className="rounded-lg p-4"
-                  style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                  }}
                 >
                   <Label>Theme</Label>
                   <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>
@@ -319,15 +344,22 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                 {/* Subtabs */}
                 <div
                   className="inline-flex rounded-lg p-1"
-                  style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                  }}
                 >
                   <button
                     type="button"
                     onClick={() => setEditorSubTab('general')}
                     className="px-4 py-1.5 text-sm rounded-md transition-all duration-150"
                     style={{
-                      backgroundColor: editorSubTab === 'general' ? 'var(--accent-primary)' : 'transparent',
-                      color: editorSubTab === 'general' ? 'var(--text-inverse)' : 'var(--text-secondary)',
+                      backgroundColor:
+                        editorSubTab === 'general' ? 'var(--accent-primary)' : 'transparent',
+                      color:
+                        editorSubTab === 'general'
+                          ? 'var(--text-inverse)'
+                          : 'var(--text-secondary)',
                       fontWeight: editorSubTab === 'general' ? '500' : 'normal',
                     }}
                   >
@@ -338,8 +370,10 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                     onClick={() => setEditorSubTab('vim')}
                     className="px-4 py-1.5 text-sm rounded-md transition-all duration-150"
                     style={{
-                      backgroundColor: editorSubTab === 'vim' ? 'var(--accent-primary)' : 'transparent',
-                      color: editorSubTab === 'vim' ? 'var(--text-inverse)' : 'var(--text-secondary)',
+                      backgroundColor:
+                        editorSubTab === 'vim' ? 'var(--accent-primary)' : 'transparent',
+                      color:
+                        editorSubTab === 'vim' ? 'var(--text-inverse)' : 'var(--text-secondary)',
                       fontWeight: editorSubTab === 'vim' ? '500' : 'normal',
                     }}
                   >
@@ -368,15 +402,22 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                       </div>
                       <Toggle
                         checked={settings.editor.formatOnSave}
-                        onChange={(e) => handleEditorSettingChange('formatOnSave', e.target.checked)}
+                        onChange={(e) =>
+                          handleEditorSettingChange('formatOnSave', e.target.checked)
+                        }
                       />
                     </div>
 
-                    <div className="p-4" style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                    <div
+                      className="p-4"
+                      style={{ borderBottom: '1px solid var(--border-primary)' }}
+                    >
                       <Label>Indent Size</Label>
                       <Select
                         value={settings.editor.indentSize}
-                        onChange={(e) => handleEditorSettingChange('indentSize', Number(e.target.value))}
+                        onChange={(e) =>
+                          handleEditorSettingChange('indentSize', Number(e.target.value))
+                        }
                       >
                         <option value={2}>2 spaces</option>
                         <option value={4}>4 spaces</option>
@@ -452,9 +493,17 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                           </button>
                         </div>
                         <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                          Customize vim keybindings using vim-style commands. Lines starting with # are comments.
+                          Customize vim keybindings using vim-style commands. Lines starting with #
+                          are comments.
                         </p>
-                        <div style={{ height: '260px', border: '1px solid var(--border-primary)', borderRadius: '6px', overflow: 'hidden' }}>
+                        <div
+                          style={{
+                            height: '260px',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                          }}
+                        >
                           <MonacoEditor
                             key={`vim-config-editor-${settings.editor.vimMode}`}
                             height="100%"
@@ -522,9 +571,15 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                         </div>
                         <div className="flex items-center justify-between pt-1">
                           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                            Supported: <code style={{ color: 'var(--text-primary)' }}>map</code>, <code style={{ color: 'var(--text-primary)' }}>imap</code>, <code style={{ color: 'var(--text-primary)' }}>nmap</code>, <code style={{ color: 'var(--text-primary)' }}>vmap</code>
+                            Supported: <code style={{ color: 'var(--text-primary)' }}>map</code>,{' '}
+                            <code style={{ color: 'var(--text-primary)' }}>imap</code>,{' '}
+                            <code style={{ color: 'var(--text-primary)' }}>nmap</code>,{' '}
+                            <code style={{ color: 'var(--text-primary)' }}>vmap</code>
                             {' • '}
-                            Example: <code style={{ color: 'var(--text-primary)' }}>map kj &lt;Esc&gt; insert</code>
+                            Example:{' '}
+                            <code style={{ color: 'var(--text-primary)' }}>
+                              map kj &lt;Esc&gt; insert
+                            </code>
                           </p>
                           <button
                             type="button"
@@ -534,11 +589,20 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                             disabled={localVimConfig === settings.editor.vimConfig}
                             className="text-sm px-4 py-1.5 rounded-md transition-all duration-150 shrink-0 ml-3"
                             style={{
-                              backgroundColor: localVimConfig !== settings.editor.vimConfig ? 'var(--accent-primary)' : 'transparent',
-                              color: localVimConfig !== settings.editor.vimConfig ? 'white' : 'var(--text-tertiary)',
+                              backgroundColor:
+                                localVimConfig !== settings.editor.vimConfig
+                                  ? 'var(--accent-primary)'
+                                  : 'transparent',
+                              color:
+                                localVimConfig !== settings.editor.vimConfig
+                                  ? 'white'
+                                  : 'var(--text-tertiary)',
                               border: '1px solid var(--border-primary)',
                               opacity: localVimConfig !== settings.editor.vimConfig ? 1 : 0.5,
-                              cursor: localVimConfig !== settings.editor.vimConfig ? 'pointer' : 'not-allowed',
+                              cursor:
+                                localVimConfig !== settings.editor.vimConfig
+                                  ? 'pointer'
+                                  : 'not-allowed',
                             }}
                           >
                             Apply
@@ -554,7 +618,8 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
             {activeSection === 'ai' && (
               <div className="space-y-5">
                 <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  Add your API keys to enable AI assistant features. Model selection is available in the chat interface.
+                  Add your API keys to enable AI assistant features. Model selection is available in
+                  the chat interface.
                 </p>
 
                 {/* Anthropic Section */}
@@ -567,15 +632,21 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                 >
                   <div className="flex items-center gap-3">
                     <Label className="mb-0">Anthropic API Key</Label>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
-                      backgroundColor: hasAnthropicKey ? 'rgba(133, 153, 0, 0.15)' : 'rgba(128, 128, 128, 0.1)',
-                      color: hasAnthropicKey ? 'var(--color-success)' : 'var(--text-tertiary)',
-                    }}>
+                    <span
+                      className="text-xs px-2 py-0.5 rounded-full font-medium"
+                      style={{
+                        backgroundColor: hasAnthropicKey
+                          ? 'rgba(133, 153, 0, 0.15)'
+                          : 'rgba(128, 128, 128, 0.1)',
+                        color: hasAnthropicKey ? 'var(--color-success)' : 'var(--text-tertiary)',
+                      }}
+                    >
                       {hasAnthropicKey ? 'Configured' : 'Not configured'}
                     </span>
                   </div>
                   <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    Required for Claude models. Your key is stored securely and never leaves your device.
+                    Required for Claude models. Your key is stored securely and never leaves your
+                    device.
                   </p>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
@@ -621,15 +692,30 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                       style={{
                         backgroundColor: 'transparent',
                         border: '1px solid var(--border-primary)',
-                        color: hasAnthropicKey && !isLoading ? 'var(--color-error)' : 'var(--text-tertiary)',
+                        color:
+                          hasAnthropicKey && !isLoading
+                            ? 'var(--color-error)'
+                            : 'var(--text-tertiary)',
                         opacity: hasAnthropicKey && !isLoading ? 1 : 0.4,
-                        cursor: hasAnthropicKey && !isLoading ? 'pointer' : 'not-allowed'
+                        cursor: hasAnthropicKey && !isLoading ? 'pointer' : 'not-allowed',
                       }}
                       title={hasAnthropicKey ? 'Remove API key' : 'No API key to remove'}
                     >
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
                         <title>Delete</title>
-                        <path d="M2 4h12M5.333 4V2.667a.667.667 0 01.667-.667h4a.667.667 0 01.667.667V4m2 0v9.333a.667.667 0 01-.667.667H4a.667.667 0 01-.667-.667V4h9.334z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path
+                          d="M2 4h12M5.333 4V2.667a.667.667 0 01.667-.667h4a.667.667 0 01.667.667V4m2 0v9.333a.667.667 0 01-.667.667H4a.667.667 0 01-.667-.667V4h9.334z"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -657,15 +743,21 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                 >
                   <div className="flex items-center gap-3">
                     <Label className="mb-0">OpenAI API Key</Label>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
-                      backgroundColor: hasOpenAIKey ? 'rgba(133, 153, 0, 0.15)' : 'rgba(128, 128, 128, 0.1)',
-                      color: hasOpenAIKey ? 'var(--color-success)' : 'var(--text-tertiary)',
-                    }}>
+                    <span
+                      className="text-xs px-2 py-0.5 rounded-full font-medium"
+                      style={{
+                        backgroundColor: hasOpenAIKey
+                          ? 'rgba(133, 153, 0, 0.15)'
+                          : 'rgba(128, 128, 128, 0.1)',
+                        color: hasOpenAIKey ? 'var(--color-success)' : 'var(--text-tertiary)',
+                      }}
+                    >
                       {hasOpenAIKey ? 'Configured' : 'Not configured'}
                     </span>
                   </div>
                   <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    Required for GPT models. Your key is stored securely and never leaves your device.
+                    Required for GPT models. Your key is stored securely and never leaves your
+                    device.
                   </p>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
@@ -711,15 +803,30 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                       style={{
                         backgroundColor: 'transparent',
                         border: '1px solid var(--border-primary)',
-                        color: hasOpenAIKey && !isLoading ? 'var(--color-error)' : 'var(--text-tertiary)',
+                        color:
+                          hasOpenAIKey && !isLoading
+                            ? 'var(--color-error)'
+                            : 'var(--text-tertiary)',
                         opacity: hasOpenAIKey && !isLoading ? 1 : 0.4,
-                        cursor: hasOpenAIKey && !isLoading ? 'pointer' : 'not-allowed'
+                        cursor: hasOpenAIKey && !isLoading ? 'pointer' : 'not-allowed',
                       }}
                       title={hasOpenAIKey ? 'Remove API key' : 'No API key to remove'}
                     >
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
                         <title>Delete</title>
-                        <path d="M2 4h12M5.333 4V2.667a.667.667 0 01.667-.667h4a.667.667 0 01.667.667V4m2 0v9.333a.667.667 0 01-.667.667H4a.667.667 0 01-.667-.667V4h9.334z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path
+                          d="M2 4h12M5.333 4V2.667a.667.667 0 01.667-.667h4a.667.667 0 01.667.667V4m2 0v9.333a.667.667 0 01-.667.667H4a.667.667 0 01-.667-.667V4h9.334z"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -738,21 +845,27 @@ export function SettingsDialog({ isOpen, onClose, onSettingsChange }: SettingsDi
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm" style={{
-                    backgroundColor: 'rgba(220, 50, 47, 0.1)',
-                    border: '1px solid rgba(220, 50, 47, 0.3)',
-                    color: 'var(--color-error)'
-                  }}>
+                  <div
+                    className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm"
+                    style={{
+                      backgroundColor: 'rgba(220, 50, 47, 0.1)',
+                      border: '1px solid rgba(220, 50, 47, 0.3)',
+                      color: 'var(--color-error)',
+                    }}
+                  >
                     {error}
                   </div>
                 )}
 
                 {successMessage && (
-                  <div className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm" style={{
-                    backgroundColor: 'rgba(133, 153, 0, 0.1)',
-                    border: '1px solid rgba(133, 153, 0, 0.3)',
-                    color: 'var(--color-success)'
-                  }}>
+                  <div
+                    className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm"
+                    style={{
+                      backgroundColor: 'rgba(133, 153, 0, 0.1)',
+                      border: '1px solid rgba(133, 153, 0, 0.3)',
+                      color: 'var(--color-success)',
+                    }}
+                  >
                     {successMessage}
                   </div>
                 )}

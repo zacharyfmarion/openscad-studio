@@ -16,7 +16,7 @@ const EditorPanel: React.FC<IDockviewPanelProps> = () => {
     <Editor
       value={source}
       onChange={updateSource}
-      diagnostics={diagnostics.filter(d => !d.message.match(/^ECHO:/i))}
+      diagnostics={diagnostics.filter((d) => !d.message.match(/^ECHO:/i))}
       onManualRender={onManualRender}
       settings={settings}
     />
@@ -25,14 +25,7 @@ const EditorPanel: React.FC<IDockviewPanelProps> = () => {
 
 const PreviewPanel: React.FC<IDockviewPanelProps> = () => {
   const { previewSrc, previewKind, isRendering, error } = useWorkspace();
-  return (
-    <Preview
-      src={previewSrc}
-      kind={previewKind}
-      isRendering={isRendering}
-      error={error}
-    />
-  );
+  return <Preview src={previewSrc} kind={previewKind} isRendering={isRendering} error={error} />;
 };
 
 const AiChatPanel: React.FC<IDockviewPanelProps> = () => {
@@ -84,12 +77,12 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const panelComponents: Record<string, React.FC<IDockviewPanelProps>> = {
-  'editor': EditorPanel,
-  'preview': PreviewPanel,
+  editor: EditorPanel,
+  preview: PreviewPanel,
   'ai-chat': AiChatPanel,
-  'console': ConsolePanel,
+  console: ConsolePanel,
   'diff-viewer': DiffViewerPanel,
-  'customizer': CustomizerPanelWrapper,
+  customizer: CustomizerPanelWrapper,
 };
 
 export interface PanelTypeInfo {
@@ -111,30 +104,33 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const panelId = props.api.id;
-  const currentType = PANEL_TYPES.find(t => t.id === panelId)
-    ?? PANEL_TYPES.find(t => panelId.startsWith(t.id));
+  const currentType =
+    PANEL_TYPES.find((t) => t.id === panelId) ?? PANEL_TYPES.find((t) => panelId.startsWith(t.id));
   const Icon = currentType?.icon;
 
-  const handleTypeChange = useCallback((newTypeId: string) => {
-    setMenuOpen(false);
-    const newType = PANEL_TYPES.find(t => t.id === newTypeId);
-    if (!newType) return;
+  const handleTypeChange = useCallback(
+    (newTypeId: string) => {
+      setMenuOpen(false);
+      const newType = PANEL_TYPES.find((t) => t.id === newTypeId);
+      if (!newType) return;
 
-    const containerApi = props.containerApi;
-    const groupId = props.api.group.api.id;
-    const oldId = props.api.id;
+      const containerApi = props.containerApi;
+      const groupId = props.api.group.api.id;
+      const oldId = props.api.id;
 
-    const panel = containerApi.getPanel(oldId);
-    if (!panel) return;
+      const panel = containerApi.getPanel(oldId);
+      if (!panel) return;
 
-    containerApi.removePanel(panel);
-    containerApi.addPanel({
-      id: `${newTypeId}-${Date.now()}`,
-      component: newTypeId,
-      title: newType.label,
-      position: { referenceGroup: groupId },
-    });
-  }, [props.api, props.containerApi]);
+      containerApi.removePanel(panel);
+      containerApi.addPanel({
+        id: `${newTypeId}-${Date.now()}`,
+        component: newTypeId,
+        title: newType.label,
+        position: { referenceGroup: groupId },
+      });
+    },
+    [props.api, props.containerApi]
+  );
 
   React.useEffect(() => {
     if (!menuOpen) return;
@@ -209,7 +205,7 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
             padding: '4px 0',
           }}
         >
-          {PANEL_TYPES.map(type => (
+          {PANEL_TYPES.map((type) => (
             <button
               key={type.id}
               type="button"
@@ -225,7 +221,8 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
                 padding: '6px 12px',
                 background: type.id === currentType?.id ? 'var(--bg-tertiary)' : 'transparent',
                 border: 'none',
-                color: type.id === currentType?.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                color:
+                  type.id === currentType?.id ? 'var(--text-primary)' : 'var(--text-secondary)',
                 fontSize: '0.8rem',
                 cursor: 'pointer',
                 textAlign: 'left',
@@ -242,7 +239,17 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
                 }
               }}
             >
-              <span style={{ width: '16px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><type.icon size={14} /></span>
+              <span
+                style={{
+                  width: '16px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <type.icon size={14} />
+              </span>
               <span>{type.label}</span>
             </button>
           ))}

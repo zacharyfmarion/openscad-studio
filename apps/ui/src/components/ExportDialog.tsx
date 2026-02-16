@@ -21,7 +21,13 @@ const FORMAT_OPTIONS: { value: ExportFormat; label: string; ext: string }[] = [
   { value: 'dxf', label: 'DXF (2D CAD)', ext: 'dxf' },
 ];
 
-export function ExportDialog({ isOpen, onClose, source, openscadPath, workingDir }: ExportDialogProps) {
+export function ExportDialog({
+  isOpen,
+  onClose,
+  source,
+  openscadPath,
+  workingDir,
+}: ExportDialogProps) {
   const [format, setFormat] = useState<ExportFormat>('stl');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string>('');
@@ -33,15 +39,17 @@ export function ExportDialog({ isOpen, onClose, source, openscadPath, workingDir
     setIsExporting(true);
 
     try {
-      const selectedFormat = FORMAT_OPTIONS.find(f => f.value === format);
+      const selectedFormat = FORMAT_OPTIONS.find((f) => f.value === format);
       if (!selectedFormat) return;
 
       // Open save dialog
       const savePath = await save({
-        filters: [{
-          name: selectedFormat.label,
-          extensions: [selectedFormat.ext]
-        }]
+        filters: [
+          {
+            name: selectedFormat.label,
+            extensions: [selectedFormat.ext],
+          },
+        ],
       });
 
       if (!savePath) {
@@ -68,9 +76,17 @@ export function ExportDialog({ isOpen, onClose, source, openscadPath, workingDir
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-      <div className="rounded-lg shadow-xl p-6 w-96" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-        <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Export Model</h2>
+    <div
+      className="fixed inset-0 flex items-center justify-center z-50"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+    >
+      <div
+        className="rounded-lg shadow-xl p-6 w-96"
+        style={{ backgroundColor: 'var(--bg-secondary)' }}
+      >
+        <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+          Export Model
+        </h2>
 
         <div className="space-y-4">
           {/* Format selection */}
@@ -81,7 +97,7 @@ export function ExportDialog({ isOpen, onClose, source, openscadPath, workingDir
               onChange={(e) => setFormat(e.target.value as ExportFormat)}
               disabled={isExporting}
             >
-              {FORMAT_OPTIONS.map(opt => (
+              {FORMAT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -91,25 +107,23 @@ export function ExportDialog({ isOpen, onClose, source, openscadPath, workingDir
 
           {/* Error display */}
           {error && (
-            <div className="rounded p-3 text-sm" style={{
-              backgroundColor: 'rgba(220, 50, 47, 0.2)',
-              borderColor: 'var(--color-error)',
-              borderWidth: '1px',
-              borderStyle: 'solid',
-              color: 'var(--color-error)'
-            }}>
+            <div
+              className="rounded p-3 text-sm"
+              style={{
+                backgroundColor: 'rgba(220, 50, 47, 0.2)',
+                borderColor: 'var(--color-error)',
+                borderWidth: '1px',
+                borderStyle: 'solid',
+                color: 'var(--color-error)',
+              }}
+            >
               {error}
             </div>
           )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
-            <Button
-              variant="secondary"
-              onClick={onClose}
-              disabled={isExporting}
-              className="flex-1"
-            >
+            <Button variant="secondary" onClick={onClose} disabled={isExporting} className="flex-1">
               Cancel
             </Button>
             <Button
