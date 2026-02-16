@@ -82,6 +82,7 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const panelComponents: Record<string, React.FC<IDockviewPanelProps>> = {
   'editor': EditorPanel,
   'preview': PreviewPanel,
@@ -97,6 +98,7 @@ export interface PanelTypeInfo {
   icon: IconType;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const PANEL_TYPES: PanelTypeInfo[] = [
   { id: 'editor', label: 'Editor', icon: TbCode },
   { id: 'preview', label: 'Preview', icon: TbEye },
@@ -250,6 +252,7 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const tabComponents: Record<string, React.FC<IDockviewPanelHeaderProps>> = {
   'workspace-tab': WorkspaceTab,
 };

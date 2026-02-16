@@ -55,6 +55,7 @@ const WorkspaceContext = createContext<WorkspaceState | null>(null);
 
 export const WorkspaceProvider = WorkspaceContext.Provider;
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useWorkspace(): WorkspaceState {
   const ctx = useContext(WorkspaceContext);
   if (!ctx) {
