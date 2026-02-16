@@ -175,7 +175,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
   return (
     <div className="relative h-full w-full" style={{ backgroundColor: themeColors.background }}>
       <TransformWrapper
-        initialScale={1}
+        initialScale={0.9}
         minScale={0.1}
         maxScale={10}
         centerOnInit

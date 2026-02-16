@@ -20,7 +20,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
             key={idx}
             className="px-4 py-2 cursor-pointer"
             style={{
-              borderBottom: idx < diagnostics.length - 1 ? '1px solid var(--border-secondary)' : 'none',
+              borderBottom: idx < diagnostics.length - 1 ? '1px solid var(--border-subtle)' : 'none',
               backgroundColor: 'transparent',
             }}
           >

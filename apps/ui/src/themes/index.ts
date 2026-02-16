@@ -1212,6 +1212,13 @@ export const themes: Record<string, Theme> = {
 // Default theme
 export const DEFAULT_THEME_ID = 'solarized-dark';
 
+function isLightColor(hex: string): boolean {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 128;
+}
+
 /**
  * Get theme by ID
  */
@@ -1239,6 +1246,9 @@ export function applyTheme(theme: Theme): void {
   root.style.setProperty('--border-primary', theme.colors.border.primary);
   root.style.setProperty('--border-secondary', theme.colors.border.secondary);
   root.style.setProperty('--border-focus', theme.colors.border.focus);
+
+  const isLight = isLightColor(theme.colors.bg.primary);
+  root.style.setProperty('--border-subtle', isLight ? 'rgba(0, 0, 0, 0.10)' : 'rgba(255, 255, 255, 0.08)');
 
   root.style.setProperty('--accent-primary', theme.colors.accent.primary);
   root.style.setProperty('--accent-secondary', theme.colors.accent.secondary);

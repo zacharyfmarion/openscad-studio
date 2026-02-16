@@ -14,7 +14,8 @@
       {
         "title": "OpenSCAD Studio",
         "width": 1400,
-        "height": 900
+        "height": 900,
+        "dragDropEnabled": false
       }
     ],
     "security": {
@@ -39,7 +40,8 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "minimumSystemVersion": "10.15"
+      "minimumSystemVersion": "10.15",
+      "entitlements": "entitlements.plist"
     }
   },
   "plugins": {}

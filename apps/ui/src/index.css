@@ -16,6 +16,7 @@
 
   --border-primary: #073642;
   --border-secondary: #586e75;
+  --border-subtle: rgba(255, 255, 255, 0.08);
   --border-focus: #268bd2;
 
   --accent-primary: #268bd2;
@@ -29,6 +30,42 @@
 
   --editor-bg: #002b36;
   --editor-fg: #839496;
+}
+
+.dockview-theme-openscad {
+  --dv-paneview-header-border-color: var(--border-primary);
+  --dv-tabs-and-actions-container-background-color: var(--bg-primary);
+  --dv-tabs-and-actions-container-height: 28px;
+  --dv-tabs-and-actions-container-font-size: 12px;
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-secondary);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-primary);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-elevated);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-primary);
+  --dv-tab-divider-color: var(--border-primary);
+  --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
+  --dv-activegroup-hiddenpanel-tab-color: var(--text-secondary);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--text-tertiary);
+  --dv-background-color: var(--bg-primary);
+  --dv-group-view-background-color: var(--bg-secondary);
+  --dv-separator-border: var(--border-subtle);
+  --dv-drag-over-background-color: rgba(38, 139, 210, 0.15);
+  --dv-drag-over-border-color: var(--accent-primary);
+}
+
+.dockview-theme-openscad .dv-tabs-and-actions-container {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dockview-theme-openscad .dv-split-view-container .dv-sash-container .dv-sash {
+  --dv-sash-size: 6px;
+}
+
+.dockview-theme-openscad .dv-split-view-container .dv-sash-container .dv-sash:not(.disabled):hover,
+.dockview-theme-openscad .dv-split-view-container .dv-sash-container .dv-sash:not(.disabled):active {
+  background-color: var(--accent-primary);
+  transition: background-color 0.15s ease;
+  transition-delay: 0.2s;
 }
 
 @layer base {

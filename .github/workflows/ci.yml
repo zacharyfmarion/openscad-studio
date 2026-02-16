@@ -140,6 +140,7 @@ jobs:
       - name: Build application
         run: pnpm tauri:build
         env:
-          # Disable code signing for CI builds
-          TAURI_PRIVATE_KEY: ''
-          TAURI_KEY_PASSWORD: ''
+          # CI builds use ad-hoc signing (no Apple certificate available)
+          # Release builds are signed + notarized via the release workflow
+          TAURI_SIGNING_PRIVATE_KEY: ''
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
