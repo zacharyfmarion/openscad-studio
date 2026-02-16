@@ -10,24 +10,6 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Gradient animation for hero title */
-@keyframes gradient {
-    0% {
-        background-position: 0% 50%;
-    }
-    50% {
-        background-position: 100% 50%;
-    }
-    100% {
-        background-position: 0% 50%;
-    }
-}
-
-h1 {
-    background-size: 200% 200%;
-    animation: gradient 8s ease infinite;
-}
-
 /* Smooth transitions */
 a, button {
     transition: all 0.2s ease-in-out;
@@ -56,6 +38,6 @@ img {
     transition: transform 0.3s ease;
 }
 
-.bg-slate-900:hover img {
+.group:hover img {
     transform: scale(1.02);
 }
