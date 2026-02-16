@@ -8,31 +8,18 @@ import { AiPromptPanel, type AiPromptPanelRef } from '../AiPromptPanel';
 import { DiagnosticsPanel } from '../DiagnosticsPanel';
 import { DiffViewer } from '../DiffViewer';
 import { CustomizerPanel } from '../CustomizerPanel';
-import { TabBar } from '../TabBar';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 
 const EditorPanel: React.FC<IDockviewPanelProps> = () => {
-  const { source, updateSource, diagnostics, onManualRender, settings, tabs, activeTabId, onTabClick, onTabClose, onNewTab, onReorderTabs } = useWorkspace();
+  const { source, updateSource, diagnostics, onManualRender, settings } = useWorkspace();
   return (
-    <div className="flex flex-col h-full">
-      <TabBar
-        tabs={tabs}
-        activeTabId={activeTabId}
-        onTabClick={onTabClick}
-        onTabClose={onTabClose}
-        onNewTab={onNewTab}
-        onReorderTabs={onReorderTabs}
-      />
-      <div className="flex-1 overflow-hidden">
-        <Editor
-          value={source}
-          onChange={updateSource}
-          diagnostics={diagnostics.filter(d => !d.message.match(/^ECHO:/i))}
-          onManualRender={onManualRender}
-          settings={settings}
-        />
-      </div>
-    </div>
+    <Editor
+      value={source}
+      onChange={updateSource}
+      diagnostics={diagnostics.filter(d => !d.message.match(/^ECHO:/i))}
+      onManualRender={onManualRender}
+      settings={settings}
+    />
   );
 };
 

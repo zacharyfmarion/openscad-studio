@@ -26,6 +26,7 @@ export function lockEditorGroup(api: DockviewApi) {
 function addPresetPanels(api: DockviewApi, preset: WorkspacePreset) {
   switch (preset) {
     case 'default': {
+      // Top row: Editor (left) | Preview + Customizer (right) — 70% height
       api.addPanel({ id: 'editor', component: 'editor', title: 'Editor' });
       api.addPanel({
         id: 'preview', component: 'preview', title: 'Preview',
@@ -36,17 +37,22 @@ function addPresetPanels(api: DockviewApi, preset: WorkspacePreset) {
         api.addPanel({
           id: 'customizer', component: 'customizer', title: 'Customizer',
           position: { referenceGroup: previewPanel.group.id },
+          inactive: true,
         });
       }
-      api.addPanel({
-        id: 'ai-chat', component: 'ai-chat', title: 'AI',
-        position: { referencePanel: 'editor', direction: 'below' },
-        initialHeight: 300,
-      });
+      // Bottom row: Console + AI — spans full width, ~30% height
       api.addPanel({
         id: 'console', component: 'console', title: 'Console',
-        position: { referenceGroup: api.groups[api.groups.length - 1].id },
+        position: { direction: 'below' },
+        initialHeight: 250,
       });
+      const consolePanel = api.getPanel('console');
+      if (consolePanel) {
+        api.addPanel({
+          id: 'ai-chat', component: 'ai-chat', title: 'AI',
+          position: { referenceGroup: consolePanel.group.id },
+        });
+      }
       break;
     }
     case 'wide-editor': {

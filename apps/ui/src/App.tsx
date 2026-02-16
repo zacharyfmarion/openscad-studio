@@ -7,7 +7,7 @@ import type { AiPromptPanelRef } from './components/AiPromptPanel';
 import { SettingsDialog } from './components/SettingsDialog';
 import { WelcomeScreen, addToRecentFiles } from './components/WelcomeScreen';
 import { OpenScadSetupScreen } from './components/OpenScadSetupScreen';
-import type { Tab } from './components/TabBar';
+import { TabBar, type Tab } from './components/TabBar';
 import { Button } from './components/ui';
 import { panelComponents, tabComponents, WorkspaceTab } from './components/panels/PanelComponents';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
@@ -970,7 +970,19 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      <header className="flex items-center justify-end gap-1.5 px-3 py-1" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)' }}>
+      <header className="flex items-center gap-1.5 shrink-0" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <TabBar
+            tabs={tabs}
+            activeTabId={activeTabId}
+            onTabClick={switchTab}
+            onTabClose={closeTab}
+            onNewTab={() => createNewTab()}
+            onReorderTabs={reorderTabs}
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5 px-3 shrink-0">
         {isRendering && (
           <div className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
             <div className="animate-spin h-2.5 w-2.5 border-2 rounded-full" style={{ borderColor: 'var(--border-primary)', borderTopColor: 'var(--accent-primary)' }} />
@@ -1029,6 +1041,7 @@ function App() {
         >
           <TbSettings size={16} />
         </button>
+        </div>
       </header>
 
       {/* Main content with dockview */}

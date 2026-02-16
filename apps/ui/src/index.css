@@ -57,6 +57,17 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.dockview-theme-openscad .dv-split-view-container .dv-sash-container .dv-sash {
+  --dv-sash-size: 6px;
+}
+
+.dockview-theme-openscad .dv-split-view-container .dv-sash-container .dv-sash:not(.disabled):hover,
+.dockview-theme-openscad .dv-split-view-container .dv-sash-container .dv-sash:not(.disabled):active {
+  background-color: var(--accent-primary);
+  transition: background-color 0.15s ease;
+  transition-delay: 0.2s;
+}
+
 @layer base {
   body {
     @apply m-0 p-0 w-full h-screen overflow-hidden;
