@@ -62,9 +62,58 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Import Apple certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          # Create a temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          echo "$APPLE_CERTIFICATE" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security import $RUNNER_TEMP/certificate.p12 \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k $KEYCHAIN_PATH
+
+          # Set keychain as default and allow codesign to access it
+          security list-keychain -d user -s $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
       - name: Build Tauri app
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: pnpm tauri build ${{ matrix.args }}
         working-directory: apps/ui
+
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          DMG_PATH=$(find apps/ui/src-tauri/target -name "*.dmg" -type f | head -1)
+          echo "Notarizing: $DMG_PATH"
+
+          # Submit for notarization and wait for completion
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          # Staple the notarization ticket to the DMG
+          xcrun stapler staple "$DMG_PATH"
+          echo "Notarization complete"
 
       - name: Find DMG and calculate SHA256
         id: dmg_info
@@ -72,13 +121,13 @@ jobs:
           # Find the DMG file
           DMG_PATH=$(find apps/ui/src-tauri/target -name "*.dmg" -type f | head -1)
           echo "Found DMG: $DMG_PATH"
-          
+
           # Get filename
           DMG_NAME=$(basename "$DMG_PATH")
           echo "dmg_name=$DMG_NAME" >> $GITHUB_OUTPUT
           echo "dmg_path=$DMG_PATH" >> $GITHUB_OUTPUT
-          
-          # Calculate SHA256
+
+          # Calculate SHA256 (after notarization stapling, so hash matches what users download)
           SHA256=$(shasum -a 256 "$DMG_PATH" | cut -d ' ' -f 1)
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
           echo "SHA256: $SHA256"
@@ -97,6 +146,11 @@ jobs:
         with:
           name: sha256-${{ matrix.arch }}
           path: sha256-${{ matrix.arch }}.txt
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
 
   release:
     needs: build

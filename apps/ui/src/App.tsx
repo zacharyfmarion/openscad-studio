@@ -1,16 +1,21 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Editor } from './components/Editor';
-import { Preview } from './components/Preview';
-import { DiagnosticsPanel } from './components/DiagnosticsPanel';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { DockviewReact } from 'dockview';
+import type { DockviewReadyEvent } from 'dockview';
+import 'dockview/dist/styles/dockview.css';
 import { ExportDialog } from './components/ExportDialog';
-import { AiPromptPanel, type AiPromptPanelRef } from './components/AiPromptPanel';
-import { DiffViewer } from './components/DiffViewer';
+import type { AiPromptPanelRef } from './components/AiPromptPanel';
 import { SettingsDialog } from './components/SettingsDialog';
 import { WelcomeScreen, addToRecentFiles } from './components/WelcomeScreen';
 import { OpenScadSetupScreen } from './components/OpenScadSetupScreen';
-import { TabBar, type Tab } from './components/TabBar';
+import type { Tab } from './components/TabBar';
 import { Button } from './components/ui';
+import { panelComponents, tabComponents, WorkspaceTab, NewTabButton } from './components/panels/PanelComponents';
+import { WorkspaceProvider } from './contexts/WorkspaceContext';
+import type { WorkspaceState } from './contexts/WorkspaceContext';
+import {
+  setDockviewApi, getDockviewApi, applyDefaultLayout, saveLayout, clearSavedLayout,
+  addEditorPanel, removeEditorPanel, isEditorPanel, findEditorGroupId,
+} from './stores/layoutStore';
 import { useOpenScad } from './hooks/useOpenScad';
 import { useAiAgent } from './hooks/useAiAgent';
 import { listen } from '@tauri-apps/api/event';
@@ -71,7 +76,6 @@ function App() {
   } = useOpenScad(workingDir);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
-  const [bottomPanelTab, setBottomPanelTab] = useState<'ai' | 'console'>('ai');
   const [settings, setSettings] = useState<Settings>(loadSettings());
   const aiPromptPanelRef = useRef<AiPromptPanelRef>(null);
 
@@ -102,10 +106,11 @@ function App() {
     const newId = generateId();
     const defaultContent = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';
     const tabContent = content || defaultContent;
+    const tabName = name || generateUntitledName();
     const newTab: Tab = {
       id: newId,
       filePath: filePath || null,
-      name: name || generateUntitledName(),
+      name: tabName,
       content: tabContent,
       savedContent: tabContent,
       isDirty: false,
@@ -113,49 +118,59 @@ function App() {
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newId);
 
-    // Update editor source to new tab's content
     updateSource(tabContent);
 
-    // Update backend EditorState for AI agent
     updateEditorState(tabContent).catch(err => {
       console.error('Failed to update editor state:', err);
     });
 
+    const api = getDockviewApi();
+    if (api) {
+      const groupId = findEditorGroupId(api);
+      addEditorPanel(api, newId, tabName, groupId);
+      api.getPanel(newId)?.api.setActive();
+    }
+
     return newId;
   }, [updateSource]);
 
-  const switchTab = useCallback(async (id: string) => {
-    if (id === activeTabId) return;
+  const switchingRef = useRef(false);
 
-    // Store current tab's render state before switching
+  const switchTab = useCallback(async (id: string) => {
+    if (id === activeTabId || switchingRef.current) return;
+    switchingRef.current = true;
+
     setTabs(prev => prev.map(tab =>
       tab.id === activeTabId
         ? { ...tab, previewSrc, previewKind, diagnostics, dimensionMode, content: source }
         : tab
     ));
 
-    // Switch to new tab
     setActiveTabId(id);
     const newTab = tabs.find(t => t.id === id);
     if (newTab) {
-      // Update editor with new tab's content
       updateSource(newTab.content);
 
-      // Update backend EditorState for AI agent
       try {
         await updateEditorState(newTab.content);
       } catch (err) {
         console.error('Failed to update editor state:', err);
       }
     }
-    // Note: Rendering is handled by the centralized useEffect watching activeTabId
+
+    const api = getDockviewApi();
+    const panel = api?.getPanel(id);
+    if (panel && panel.api.isActive === false) {
+      panel.api.setActive();
+    }
+
+    switchingRef.current = false;
   }, [activeTabId, tabs, previewSrc, previewKind, diagnostics, dimensionMode, source, updateSource]);
 
   const closeTab = useCallback(async (id: string) => {
     const tab = tabs.find(t => t.id === id);
     if (!tab) return;
 
-    // Check for unsaved changes
     if (tab.isDirty) {
       const { ask, confirm } = await import('@tauri-apps/plugin-dialog');
       const wantsToSave = await ask(
@@ -169,7 +184,6 @@ function App() {
       );
 
       if (wantsToSave) {
-        // TODO: Implement save logic for tab
         return;
       } else {
         const confirmDiscard = await confirm(
@@ -185,17 +199,23 @@ function App() {
       }
     }
 
-    // Remove tab and switch to adjacent if needed
+    const api = getDockviewApi();
+    const dockPanel = api?.getPanel(id);
+    if (dockPanel) {
+      api!.removePanel(dockPanel);
+    }
+    removeEditorPanel(id);
+
     const filtered = tabs.filter(t => t.id !== id);
 
-    // If last tab, show welcome screen
     if (filtered.length === 0) {
       setShowWelcome(true);
       const newId = generateId();
+      const tabName = generateUntitledName();
       const newTab: Tab = {
         id: newId,
         filePath: null,
-        name: generateUntitledName(),
+        name: tabName,
         content: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
         savedContent: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
         isDirty: false,
@@ -206,7 +226,6 @@ function App() {
       return;
     }
 
-    // If closing active tab, switch to adjacent and update editor
     if (id === activeTabId) {
       const idx = tabs.findIndex(t => t.id === id);
       const newActiveTab = filtered[Math.max(0, idx - 1)];
@@ -214,14 +233,17 @@ function App() {
       setActiveTabId(newActiveTab.id);
       updateSource(newActiveTab.content);
 
-      // Update backend EditorState for AI agent
+      const nextPanel = api?.getPanel(newActiveTab.id);
+      if (nextPanel) {
+        nextPanel.api.setActive();
+      }
+
       try {
         await updateEditorState(newActiveTab.content);
       } catch (err) {
         console.error('Failed to update editor state:', err);
       }
     } else {
-      // Closing a non-active tab, just update tabs list
       setTabs(filtered);
     }
   }, [tabs, activeTabId, updateSource]);
@@ -232,10 +254,6 @@ function App() {
         ? { ...tab, content, isDirty: content !== tab.savedContent }
         : tab
     ));
-  }, []);
-
-  const reorderTabs = useCallback((newTabs: Tab[]) => {
-    setTabs(newTabs);
   }, []);
 
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
@@ -394,7 +412,6 @@ function App() {
 
       await writeTextFile(savePath, currentSource);
 
-      // Update tab with saved state
       const fileName = savePath.split('/').pop() || savePath;
       setTabs(prev => prev.map(tab =>
         tab.id === currentTab.id
@@ -402,7 +419,11 @@ function App() {
           : tab
       ));
 
-      // Add to recent files
+      const dockPanel = getDockviewApi()?.getPanel(currentTab.id);
+      if (dockPanel) {
+        dockPanel.api.setTitle(fileName);
+      }
+
       addToRecentFiles(savePath);
 
       // Trigger render on save (only if OpenSCAD is available)
@@ -841,11 +862,9 @@ function App() {
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // ⌘K or Ctrl+K to switch to AI tab and focus prompt
+      // ⌘K or Ctrl+K to focus AI prompt
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setBottomPanelTab('ai');
-        // Focus the prompt after panel is shown
         setTimeout(() => {
           aiPromptPanelRef.current?.focusPrompt();
         }, 0);
@@ -870,6 +889,81 @@ function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [createNewTab, closeTab, activeTabId]);
+
+  const switchTabRef = useRef(switchTab);
+  useEffect(() => {
+    switchTabRef.current = switchTab;
+  }, [switchTab]);
+
+  const onDockviewReady = useCallback((event: DockviewReadyEvent) => {
+    const { api } = event;
+    setDockviewApi(api);
+
+    clearSavedLayout();
+    const initialTabData = tabsRef.current[0];
+    applyDefaultLayout(api, { id: initialTabData.id, title: initialTabData.name });
+
+    api.onDidActivePanelChange((e) => {
+      if (!e || switchingRef.current) return;
+      const panelId = e.id;
+      if (isEditorPanel(panelId)) {
+        switchTabRef.current(panelId);
+      }
+    });
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    api.onDidLayoutChange(() => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        saveLayout();
+      }, 300);
+    });
+  }, []);
+
+  const workspaceState: WorkspaceState = useMemo(() => ({
+    source,
+    updateSource,
+    diagnostics,
+    onManualRender: manualRender,
+    settings,
+    tabs,
+    activeTabId,
+    onTabClick: switchTab,
+    onTabClose: closeTab,
+    onNewTab: () => createNewTab(),
+    previewSrc,
+    previewKind,
+    isRendering,
+    error,
+    isStreaming,
+    streamingResponse,
+    proposedDiff,
+    aiError,
+    isApplyingDiff,
+    messages,
+    currentToolCalls,
+    currentModel,
+    availableProviders,
+    submitPrompt,
+    cancelStream,
+    acceptDiff,
+    rejectDiff,
+    clearAiError,
+    newConversation,
+    setCurrentModel,
+    handleRestoreCheckpoint,
+    aiPromptPanelRef,
+    onAcceptDiff: acceptDiff,
+    onRejectDiff: rejectDiff,
+  }), [
+    source, updateSource, diagnostics, manualRender, settings,
+    tabs, activeTabId, switchTab, closeTab, createNewTab,
+    previewSrc, previewKind, isRendering, error,
+    isStreaming, streamingResponse, proposedDiff, aiError, isApplyingDiff,
+    messages, currentToolCalls, currentModel, availableProviders,
+    submitPrompt, cancelStream, acceptDiff, rejectDiff, clearAiError,
+    newConversation, setCurrentModel, handleRestoreCheckpoint,
+  ]);
 
   // Show setup screen if OpenSCAD not found
   if (showSetupScreen) {
@@ -911,181 +1005,81 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-      {/* Header with tabs */}
-      <header style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
-        {/* Top row: TabBar on left, controls on right */}
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <TabBar
-              tabs={tabs}
-              activeTabId={activeTabId}
-              onTabClick={switchTab}
-              onTabClose={closeTab}
-              onNewTab={() => createNewTab()}
-              onReorderTabs={reorderTabs}
-            />
+      <header className="flex items-center justify-end gap-1.5 px-3 py-1" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+        {isRendering && (
+          <div className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+            <div className="animate-spin h-2.5 w-2.5 border-2 rounded-full" style={{ borderColor: 'var(--border-primary)', borderTopColor: 'var(--accent-primary)' }} />
+            <span>Rendering</span>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2" style={{ borderBottom: '1px solid var(--border-primary)' }}>
-            {isRendering && (
-              <div className="flex items-center gap-2 text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
-                <div className="animate-spin h-3 w-3 border-2 rounded-full" style={{ borderColor: 'var(--border-primary)', borderTopColor: 'var(--accent-primary)' }} />
-                <span>Rendering</span>
-              </div>
-            )}
+        )}
 
-            {/* Mode indicator */}
-            <div className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border" style={{
-              color: 'var(--text-secondary)',
-              backgroundColor: 'var(--bg-elevated)',
-              borderColor: 'var(--border-secondary)'
-            }}>
-              {dimensionMode === '2d' ? (
-                <>
-                  <TbRuler2 size={14} />
-                  <span className="font-medium">2D</span>
-                </>
-              ) : (
-                <>
-                  <TbBox size={14} />
-                  <span className="font-medium">3D</span>
-                </>
-              )}
-            </div>
-
-            {/* Divider */}
-            <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border-secondary)' }} />
-
-            {/* Action buttons */}
-            <Button
-              variant="primary"
-              onClick={manualRender}
-              disabled={isRendering || !openscadPath}
-              className="text-sm px-3 py-1.5"
-            >
-              Render (⌘↵)
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setShowExportDialog(true)}
-              disabled={isRendering || !openscadPath}
-              className="text-sm px-3 py-1.5"
-            >
-              Export
-            </Button>
-
-            {/* Divider */}
-            <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border-secondary)' }} />
-
-            {/* Settings icon button */}
-            <button
-              onClick={() => setShowSettingsDialog(true)}
-              className="p-2 rounded-md transition-colors"
-              style={{
-                backgroundColor: 'transparent',
-                color: 'var(--text-secondary)',
-              }}
-              title="Settings (⌘,)"
-            >
-              <TbSettings size={18} />
-            </button>
-          </div>
+        <div className="flex items-center gap-1 text-xs px-2 py-1 rounded border" style={{
+          color: 'var(--text-secondary)',
+          backgroundColor: 'var(--bg-elevated)',
+          borderColor: 'var(--border-secondary)'
+        }}>
+          {dimensionMode === '2d' ? (
+            <>
+              <TbRuler2 size={12} />
+              <span className="font-medium">2D</span>
+            </>
+          ) : (
+            <>
+              <TbBox size={12} />
+              <span className="font-medium">3D</span>
+            </>
+          )}
         </div>
+
+        <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }} />
+
+        <Button
+          variant="primary"
+          onClick={manualRender}
+          disabled={isRendering || !openscadPath}
+          className="text-xs px-2 py-1"
+        >
+          Render (⌘↵)
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => setShowExportDialog(true)}
+          disabled={isRendering || !openscadPath}
+          className="text-xs px-2 py-1"
+        >
+          Export
+        </Button>
+
+        <div style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }} />
+
+        <button
+          type="button"
+          onClick={() => setShowSettingsDialog(true)}
+          className="p-1 rounded-md transition-colors"
+          style={{
+            backgroundColor: 'transparent',
+            color: 'var(--text-secondary)',
+          }}
+          title="Settings (⌘,)"
+        >
+          <TbSettings size={16} />
+        </button>
       </header>
 
-      {/* Main content with resizable panels */}
-      <PanelGroup direction="vertical" className="flex-1">
-        <Panel defaultSize={60} minSize={30}>
-          <PanelGroup direction="horizontal">
-            <Panel defaultSize={50} minSize={20}>
-              <Editor
-                value={source}
-                onChange={updateSource}
-                diagnostics={diagnostics.filter(d => !d.message.match(/^ECHO:/i))}
-                onManualRender={manualRender}
-                settings={settings}
-              />
-            </Panel>
-            <PanelResizeHandle className="w-1 transition-colors" style={{ backgroundColor: 'var(--border-primary)' }} />
-            <Panel defaultSize={50} minSize={20}>
-              {proposedDiff ? (
-                <DiffViewer
-                  oldCode={source}
-                  newCode={source} // TODO: Apply diff to show new code
-                  onAccept={acceptDiff}
-                  onReject={rejectDiff}
-                  isApplying={isApplyingDiff}
-                />
-              ) : (
-                <Preview
-                  src={previewSrc}
-                  kind={previewKind}
-                  isRendering={isRendering}
-                  error={error}
-                  code={source}
-                  onCodeChange={updateSource}
-                />
-              )}
-            </Panel>
-          </PanelGroup>
-        </Panel>
-        <PanelResizeHandle className="h-1 transition-colors" style={{ backgroundColor: 'var(--border-primary)' }} />
-        <Panel defaultSize={40} minSize={10} maxSize={70}>
-          <div className="h-full flex flex-col" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            {/* Tabs and Toolbar - Combined */}
-            <div className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: 'var(--bg-primary)', borderBottom: '2px solid var(--border-primary)' }}>
-              {/* Left: Tabs */}
-              <div className="flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setBottomPanelTab('ai')}
-                  className="px-2.5 py-1"
-                  style={{
-                    backgroundColor: bottomPanelTab === 'ai' ? 'var(--bg-tertiary)' : 'transparent',
-                    color: bottomPanelTab === 'ai' ? 'var(--text-inverse)' : 'var(--text-secondary)'
-                  }}
-                >
-                  AI
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setBottomPanelTab('console')}
-                  className="px-2.5 py-1"
-                  style={{
-                    backgroundColor: bottomPanelTab === 'console' ? 'var(--bg-tertiary)' : 'transparent',
-                    color: bottomPanelTab === 'console' ? 'var(--text-inverse)' : 'var(--text-secondary)'
-                  }}
-                >
-                  Console
-                </Button>
-              </div>
-            </div>
-            {/* Content */}
-            <div className="flex-1 overflow-hidden">
-              {bottomPanelTab === 'ai' && (
-                <AiPromptPanel
-                  ref={aiPromptPanelRef}
-                  onSubmit={submitPrompt}
-                  isStreaming={isStreaming}
-                  streamingResponse={streamingResponse}
-                  onCancel={cancelStream}
-                  messages={messages}
-                  onNewConversation={newConversation}
-                  currentToolCalls={currentToolCalls}
-                  currentModel={currentModel}
-                  availableProviders={availableProviders}
-                  onModelChange={setCurrentModel}
-                  onRestoreCheckpoint={handleRestoreCheckpoint}
-                />
-              )}
-              {bottomPanelTab === 'console' && (
-                <DiagnosticsPanel diagnostics={diagnostics} />
-              )}
-            </div>
-          </div>
-        </Panel>
-      </PanelGroup>
+      {/* Main content with dockview */}
+      <div className="flex-1 overflow-hidden">
+        <WorkspaceProvider value={workspaceState}>
+          <DockviewReact
+            components={panelComponents}
+            tabComponents={tabComponents}
+            defaultTabComponent={WorkspaceTab}
+            rightHeaderActionsComponent={NewTabButton}
+            onReady={onDockviewReady}
+            className="dockview-theme-openscad"
+            disableFloatingGroups={true}
+          />
+        </WorkspaceProvider>
+      </div>
 
       {/* Export dialog */}
       <ExportDialog
