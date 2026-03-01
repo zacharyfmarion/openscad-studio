@@ -6,6 +6,7 @@ export type RenderKind = 'mesh' | 'svg';
 
 interface UseOpenScadOptions {
   workingDir?: string | null;
+  libraryFiles?: Record<string, string>;
   autoRenderOnIdle?: boolean;
   autoRenderDelayMs?: number;
 }
@@ -30,6 +31,12 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   const [auxiliaryFiles, setAuxiliaryFiles] = useState<Record<string, string>>({});
   const auxiliaryFilesRef = useRef<Record<string, string>>({});
   const auxFilesPromiseRef = useRef<Promise<void>>(Promise.resolve());
+  const libraryFilesRef = useRef<Record<string, string>>(options.libraryFiles || {});
+
+  // Keep library files ref in sync with latest prop value
+  useEffect(() => {
+    libraryFilesRef.current = options.libraryFiles || {};
+  }, [options.libraryFiles]);
 
   useEffect(() => {
     if (!options.workingDir) {
@@ -80,8 +87,12 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       const result = await renderServiceRef.current.render(code, {
         view: dimension,
         backend: 'manifold',
-        auxiliaryFiles:
-          Object.keys(auxiliaryFilesRef.current).length > 0 ? auxiliaryFilesRef.current : undefined,
+        auxiliaryFiles: Object.keys(auxiliaryFilesRef.current).length > 0
+          ? auxiliaryFilesRef.current
+          : undefined,
+        libraryFiles: Object.keys(libraryFilesRef.current).length > 0
+          ? libraryFilesRef.current
+          : undefined,
       });
 
       if (import.meta.env.DEV) {
@@ -90,6 +101,9 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           outputSize: result.output.length,
           diagnostics: result.diagnostics.length,
         });
+        if (result.diagnostics.length > 0) {
+          console.log('[doRender] Diagnostics:', JSON.stringify(result.diagnostics, null, 2));
+        }
       }
 
       setDiagnostics(result.diagnostics);
