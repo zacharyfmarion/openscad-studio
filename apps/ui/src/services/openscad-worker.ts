@@ -133,6 +133,7 @@ async function handleRender(request: WorkerRenderRequest): Promise<void> {
       (libraryFiles && Object.keys(libraryFiles).length > 0);
     const inputPath = hasAuxFiles ? '/input_dir/input.scad' : '/input.scad';
     wasm.FS.writeFile(inputPath, code);
+    console.log('[worker] Input file written to:', inputPath);
 
     // Rewrite input path in args to match where we wrote the file
     const finalArgs = args.map((a) => (a === '/input.scad' ? inputPath : a));
@@ -143,8 +144,10 @@ async function handleRender(request: WorkerRenderRequest): Promise<void> {
     // Run OpenSCAD
     let exitCode: number;
     try {
+      console.log('[worker] Calling OpenSCAD with args:', finalArgs);
       exitCode = wasm.callMain(finalArgs);
     } catch (e) {
+      console.error('[worker] callMain exception:', e);
       // callMain throws ExitStatus on exit() — extract the exit code
       if (e && typeof e === 'object' && 'status' in e) {
         exitCode = (e as { status: number }).status;
@@ -182,10 +185,12 @@ async function handleRender(request: WorkerRenderRequest): Promise<void> {
     };
     self.postMessage(response, [output.buffer]);
   } catch (e) {
+    console.error('[worker] Unhandled error:', e);
+    console.error('[worker] Error stack:', e instanceof Error ? e.stack : 'No stack');
     const response: WorkerErrorResult = {
       type: 'error',
       id,
-      error: `Worker error: ${e}`,
+      error: `Worker error: ${e instanceof Error ? e.message : String(e)}`,
     };
     self.postMessage(response);
   }
