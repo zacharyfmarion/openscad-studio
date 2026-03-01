@@ -109,6 +109,19 @@ async function handleRender(request: WorkerRenderRequest): Promise<void> {
         wasm.FS.writeFile(fullPath, content);
       }
       console.log('[worker] All library files written');
+      // Debug: verify files actually exist in WASM FS
+      try {
+        // Attempt to read a known library file to verify it was written
+        const testFile = wasm.FS.readFile('/BOSL2/std.scad', { encoding: 'utf8' });
+        const fileSize = testFile.length;
+        console.log('[worker] ✓ /BOSL2/std.scad exists, size:', fileSize, 'bytes');
+        
+        // Log all library file keys to confirm what was written
+        const writtenFiles = Object.keys(libraryFiles);
+        console.log('[worker] Library files written (', writtenFiles.length, '):', writtenFiles.slice(0, 10));
+      } catch (e) {
+        console.error('[worker] Failed to verify library files in FS:', e);
+      }
     } else {
       console.log('[worker] No library files');
     }
