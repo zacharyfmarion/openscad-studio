@@ -11,7 +11,7 @@ import { Button, Input, Select, Label, Toggle } from './ui';
 import { Editor as MonacoEditor } from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
 import { registerVimConfigLanguage } from '../languages/vimConfigLanguage';
-import { TbPalette, TbCode, TbSparkles, TbX } from 'react-icons/tb';
+import { TbPalette, TbCode, TbSparkles, TbX, TbBook } from 'react-icons/tb';
 import {
   invalidateApiKeyStatus,
   storeApiKey as storeApiKeyToStorage,
@@ -41,7 +41,7 @@ function saveVimConfigIfChanged(localVimConfig: string, currentSettings: Setting
   }
 }
 
-export type SettingsSection = 'appearance' | 'editor' | 'ai';
+export type SettingsSection = 'appearance' | 'editor' | 'ai' | 'libraries';
 type EditorSubTab = 'general' | 'vim';
 
 export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogProps) {
@@ -64,6 +64,11 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
+  // Library Settings
+  const [libraryPaths, setLibraryPaths] = useState<string[]>([]);
+  const [autoDiscover, setAutoDiscover] = useState(true);
+  const [discoveredPaths, setDiscoveredPaths] = useState<string[]>([]);
+
 
   const loadAISettings = useCallback(() => {
     const availableProviders = getAvailableProvidersFromStore();
@@ -84,6 +89,19 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
       setSettings(loadedSettings);
       setLocalVimConfig(loadedSettings.editor.vimConfig);
       loadAISettings();
+      setLibraryPaths(loadedSettings.libraries.libraryPaths);
+      setAutoDiscover(loadedSettings.libraries.autoDiscoverSystemLibraries);
+      // Load discovered paths
+      const loadDiscovered = async () => {
+        try {
+          const paths = await getPlatform().getDefaultLibraryPaths();
+          setDiscoveredPaths(paths);
+        } catch (err) {
+          console.error('[SettingsDialog] error discovering paths:', err);
+          setDiscoveredPaths([]);
+        }
+      };
+      loadDiscovered();
       if (initialTab) setActiveSection(initialTab);
     }
   }, [isOpen, initialTab, loadAISettings]);
@@ -175,6 +193,41 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
       setSuccessMessage(null);
     }, 3000);
   };
+  const handleAddLibraryPath = async () => {
+    const path = await getPlatform().pickDirectory();
+    if (path && !libraryPaths.includes(path)) {
+      const newPaths = [...libraryPaths, path];
+      setLibraryPaths(newPaths);
+      const updated = {
+        ...settings,
+        libraries: { ...settings.libraries, libraryPaths: newPaths },
+      };
+      setSettings(updated);
+      saveSettings(updated);
+    }
+  };
+
+  const handleRemoveLibraryPath = (pathToRemove: string) => {
+    const newPaths = libraryPaths.filter((p) => p !== pathToRemove);
+    setLibraryPaths(newPaths);
+    const updated = {
+      ...settings,
+      libraries: { ...settings.libraries, libraryPaths: newPaths },
+      };
+    setSettings(updated);
+    saveSettings(updated);
+  };
+
+  const handleAutoDiscoverChange = (enabled: boolean) => {
+    setAutoDiscover(enabled);
+    const updated = {
+      ...settings,
+      libraries: { ...settings.libraries, autoDiscoverSystemLibraries: enabled },
+    };
+    setSettings(updated);
+    saveSettings(updated);
+  };
+
 
   const handleClose = () => {
     // Save vim config changes before closing
@@ -188,6 +241,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     { key: 'appearance', label: 'Appearance', icon: <TbPalette size={16} /> },
     { key: 'editor', label: 'Editor', icon: <TbCode size={16} /> },
     { key: 'ai', label: 'AI Assistant', icon: <TbSparkles size={16} /> },
+    { key: 'libraries', label: 'Libraries', icon: <TbBook size={16} /> },
   ];
 
   return (
@@ -266,7 +320,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                 ? 'Appearance'
                 : activeSection === 'editor'
                   ? 'Editor'
-                  : 'AI Assistant'}
+                  : activeSection === 'libraries'
+                    ? 'Libraries'
+                    : 'AI Assistant'}
             </h3>
             <button
               type="button"
@@ -1010,6 +1066,117 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     {successMessage}
                   </div>
                 )}
+              </div>
+            )}
+
+            {activeSection === 'libraries' && (
+              <div className="space-y-6">
+                {/* Library Paths Card */}
+                <div
+                  className="rounded-lg p-4 space-y-3"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                  }}
+                >
+                  <div>
+                    <Label className="mb-0">Library Paths</Label>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      Directories where OpenSCAD looks for libraries
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {libraryPaths.length === 0 ? (
+                      <p className="text-xs italic" style={{ color: 'var(--text-tertiary)' }}>
+                        No library paths configured
+                      </p>
+                    ) : (
+                      libraryPaths.map((path) => (
+                        <div
+                          key={path}
+                          className="flex items-center justify-between p-2 rounded text-xs font-mono"
+                          style={{
+                            backgroundColor: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-primary)',
+                          }}
+                        >
+                          <span className="truncate mr-2" style={{ color: 'var(--text-secondary)' }}>
+                            {path}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLibraryPath(path)}
+                            className="p-1 rounded hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                            style={{ color: 'var(--text-tertiary)' }}
+                          >
+                            <TbX size={14} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <Button variant="secondary" onClick={handleAddLibraryPath} className="w-full">
+                    Add Path
+                  </Button>
+                </div>
+
+                {/* Auto-discover Card */}
+                <div
+                  className="rounded-lg p-4 space-y-4"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="mb-0">Auto-discover System Libraries</Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Automatically find libraries in standard OpenSCAD locations
+                      </p>
+                    </div>
+                    <Toggle
+                      checked={autoDiscover}
+                      onChange={(e) => handleAutoDiscoverChange(e.target.checked)}
+                    />
+                  </div>
+
+                  {autoDiscover && (
+                    <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--border-primary)' }}>
+                      <Label className="text-xs">Discovered Paths</Label>
+                      {discoveredPaths.length === 0 ? (
+                        <p className="text-xs italic" style={{ color: 'var(--text-tertiary)' }}>
+                          No system libraries found
+                        </p>
+                      ) : (
+                        discoveredPaths.map((path) => (
+                          <div
+                            key={path}
+                            className="flex items-center justify-between p-2 rounded text-xs font-mono opacity-70"
+                            style={{
+                              backgroundColor: 'var(--bg-secondary)',
+                              border: '1px solid var(--border-primary)',
+                            }}
+                          >
+                            <span className="truncate" style={{ color: 'var(--text-secondary)' }}>
+                              {path}
+                            </span>
+                            <span className="text-[10px] uppercase tracking-wider opacity-60 ml-2">
+                              (Auto-discovered)
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Libraries like BOSL2 should be installed in one of the paths above. Changes take effect
+                  when the settings dialog is closed.
+                </p>
               </div>
             )}
           </div>

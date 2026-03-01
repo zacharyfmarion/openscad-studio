@@ -140,6 +140,45 @@ export class TauriBridge implements PlatformBridge {
     return files;
   }
 
+  async getDefaultLibraryPaths(): Promise<string[]> {
+    const { homeDir } = await import('@tauri-apps/api/path');
+    const { readDir } = await import('@tauri-apps/plugin-fs');
+
+    let home = await homeDir();
+    if (!home.endsWith('/')) home += '/';
+    const candidates = [
+      // macOS
+      home + 'Documents/OpenSCAD/libraries',
+      home + '.local/share/OpenSCAD/libraries',
+      // Linux
+      home + '.local/share/openscad/libraries',
+      // Windows
+      home + 'Documents/OpenSCAD/libraries',
+      home + 'AppData/Roaming/OpenSCAD/libraries',
+    ];
+
+
+    const existing: string[] = [];
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+      if (seen.has(candidate)) continue;
+      seen.add(candidate);
+      try {
+        await readDir(candidate);
+        existing.push(candidate);
+      } catch (err) {
+      }
+    }
+    return existing;
+  }
+
+  async pickDirectory(): Promise<string | null> {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({ directory: true, multiple: false });
+    if (!selected) return null;
+    return typeof selected === 'string' ? selected : (selected as { path: string }).path;
+  }
+
   setWindowTitle(title: string): void {
     import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
       getCurrentWindow().setTitle(title);

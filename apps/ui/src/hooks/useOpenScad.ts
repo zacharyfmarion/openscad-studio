@@ -95,15 +95,8 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           : undefined,
       });
 
-      if (import.meta.env.DEV) {
-        console.log('[doRender] Render success:', {
-          kind: result.kind,
-          outputSize: result.output.length,
-          diagnostics: result.diagnostics.length,
-        });
-        if (result.diagnostics.length > 0) {
-          console.log('[doRender] Diagnostics:', JSON.stringify(result.diagnostics, null, 2));
-        }
+      if (import.meta.env.DEV && result.diagnostics.length > 0) {
+        console.log('[doRender] Diagnostics count:', result.diagnostics.length);
       }
 
       setDiagnostics(result.diagnostics);
