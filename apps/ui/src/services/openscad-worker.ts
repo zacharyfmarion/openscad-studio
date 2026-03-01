@@ -14,6 +14,7 @@ export interface WorkerRenderRequest {
   code: string;
   args: string[];
   auxiliaryFiles?: Record<string, string>;
+  libraryFiles?: Record<string, string>;
 }
 
 export interface WorkerInitRequest {
@@ -77,7 +78,7 @@ function ensureParentDirs(fs: { mkdir(path: string): void }, filePath: string): 
 }
 
 async function handleRender(request: WorkerRenderRequest): Promise<void> {
-  const { id, code, args, auxiliaryFiles } = request;
+  const { id, code, args, auxiliaryFiles, libraryFiles } = request;
 
   try {
     const stderrLines: string[] = [];
@@ -92,17 +93,45 @@ async function handleRender(request: WorkerRenderRequest): Promise<void> {
 
     const wasm = instance.getInstance();
 
+    // Mount library files at ROOT level (e.g., /BOSL2/std.scad)
+    // so nested includes within libraries resolve correctly
+    if (libraryFiles) {
+      const libKeys = Object.keys(libraryFiles);
+      console.log(
+        '[worker] Writing',
+        libKeys.length,
+        'library files at root. Sample:',
+        libKeys.slice(0, 5)
+      );
+      for (const [relativePath, content] of Object.entries(libraryFiles)) {
+        const fullPath = '/' + relativePath; // Mount at root: /BOSL2/std.scad
+        ensureParentDirs(wasm.FS, fullPath);
+        wasm.FS.writeFile(fullPath, content);
+      }
+      console.log('[worker] All library files written');
+    } else {
+      console.log('[worker] No library files');
+    }
+
     // Write auxiliary files (e.g. included/used .scad files from working directory)
     if (auxiliaryFiles) {
+      const auxKeys = Object.keys(auxiliaryFiles);
+      console.log('[worker] Writing', auxKeys.length, 'auxiliary files. Sample paths:', auxKeys.slice(0, 10));
       for (const [relativePath, content] of Object.entries(auxiliaryFiles)) {
         const fullPath = '/input_dir/' + relativePath;
         ensureParentDirs(wasm.FS, fullPath);
         wasm.FS.writeFile(fullPath, content);
       }
+      console.log('[worker] All auxiliary files written');
+    } else {
+      console.log('[worker] No auxiliary files');
     }
 
     // Write input file inside the same directory so relative includes resolve
-    const inputPath = auxiliaryFiles ? '/input_dir/input.scad' : '/input.scad';
+    const hasAuxFiles =
+      (auxiliaryFiles && Object.keys(auxiliaryFiles).length > 0) ||
+      (libraryFiles && Object.keys(libraryFiles).length > 0);
+    const inputPath = hasAuxFiles ? '/input_dir/input.scad' : '/input.scad';
     wasm.FS.writeFile(inputPath, code);
 
     // Rewrite input path in args to match where we wrote the file
