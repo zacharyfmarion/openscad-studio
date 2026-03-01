@@ -22,6 +22,7 @@ export interface RenderOptions {
   view?: '2d' | '3d';
   backend?: 'manifold' | 'cgal' | 'auto';
   auxiliaryFiles?: Record<string, string>;
+  libraryFiles?: Record<string, string>;
 }
 
 export interface RenderResult {
@@ -102,9 +103,13 @@ class RenderCache {
     code: string,
     backend: string,
     view: string,
-    auxFileCount: number = 0
+    auxFileKeys: string[] = []
   ): Promise<string> {
-    const data = new TextEncoder().encode(code + backend + view + auxFileCount);
+    // Include sorted aux file paths in the hash so cache invalidates
+    // when library composition changes (but not on content changes —
+    // library content is assumed stable between explicit reloads).
+    const auxPart = auxFileKeys.length > 0 ? auxFileKeys.sort().join('\0') : '';
+    const data = new TextEncoder().encode(code + backend + view + auxPart);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = new Uint8Array(hashBuffer);
     return Array.from(hashArray)
@@ -244,7 +249,8 @@ export class RenderService {
   private async sendRequest(
     code: string,
     args: string[],
-    auxiliaryFiles?: Record<string, string>
+    auxiliaryFiles?: Record<string, string>,
+    libraryFiles?: Record<string, string>
   ): Promise<WorkerRenderResult> {
     await this.init();
 
@@ -263,6 +269,7 @@ export class RenderService {
         code,
         args,
         auxiliaryFiles,
+        libraryFiles,
       };
 
       this.worker!.postMessage(request);
@@ -294,11 +301,11 @@ export class RenderService {
    * 3D mode returns STL (kind: 'mesh'), 2D mode returns SVG (kind: 'svg').
    */
   async render(code: string, options: RenderOptions = {}): Promise<RenderResult> {
-    const { view = '3d', backend = 'manifold', auxiliaryFiles } = options;
+    const { view = '3d', backend = 'manifold', auxiliaryFiles, libraryFiles } = options;
 
     // Check cache
-    const auxFileCount = auxiliaryFiles ? Object.keys(auxiliaryFiles).length : 0;
-    const cacheKey = await this.cache.generateKey(code, backend, view, auxFileCount);
+    const auxFileKeys = auxiliaryFiles ? Object.keys(auxiliaryFiles) : [];
+    const cacheKey = await this.cache.generateKey(code, backend, view, auxFileKeys);
     const cached = this.cache.get(cacheKey);
     if (cached) {
       return {
@@ -314,7 +321,7 @@ export class RenderService {
     const kind: 'mesh' | 'svg' = is3d ? 'mesh' : 'svg';
 
     const args = this.buildArgs(outputPath, { view, backend });
-    const result = await this.sendRequest(code, args, auxiliaryFiles);
+    const result = await this.sendRequest(code, args, auxiliaryFiles, libraryFiles);
 
     const diagnostics = parseOpenScadStderr(result.stderr);
 
@@ -336,9 +343,12 @@ export class RenderService {
   /**
    * Check syntax by attempting to render. Returns diagnostics only.
    */
-  async checkSyntax(code: string): Promise<SyntaxCheckResult> {
+  async checkSyntax(
+    code: string,
+    options: { auxiliaryFiles?: Record<string, string>; libraryFiles?: Record<string, string> } = {}
+  ): Promise<SyntaxCheckResult> {
     const args = this.buildArgs('/output.stl', { backend: 'manifold' });
-    const result = await this.sendRequest(code, args);
+    const result = await this.sendRequest(code, args, options.auxiliaryFiles, options.libraryFiles);
     const diagnostics = parseOpenScadStderr(result.stderr);
 
     return { diagnostics };
@@ -350,9 +360,13 @@ export class RenderService {
   async exportModel(
     code: string,
     format: ExportFormat,
-    options: { backend?: 'manifold' | 'cgal' | 'auto' } = {}
+    options: {
+      backend?: 'manifold' | 'cgal' | 'auto';
+      auxiliaryFiles?: Record<string, string>;
+      libraryFiles?: Record<string, string>;
+    } = {}
   ): Promise<Uint8Array> {
-    const { backend = 'manifold' } = options;
+    const { backend = 'manifold', auxiliaryFiles, libraryFiles } = options;
     const outputPath = `/output.${format}`;
     const args = this.buildArgs(outputPath, { backend });
 
@@ -361,7 +375,7 @@ export class RenderService {
       args.push('--export-format=binstl');
     }
 
-    const result = await this.sendRequest(code, args);
+    const result = await this.sendRequest(code, args, auxiliaryFiles, libraryFiles);
 
     if (result.output.length === 0) {
       const diagnostics = parseOpenScadStderr(result.stderr);
