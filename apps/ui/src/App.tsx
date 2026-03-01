@@ -25,6 +25,7 @@ import { useTabStore } from './stores/tabStore';
 import { useEditorStore } from './stores/editorStore';
 import { useUiStore } from './stores/uiStore';
 import { useOpenScad } from './hooks/useOpenScad';
+import { useLibraryFiles } from './hooks/useLibraryFiles';
 import { useAiAgent } from './hooks/useAiAgent';
 import { useHistory } from './hooks/useHistory';
 import { useFileManager } from './hooks/useFileManager';
@@ -160,6 +161,12 @@ function App() {
   const { undo, redo } = useHistory();
 
   const {
+    libraryFiles,
+    libraryFilesRef,
+    reloadLibraryFiles,
+  } = useLibraryFiles();
+
+  const {
     source,
     updateSource,
     updateSourceAndRender,
@@ -175,6 +182,7 @@ function App() {
     auxiliaryFiles,
   } = useOpenScad({
     workingDir,
+    libraryFiles,
     autoRenderOnIdle: settings.editor.autoRenderOnIdle,
     autoRenderDelayMs: settings.editor.autoRenderDelayMs,
   });
@@ -227,7 +235,17 @@ function App() {
     checkUnsavedChanges,
   } = useFileManager();
 
-  useMenuListeners({ checkUnsavedChanges, saveFile });
+  const getMergedAuxiliaryFiles = useCallback(() => {
+    const workingDirFiles = auxiliaryFiles || {};
+    const libFiles = libraryFilesRef.current || {};
+    if (Object.keys(workingDirFiles).length === 0 && Object.keys(libFiles).length === 0) {
+      return undefined;
+    }
+    // Working dir files override library files
+    return { ...libFiles, ...workingDirFiles };
+  }, [auxiliaryFiles, libraryFilesRef]);
+
+  useMenuListeners({ checkUnsavedChanges, saveFile, getAuxiliaryFiles: getMergedAuxiliaryFiles });
   useKeyboardShortcuts({ aiPromptPanelRef });
 
   useEffect(() => {
@@ -338,24 +356,35 @@ function App() {
       prevActiveTabIdRef.current = activeTabId;
       return;
     }
-    if (showWelcome) {
-      prevActiveTabIdRef.current = activeTabId;
-      return;
-    }
     if (prevActiveTabIdRef.current !== activeTabId) {
-      const timer = window.setTimeout(() => {
-        manualRender();
-      }, 150);
       prevActiveTabIdRef.current = activeTabId;
-      return () => clearTimeout(timer);
+      const newTab = useTabStore.getState().getActiveTab();
+      if (newTab) {
+        updateSourceAndRender(newTab.content);
+      }
+      if (!showWelcome) {
+        const timer = window.setTimeout(() => {
+          manualRender();
+        }, 150);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [activeTabId, showWelcome, manualRender]);
+  }, [activeTabId, showWelcome, manualRender, updateSourceAndRender]);
 
   useEffect(() => {
-    if (activeTab && source !== activeTab.content) {
+    if (tabs.length === 0) {
+      useUiStore.getState().setShowWelcome(true);
+      useTabStore.getState().resetToDefault();
+    }
+  }, [tabs.length]);
+
+  const prevSourceRef = useRef(source);
+  useEffect(() => {
+    if (source !== prevSourceRef.current) {
+      prevSourceRef.current = source;
       useTabStore.getState().updateTabContent(activeTabId, source);
     }
-  }, [source, activeTab, activeTabId]);
+  }, [source, activeTabId]);
 
   const handleNuxSelect = useCallback(
     (preset: 'default' | 'ai-first') => {
@@ -492,6 +521,7 @@ function App() {
           onClose={() => {
             closeSettings();
             loadModelAndProviders();
+            reloadLibraryFiles();
           }}
           initialTab={settingsInitialTab}
         />
@@ -611,7 +641,7 @@ function App() {
 
           <button
             type="button"
-            onClick={openSettings}
+            onClick={() => openSettings()}
             className="p-1 rounded-md transition-colors"
             style={{
               backgroundColor: 'transparent',
@@ -644,6 +674,7 @@ function App() {
         onClose={closeExportDialog}
         source={source}
         workingDir={workingDir}
+        auxiliaryFiles={getMergedAuxiliaryFiles()}
       />
 
       {/* Settings dialog */}
@@ -652,6 +683,7 @@ function App() {
         onClose={() => {
           closeSettings();
           loadModelAndProviders();
+          reloadLibraryFiles();
         }}
         initialTab={settingsInitialTab}
       />
