@@ -21,7 +21,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   const [isRendering, setIsRendering] = useState(false);
   const [error, setError] = useState<string>('');
-  const [dimensionMode] = useState<'2d' | '3d'>('3d');
+  const [dimensionMode, setDimensionMode] = useState<'2d' | '3d'>('3d');
 
   // Track Blob URLs for cleanup
   const prevBlobUrlRef = useRef<string>('');
@@ -108,14 +108,60 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         prevBlobUrlRef.current = blobUrl;
         setPreviewSrc(blobUrl);
       } else {
-        // No output — check for errors in diagnostics
-        const errors = result.diagnostics.filter((d) => d.severity === 'error');
-        if (errors.length > 0) {
-          setError(errors.map((e) => e.message).join('\n'));
+        // No output — check for dimension mismatch and auto-retry with opposite mode.
+        // The WASM Manifold backend silently produces empty output (no diagnostics)
+        // when rendering 2D code in 3D mode or vice versa.
+        const hasErrors = result.diagnostics.some((d) => d.severity === 'error');
+
+        // Also check for explicit dimension mismatch error messages (CLI OpenSCAD)
+        const errorMessages = result.diagnostics
+          .filter((d) => d.severity === 'error')
+          .map((d) => d.message.toLowerCase())
+          .join(' ');
+        const hasExplicitMismatch =
+          errorMessages.includes('not a 3d object') ||
+          errorMessages.includes('not a 2d object') ||
+          (errorMessages.includes('2d') && errorMessages.includes('3d mode')) ||
+          (errorMessages.includes('3d') && errorMessages.includes('2d mode'));
+
+        if (!hasErrors || hasExplicitMismatch) {
+          const newDimension: '2d' | '3d' = dimension === '3d' ? '2d' : '3d';
+          if (import.meta.env.DEV)
+            console.log('[doRender] Empty output with no errors — retrying as:', newDimension);
+
+          // Retry render with the opposite dimension
+          const retryResult = await renderServiceRef.current.render(code, {
+            view: newDimension,
+            backend: 'manifold',
+            auxiliaryFiles:
+          Object.keys(auxiliaryFilesRef.current).length > 0 ? auxiliaryFilesRef.current : undefined,
+          });
+
+          if (retryResult.output.length > 0) {
+            // Opposite dimension worked — switch to it
+            if (import.meta.env.DEV)
+              console.log('[doRender] Retry succeeded with:', newDimension);
+            setDimensionMode(newDimension);
+            setDiagnostics(retryResult.diagnostics);
+            setPreviewKind(retryResult.kind);
+
+            const mimeType =
+              retryResult.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
+            const blob = new Blob([retryResult.output], { type: mimeType });
+            const blobUrl = URL.createObjectURL(blob);
+            prevBlobUrlRef.current = blobUrl;
+            setPreviewSrc(blobUrl);
+          } else {
+            // Neither dimension produced output
+            setError('Render produced no output');
+            setPreviewSrc('');
+          }
         } else {
-          setError('Render produced no output');
+          // Has real errors (not dimension mismatch) — report them
+          const errors = result.diagnostics.filter((d) => d.severity === 'error');
+          setError(errors.map((e) => e.message).join('\n'));
+          setPreviewSrc('');
         }
-        setPreviewSrc('');
       }
     } catch (err) {
       const errorMsg = typeof err === 'string' ? err : String(err);
@@ -220,6 +266,24 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       }
     };
   }, []);
+
+  // Expose render functions for E2E testing
+  useEffect(() => {
+    if (import.meta.env.DEV || (window as any).__PLAYWRIGHT__) {
+      (window as any).__TEST_OPENSCAD__ = {
+        doRender,
+        manualRender,
+        updateSourceAndRender,
+        dimensionMode,
+        renderService: renderServiceRef.current,
+      };
+    }
+    return () => {
+      if ((window as any).__TEST_OPENSCAD__) {
+        delete (window as any).__TEST_OPENSCAD__;
+      }
+    };
+  }, [doRender, manualRender, updateSourceAndRender, dimensionMode]);
 
   return {
     source,

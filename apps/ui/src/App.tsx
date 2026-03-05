@@ -1063,7 +1063,7 @@ function App() {
   // Show welcome screen if no file is open and welcome hasn't been dismissed
   if (showWelcome) {
     return (
-      <div className="h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="h-screen" data-testid="welcome-container" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <WelcomeScreen
           onStartWithPrompt={handleStartWithPrompt}
           onStartManually={handleStartManually}
@@ -1092,6 +1092,7 @@ function App() {
   return (
     <div
       className="h-screen flex flex-col"
+      data-testid="app-container"
       style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
     >
       <header
@@ -1140,6 +1141,7 @@ function App() {
         <div className="flex items-center gap-1.5 px-3 shrink-0">
           {isRendering && (
             <div
+              data-testid="render-spinner"
               className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full"
               style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
             >
@@ -1155,6 +1157,7 @@ function App() {
           )}
 
           <div
+            data-testid="dimension-mode"
             className="flex items-center gap-1 text-xs px-2 py-1 rounded border"
             style={{
               color: 'var(--text-secondary)',
@@ -1180,6 +1183,7 @@ function App() {
           />
 
           <Button
+            data-testid="render-button"
             variant="primary"
             onClick={manualRender}
             disabled={isRendering || !ready}
@@ -1188,6 +1192,7 @@ function App() {
             Render (⌘↵)
           </Button>
           <Button
+            data-testid="export-button"
             variant="secondary"
             onClick={() => setShowExportDialog(true)}
             disabled={isRendering || !ready}
@@ -1201,6 +1206,7 @@ function App() {
           />
 
           <button
+            data-testid="settings-button"
             type="button"
             onClick={() => setShowSettingsDialog(true)}
             className="p-1 rounded-md transition-colors"

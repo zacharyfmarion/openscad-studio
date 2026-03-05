@@ -22,6 +22,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
   if (diagnostics.length === 0) {
     return (
       <div
+        data-testid="diagnostics-panel"
         className="h-full px-4 py-3 text-sm"
         style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
       >
@@ -31,7 +32,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
   }
 
   return (
-    <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+    <div data-testid="diagnostics-panel" className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-secondary)' }}>
       {/* Output (ECHO) section */}
       {echoMessages.length > 0 && (
         <>

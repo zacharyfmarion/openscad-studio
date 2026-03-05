@@ -1,5 +1,6 @@
 import { ThreeViewer } from './ThreeViewer';
 import { SvgViewer } from './SvgViewer';
+import { InlineErrorBoundary } from './ErrorBoundary';
 import type { RenderKind } from '../hooks/useOpenScad';
 
 interface PreviewProps {
@@ -22,6 +23,7 @@ export function Preview({ src, kind, isRendering, error }: PreviewProps) {
   if (error) {
     return (
       <div
+        data-testid="preview-error"
         className="w-full h-full flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
@@ -43,6 +45,7 @@ export function Preview({ src, kind, isRendering, error }: PreviewProps) {
   if (!src && !isRendering) {
     return (
       <div
+        data-testid="preview-empty"
         className="w-full h-full flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
@@ -52,7 +55,11 @@ export function Preview({ src, kind, isRendering, error }: PreviewProps) {
   }
 
   if (kind === 'mesh') {
-    return <ThreeViewer stlPath={src} isLoading={isRendering} />;
+    return (
+      <InlineErrorBoundary fallbackMessage="3D preview failed to render (WebGL error)">
+        <ThreeViewer stlPath={src} isLoading={isRendering} />
+      </InlineErrorBoundary>
+    );
   }
 
   if (kind === 'svg') {

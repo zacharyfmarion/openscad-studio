@@ -91,3 +91,73 @@ export class ErrorBoundary extends Component<Props, State> {
     );
   }
 }
+
+/**
+ * Lightweight error boundary for isolating component-level failures (e.g. WebGL crashes).
+ * Shows a friendly inline message instead of taking down the entire app.
+ */
+interface InlineErrorBoundaryProps {
+  children: ReactNode;
+  fallbackMessage?: string;
+}
+
+interface InlineErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class InlineErrorBoundary extends Component<InlineErrorBoundaryProps, InlineErrorBoundaryState> {
+  state: InlineErrorBoundaryState = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error: Error): InlineErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render() {
+    if (!this.state.hasError) {
+      return this.props.children;
+    }
+
+    return (
+      <div
+        data-testid="component-error"
+        className="w-full h-full flex items-center justify-center"
+        style={{ backgroundColor: 'var(--bg-primary, #002b36)' }}
+      >
+        <div className="text-center p-6 max-w-md">
+          <p
+            className="font-semibold text-lg mb-2"
+            style={{ color: 'var(--text-primary, #eee8d5)' }}
+          >
+            {this.props.fallbackMessage || 'This component failed to render'}
+          </p>
+          {this.state.error && (
+            <p
+              className="text-sm mb-4 break-words"
+              style={{ color: 'var(--color-error, #cb4b16)' }}
+            >
+              {this.state.error.message}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={this.handleRetry}
+            className="px-4 py-2 rounded text-sm font-medium"
+            style={{
+              background: 'var(--accent-primary, #268bd2)',
+              color: 'var(--text-inverse, #002b36)',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+}

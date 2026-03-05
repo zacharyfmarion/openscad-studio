@@ -60,6 +60,7 @@ export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
       onClick={onClose}
     >
       <div
+        data-testid="export-dialog"
         className="rounded-xl shadow-2xl w-full max-w-md mx-4 flex flex-col overflow-hidden"
         style={{
           backgroundColor: 'var(--bg-secondary)',
