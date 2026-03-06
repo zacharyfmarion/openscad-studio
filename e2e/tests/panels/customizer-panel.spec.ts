@@ -32,17 +32,7 @@ test.describe('Customizer Panel', () => {
     await app.triggerRender();
     await app.waitForRender();
 
-    // Wait a bit for the customizer to process parameters
-    await app.page.waitForTimeout(2000);
-
-    // Check for 'No parameters found' — if present, WASM doesn't support annotations
-    const noParams = app.page.getByText('No parameters found');
-    if (await noParams.isVisible().catch(() => false)) {
-      test.skip(true, 'Customizer does not detect parameters from WASM output');
-    }
-
-    // Search for parameter labels anywhere on the page (customizer renders them
-    // as labels or text outside the strict panel data-testid scope)
+    // Parser initializes asynchronously — wait for parameters to appear
     await expect(app.page.getByText('width').first()).toBeVisible({ timeout: 10_000 });
     await expect(app.page.getByText('height').first()).toBeVisible({ timeout: 5_000 });
   });
@@ -62,12 +52,6 @@ test.describe('Customizer Panel', () => {
 
     // Check for input controls (range sliders or number inputs)
     const controls = app.page.locator('input[type="range"], input[type="number"]');
-    const noParams = app.page.getByText('No parameters found');
-
-    if (await noParams.isVisible().catch(() => false)) {
-      test.skip(true, 'Customizer does not detect parameters from WASM output');
-    }
-
-    await expect(controls.first()).toBeVisible({ timeout: 5000 });
+    await expect(controls.first()).toBeVisible({ timeout: 10_000 });
   });
 });
