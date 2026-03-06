@@ -99,6 +99,19 @@ export interface PlatformBridge {
    */
   readDirectoryFiles(dirPath: string, extensions?: string[]): Promise<Record<string, string>>;
 
+  /**
+   * Get well-known OS library paths that exist on disk.
+   * Returns paths like ~/Documents/OpenSCAD/libraries/ on macOS.
+   * Web bridge returns empty array (no filesystem access).
+   */
+  getLibraryPaths(): Promise<string[]>;
+
+  /**
+   * Open a directory picker dialog. Returns the selected path or null if cancelled.
+   * Web bridge returns null (no filesystem access).
+   */
+  pickDirectory(): Promise<string | null>;
+
   // -- Lifecycle --
 
   /** Optional initialization (e.g., setting up native menu event forwarding) */

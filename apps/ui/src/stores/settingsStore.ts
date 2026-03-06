@@ -20,10 +20,16 @@ export interface UiSettings {
   defaultLayoutPreset: 'default' | 'ai-first';
 }
 
+export interface LibrarySettings {
+  customPaths: string[];
+  autoDiscoverSystem: boolean;
+}
+
 export interface Settings {
   editor: EditorSettings;
   appearance: AppearanceSettings;
   ui: UiSettings;
+  library: LibrarySettings;
 }
 
 const DEFAULT_VIM_CONFIG = `# Vim Configuration
@@ -69,6 +75,10 @@ const DEFAULT_SETTINGS: Settings = {
     hasCompletedNux: false,
     defaultLayoutPreset: 'default',
   },
+  library: {
+    customPaths: [],
+    autoDiscoverSystem: true,
+  },
 };
 
 const SETTINGS_KEY = 'openscad-studio-settings';
@@ -96,6 +106,10 @@ export function loadSettings(): Settings {
         ui: {
           ...DEFAULT_SETTINGS.ui,
           ...(parsed.ui || {}),
+        },
+        library: {
+          ...DEFAULT_SETTINGS.library,
+          ...(parsed.library || {}),
         },
       };
     }
