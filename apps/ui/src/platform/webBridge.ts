@@ -59,8 +59,24 @@ export class WebBridge implements PlatformBridge {
     return null;
   }
 
+  async fileExists(): Promise<boolean> {
+    return false;
+  }
+
+  async readTextFile(): Promise<string | null> {
+    return null;
+  }
+
   async readDirectoryFiles(): Promise<Record<string, string>> {
     return {};
+  }
+
+  async getLibraryPaths(): Promise<string[]> {
+    return [];
+  }
+
+  async pickDirectory(): Promise<string | null> {
+    return null;
   }
 
   async fileOpen(filters?: FileFilter[]): Promise<FileOpenResult | null> {

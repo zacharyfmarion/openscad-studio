@@ -106,26 +106,56 @@ export class TauriBridge implements PlatformBridge {
     });
   }
 
+  async fileExists(absolutePath: string): Promise<boolean> {
+    try {
+      const { exists } = await import('@tauri-apps/plugin-fs');
+      return await exists(absolutePath);
+    } catch {
+      return false;
+    }
+  }
+
+  async readTextFile(absolutePath: string): Promise<string | null> {
+    try {
+      const { readTextFile } = await import('@tauri-apps/plugin-fs');
+      return await readTextFile(absolutePath);
+    } catch {
+      return null;
+    }
+  }
+
   async readDirectoryFiles(
     dirPath: string,
-    extensions: string[] = ['scad']
+    extensions: string[] = ['scad'],
+    recursive: boolean = true
   ): Promise<Record<string, string>> {
     const { readDir, readTextFile } = await import('@tauri-apps/plugin-fs');
     const files: Record<string, string> = {};
 
     const walk = async (currentDir: string, prefix: string) => {
-      const entries = await readDir(currentDir);
+      let entries;
+      try {
+        entries = await readDir(currentDir);
+      } catch (err) {
+        console.warn(`[readDirectoryFiles] Failed to read directory ${currentDir}:`, err);
+        return;
+      }
       for (const entry of entries) {
+        // Skip hidden files/directories (e.g. .git)
+        if (entry.name.startsWith('.')) continue;
+
         const entryPath = currentDir + '/' + entry.name;
         const relativePath = prefix ? prefix + '/' + entry.name : entry.name;
 
         if (entry.isDirectory) {
-          await walk(entryPath, relativePath);
+          if (recursive) {
+            await walk(entryPath, relativePath);
+          }
         } else if (extensions.some((ext) => entry.name.endsWith('.' + ext))) {
           try {
             files[relativePath] = await readTextFile(entryPath);
-          } catch {
-            // Skip files that can't be read
+          } catch (err) {
+            console.warn(`[readDirectoryFiles] Failed to read file ${entryPath}:`, err);
           }
         }
       }
@@ -138,6 +168,52 @@ export class TauriBridge implements PlatformBridge {
     }
 
     return files;
+  }
+
+  async getLibraryPaths(): Promise<string[]> {
+    try {
+      const { homeDir, join } = await import('@tauri-apps/api/path');
+      const { exists } = await import('@tauri-apps/plugin-fs');
+      const home = await homeDir();
+
+      // Well-known OS library paths for OpenSCAD
+      const candidates: string[] = [];
+      const platformLower = navigator.platform.toLowerCase();
+
+      if (platformLower.includes('mac') || platformLower.includes('darwin')) {
+        candidates.push(await join(home, 'Documents', 'OpenSCAD', 'libraries'));
+      } else if (platformLower.includes('win')) {
+        candidates.push(await join(home, 'Documents', 'OpenSCAD', 'libraries'));
+      } else {
+        candidates.push(await join(home, '.local', 'share', 'OpenSCAD', 'libraries'));
+      }
+
+      const validPaths: string[] = [];
+      for (const p of candidates) {
+        try {
+          if (await exists(p)) {
+            validPaths.push(p);
+          }
+        } catch {
+          // Path doesn't exist or can't be accessed
+        }
+      }
+
+      return validPaths;
+    } catch (err) {
+      console.error('[getLibraryPaths] Error:', err);
+      return [];
+    }
+  }
+
+  async pickDirectory(): Promise<string | null> {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({
+      directory: true,
+      multiple: false,
+    });
+    if (!selected) return null;
+    return typeof selected === 'string' ? selected : (selected as { path: string }).path;
   }
 
   setWindowTitle(title: string): void {

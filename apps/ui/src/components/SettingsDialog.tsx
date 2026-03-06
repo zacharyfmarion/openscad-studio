@@ -11,7 +11,16 @@ import { Button, Input, Select, Label, Toggle } from './ui';
 import { Editor as MonacoEditor } from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
 import { registerVimConfigLanguage } from '../languages/vimConfigLanguage';
-import { TbPalette, TbCode, TbSparkles, TbX } from 'react-icons/tb';
+import {
+  TbPalette,
+  TbCode,
+  TbSparkles,
+  TbX,
+  TbBooks,
+  TbPlus,
+  TbTrash,
+  TbFolderOpen,
+} from 'react-icons/tb';
 import {
   invalidateApiKeyStatus,
   storeApiKey as storeApiKeyToStorage,
@@ -41,13 +50,14 @@ function saveVimConfigIfChanged(localVimConfig: string, currentSettings: Setting
   }
 }
 
-export type SettingsSection = 'appearance' | 'editor' | 'ai';
+export type SettingsSection = 'appearance' | 'editor' | 'ai' | 'libraries';
 type EditorSubTab = 'general' | 'vim';
 
 export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialTab ?? 'appearance');
   const [editorSubTab, setEditorSubTab] = useState<EditorSubTab>('general');
   const [settings, setSettings] = useState<Settings>(loadSettings());
+  const [autoDiscoveredPaths, setAutoDiscoveredPaths] = useState<string[]>([]);
   const { updateTheme } = useTheme();
   const availableThemes = getAvailableThemes();
   const vimEditorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -85,6 +95,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
       setLocalVimConfig(loadedSettings.editor.vimConfig);
       loadAISettings();
       if (initialTab) setActiveSection(initialTab);
+      getPlatform().getLibraryPaths().then(setAutoDiscoveredPaths);
     }
   }, [isOpen, initialTab, loadAISettings]);
 
@@ -120,6 +131,35 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     };
     setSettings(updated);
     saveSettings(updated);
+  };
+
+  const handleLibrarySettingChange = <K extends keyof Settings['library']>(
+    key: K,
+    value: Settings['library'][K]
+  ) => {
+    const updated = {
+      ...settings,
+      library: {
+        ...settings.library,
+        [key]: value,
+      },
+    };
+    setSettings(updated);
+    saveSettings(updated);
+  };
+
+  const handleAddLibraryPath = async () => {
+    const path = await getPlatform().pickDirectory();
+    if (path) {
+      if (settings.library.customPaths.includes(path)) return;
+      const updatedPaths = [...settings.library.customPaths, path];
+      handleLibrarySettingChange('customPaths', updatedPaths);
+    }
+  };
+
+  const handleRemoveLibraryPath = (pathToRemove: string) => {
+    const updatedPaths = settings.library.customPaths.filter((p) => p !== pathToRemove);
+    handleLibrarySettingChange('customPaths', updatedPaths);
   };
 
   const handleSave = () => {
@@ -187,6 +227,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
   const navItems: { key: SettingsSection; label: string; icon: React.ReactNode }[] = [
     { key: 'appearance', label: 'Appearance', icon: <TbPalette size={16} /> },
     { key: 'editor', label: 'Editor', icon: <TbCode size={16} /> },
+    { key: 'libraries', label: 'Libraries', icon: <TbBooks size={16} /> },
     { key: 'ai', label: 'AI Assistant', icon: <TbSparkles size={16} /> },
   ];
 
@@ -266,7 +307,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                 ? 'Appearance'
                 : activeSection === 'editor'
                   ? 'Editor'
-                  : 'AI Assistant'}
+                  : activeSection === 'libraries'
+                    ? 'Libraries'
+                    : 'AI Assistant'}
             </h3>
             <button
               type="button"
@@ -753,6 +796,141 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     )}
                   </div>
                 )}
+              </div>
+            )}
+
+            {activeSection === 'libraries' && (
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <Label className="mb-0">Auto-discover System Libraries</Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Automatically find OpenSCAD libraries in standard system locations
+                      </p>
+                    </div>
+                    <Toggle
+                      checked={settings.library.autoDiscoverSystem}
+                      onChange={(e) =>
+                        handleLibrarySettingChange('autoDiscoverSystem', e.target.checked)
+                      }
+                    />
+                  </div>
+
+                  {settings.library.autoDiscoverSystem && (
+                    <div className="space-y-2">
+                      <p
+                        className="text-xs font-semibold uppercase tracking-wider mb-2"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        System Paths
+                      </p>
+                      {autoDiscoveredPaths.length === 0 ? (
+                        <div
+                          className="text-sm italic"
+                          style={{ color: 'var(--text-tertiary)' }}
+                        >
+                          No system libraries found
+                        </div>
+                      ) : (
+                        autoDiscoveredPaths.map((path) => (
+                          <div
+                            key={path}
+                            className="flex items-center gap-2 text-sm p-2 rounded-md"
+                            style={{
+                              backgroundColor: 'var(--bg-primary)',
+                              border: '1px solid var(--border-primary)',
+                              opacity: 0.8,
+                            }}
+                          >
+                            <span style={{ color: 'var(--color-success)' }}>✓</span>
+                            <span
+                              className="font-mono text-xs truncate"
+                              style={{ color: 'var(--text-secondary)' }}
+                            >
+                              {path}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p
+                      className="text-xs font-semibold uppercase tracking-wider"
+                      style={{ color: 'var(--text-tertiary)' }}
+                    >
+                      Custom Paths
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleAddLibraryPath}
+                      className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-md transition-all duration-150"
+                      style={{
+                        color: 'var(--accent-primary)',
+                        border: '1px solid var(--border-primary)',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <TbPlus size={14} /> Add Path
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {settings.library.customPaths.length === 0 ? (
+                      <div
+                        className="text-sm italic p-4 text-center rounded-lg border border-dashed"
+                        style={{
+                          color: 'var(--text-tertiary)',
+                          borderColor: 'var(--border-primary)',
+                        }}
+                      >
+                        No custom library paths added
+                      </div>
+                    ) : (
+                      settings.library.customPaths.map((path) => (
+                        <div
+                          key={path}
+                          className="flex items-center justify-between gap-2 p-2 rounded-md group"
+                          style={{
+                            backgroundColor: 'var(--bg-primary)',
+                            border: '1px solid var(--border-primary)',
+                          }}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <TbFolderOpen
+                              size={16}
+                              style={{ color: 'var(--text-tertiary)' }}
+                            />
+                            <span
+                              className="font-mono text-xs truncate"
+                              style={{ color: 'var(--text-primary)' }}
+                            >
+                              {path}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLibraryPath(path)}
+                            className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--bg-tertiary)]"
+                            style={{ color: 'var(--text-tertiary)' }}
+                            title="Remove path"
+                          >
+                            <TbTrash size={14} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
