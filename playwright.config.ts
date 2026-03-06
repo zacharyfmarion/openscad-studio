@@ -23,6 +23,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
     video: 'on-first-retry',
+    acceptDownloads: true,
     // Grant clipboard permissions for Monaco editor interaction
     permissions: ['clipboard-read', 'clipboard-write'],
     // WebGL is required for Three.js 3D preview
@@ -49,15 +50,7 @@ export default defineConfig({
       },
       testIgnore: ['**/*.tauri.spec.ts'],
     },
-    {
-      name: 'web-firefox',
-      use: {
-        ...devices['Desktop Firefox'],
-        viewport: { width: 1280, height: 720 },
-        deviceScaleFactor: 1,
-      },
-      testIgnore: ['**/*.tauri.spec.ts'],
-    },
+    // Firefox removed — fails to launch with WebGL flags, all tests timeout at 0ms
     // WebKit doesn't support the Chromium launch args, so skip WebGL-heavy tests there
     {
       name: 'web-webkit',
