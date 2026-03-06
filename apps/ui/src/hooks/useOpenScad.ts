@@ -1,17 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { RenderService, type Diagnostic } from '../services/renderService';
 import { getPlatform } from '../platform';
-
+import type { LibrarySettings } from '../stores/settingsStore';
 export type RenderKind = 'mesh' | 'svg';
 
 interface UseOpenScadOptions {
   workingDir?: string | null;
   autoRenderOnIdle?: boolean;
   autoRenderDelayMs?: number;
+  library?: LibrarySettings;
 }
 
 export function useOpenScad(options: UseOpenScadOptions = {}) {
-  const { autoRenderOnIdle = false, autoRenderDelayMs = 500 } = options;
+  const { autoRenderOnIdle = false, autoRenderDelayMs = 500, library } = options;
   const [source, setSource] = useState<string>(
     '// Type your OpenSCAD code here\ncube([10, 10, 10]);'
   );
@@ -31,20 +32,46 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   const auxiliaryFilesRef = useRef<Record<string, string>>({});
   const auxFilesPromiseRef = useRef<Promise<void>>(Promise.resolve());
 
-  useEffect(() => {
-    if (!options.workingDir) {
-      auxiliaryFilesRef.current = {};
-      setAuxiliaryFiles({});
-      auxFilesPromiseRef.current = Promise.resolve();
-      return;
-    }
+  // Serialize customPaths for stable dependency comparison
+  const customPathsKey = library?.customPaths.join('\0') ?? '';
 
+  useEffect(() => {
     const platform = getPlatform();
-    auxFilesPromiseRef.current = platform.readDirectoryFiles(options.workingDir).then((files) => {
+
+    const loadAllFiles = async () => {
+      const files: Record<string, string> = {};
+
+      // 1. Read working directory files
+      if (options.workingDir) {
+        const workingDirFiles = await platform.readDirectoryFiles(options.workingDir);
+        Object.assign(files, workingDirFiles);
+      }
+
+      // 2. Read library paths (auto-discovered + custom)
+      if (library) {
+        const systemPaths = library.autoDiscoverSystem
+          ? await platform.getLibraryPaths()
+          : [];
+        const allLibPaths = [...systemPaths, ...library.customPaths];
+
+        for (const libPath of allLibPaths) {
+          try {
+            const libFiles = await platform.readDirectoryFiles(libPath);
+            const count = Object.keys(libFiles).length;
+            console.log(`[useOpenScad] Loaded ${count} files from ${libPath}`);
+            Object.assign(files, libFiles);
+          } catch (err) {
+            console.warn(`[useOpenScad] Failed to read library path ${libPath}:`, err);
+          }
+        }
+      }
+
+      console.log('[useOpenScad] Total auxiliary files:', Object.keys(files).length);
       auxiliaryFilesRef.current = files;
       setAuxiliaryFiles(files);
-    });
-  }, [options.workingDir]);
+    };
+    auxFilesPromiseRef.current = loadAllFiles();
+  }, [options.workingDir, library?.autoDiscoverSystem, customPathsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize WASM on mount
   useEffect(() => {
@@ -53,7 +80,6 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       .init()
       .then(() => {
         setReady(true);
-        if (import.meta.env.DEV) console.log('[useOpenScad] OpenSCAD WASM initialized');
       })
       .catch((err) => {
         setError(`Failed to initialize OpenSCAD WASM: ${err}`);
@@ -62,8 +88,6 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   }, []);
 
   const doRender = useCallback(async (code: string, dimension: '2d' | '3d' = '3d') => {
-    if (import.meta.env.DEV)
-      console.log('[doRender] Starting render:', { dimension, codeLength: code.length });
 
     if (!renderServiceRef.current) {
       setError('RenderService not available');
@@ -84,13 +108,6 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           Object.keys(auxiliaryFilesRef.current).length > 0 ? auxiliaryFilesRef.current : undefined,
       });
 
-      if (import.meta.env.DEV) {
-        console.log('[doRender] Render success:', {
-          kind: result.kind,
-          outputSize: result.output.length,
-          diagnostics: result.diagnostics.length,
-        });
-      }
 
       setDiagnostics(result.diagnostics);
       setPreviewKind(result.kind);
@@ -126,8 +143,6 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
         if (!hasErrors || hasExplicitMismatch) {
           const newDimension: '2d' | '3d' = dimension === '3d' ? '2d' : '3d';
-          if (import.meta.env.DEV)
-            console.log('[doRender] Empty output with no errors — retrying as:', newDimension);
 
           // Retry render with the opposite dimension
           const retryResult = await renderServiceRef.current.render(code, {
@@ -141,7 +156,6 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
           if (retryResult.output.length > 0) {
             // Opposite dimension worked — switch to it
-            if (import.meta.env.DEV) console.log('[doRender] Retry succeeded with:', newDimension);
             setDimensionMode(newDimension);
             setDiagnostics(retryResult.diagnostics);
             setPreviewKind(retryResult.kind);
@@ -166,7 +180,6 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       }
     } catch (err) {
       const errorMsg = typeof err === 'string' ? err : String(err);
-      if (import.meta.env.DEV) console.log('[doRender] Render error:', errorMsg);
       setError(errorMsg);
       setPreviewSrc('');
       console.error('Render error:', err);
@@ -176,8 +189,6 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   }, []);
 
   const updateSource = useCallback((newSource: string) => {
-    if (import.meta.env.DEV)
-      console.log('[useOpenScad] updateSource called with new code length:', newSource.length);
     setSource(newSource);
   }, []);
 
@@ -187,11 +198,6 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   // state update from updateSource() yet.
   const updateSourceAndRender = useCallback(
     (newSource: string) => {
-      if (import.meta.env.DEV)
-        console.log('[useOpenScad] updateSourceAndRender called', {
-          codeLength: newSource.length,
-          dimensionMode,
-        });
       setSource(newSource);
       lastRenderedSourceRef.current = newSource;
       doRender(newSource, dimensionMode);
@@ -224,11 +230,6 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
   // Manual render function (stable callback)
   const manualRender = useCallback(() => {
-    if (import.meta.env.DEV)
-      console.log('[useOpenScad] manualRender called', {
-        sourceLength: source.length,
-        dimensionMode,
-      });
     lastRenderedSourceRef.current = source;
     doRender(source, dimensionMode);
   }, [source, dimensionMode, doRender]);
@@ -277,6 +278,10 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         updateSourceAndRender,
         dimensionMode,
         renderService: renderServiceRef.current,
+        setTestAuxiliaryFiles: (files: Record<string, string>) => {
+          auxiliaryFilesRef.current = files;
+          setAuxiliaryFiles(files);
+        },
       };
     }
     return () => {

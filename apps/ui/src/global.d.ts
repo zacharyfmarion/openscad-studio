@@ -14,5 +14,6 @@ interface Window {
     updateSourceAndRender: (source: string) => void;
     dimensionMode: string;
     renderService: any;
+    setTestAuxiliaryFiles: (files: Record<string, string>) => void;
   };
 }

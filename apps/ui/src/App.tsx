@@ -198,6 +198,7 @@ function App() {
     workingDir,
     autoRenderOnIdle: settings.editor.autoRenderOnIdle,
     autoRenderDelayMs: settings.editor.autoRenderDelayMs,
+    library: settings.library,
   });
 
   const handleUndo = useCallback(async () => {
