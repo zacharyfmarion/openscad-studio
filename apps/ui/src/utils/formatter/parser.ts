@@ -58,7 +58,11 @@ export async function initParser(): Promise<void> {
 
       // Notify all listeners that parser is ready
       for (const cb of parserReadyCallbacks) {
-        try { cb(); } catch (_) { /* ignore listener errors */ }
+        try {
+          cb();
+        } catch {
+          /* ignore listener errors */
+        }
       }
       parserReadyCallbacks = [];
     } catch (error) {
