@@ -52,10 +52,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     const prevKeys = Object.keys(prev);
     const mergedKeys = Object.keys(merged);
 
-    if (
-      prevKeys.length === mergedKeys.length &&
-      mergedKeys.every((k) => prev[k] === merged[k])
-    ) {
+    if (prevKeys.length === mergedKeys.length && mergedKeys.every((k) => prev[k] === merged[k])) {
       // No change — skip update
       return;
     }
@@ -73,9 +70,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       const files: Record<string, string> = {};
 
       if (library) {
-        const systemPaths = library.autoDiscoverSystem
-          ? await platform.getLibraryPaths()
-          : [];
+        const systemPaths = library.autoDiscoverSystem ? await platform.getLibraryPaths() : [];
         const allLibPaths = [...systemPaths, ...library.customPaths];
 
         for (const libPath of allLibPaths) {
@@ -122,163 +117,162 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       });
   }, []);
 
-  const doRender = useCallback(async (code: string, dimension: '2d' | '3d' = '3d') => {
+  const doRender = useCallback(
+    async (code: string, dimension: '2d' | '3d' = '3d') => {
+      if (!renderServiceRef.current) {
+        setError('RenderService not available');
+        return;
+      }
 
-    if (!renderServiceRef.current) {
-      setError('RenderService not available');
-      return;
-    }
+      setIsRendering(true);
+      setError('');
 
-    setIsRendering(true);
-    setError('');
+      try {
+        // Fast path: check cache BEFORE waiting for aux files to load.
+        // If the render result is already cached, return instantly (no file reload wait).
+        const auxFiles =
+          Object.keys(auxiliaryFilesRef.current).length > 0 ? auxiliaryFilesRef.current : undefined;
+        const cached = await renderServiceRef.current.getCached(code, {
+          view: dimension,
+          backend: 'manifold',
+          auxiliaryFiles: auxFiles,
+        });
+        if (cached) {
+          setDiagnostics(cached.diagnostics);
+          setPreviewKind(cached.kind);
 
-    try {
-      // Fast path: check cache BEFORE waiting for aux files to load.
-      // If the render result is already cached, return instantly (no file reload wait).
-      const auxFiles =
-        Object.keys(auxiliaryFilesRef.current).length > 0 ? auxiliaryFilesRef.current : undefined;
-      const cached = await renderServiceRef.current.getCached(code, {
-        view: dimension,
-        backend: 'manifold',
-        auxiliaryFiles: auxFiles,
-      });
-      if (cached) {
-        setDiagnostics(cached.diagnostics);
-        setPreviewKind(cached.kind);
+          if (prevBlobUrlRef.current) {
+            URL.revokeObjectURL(prevBlobUrlRef.current);
+          }
 
+          if (cached.output.length > 0) {
+            const mimeType = cached.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
+            const blob = new Blob([cached.output], { type: mimeType });
+            const blobUrl = URL.createObjectURL(blob);
+            prevBlobUrlRef.current = blobUrl;
+            setPreviewSrc(blobUrl);
+          }
+
+          setIsRendering(false);
+          return;
+        }
+
+        // Cache miss — wait for library files to finish loading
+        await auxFilesPromiseRef.current;
+
+        // Resolve working directory dependencies by parsing include/use statements
+        // instead of blindly scanning the entire working directory
+        const workingDir = workingDirRef.current;
+        let renderAuxFiles = libraryFilesRef.current;
+
+        if (workingDir) {
+          const platform = getPlatform();
+          const workingDirFiles = await resolveWorkingDirDeps(code, {
+            workingDir,
+            libraryFiles: libraryFilesRef.current,
+            platform,
+          });
+
+          if (Object.keys(workingDirFiles).length > 0) {
+            renderAuxFiles = { ...libraryFilesRef.current, ...workingDirFiles };
+          }
+        }
+
+        // Update refs so the cache check uses consistent data on next render
+        workingDirFilesRef.current =
+          renderAuxFiles === libraryFilesRef.current
+            ? {}
+            : Object.fromEntries(
+                Object.entries(renderAuxFiles).filter(([k]) => !(k in libraryFilesRef.current))
+              );
+        mergeAndSetAuxFiles();
+
+        const result = await renderServiceRef.current.render(code, {
+          view: dimension,
+          backend: 'manifold',
+          auxiliaryFiles: Object.keys(renderAuxFiles).length > 0 ? renderAuxFiles : undefined,
+        });
+
+        setDiagnostics(result.diagnostics);
+        setPreviewKind(result.kind);
+
+        // Revoke previous Blob URL to prevent memory leaks
         if (prevBlobUrlRef.current) {
           URL.revokeObjectURL(prevBlobUrlRef.current);
         }
 
-        if (cached.output.length > 0) {
-          const mimeType =
-            cached.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
-          const blob = new Blob([cached.output], { type: mimeType });
+        if (result.output.length > 0) {
+          // Create Blob URL from output bytes
+          const mimeType = result.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
+          const blob = new Blob([result.output], { type: mimeType });
           const blobUrl = URL.createObjectURL(blob);
           prevBlobUrlRef.current = blobUrl;
           setPreviewSrc(blobUrl);
-        }
+        } else {
+          // No output — check for dimension mismatch and auto-retry with opposite mode.
+          // The WASM Manifold backend silently produces empty output (no diagnostics)
+          // when rendering 2D code in 3D mode or vice versa.
+          const hasErrors = result.diagnostics.some((d) => d.severity === 'error');
 
+          // Also check for explicit dimension mismatch error messages (CLI OpenSCAD)
+          const errorMessages = result.diagnostics
+            .filter((d) => d.severity === 'error')
+            .map((d) => d.message.toLowerCase())
+            .join(' ');
+          const hasExplicitMismatch =
+            errorMessages.includes('not a 3d object') ||
+            errorMessages.includes('not a 2d object') ||
+            (errorMessages.includes('2d') && errorMessages.includes('3d mode')) ||
+            (errorMessages.includes('3d') && errorMessages.includes('2d mode'));
 
-        setIsRendering(false);
-        return;
-      }
+          if (!hasErrors || hasExplicitMismatch) {
+            const newDimension: '2d' | '3d' = dimension === '3d' ? '2d' : '3d';
 
-      // Cache miss — wait for library files to finish loading
-      await auxFilesPromiseRef.current;
+            // Retry render with the opposite dimension
+            const retryResult = await renderServiceRef.current.render(code, {
+              view: newDimension,
+              backend: 'manifold',
+              auxiliaryFiles:
+                Object.keys(auxiliaryFilesRef.current).length > 0
+                  ? auxiliaryFilesRef.current
+                  : undefined,
+            });
 
-      // Resolve working directory dependencies by parsing include/use statements
-      // instead of blindly scanning the entire working directory
-      const workingDir = workingDirRef.current;
-      let renderAuxFiles = libraryFilesRef.current;
+            if (retryResult.output.length > 0) {
+              // Opposite dimension worked — switch to it
+              setDimensionMode(newDimension);
+              setDiagnostics(retryResult.diagnostics);
+              setPreviewKind(retryResult.kind);
 
-      if (workingDir) {
-        const platform = getPlatform();
-        const workingDirFiles = await resolveWorkingDirDeps(code, {
-          workingDir,
-          libraryFiles: libraryFilesRef.current,
-          platform,
-        });
-
-        if (Object.keys(workingDirFiles).length > 0) {
-          renderAuxFiles = { ...libraryFilesRef.current, ...workingDirFiles };
-        }
-      }
-
-      // Update refs so the cache check uses consistent data on next render
-      workingDirFilesRef.current = renderAuxFiles === libraryFilesRef.current
-        ? {}
-        : Object.fromEntries(
-            Object.entries(renderAuxFiles).filter(([k]) => !(k in libraryFilesRef.current))
-          );
-      mergeAndSetAuxFiles();
-
-      const result = await renderServiceRef.current.render(code, {
-        view: dimension,
-        backend: 'manifold',
-        auxiliaryFiles:
-          Object.keys(renderAuxFiles).length > 0 ? renderAuxFiles : undefined,
-      });
-
-
-      setDiagnostics(result.diagnostics);
-      setPreviewKind(result.kind);
-
-      // Revoke previous Blob URL to prevent memory leaks
-      if (prevBlobUrlRef.current) {
-        URL.revokeObjectURL(prevBlobUrlRef.current);
-      }
-
-      if (result.output.length > 0) {
-        // Create Blob URL from output bytes
-        const mimeType = result.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
-        const blob = new Blob([result.output], { type: mimeType });
-        const blobUrl = URL.createObjectURL(blob);
-        prevBlobUrlRef.current = blobUrl;
-        setPreviewSrc(blobUrl);
-      } else {
-        // No output — check for dimension mismatch and auto-retry with opposite mode.
-        // The WASM Manifold backend silently produces empty output (no diagnostics)
-        // when rendering 2D code in 3D mode or vice versa.
-        const hasErrors = result.diagnostics.some((d) => d.severity === 'error');
-
-        // Also check for explicit dimension mismatch error messages (CLI OpenSCAD)
-        const errorMessages = result.diagnostics
-          .filter((d) => d.severity === 'error')
-          .map((d) => d.message.toLowerCase())
-          .join(' ');
-        const hasExplicitMismatch =
-          errorMessages.includes('not a 3d object') ||
-          errorMessages.includes('not a 2d object') ||
-          (errorMessages.includes('2d') && errorMessages.includes('3d mode')) ||
-          (errorMessages.includes('3d') && errorMessages.includes('2d mode'));
-
-        if (!hasErrors || hasExplicitMismatch) {
-          const newDimension: '2d' | '3d' = dimension === '3d' ? '2d' : '3d';
-
-          // Retry render with the opposite dimension
-          const retryResult = await renderServiceRef.current.render(code, {
-            view: newDimension,
-            backend: 'manifold',
-            auxiliaryFiles:
-              Object.keys(auxiliaryFilesRef.current).length > 0
-                ? auxiliaryFilesRef.current
-                : undefined,
-          });
-
-          if (retryResult.output.length > 0) {
-            // Opposite dimension worked — switch to it
-            setDimensionMode(newDimension);
-            setDiagnostics(retryResult.diagnostics);
-            setPreviewKind(retryResult.kind);
-
-            const mimeType =
-              retryResult.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
-            const blob = new Blob([retryResult.output], { type: mimeType });
-            const blobUrl = URL.createObjectURL(blob);
-            prevBlobUrlRef.current = blobUrl;
-            setPreviewSrc(blobUrl);
+              const mimeType =
+                retryResult.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
+              const blob = new Blob([retryResult.output], { type: mimeType });
+              const blobUrl = URL.createObjectURL(blob);
+              prevBlobUrlRef.current = blobUrl;
+              setPreviewSrc(blobUrl);
+            } else {
+              // Neither dimension produced output
+              setError('Render produced no output');
+              setPreviewSrc('');
+            }
           } else {
-            // Neither dimension produced output
-            setError('Render produced no output');
+            // Has real errors (not dimension mismatch) — report them
+            const errors = result.diagnostics.filter((d) => d.severity === 'error');
+            setError(errors.map((e) => e.message).join('\n'));
             setPreviewSrc('');
           }
-        } else {
-          // Has real errors (not dimension mismatch) — report them
-          const errors = result.diagnostics.filter((d) => d.severity === 'error');
-          setError(errors.map((e) => e.message).join('\n'));
-          setPreviewSrc('');
         }
+      } catch (err) {
+        const errorMsg = typeof err === 'string' ? err : String(err);
+        setError(errorMsg);
+        setPreviewSrc('');
+        console.error('Render error:', err);
+      } finally {
+        setIsRendering(false);
       }
-    } catch (err) {
-      const errorMsg = typeof err === 'string' ? err : String(err);
-      setError(errorMsg);
-      setPreviewSrc('');
-      console.error('Render error:', err);
-    } finally {
-      setIsRendering(false);
-    }
-  }, [mergeAndSetAuxFiles]);
+    },
+    [mergeAndSetAuxFiles]
+  );
 
   const updateSource = useCallback((newSource: string) => {
     setSource(newSource);

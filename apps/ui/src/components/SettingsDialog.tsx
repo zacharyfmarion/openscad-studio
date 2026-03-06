@@ -826,10 +826,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         System Paths
                       </p>
                       {autoDiscoveredPaths.length === 0 ? (
-                        <div
-                          className="text-sm italic"
-                          style={{ color: 'var(--text-tertiary)' }}
-                        >
+                        <div className="text-sm italic" style={{ color: 'var(--text-tertiary)' }}>
                           No system libraries found
                         </div>
                       ) : (
@@ -906,10 +903,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           }}
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <TbFolderOpen
-                              size={16}
-                              style={{ color: 'var(--text-tertiary)' }}
-                            />
+                            <TbFolderOpen size={16} style={{ color: 'var(--text-tertiary)' }} />
                             <span
                               className="font-mono text-xs truncate"
                               style={{ color: 'var(--text-primary)' }}
