@@ -167,7 +167,7 @@ openscad-studio/
 ├── packages/
 │   └── shared/                  # Shared TypeScript types
 ├── CLAUDE.md                    # AI assistant guide
-└── ROADMAP.md                   # Development roadmap
+└── engineering-roadmap.md        # Development roadmap
 ```
 
 ## 🐛 Reporting Bugs
@@ -207,7 +207,7 @@ All submissions require review. When reviewing:
 
 - **Documentation**: [CLAUDE.md](CLAUDE.md) - Comprehensive codebase guide
 - **Architecture**: [AGENTS.md](AGENTS.md) - AI agent system design
-- **Roadmap**: [ROADMAP.md](ROADMAP.md) - Development phases
+- **Roadmap**: [engineering-roadmap.md](engineering-roadmap.md) - Development phases
 - **OpenSCAD Docs**: https://openscad.org/documentation.html
 - **Tauri Docs**: https://tauri.app/
 - **React Docs**: https://react.dev/

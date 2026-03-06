@@ -1,8 +1,8 @@
-# OpenSCAD Studio — Feature Roadmap v2
+# OpenSCAD Studio — Engineering Roadmap
 
-> Current version: **v0.7.0** (Phases 1–3 complete, Phase 4 partially complete, Phase 9 web version complete)
+> Current version: **v0.7.1** (Phases 1–3 complete, Phase 4A complete, Phase 4B partially complete, Phase 4C complete, Phase 9 web version complete)
 >
-> This roadmap replaces the Phase 5+ sections of the original ROADMAP.md. Phases 1–3 are historical and remain unchanged. Phase 4 is partially complete. Phase 9 (web version) is complete. Everything below represents the forward-looking plan based on a full codebase review.
+> A modern OpenSCAD editor with live preview and AI copilot capabilities, available as both a web app and a macOS desktop app. The application uses openscad-wasm for rendering and provides a superior editing experience with real-time feedback and AI-assisted code generation.
 
 ---
 
@@ -15,53 +15,99 @@
 
 ---
 
-## Phase 4A: Quick Wins & Polish (~1 week)
+## ✅ Phase 1: Minimal Vertical Slice (COMPLETED)
 
-**Goal:** Ship the changes with the highest impact-to-effort ratio. These are all independently shippable and can be merged in any order.
+**Goal:** Establish basic end-to-end workflow with live preview
+
+- ✅ Project scaffolding: Tauri + React monorepo with pnpm workspaces
+- ✅ Monaco editor with custom OpenSCAD syntax highlighting
+- ✅ Live preview: PNG rendering with 300ms debounced updates
+- ✅ Auto-detect OpenSCAD binary in PATH or common installation locations
+- ✅ Error diagnostics: Parse OpenSCAD stderr, display as inline markers
+- ✅ Diagnostics panel: Clickable error/warning list
+- ✅ Cache-busted preview (timestamp-based image refresh)
+
+**Completed:** Early 2025
+
+---
+
+## ✅ Phase 2: Advanced Rendering & 3D Viewer (COMPLETED)
+
+**Goal:** Interactive 3D mesh viewing and optimized rendering pipeline
+
+- ✅ STL export and Three.js STL loader for interactive 3D viewing
+- ✅ OrbitControls, proper lighting, grid helper with fade
+- ✅ Toggle between PNG (fast) and STL (interactive) modes
+- ✅ Content-hash caching (SHA-256 → artifact path)
+- ✅ Export dialog: STL, OBJ, AMF, 3MF, PNG, SVG, DXF
+- ✅ 2D SVG mode with inline pan/zoom viewer
+- ✅ Settings modal (theme, editor, AI tabs, OpenSCAD path override)
+- [ ] Resolution scaling (low-res while typing, high-res on idle) — deferred
+- [ ] Progress indicator for slow renders — deferred
+
+**Completed:** Mid 2025
+
+---
+
+## ✅ Phase 3: AI Copilot Integration (COMPLETED)
+
+**Goal:** Cursor-like AI experience with native Rust AI agent and diff-based code editing
+
+> **Note:** The native Rust AI agent described here was later replaced with a TypeScript implementation using Vercel AI SDK in v0.7.0.
+
+- ✅ Native Rust AI Agent with direct Anthropic/OpenAI API integration (historical)
+- ✅ API keys in encrypted Tauri store, never exposed to renderer
+- ✅ Diff-based editing: exact string replacement, max 120 lines, validated before apply
+- ✅ Tools: get code, screenshot, apply diff, diagnostics, render
+- ✅ SSE streaming with incremental text deltas
+- ✅ AiPromptPanel, ModelSelector, DiffViewer UI components
+- ✅ Multi-turn tool calling with automatic execution
+- ✅ Conversation persistence (save/load/delete)
+- ✅ Checkpoint-based undo with "restore to before this turn"
+- ✅ Multi-provider support (Anthropic + OpenAI)
+
+**Completed:** October 2025 (v0.2.0)
+
+---
+
+## ✅ Phase 4A: Quick Wins & Polish (COMPLETED)
+
+**Goal:** Ship the changes with the highest impact-to-effort ratio.
 
 ### ✅ 4A.1: Toast Notification System
 
-- [x] Add a toast library (`sonner` or `react-hot-toast`)
-- [x] Replace all `alert()` calls with non-blocking toasts
-- [x] Replace `confirm()` with styled dialogs
-- [x] Categorize toasts: `success` (green), `error` (red), `info` (neutral)
+- [x] Added `sonner` toast library, replaced all `alert()` / `confirm()` calls
+- [x] Categorized toasts: success (green), error (red), info (neutral)
 - [x] Auto-dismiss success toasts after 3s; errors persist until dismissed
 
 ### ✅ 4A.2: Markdown Rendering in AI Chat
 
-- [x] Add `react-markdown` + `remark-gfm` + `react-syntax-highlighter`
-- [x] Render assistant messages as markdown instead of `whitespace-pre-wrap font-mono`
-- [x] OpenSCAD code blocks get syntax highlighting
-- [x] Inline code, bold, lists, headers all render properly
-- [x] Keep user messages as plain text (they're prompts, not prose)
+- [x] `react-markdown` + `remark-gfm` + `react-syntax-highlighter`
+- [x] Assistant messages render as markdown with OpenSCAD syntax highlighting
+- [x] User messages remain plain text
 
 ### ✅ 4A.3: Auto-Render on Idle
 
-- [x] Add debounced auto-render (500ms after last keystroke) as a setting
-- [x] Default: **off** (preserves current explicit-render behavior)
-- [x] Setting toggle in `SettingsDialog.tsx` → Editor tab
-- [x] When enabled: `useOpenScad` watches source changes, debounces, calls `doRender`
+- [x] Debounced auto-render (500ms after last keystroke) as a setting
+- [x] Default: off (preserves explicit-render behavior)
 - [x] Cancel in-flight render if source changes before completion
 
 ### ✅ 4A.4: Strip Debug Logging
 
-- [x] Remove or gate behind `import.meta.env.DEV` all `console.log` statements
-- [x] Keep `console.error` and `console.warn` for genuine error paths
+- [x] Console.log gated behind `import.meta.env.DEV`
+- [x] `console.error` and `console.warn` preserved for genuine errors
 
 ### ✅ 4A.5: Smart Welcome Screen
 
-- [x] Check `has_api_key` on mount
-- [x] If no API key: show setup CTA instead
+- [x] API key check on mount with setup CTA
 - [x] Always show "Open File" and "Start with empty project" prominently
-- [x] Show recent files regardless of API key status
 
 ### ✅ 4A.6: ECHO Output in Console
 
-- [x] Create a separate "Output" section in `DiagnosticsPanel` for ECHO messages
-- [x] Display ECHO messages with a distinct icon/color (not error red)
-- [x] Preserve chronological order
+- [x] Separate "Output" section in DiagnosticsPanel for ECHO messages
+- [x] ECHO messages with distinct styling (not error red)
 
-**Success criteria:** ✅ App feels polished. No more browser `alert()` popups. AI chat looks professional. Debugging output is clean.
+**Success criteria:** ✅ App feels polished. No browser `alert()` popups. AI chat looks professional.
 
 ---
 
@@ -85,13 +131,14 @@
 - [ ] App.tsx becomes: composition of hooks + JSX layout only
 - [ ] Eliminate the 7+ refs-as-state pattern by moving state to hooks
 
-### 4B.2: React Error Boundaries
+### ✅ 4B.2: React Error Boundaries (COMPLETED)
 
-- [ ] Create `<PanelErrorBoundary>` component
-- [ ] Wrap each dockview panel (Editor, Preview, AI Chat, Console, Customizer, Diff) in a boundary
-- [ ] Error boundary shows: "This panel encountered an error" + "Reload Panel" button
-- [ ] Prevents a crash in one panel from taking down the entire app
-- [ ] Log errors to `console.error` with component stack
+- [x] Created `<ErrorBoundary>` component (`ErrorBoundary.tsx`)
+- [x] Wraps top-level app to prevent full crashes
+- [x] Error boundary shows fallback UI with error details
+- [x] Prevents a crash in one area from taking down the entire app
+- [x] Log errors to `console.error` with component stack
+- [ ] Wrap each dockview panel individually (Editor, Preview, AI Chat, Console, Customizer, Diff) — currently only top-level boundary exists
 
 ### 4B.3: Centralized State Management
 
@@ -101,17 +148,52 @@
   - Currently both sides maintain separate copies and sync via IPC
   - Backend should be the source of truth; frontend reads via events
 
-### 4B.4: Platform Abstraction (Phase 1 from ARCHITECTURE.md)
+### ✅ 4B.4: Platform Abstraction (COMPLETED)
 
-- [ ] Create `packages/platform/` package with `Platform` interface (types only)
-- [ ] Create `TauriPlatform` implementation wrapping existing `api/tauri.ts` + `invoke` calls
-- [ ] Wire up `PlatformProvider` in `main.tsx`
-- [ ] Refactor `useOpenScad.ts` to use `usePlatform().rendering.*`
-- [ ] Refactor `useAiAgent.ts` to use `usePlatform().ai.*`
-- [ ] Delete `apps/ui/src/api/tauri.ts` (replaced by platform package)
-- [ ] Verify: desktop works identically, zero functional changes
+- [x] Created `PlatformBridge` interface in `platform/types.ts`
+- [x] Created `TauriBridge` implementation wrapping Tauri IPC calls
+- [x] Created `WebBridge` implementation for browser runtime
+- [x] Platform provider wired up in `main.tsx` / app entry
+- [x] `useOpenScad.ts` uses platform bridge for rendering
+- [x] `useAiAgent.ts` uses platform bridge for AI
+- [x] Both desktop and web work via the same abstraction
 
-**Success criteria:** App.tsx is under 300 lines. No component can crash the whole app. State flows are clear. Platform abstraction exists.
+**Success criteria:** No component can crash the whole app. State flows are clear. Platform abstraction exists. App.tsx decomposition and centralized state remain as follow-up work.
+
+---
+
+## ✅ Phase 4C: Library Management & Include Resolution (COMPLETED)
+
+**Goal:** Support OpenSCAD's `include`/`use` statements and external library paths (e.g., BOSL2).
+
+### ✅ 4C.1: Library Path Infrastructure
+
+- [x] Added library settings store (`settingsStore.ts`) for managing library paths
+- [x] Added `PlatformBridge` methods for library path discovery and file loading
+- [x] Implemented library path discovery and recursive file loading in `TauriBridge`
+- [x] Web bridge stubs (libraries managed differently in browser context)
+- [x] Added Tauri filesystem permissions for library path access
+
+### ✅ 4C.2: Libraries Settings UI
+
+- [x] Added "Libraries" tab in `SettingsDialog.tsx`
+- [x] UI for adding/removing library paths (e.g., `~/Documents/OpenSCAD/libraries/BOSL2`)
+- [x] Library paths persisted in settings store
+
+### ✅ 4C.3: Render Pipeline Integration
+
+- [x] Merged library files into the render pipeline (`useOpenScad.ts`)
+- [x] `include`/`use` statements resolved against configured library paths
+- [x] Library files mounted into WASM filesystem for web rendering
+- [x] Desktop: files passed to OpenSCAD via working directory and library paths
+
+### ✅ 4C.4: Testing
+
+- [x] E2E tests for include resolution and BOSL2 integration
+- [x] Test fixtures for nested includes, `use`/`include` variants, and multi-file libraries
+
+**Completed:** March 2026 (v0.7.1)
+**Success criteria:** ✅ Users can configure library paths, use BOSL2 and other libraries, and `include`/`use` statements resolve correctly in both desktop and web.
 
 ---
 
@@ -141,9 +223,11 @@
 
 ### 5.3: Multi-File Project Context for AI
 
-- [ ] Parse `use`/`include` statements from current file
-- [ ] Resolve referenced files relative to `working_dir`
-- [ ] Read referenced file contents
+**Note:** Library path management and `include`/`use` resolution were implemented in v0.7.1 (see Phase 4C). This task now focuses on surfacing that context to the AI agent.
+
+- [x] Parse `use`/`include` statements from current file (done in v0.7.1 render pipeline)
+- [x] Resolve referenced files relative to `working_dir` (done in v0.7.1)
+- [x] Read referenced file contents and merge into render (done in v0.7.1)
 - [ ] Include referenced files in the AI system prompt as context:
   ```
   The user's project includes these files:
@@ -304,28 +388,42 @@
 - [ ] In-app update notification: "A new version is available" with changelog
 - [ ] One-click update + restart
 
-### 8.4: CI/CD Pipeline
+### ✅ 8.4: CI/CD Pipeline (MOSTLY COMPLETED)
 
-- [ ] GitHub Actions workflow:
-  - Build on macOS, Windows, Linux
-  - Run TypeScript type checking
-  - Run formatter tests
-  - Run `pnpm audit` for dependency security
-- [ ] Automated release builds on tag push
-- [ ] Upload artifacts to GitHub Releases
+- [x] GitHub Actions workflows:
+  - [x] `ci.yml` — lint, type checking, build verification on PRs
+  - [x] `e2e.yml` — Playwright E2E tests on PRs
+  - [x] `deploy-web.yml` — Cloudflare Pages deployment
+  - [x] `release.yml` — Automated macOS release builds on tag push
+- [x] Upload artifacts to GitHub Releases
+- [ ] Build on Windows and Linux in CI
+- [ ] Run `pnpm audit` for dependency security
 
-### 8.5: E2E Test Suite
+### ✅ 8.5: E2E Test Suite (COMPLETED)
 
-- [ ] Set up Playwright or WebdriverIO for Tauri app testing
-- [ ] Critical path tests:
-  - Open app → editor visible → type code → preview renders
-  - Open file → edit → save → file on disk is correct
-  - Export STL → file saved correctly
-  - AI: set API key → send prompt → response streams → tool calls visible
-  - Settings: change theme → UI updates → survives restart
-- [ ] Run in CI on each PR
+- [x] Set up Playwright for web app testing
+- [x] Global setup/teardown with dev server management
+- [x] App fixture with reusable test utilities (`app.fixture.ts`)
+- [x] Editor helpers for common interactions (`helpers/editor.ts`)
+- [x] AI mock helpers for testing AI chat (`helpers/ai-mock.ts`)
+- [x] Platform helpers for OS-aware keyboard shortcuts (`helpers/platform.ts`)
+- [x] Critical path tests:
+  - [x] Editor basics, formatting, vim mode
+  - [x] 2D rendering, 3D rendering, auto-detection, error rendering
+  - [x] Include/use resolution and BOSL2 integration
+  - [x] File management (new file, open/save for web)
+  - [x] Customizer panel, diagnostics panel, panel layout
+  - [x] Undo/redo history
+  - [x] Keyboard shortcuts, full workflow integration
+  - [x] Export formats
+  - [x] Settings
+  - [x] AI chat (with mocked responses)
+  - [x] Multi-tab (Tauri-specific)
+- [x] Run in CI on each PR via GitHub Actions (`e2e.yml`)
+- [x] Chromium-only in CI (WebKit has clipboard/WebGL compatibility issues)
+- [x] Cross-browser considerations handled (WebGL args, clipboard permissions)
 
-**Success criteria:** App installs and runs correctly on macOS, Windows, and Linux. Updates are automatic. CI catches regressions.
+**Success criteria:** ✅ CI catches regressions. E2E tests cover all critical paths. macOS release builds are automated. Windows/Linux CI builds remain as follow-up.
 
 ---
 
@@ -369,6 +467,7 @@
 - [x] PWA manifest and favicons
 
 **Completed:** February 2026 (v0.7.0)
+**Live at:** https://openscad-studio.pages.dev
 **Success criteria:** ✅ Full workflow works in Chrome: edit → preview → export → AI chat. Desktop has zero regressions.
 
 ---
@@ -415,14 +514,51 @@ These are valuable but not blocking a production release. Prioritize based on us
 
 Items to address opportunistically, not as dedicated phases:
 
-| Issue                                                 | Location                        | Severity | Notes                                                                 |
-| ----------------------------------------------------- | ------------------------------- | -------- | --------------------------------------------------------------------- |
-| Refs-as-state anti-pattern                            | `App.tsx` (7+ refs)             | Medium   | Address in 4B.1 decomposition                                         |
-| Settings split across localStorage and Tauri store    | `settingsStore.ts`, `cmd/ai.rs` | Low      | Consider unifying in platform abstraction                             |
-| OpenSCAD stderr parsing is regex-based                | `utils/parser.rs`               | Low      | Works but may miss edge cases. Revisit if OpenSCAD adds JSON output   |
-| `EditorState` duplicated between frontend and backend | `useOpenScad.ts`, `ai_agent.rs` | Medium   | Backend should be source of truth (4B.3)                              |
-| No graceful degradation when OpenSCAD is unavailable  | Various                         | Low      | Editor works, just no preview. Could be clearer about what's disabled |
-| `DiffViewer` panel always shows same code for old/new | `PanelComponents.tsx:58-66`     | Low      | `oldCode={source} newCode={source}` — not actually showing a diff     |
+| Issue                                                 | Location                           | Severity | Notes                                                                       |
+| ----------------------------------------------------- | ---------------------------------- | -------- | --------------------------------------------------------------------------- |
+| Refs-as-state anti-pattern                            | `App.tsx` (7+ refs)                | Medium   | Address in 4B.1 decomposition                                               |
+| Settings split across localStorage and Tauri store    | `settingsStore.ts`, `cmd/ai.rs`    | Low      | Consider unifying in platform abstraction                                   |
+| OpenSCAD stderr parsing is regex-based                | `utils/parser.rs`                  | Low      | Works but may miss edge cases. Revisit if OpenSCAD adds JSON output         |
+| `EditorState` duplicated between frontend and backend | `useOpenScad.ts`, `ai_agent.rs`    | Medium   | Backend should be source of truth (4B.3)                                    |
+| No graceful degradation when OpenSCAD is unavailable  | Various                            | Low      | Editor works, just no preview. Could be clearer about what's disabled       |
+| `DiffViewer` panel always shows same code for old/new | `PanelComponents.tsx:58-66`        | Low      | `oldCode={source} newCode={source}` — not actually showing a diff           |
+| Error boundary only at top level                      | `ErrorBoundary.tsx`                | Low      | Per-panel boundaries would improve resilience (see 4B.2 follow-up)          |
+| Parser race condition fixed but fragile               | `CustomizerPanel.tsx`, `parser.ts` | Low      | Parser-ready signaling added; consider a more robust initialization pattern |
+
+---
+
+## Design Decisions & Tradeoffs
+
+### Key Architectural Choices
+
+1. **Headless OpenSCAD**: Invoke as CLI subprocess rather than linking as library
+   - ✅ Avoids GPL licensing complications
+   - ✅ Works with any OpenSCAD installation
+   - ⚠️ Slower than in-process rendering
+
+2. **PNG-first preview**: Fast raster output while typing, STL for interaction
+   - ✅ Instant feedback (< 1s for simple shapes)
+   - ✅ No GPU required for basic editing
+   - ⚠️ Not interactive until STL export
+
+3. **Exact string replacement edits**: Agent provides precise changes
+   - ✅ Exact match validation (old_string must be unique)
+   - ✅ Atomic apply/rollback with validation
+   - ✅ Smaller token usage (max 120 lines)
+   - ✅ Preserves user code structure
+   - ✅ Test-compiled before acceptance
+
+4. **Monorepo with pnpm**: Shared types between frontend/backend
+   - ✅ Type safety across IPC boundary
+   - ✅ Easy to version/publish shared package
+   - ⚠️ More complex build setup
+
+### Performance Targets
+
+- **Preview latency**: < 500ms for simple shapes (cube, sphere)
+- **Editor responsiveness**: < 100ms keystroke to screen
+- **LLM response**: < 10s for typical code generation
+- **Startup time**: < 2s to interactive
 
 ---
 
@@ -432,16 +568,20 @@ Decisions made during roadmap planning that affect ordering:
 
 1. **Auto-render defaults to off.** The stock OpenSCAD editor auto-renders, but for large models this causes constant lag. Making it opt-in avoids perf regressions for power users.
 
-2. **Web version after cross-platform desktop.** The ARCHITECTURE.md web plan is excellent but complex. Shipping Windows/Linux first reaches more users with less risk.
+2. **Web version shipped before cross-platform desktop.** Contrary to original plan, the web version (Phase 9) shipped first in v0.7.0. This proved to be the right call — it lowered the barrier to entry dramatically. Windows/Linux desktop support remains in Phase 8.
 
 3. **AI features before CAD viewer features.** The 3D viewer is functional. The AI copilot is the differentiator. Invest where the moat is.
 
-4. **Platform abstraction in 4B, not 9.** Moving to the `Platform` interface early means every subsequent feature is written against the abstraction. When Phase 9 (web) arrives, it's just a new implementation of existing interfaces.
+4. **Platform abstraction completed.** The `PlatformBridge` interface shipped as part of the web version work. `TauriBridge` and `WebBridge` both implement it. This was validated as the right architectural call — library management in v0.7.1 was able to extend the bridge interface cleanly.
 
 5. **No collaborative editing before 1.0.** CRDT/Yjs is a massive undertaking. It's not what users are asking for first. Save it for post-1.0 when there's a user base that wants to share.
 
+6. **E2E tests before more features.** Investing in a comprehensive Playwright test suite before building new features ensures regressions are caught early. The ~2700-line test suite covers all critical paths.
+
+7. **Library management before AI multi-file context.** Building `include`/`use` resolution at the render pipeline level first means the AI can later leverage the same infrastructure for project context, rather than duplicating resolution logic.
+
 ---
 
-**Last Updated:** 2026-02-19
-**Current Phase:** v0.7.0 — Web version shipped
-**Next Milestone:** Phase 4B or Phase 5 based on user feedback
+**Last Updated:** 2026-03-06
+**Current Phase:** v0.7.1 — Library management shipped, E2E test suite complete
+**Next Milestone:** Phase 4B.1/4B.3 (App.tsx decomposition, centralized state) or Phase 5 (AI experience) based on user feedback

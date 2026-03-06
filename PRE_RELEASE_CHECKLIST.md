@@ -10,7 +10,7 @@ This checklist covers everything needed before open sourcing the project.
 - [x] LICENSE file created (GPL-2.0 License)
 - [x] CLAUDE.md created (AI assistant/contributor guide)
 - [x] AGENTS.md created (AI agent architecture documentation)
-- [x] ROADMAP.md exists with detailed phases
+- [x] engineering-roadmap.md exists with detailed phases
 - [x] Project includes icon (images/icon.png) and Tauri app icons
 
 ### Build Verification

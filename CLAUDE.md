@@ -304,7 +304,7 @@ pnpm format             # Format all code
 
 ## Getting Help
 
-- Check `ROADMAP.md` for planned features and current phase
+- Check `engineering-roadmap.md` for planned features and current phase
 - Review `README.md` for high-level overview
 - Examine test fixtures in `apps/ui/src-tauri/tests/` (when added)
 - Consult inline code comments for complex logic

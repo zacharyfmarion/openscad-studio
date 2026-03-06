@@ -126,16 +126,16 @@ The AI can:
 
 - **[CLAUDE.md](CLAUDE.md)** - Comprehensive guide for AI assistants and contributors
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Web + desktop architecture design
-- **[ROADMAP.md](ROADMAP.md)** - Detailed development roadmap with phases
+- **[engineering-roadmap.md](engineering-roadmap.md)** - Detailed development roadmap with phases
 
 ## 🗺️ Roadmap
 
 - ✅ **Phase 1-2**: Monaco editor, live preview, 3D viewer, export, caching
 - ✅ **Phase 3**: AI copilot
-- ✅ **Phase 4 (Partial)**: Production polish, customizer, themes, CI/CD
+- ✅ **Phase 4 (Partial)**: Production polish, customizer, themes, CI/CD, library management
 - ✅ **Phase 5 (v0.7)**: Web version with openscad-wasm
 
-See [ROADMAP.md](ROADMAP.md) for detailed breakdown.
+See [engineering-roadmap.md](engineering-roadmap.md) for detailed breakdown.
 
 ## 🤝 Contributing
 
