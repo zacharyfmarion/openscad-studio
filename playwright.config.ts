@@ -26,17 +26,6 @@ export default defineConfig({
     acceptDownloads: true,
     // Grant clipboard permissions for Monaco editor interaction
     permissions: ['clipboard-read', 'clipboard-write'],
-    // WebGL is required for Three.js 3D preview
-    launchOptions: {
-      args: [
-        '--enable-webgl',
-        '--ignore-gpu-blocklist',
-        '--enable-unsafe-webgpu',
-        '--use-gl=angle',
-        '--use-angle=metal',
-        '--enable-features=Vulkan,UseSkiaRenderer',
-      ],
-    },
   },
   projects: [
     // --- Web Projects ---
@@ -47,6 +36,16 @@ export default defineConfig({
         channel: 'chrome',  // Use real Chrome for WebGL/GPU support
         viewport: { width: 1280, height: 720 },
         deviceScaleFactor: 1,
+        // WebGL args are Chromium-specific — Webkit rejects them
+        launchOptions: {
+          args: [
+            '--enable-webgl',
+            '--ignore-gpu-blocklist',
+            '--enable-unsafe-webgpu',
+            '--use-gl=angle',
+            '--enable-features=Vulkan,UseSkiaRenderer',
+          ],
+        },
       },
       testIgnore: ['**/*.tauri.spec.ts'],
     },
