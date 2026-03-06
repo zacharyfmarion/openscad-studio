@@ -93,11 +93,26 @@ export interface PlatformBridge {
   // -- Directory --
 
   /**
-   * Recursively read all .scad files in a directory.
+   * Check if a file exists at the given absolute path.
+   * Web bridge always returns false.
+   */
+  fileExists(absolutePath: string): Promise<boolean>;
+
+  /**
+   * Read a single text file by absolute path.
+   * Returns the file contents, or null if the file doesn't exist or can't be read.
+   * Web bridge always returns null.
+   */
+  readTextFile(absolutePath: string): Promise<string | null>;
+
+  /**
+   * Read .scad files in a directory.
    * Returns a map of relative paths to file contents.
    * Used to populate the WASM virtual filesystem for include/use resolution.
+   * @param recursive - If true (default), recursively walk subdirectories.
+   *   Use false for working directory reads (only need sibling files).
    */
-  readDirectoryFiles(dirPath: string, extensions?: string[]): Promise<Record<string, string>>;
+  readDirectoryFiles(dirPath: string, extensions?: string[], recursive?: boolean): Promise<Record<string, string>>;
 
   /**
    * Get well-known OS library paths that exist on disk.

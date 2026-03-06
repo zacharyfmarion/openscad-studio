@@ -106,9 +106,28 @@ export class TauriBridge implements PlatformBridge {
     });
   }
 
+  async fileExists(absolutePath: string): Promise<boolean> {
+    try {
+      const { exists } = await import('@tauri-apps/plugin-fs');
+      return await exists(absolutePath);
+    } catch {
+      return false;
+    }
+  }
+
+  async readTextFile(absolutePath: string): Promise<string | null> {
+    try {
+      const { readTextFile } = await import('@tauri-apps/plugin-fs');
+      return await readTextFile(absolutePath);
+    } catch {
+      return null;
+    }
+  }
+
   async readDirectoryFiles(
     dirPath: string,
-    extensions: string[] = ['scad']
+    extensions: string[] = ['scad'],
+    recursive: boolean = true
   ): Promise<Record<string, string>> {
     const { readDir, readTextFile } = await import('@tauri-apps/plugin-fs');
     const files: Record<string, string> = {};
@@ -129,7 +148,9 @@ export class TauriBridge implements PlatformBridge {
         const relativePath = prefix ? prefix + '/' + entry.name : entry.name;
 
         if (entry.isDirectory) {
-          await walk(entryPath, relativePath);
+          if (recursive) {
+            await walk(entryPath, relativePath);
+          }
         } else if (extensions.some((ext) => entry.name.endsWith('.' + ext))) {
           try {
             files[relativePath] = await readTextFile(entryPath);

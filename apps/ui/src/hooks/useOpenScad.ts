@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { RenderService, type Diagnostic } from '../services/renderService';
 import { getPlatform } from '../platform';
 import type { LibrarySettings } from '../stores/settingsStore';
+import { resolveWorkingDirDeps } from '../utils/resolveWorkingDirDeps';
 export type RenderKind = 'mesh' | 'svg';
 
 interface UseOpenScadOptions {
@@ -32,22 +33,45 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   const auxiliaryFilesRef = useRef<Record<string, string>>({});
   const auxFilesPromiseRef = useRef<Promise<void>>(Promise.resolve());
 
+  // Separate refs for library files and working directory files
+  const libraryFilesRef = useRef<Record<string, string>>({});
+  const workingDirFilesRef = useRef<Record<string, string>>({});
+
   // Serialize customPaths for stable dependency comparison
   const customPathsKey = library?.customPaths.join('\0') ?? '';
 
+  // Helper to merge library + working dir files and update state only if changed
+  const mergeAndSetAuxFiles = useCallback(() => {
+    const merged: Record<string, string> = {
+      ...libraryFilesRef.current,
+      ...workingDirFilesRef.current,
+    };
+
+    // Only update if the file map actually changed (avoid triggering re-renders)
+    const prev = auxiliaryFilesRef.current;
+    const prevKeys = Object.keys(prev);
+    const mergedKeys = Object.keys(merged);
+
+    if (
+      prevKeys.length === mergedKeys.length &&
+      mergedKeys.every((k) => prev[k] === merged[k])
+    ) {
+      // No change — skip update
+      return;
+    }
+
+    auxiliaryFilesRef.current = merged;
+    auxiliaryFilesRef.current = merged;
+    setAuxiliaryFiles(merged);
+  }, []);
+
+  // Effect 1: Load library files (rarely changes — only when library settings change)
   useEffect(() => {
     const platform = getPlatform();
 
-    const loadAllFiles = async () => {
+    const loadLibraryFiles = async () => {
       const files: Record<string, string> = {};
 
-      // 1. Read working directory files
-      if (options.workingDir) {
-        const workingDirFiles = await platform.readDirectoryFiles(options.workingDir);
-        Object.assign(files, workingDirFiles);
-      }
-
-      // 2. Read library paths (auto-discovered + custom)
       if (library) {
         const systemPaths = library.autoDiscoverSystem
           ? await platform.getLibraryPaths()
@@ -57,8 +81,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         for (const libPath of allLibPaths) {
           try {
             const libFiles = await platform.readDirectoryFiles(libPath);
-            const count = Object.keys(libFiles).length;
-            console.log(`[useOpenScad] Loaded ${count} files from ${libPath}`);
+            Object.assign(files, libFiles);
             Object.assign(files, libFiles);
           } catch (err) {
             console.warn(`[useOpenScad] Failed to read library path ${libPath}:`, err);
@@ -66,12 +89,24 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         }
       }
 
-      console.log('[useOpenScad] Total auxiliary files:', Object.keys(files).length);
-      auxiliaryFilesRef.current = files;
-      setAuxiliaryFiles(files);
+      libraryFilesRef.current = files;
+      mergeAndSetAuxFiles();
     };
-    auxFilesPromiseRef.current = loadAllFiles();
-  }, [options.workingDir, library?.autoDiscoverSystem, customPathsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Chain onto the aux files promise so doRender waits for this
+    auxFilesPromiseRef.current = loadLibraryFiles();
+  }, [library?.autoDiscoverSystem, customPathsKey, mergeAndSetAuxFiles]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Effect 2: Resolve working directory dependencies at render time.
+  // Instead of blindly scanning the working directory (which is slow for large dirs
+  // like ~/Documents), we parse include/use statements and read only referenced files.
+  // This is done in doRender via resolveWorkingDirDeps, not in an effect,
+  // because the deps depend on the code being rendered (which may change on each render).
+  // We keep a ref to workingDir so doRender can access it.
+  const workingDirRef = useRef(options.workingDir);
+  useEffect(() => {
+    workingDirRef.current = options.workingDir;
+  }, [options.workingDir]);
 
   // Initialize WASM on mount
   useEffect(() => {
@@ -98,14 +133,71 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     setError('');
 
     try {
-      // Wait for auxiliary files to finish loading before rendering
+      // Fast path: check cache BEFORE waiting for aux files to load.
+      // If the render result is already cached, return instantly (no file reload wait).
+      const auxFiles =
+        Object.keys(auxiliaryFilesRef.current).length > 0 ? auxiliaryFilesRef.current : undefined;
+      const cached = await renderServiceRef.current.getCached(code, {
+        view: dimension,
+        backend: 'manifold',
+        auxiliaryFiles: auxFiles,
+      });
+      if (cached) {
+        setDiagnostics(cached.diagnostics);
+        setPreviewKind(cached.kind);
+
+        if (prevBlobUrlRef.current) {
+          URL.revokeObjectURL(prevBlobUrlRef.current);
+        }
+
+        if (cached.output.length > 0) {
+          const mimeType =
+            cached.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
+          const blob = new Blob([cached.output], { type: mimeType });
+          const blobUrl = URL.createObjectURL(blob);
+          prevBlobUrlRef.current = blobUrl;
+          setPreviewSrc(blobUrl);
+        }
+
+
+        setIsRendering(false);
+        return;
+      }
+
+      // Cache miss — wait for library files to finish loading
       await auxFilesPromiseRef.current;
+
+      // Resolve working directory dependencies by parsing include/use statements
+      // instead of blindly scanning the entire working directory
+      const workingDir = workingDirRef.current;
+      let renderAuxFiles = libraryFilesRef.current;
+
+      if (workingDir) {
+        const platform = getPlatform();
+        const workingDirFiles = await resolveWorkingDirDeps(code, {
+          workingDir,
+          libraryFiles: libraryFilesRef.current,
+          platform,
+        });
+
+        if (Object.keys(workingDirFiles).length > 0) {
+          renderAuxFiles = { ...libraryFilesRef.current, ...workingDirFiles };
+        }
+      }
+
+      // Update refs so the cache check uses consistent data on next render
+      workingDirFilesRef.current = renderAuxFiles === libraryFilesRef.current
+        ? {}
+        : Object.fromEntries(
+            Object.entries(renderAuxFiles).filter(([k]) => !(k in libraryFilesRef.current))
+          );
+      mergeAndSetAuxFiles();
 
       const result = await renderServiceRef.current.render(code, {
         view: dimension,
         backend: 'manifold',
         auxiliaryFiles:
-          Object.keys(auxiliaryFilesRef.current).length > 0 ? auxiliaryFilesRef.current : undefined,
+          Object.keys(renderAuxFiles).length > 0 ? renderAuxFiles : undefined,
       });
 
 
@@ -186,7 +278,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     } finally {
       setIsRendering(false);
     }
-  }, []);
+  }, [mergeAndSetAuxFiles]);
 
   const updateSource = useCallback((newSource: string) => {
     setSource(newSource);
@@ -279,6 +371,8 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         dimensionMode,
         renderService: renderServiceRef.current,
         setTestAuxiliaryFiles: (files: Record<string, string>) => {
+          // Set both library and auxiliary refs so doRender picks these up
+          libraryFilesRef.current = files;
           auxiliaryFilesRef.current = files;
           setAuxiliaryFiles(files);
         },
