@@ -4,11 +4,12 @@ import { getMonacoValue, waitForMonacoReady, typeInEditor } from '../../helpers/
 const enableVimMode = async (page: import('@playwright/test').Page) => {
   await waitForMonacoReady(page);
   await page.keyboard.press('Meta+,');
-  await page.getByRole('button', { name: /^Editor$/ }).click();
-  await page.getByRole('button', { name: /^Vim$/ }).click();
+  await page.getByRole('button', { name: 'Editor', exact: true }).click();
+  await page.getByRole('button', { name: 'Vim', exact: true }).click();
+  // Click the visible <label> element instead of the hidden sr-only checkbox.
+  // The Toggle component renders: <label><input type='checkbox' class='sr-only peer' /><div /></label>
   const vimRow = page.getByText('Enable Vim Mode').locator('..').locator('..');
-  const vimToggle = vimRow.locator('input[type="checkbox"]');
-  await vimToggle.check({ force: true });
+  await vimRow.locator('label').last().click({ force: true });
   await expect(page.locator('.vim-status-bar')).toBeVisible();
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);

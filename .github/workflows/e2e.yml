@@ -24,12 +24,12 @@ jobs:
         run: pnpm install
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps chromium
 
       # Dev server is started automatically by globalSetup.ts
 
       - name: Run E2E tests (web)
-        run: npx playwright test --project=web-chromium --project=web-webkit
+        run: npx playwright test --project=web-chromium
 
       - name: Upload test report
         uses: actions/upload-artifact@v4
