@@ -112,7 +112,11 @@ export interface PlatformBridge {
    * @param recursive - If true (default), recursively walk subdirectories.
    *   Use false for working directory reads (only need sibling files).
    */
-  readDirectoryFiles(dirPath: string, extensions?: string[], recursive?: boolean): Promise<Record<string, string>>;
+  readDirectoryFiles(
+    dirPath: string,
+    extensions?: string[],
+    recursive?: boolean
+  ): Promise<Record<string, string>>;
 
   /**
    * Get well-known OS library paths that exist on disk.

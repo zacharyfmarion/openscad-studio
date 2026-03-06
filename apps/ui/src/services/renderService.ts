@@ -312,7 +312,6 @@ export class RenderService {
     return null;
   }
 
-
   async render(code: string, options: RenderOptions = {}): Promise<RenderResult> {
     const { view = '3d', backend = 'manifold', auxiliaryFiles } = options;
 
