@@ -70,5 +70,5 @@ export async function formatOpenScadCode(
 }
 
 // Re-export types and utilities
-export { initParser, parse } from './parser';
+export { initParser, parse, isParserReady, onParserReady } from './parser';
 export type { Parser } from 'web-tree-sitter';

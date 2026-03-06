@@ -5,8 +5,9 @@
  * and updates the source code when values change.
  */
 
-import { useMemo, useCallback, useState, useRef } from 'react';
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { parseCustomizerParams } from '../utils/customizer/parser';
+import { isParserReady, onParserReady } from '../utils/formatter/parser';
 import type { CustomizerParam } from '../utils/customizer/types';
 import { ParameterControl } from './customizer/ParameterControl';
 import { TbChevronDown, TbChevronRight, TbRefresh } from 'react-icons/tb';
@@ -20,16 +21,24 @@ interface CustomizerPanelProps {
 export function CustomizerPanel({ code, onChange }: CustomizerPanelProps) {
   const [collapsedTabs, setCollapsedTabs] = useState<Set<string>>(new Set());
   const defaultsRef = useRef<Map<string, string> | null>(null);
+  const [parserReady, setParserReady] = useState(isParserReady);
 
-  // Parse parameters from code
+  // Listen for parser initialization
+  useEffect(() => {
+    if (parserReady) return;
+    return onParserReady(() => setParserReady(true));
+  }, [parserReady]);
+
+  // Parse parameters from code (re-runs when code changes OR parser becomes ready)
   const tabs = useMemo(() => {
+    if (!parserReady) return [];
     try {
       return parseCustomizerParams(code);
     } catch (err) {
       console.error('[Customizer] Failed to parse parameters:', err);
       return [];
     }
-  }, [code]);
+  }, [code, parserReady]);
 
   // Capture default values on first successful parse
   if (defaultsRef.current === null && tabs.length > 0) {
