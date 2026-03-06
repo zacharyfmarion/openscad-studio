@@ -224,10 +224,14 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
   if (!isOpen) return null;
 
+  const isDesktop = '__TAURI_INTERNALS__' in window;
+
   const navItems: { key: SettingsSection; label: string; icon: React.ReactNode }[] = [
     { key: 'appearance', label: 'Appearance', icon: <TbPalette size={16} /> },
     { key: 'editor', label: 'Editor', icon: <TbCode size={16} /> },
-    { key: 'libraries', label: 'Libraries', icon: <TbBooks size={16} /> },
+    ...(isDesktop
+      ? [{ key: 'libraries' as const, label: 'Libraries', icon: <TbBooks size={16} /> }]
+      : []),
     { key: 'ai', label: 'AI Assistant', icon: <TbSparkles size={16} /> },
   ];
 
