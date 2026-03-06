@@ -24,8 +24,6 @@ export default defineConfig({
     trace: 'on-first-retry',
     video: 'on-first-retry',
     acceptDownloads: true,
-    // Grant clipboard permissions for Monaco editor interaction
-    permissions: ['clipboard-read', 'clipboard-write'],
   },
   projects: [
     // --- Web Projects ---
@@ -36,6 +34,8 @@ export default defineConfig({
         channel: 'chrome',  // Use real Chrome for WebGL/GPU support
         viewport: { width: 1280, height: 720 },
         deviceScaleFactor: 1,
+        // Clipboard permissions are Chromium-only — Webkit rejects clipboard-write
+        permissions: ['clipboard-read', 'clipboard-write'],
         // WebGL args are Chromium-specific — Webkit rejects them
         launchOptions: {
           args: [
