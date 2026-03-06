@@ -293,6 +293,25 @@ export class RenderService {
    * Render OpenSCAD code and return the output bytes + diagnostics.
    * 3D mode returns STL (kind: 'mesh'), 2D mode returns SVG (kind: 'svg').
    */
+  /**
+   * Check if a render result is already cached for the given parameters.
+   * Returns the cached result if found, or null if not cached.
+   */
+  async getCached(code: string, options: RenderOptions = {}): Promise<RenderResult | null> {
+    const { view = '3d', backend = 'manifold', auxiliaryFiles } = options;
+    const auxFileCount = auxiliaryFiles ? Object.keys(auxiliaryFiles).length : 0;
+    const cacheKey = await this.cache.generateKey(code, backend, view, auxFileCount);
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return {
+        output: cached.output,
+        kind: cached.kind,
+        diagnostics: cached.diagnostics,
+      };
+    }
+    return null;
+  }
+
   async render(code: string, options: RenderOptions = {}): Promise<RenderResult> {
     const { view = '3d', backend = 'manifold', auxiliaryFiles } = options;
 

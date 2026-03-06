@@ -24,6 +24,10 @@
     "packages/*"
   ],
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "prettier": "^3.7.4"
+  },
+  "dependencies": {
+    "zustand": "^5.0.11"
   }
 }

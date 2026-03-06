@@ -9,6 +9,7 @@ import * as TreeSitter from 'web-tree-sitter';
 let parser: TreeSitter.Parser | null = null;
 let language: TreeSitter.Language | null = null;
 let initPromise: Promise<void> | null = null;
+let parserReadyCallbacks: Array<() => void> = [];
 
 /**
  * Initialize the parser (call once at startup)
@@ -54,6 +55,16 @@ export async function initParser(): Promise<void> {
       parser.setLanguage(language);
 
       if (import.meta.env.DEV) console.log('[OpenSCAD Formatter] Parser initialized successfully');
+
+      // Notify all listeners that parser is ready
+      for (const cb of parserReadyCallbacks) {
+        try {
+          cb();
+        } catch {
+          /* ignore listener errors */
+        }
+      }
+      parserReadyCallbacks = [];
     } catch (error) {
       console.error('[OpenSCAD Formatter] Failed to initialize parser:', error);
       throw error;
@@ -92,4 +103,27 @@ export function getParser(): TreeSitter.Parser | null {
  */
 export function getLanguage(): TreeSitter.Language | null {
   return language;
+}
+
+/**
+ * Check if the parser has been initialized
+ */
+export function isParserReady(): boolean {
+  return parser !== null;
+}
+
+/**
+ * Register a callback for when the parser becomes ready.
+ * If already ready, callback is invoked immediately.
+ * Returns an unsubscribe function.
+ */
+export function onParserReady(callback: () => void): () => void {
+  if (parser !== null) {
+    callback();
+    return () => {};
+  }
+  parserReadyCallbacks.push(callback);
+  return () => {
+    parserReadyCallbacks = parserReadyCallbacks.filter((cb) => cb !== callback);
+  };
 }

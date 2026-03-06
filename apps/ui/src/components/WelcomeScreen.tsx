@@ -69,6 +69,7 @@ export function WelcomeScreen({
 
   return (
     <div
+      data-testid="welcome-screen"
       className="h-full flex flex-col items-center justify-center px-8"
       style={{ backgroundColor: 'var(--bg-primary)' }}
     >

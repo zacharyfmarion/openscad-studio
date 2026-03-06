@@ -154,6 +154,12 @@ export function Editor({
     monacoRef.current = monaco;
     setEditorMounted(true);
 
+    // Expose editor reference for E2E tests (dev mode only)
+    if (import.meta.env.DEV || window.__PLAYWRIGHT__) {
+      window.__TEST_EDITOR__ = editor;
+      window.__TEST_MONACO__ = monaco;
+    }
+
     // Register custom themes
     if (!themesRegistered) {
       const themeIds = [
