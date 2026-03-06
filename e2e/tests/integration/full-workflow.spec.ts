@@ -72,13 +72,15 @@ test.describe('Full workflow integration', () => {
     await app.navigateSettingsTab('Editor');
     await app.page.getByText('Format on Save').waitFor({ state: 'visible' });
 
-    // Get initial state of format-on-save toggle
-    const toggleRow = app.page.getByText('Format on Save').locator('..');
-    const checkbox = toggleRow.locator('input[type="checkbox"]');
+    // Find the Format on Save row and its Toggle
+    const formatRow = app.page.getByText('Format on Save').locator('..').locator('..');
+    const checkbox = formatRow.locator('input[type="checkbox"]');
+    const toggleLabel = formatRow.locator('label').last();
+
     const initialChecked = await checkbox.isChecked().catch(() => false);
 
-    // Toggle the setting
-    await checkbox.click({ force: true });
+    // Toggle by clicking the visible <label>, not the hidden checkbox
+    await toggleLabel.click({ force: true });
     await app.page.waitForTimeout(300);
 
     // Close settings
@@ -90,14 +92,15 @@ test.describe('Full workflow integration', () => {
     await app.navigateSettingsTab('Editor');
     await app.page.getByText('Format on Save').waitFor({ state: 'visible' });
 
-    const newChecked = await toggleRow
+    const newRow = app.page.getByText('Format on Save').locator('..').locator('..');
+    const newChecked = await newRow
       .locator('input[type="checkbox"]')
       .isChecked()
       .catch(() => false);
     expect(newChecked).not.toBe(initialChecked);
 
     // Restore original state
-    await toggleRow.locator('input[type="checkbox"]').click({ force: true });
+    await newRow.locator('label').last().click({ force: true });
     await app.page.getByRole('button', { name: /close/i }).click();
   });
 });

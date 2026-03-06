@@ -237,7 +237,7 @@ export class AppHelper {
 
   /** Navigate to a settings tab */
   async navigateSettingsTab(tabName: 'Appearance' | 'Editor' | 'AI Assistant') {
-    await this.page.getByRole('button', { name: tabName }).click();
+    await this.page.getByRole('button', { name: tabName, exact: true }).click();
   }
 
   // -- Utility --------------------------------------------------------------

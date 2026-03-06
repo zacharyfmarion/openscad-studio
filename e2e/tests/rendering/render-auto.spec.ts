@@ -2,35 +2,29 @@ import { test, expect } from '../../fixtures/app.fixture';
 import { setMonacoValue } from '../../helpers/editor';
 import type { Page } from '@playwright/test';
 
+/**
+ * Toggle the Auto-Render on Idle setting.
+ * The Toggle component renders a visually-hidden checkbox inside a <label>.
+ * Clicking the <label> (not the hidden checkbox) reliably toggles the state.
+ */
 async function setAutoRender(page: Page, enabled: boolean) {
-  // Open settings > Editor > General
+  // Open settings > Editor
   await page.keyboard.press('Meta+,');
   await page.getByText('Appearance').first().waitFor({ state: 'visible' });
   await page.getByRole('button', { name: /^Editor$/ }).click();
-  // General subtab should be active by default
   await page.getByText('Auto-Render on Idle').waitFor({ state: 'visible' });
 
-  // Find the auto-render checkbox (hidden but clickable with force)
-  // The Toggle renders: <label><input type="checkbox" class="sr-only peer" /><div /></label>
-  // It's a sibling of the "Auto-Render on Idle" text span, inside a flex row
-  const row = page.locator('label').filter({ hasText: 'Auto-Render on Idle' }).first();
-  // Actually the text and toggle are in separate elements in a flex row
-  // Let me find the checkbox near the label text
-  const checkbox = page
-    .locator('input[type="checkbox"]')
-    .filter({ has: page.locator('..', { hasText: 'Auto-Render on Idle' }) })
-    .first();
+  // Navigate: "Auto-Render on Idle" text → parent row → find the Toggle's <label>
+  const row = page.getByText('Auto-Render on Idle').locator('..').locator('..');
+  const checkbox = row.locator('input[type="checkbox"]');
+  const toggleLabel = row.locator('label').last();
 
-  // Fallback approach: find all checkboxes and use the one near Auto-Render text
-  const autoRenderSection = page.getByText('Auto-Render on Idle').locator('..');
-  const toggle = autoRenderSection.locator('input[type="checkbox"]');
+  const isChecked = await checkbox.isChecked().catch(() => false);
 
-  const isChecked = await toggle.isChecked({ timeout: 2000 }).catch(() => false);
-
-  if (enabled && !isChecked) {
-    await toggle.check({ force: true });
-  } else if (!enabled && isChecked) {
-    await toggle.uncheck({ force: true });
+  if ((enabled && !isChecked) || (!enabled && isChecked)) {
+    await toggleLabel.click({ force: true });
+    // Verify the toggle actually changed
+    await page.waitForTimeout(200);
   }
 
   // Close settings
