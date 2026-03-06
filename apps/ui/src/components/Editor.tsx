@@ -155,9 +155,9 @@ export function Editor({
     setEditorMounted(true);
 
     // Expose editor reference for E2E tests (dev mode only)
-    if (import.meta.env.DEV || (window as any).__PLAYWRIGHT__) {
-      (window as any).__TEST_EDITOR__ = editor;
-      (window as any).__TEST_MONACO__ = monaco;
+    if (import.meta.env.DEV || window.__PLAYWRIGHT__) {
+      window.__TEST_EDITOR__ = editor;
+      window.__TEST_MONACO__ = monaco;
     }
 
     // Register custom themes

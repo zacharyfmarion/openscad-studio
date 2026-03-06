@@ -1063,7 +1063,11 @@ function App() {
   // Show welcome screen if no file is open and welcome hasn't been dismissed
   if (showWelcome) {
     return (
-      <div className="h-screen" data-testid="welcome-container" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div
+        className="h-screen"
+        data-testid="welcome-container"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+      >
         <WelcomeScreen
           onStartWithPrompt={handleStartWithPrompt}
           onStartManually={handleStartManually}

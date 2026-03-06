@@ -106,7 +106,10 @@ interface InlineErrorBoundaryState {
   error: Error | null;
 }
 
-export class InlineErrorBoundary extends Component<InlineErrorBoundaryProps, InlineErrorBoundaryState> {
+export class InlineErrorBoundary extends Component<
+  InlineErrorBoundaryProps,
+  InlineErrorBoundaryState
+> {
   state: InlineErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): InlineErrorBoundaryState {

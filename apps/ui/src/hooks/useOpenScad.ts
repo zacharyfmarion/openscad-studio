@@ -134,13 +134,14 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
             view: newDimension,
             backend: 'manifold',
             auxiliaryFiles:
-          Object.keys(auxiliaryFilesRef.current).length > 0 ? auxiliaryFilesRef.current : undefined,
+              Object.keys(auxiliaryFilesRef.current).length > 0
+                ? auxiliaryFilesRef.current
+                : undefined,
           });
 
           if (retryResult.output.length > 0) {
             // Opposite dimension worked — switch to it
-            if (import.meta.env.DEV)
-              console.log('[doRender] Retry succeeded with:', newDimension);
+            if (import.meta.env.DEV) console.log('[doRender] Retry succeeded with:', newDimension);
             setDimensionMode(newDimension);
             setDiagnostics(retryResult.diagnostics);
             setPreviewKind(retryResult.kind);
@@ -269,8 +270,8 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
   // Expose render functions for E2E testing
   useEffect(() => {
-    if (import.meta.env.DEV || (window as any).__PLAYWRIGHT__) {
-      (window as any).__TEST_OPENSCAD__ = {
+    if (import.meta.env.DEV || window.__PLAYWRIGHT__) {
+      window.__TEST_OPENSCAD__ = {
         doRender,
         manualRender,
         updateSourceAndRender,
@@ -279,8 +280,8 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       };
     }
     return () => {
-      if ((window as any).__TEST_OPENSCAD__) {
-        delete (window as any).__TEST_OPENSCAD__;
+      if (window.__TEST_OPENSCAD__) {
+        delete window.__TEST_OPENSCAD__;
       }
     };
   }, [doRender, manualRender, updateSourceAndRender, dimensionMode]);

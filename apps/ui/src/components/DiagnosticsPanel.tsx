@@ -32,7 +32,11 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
   }
 
   return (
-    <div data-testid="diagnostics-panel" className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+    <div
+      data-testid="diagnostics-panel"
+      className="h-full overflow-y-auto"
+      style={{ backgroundColor: 'var(--bg-secondary)' }}
+    >
       {/* Output (ECHO) section */}
       {echoMessages.length > 0 && (
         <>
