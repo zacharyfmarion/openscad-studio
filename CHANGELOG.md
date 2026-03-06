@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-03-06
+
+- Comprehensive e2e test coverage
+- Fix for Customizer panel race condition
+- Fix importing external libraries + new UI for linking libraries
+
 ## [0.7.1] - 2026-02-20
 
 - Fix issue where includes were not being properly parsed on desktop following the wasm migration
