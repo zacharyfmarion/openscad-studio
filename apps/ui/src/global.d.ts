@@ -9,7 +9,7 @@ interface Window {
   __TEST_EDITOR__?: import('monaco-editor').editor.IStandaloneCodeEditor;
   __TEST_MONACO__?: typeof import('monaco-editor');
   __TEST_OPENSCAD__?: {
-    doRender: () => void;
+    doRender: (code: string, dimension?: '2d' | '3d') => Promise<void>;
     manualRender: () => void;
     updateSourceAndRender: (source: string) => void;
     dimensionMode: string;
