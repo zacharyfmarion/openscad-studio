@@ -568,3 +568,40 @@ Logs appear in browser DevTools console
 **Last Updated**: 2025-10-18
 **Current Phase**: Phase 3 Complete (Native Rust AI Implementation)
 **Status**: Production-ready, monitoring for edge cases
+
+## Cursor Cloud specific instructions
+
+### Services overview
+
+This is a pnpm monorepo (`pnpm@10.12.4`) with two runnable apps:
+
+| Service | Command | Port | Notes |
+|---------|---------|------|-------|
+| Web dev server | `pnpm web:dev` | 3000 | Vite-based; auto-renders OpenSCAD via WASM in-browser |
+| Desktop app (Tauri) | `pnpm tauri:dev` | 1420 | Requires Rust toolchain + Linux system deps (see below) |
+
+### Running checks
+
+Standard commands from `package.json` scripts — see `CLAUDE.md` § Development Workflow for full list:
+- **Lint**: `pnpm lint`
+- **Type-check**: `pnpm type-check`
+- **Unit tests**: `cd apps/ui && pnpm test` (Jest; `formatter.test.ts` has a pre-existing `import.meta.env` failure in Jest — the other 3 suites pass)
+- **Build (web)**: `pnpm web:build`
+- **Rust check**: `cd apps/ui/src-tauri && cargo check`
+- **Rust fmt**: `cd apps/ui/src-tauri && cargo fmt --check`
+- **Clippy**: `cd apps/ui/src-tauri && cargo clippy` (has a pre-existing `comparison_chain` warning)
+- **Format check**: `pnpm format:check` (requires Rust `cargo fmt` for the Rust portion; TypeScript-only: `prettier --check`)
+
+### Desktop app (Tauri) on Linux
+
+The Tauri desktop app runs on Linux with these system dependencies (installed via apt):
+```
+libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev
+```
+The first `pnpm tauri:dev` will compile ~533 Rust crates (~2 min). Subsequent starts are fast. You will see `libEGL` warnings in the terminal — these are harmless (no GPU in VM).
+
+### Gotchas
+
+- pnpm 10 blocks postinstall scripts by default. The first `pnpm install` on a fresh clone will warn about ignored build scripts for `esbuild`, `tree-sitter-cli`, and `tree-sitter-openscad`. The update script handles this since esbuild ships its platform-specific binary as an optional dependency and resolves correctly after install. If Vite fails to start with an esbuild error, run `pnpm rebuild esbuild`.
+- No databases, Docker, or external backend services are needed — both apps are entirely client-side (OpenSCAD rendering via WASM Web Worker).
+- AI copilot features require API keys (Anthropic/OpenAI) set via the in-app Settings dialog; they are stored in `localStorage` (web) or Tauri encrypted store (desktop). These are optional for core editor/preview functionality.
