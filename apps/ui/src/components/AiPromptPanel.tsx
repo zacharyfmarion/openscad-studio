@@ -1,5 +1,4 @@
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { toast } from 'sonner';
 import { Button } from './ui';
 import { MarkdownMessage } from './MarkdownMessage';
 import { ModelSelector } from './ModelSelector';
@@ -7,6 +6,7 @@ import { AiComposer, type AiComposerRef } from './AiComposer';
 import { useHistory } from '../hooks/useHistory';
 import { getPlatform } from '../platform';
 import { useHasApiKey } from '../stores/apiKeyStore';
+import { notifyError, notifySuccess } from '../utils/notifications';
 import type {
   AiDraft,
   AssistantMessage,
@@ -148,7 +148,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
       messages = [],
       onNewConversation,
       currentToolCalls = [],
-      currentModel = 'claude-sonnet-4-5-20250929',
+      currentModel = 'claude-sonnet-4-5',
       availableProviders = [],
       onModelChange,
       onRestoreCheckpoint,
@@ -198,15 +198,27 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
           if (!shouldProceed) return;
         }
 
-        await restoreToCheckpoint(checkpointId);
+        const checkpoint = await restoreToCheckpoint(checkpointId);
+        if (!checkpoint) {
+          throw new Error('Checkpoint could not be restored.');
+        }
 
         if (messageIndex !== -1 && onRestoreCheckpoint) {
           const truncatedMessages = messages.slice(0, messageIndex);
           onRestoreCheckpoint(checkpointId, truncatedMessages);
         }
+
+        notifySuccess('Restored checkpoint', {
+          toastId: 'restore-checkpoint-success',
+        });
       } catch (error) {
-        console.error('[AiPromptPanel] Failed to restore checkpoint:', error);
-        toast.error(`Failed to restore checkpoint: ${error}`);
+        notifyError({
+          operation: 'restore-checkpoint',
+          error,
+          fallbackMessage: 'Failed to restore checkpoint',
+          toastId: 'restore-checkpoint-error',
+          logLabel: '[AiPromptPanel] Failed to restore checkpoint',
+        });
       }
     };
 

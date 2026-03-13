@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getApiKey, type AiProvider } from '../stores/apiKeyStore';
 import { getVisionSupportForModelId } from '../utils/aiMessages';
+import {
+  compareModelsByFreshness,
+  DEFAULT_MODEL_CATALOG,
+  KNOWN_DISPLAY_NAMES,
+  normalizeProviders,
+} from '../utils/aiModels';
 import type { VisionSupport } from '../types/aiChat';
 
 export interface ModelInfo {
@@ -31,53 +37,13 @@ const CACHE_KEY = 'openscad_studio_models_cache';
 interface CachedModels {
   models: ModelInfo[];
   fetchedAt: number;
+  providers?: AiProvider[];
 }
 
-const KNOWN_DISPLAY_NAMES: Record<string, string> = {
-  'claude-sonnet-4-5': 'Claude Sonnet 4.5 (Latest)',
-  'claude-opus-4': 'Claude Opus 4 (Latest)',
-  'claude-haiku-3-5': 'Claude Haiku 3.5 (Latest)',
-  'claude-sonnet-4-5-20250929': 'Claude Sonnet 4.5 (Sep 2025)',
-  'claude-opus-4-1-20250805': 'Claude Opus 4.1 (Aug 2025)',
-  'claude-3-5-sonnet-20241022': 'Claude 3.5 Sonnet (Oct 2024)',
-  'claude-3-5-haiku-20241022': 'Claude 3.5 Haiku (Oct 2024)',
-  'gpt-4o': 'GPT-4o',
-  'gpt-4o-mini': 'GPT-4o Mini',
-  o1: 'o1',
-  'o1-mini': 'o1 Mini',
-  'o3-mini': 'o3 Mini',
-  'gpt-4-turbo': 'GPT-4 Turbo',
-};
-
-const DEFAULT_MODELS: ModelInfo[] = [
-  {
-    id: 'claude-sonnet-4-5',
-    display_name: 'Claude Sonnet 4.5 (Latest)',
-    provider: 'anthropic',
-    visionSupport: 'yes',
-  },
-  {
-    id: 'claude-opus-4',
-    display_name: 'Claude Opus 4 (Latest)',
-    provider: 'anthropic',
-    visionSupport: 'yes',
-  },
-  {
-    id: 'claude-haiku-3-5',
-    display_name: 'Claude Haiku 3.5 (Latest)',
-    provider: 'anthropic',
-    visionSupport: 'yes',
-  },
-  { id: 'o1', display_name: 'o1 (Latest)', provider: 'openai', visionSupport: 'yes' },
-  { id: 'o3-mini', display_name: 'o3 Mini (Latest)', provider: 'openai', visionSupport: 'yes' },
-  { id: 'gpt-4o', display_name: 'GPT-4o', provider: 'openai', visionSupport: 'yes' },
-];
-
-function isAlias(modelId: string): boolean {
-  const parts = modelId.split('-');
-  const last = parts[parts.length - 1];
-  return !(last.length === 8 && /^\d{8}$/.test(last));
-}
+const DEFAULT_MODELS: ModelInfo[] = DEFAULT_MODEL_CATALOG.map((model) => ({
+  ...model,
+  visionSupport: getVisionSupportForModelId(model.id),
+}));
 
 function isRelevantOpenAiModel(id: string): boolean {
   if (id.includes('search') || id.includes('chat')) return false;
@@ -168,13 +134,20 @@ async function fetchOpenAiModels(apiKey: string): Promise<ModelInfo[]> {
 }
 
 function sortModels(models: ModelInfo[]): ModelInfo[] {
-  return [...models].sort((a, b) => {
-    if (a.provider !== b.provider) return a.provider.localeCompare(b.provider);
-    const aIsAlias = isAlias(a.id);
-    const bIsAlias = isAlias(b.id);
-    if (aIsAlias !== bIsAlias) return aIsAlias ? -1 : 1;
-    return a.display_name.localeCompare(b.display_name);
-  });
+  return [...models].sort(compareModelsByFreshness);
+}
+
+function getCachedProviders(cached: CachedModels): AiProvider[] {
+  if (Array.isArray(cached.providers) && cached.providers.length > 0) {
+    return normalizeProviders(cached.providers);
+  }
+  return normalizeProviders(cached.models.map((model) => model.provider));
+}
+
+function hasCacheCoverage(cached: CachedModels, providers: readonly string[]): boolean {
+  const requestedProviders = normalizeProviders(providers);
+  const cachedProviders = getCachedProviders(cached);
+  return requestedProviders.every((provider) => cachedProviders.includes(provider));
 }
 
 function loadCache(providers: string[]): { models: ModelInfo[]; ageMinutes: number } | null {
@@ -184,6 +157,7 @@ function loadCache(providers: string[]): { models: ModelInfo[]; ageMinutes: numb
     const cached: CachedModels = JSON.parse(raw);
     const age = Date.now() - cached.fetchedAt;
     if (age > CACHE_TTL_MS) return null;
+    if (!hasCacheCoverage(cached, providers)) return null;
     const filtered = cached.models
       .filter((m) => providers.includes(m.provider))
       .map((model) => ({
@@ -197,9 +171,13 @@ function loadCache(providers: string[]): { models: ModelInfo[]; ageMinutes: numb
   }
 }
 
-function saveCache(models: ModelInfo[]): void {
+function saveCache(models: ModelInfo[], providers: readonly string[]): void {
   try {
-    const cached: CachedModels = { models, fetchedAt: Date.now() };
+    const cached: CachedModels = {
+      models,
+      fetchedAt: Date.now(),
+      providers: normalizeProviders(providers),
+    };
     localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
   } catch {
     // localStorage full or unavailable
@@ -215,60 +193,102 @@ export function useModels(availableProviders: string[]): UseModelsReturn {
   const providersRef = useRef(availableProviders);
   providersRef.current = availableProviders;
   const providersKey = [...availableProviders].sort().join(',');
-  const initialLoadDone = useRef(false);
+  const requestIdRef = useRef(0);
 
   const doFetch = useCallback(
     async (forceRefresh: boolean) => {
+      const requestId = ++requestIdRef.current;
       const providers = providersRef.current;
       if (providers.length === 0) {
+        if (requestId !== requestIdRef.current) return;
         setModels([]);
+        setError(null);
+        setFromCache(false);
+        setCacheAgeMinutes(null);
+        setIsLoading(false);
         return;
       }
 
       if (!forceRefresh) {
         const cached = loadCache(providers);
         if (cached) {
+          if (requestId !== requestIdRef.current) return;
           setModels(sortModels(cached.models));
+          setError(null);
           setFromCache(true);
           setCacheAgeMinutes(cached.ageMinutes);
+          setIsLoading(false);
           return;
         }
       }
 
       setIsLoading(true);
       setError(null);
+      setFromCache(false);
+      setCacheAgeMinutes(null);
 
       try {
-        const fetches: Promise<ModelInfo[]>[] = [];
+        const fetches: Promise<{ models: ModelInfo[]; error: string | null }>[] = [];
 
         if (providers.includes('anthropic')) {
           const key = getApiKey('anthropic');
-          if (key) fetches.push(fetchAnthropicModels(key).catch(() => []));
+          if (key) {
+            fetches.push(
+              fetchAnthropicModels(key)
+                .then((models) => ({ models, error: null }))
+                .catch((error) => ({
+                  models: [],
+                  error: error instanceof Error ? error.message : String(error),
+                }))
+            );
+          }
         }
         if (providers.includes('openai')) {
           const key = getApiKey('openai');
-          if (key) fetches.push(fetchOpenAiModels(key).catch(() => []));
+          if (key) {
+            fetches.push(
+              fetchOpenAiModels(key)
+                .then((models) => ({ models, error: null }))
+                .catch((error) => ({
+                  models: [],
+                  error: error instanceof Error ? error.message : String(error),
+                }))
+            );
+          }
         }
 
         const results = await Promise.all(fetches);
-        const allModels = results.flat();
+        const allModels = results.flatMap((result) => result.models);
+        const errors = results
+          .map((result) => result.error)
+          .filter((value): value is string => Boolean(value));
+        if (requestId !== requestIdRef.current) return;
 
         if (allModels.length > 0) {
           const sorted = sortModels(allModels);
           setModels(sorted);
+          setError(errors.length > 0 ? errors.join('\n') : null);
           setFromCache(false);
           setCacheAgeMinutes(null);
-          saveCache(sorted);
+          saveCache(sorted, providers);
         } else {
           const defaults = DEFAULT_MODELS.filter((m) => providers.includes(m.provider));
           setModels(defaults);
+          setError(errors.length > 0 ? errors.join('\n') : null);
+          setFromCache(false);
+          setCacheAgeMinutes(null);
         }
       } catch (e) {
+        if (requestId !== requestIdRef.current) return;
         setError(String(e));
         const defaults = DEFAULT_MODELS.filter((m) => providersRef.current.includes(m.provider));
         setModels(defaults);
+        setFromCache(false);
+        setCacheAgeMinutes(null);
       } finally {
-        setIsLoading(false);
+        if (requestId === requestIdRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     // providersKey is a stable string serialization — avoids infinite re-renders from array refs
@@ -277,15 +297,7 @@ export function useModels(availableProviders: string[]): UseModelsReturn {
   );
 
   useEffect(() => {
-    if (providersRef.current.length === 0) {
-      setModels([]);
-      initialLoadDone.current = false;
-      return;
-    }
-    if (!initialLoadDone.current) {
-      initialLoadDone.current = true;
-      doFetch(false);
-    }
+    void doFetch(false);
   }, [providersKey, doFetch]);
 
   const refreshModels = useCallback(() => doFetch(true), [doFetch]);

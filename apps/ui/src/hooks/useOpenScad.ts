@@ -3,6 +3,7 @@ import { RenderService, type Diagnostic } from '../services/renderService';
 import { getPlatform } from '../platform';
 import type { LibrarySettings } from '../stores/settingsStore';
 import { resolveWorkingDirDeps } from '../utils/resolveWorkingDirDeps';
+import { notifyError } from '../utils/notifications';
 export type RenderKind = 'mesh' | 'svg';
 
 interface UseOpenScadOptions {
@@ -113,7 +114,13 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       })
       .catch((err) => {
         setError(`Failed to initialize OpenSCAD WASM: ${err}`);
-        console.error('[useOpenScad] WASM init error:', err);
+        notifyError({
+          operation: 'openscad-init',
+          error: err,
+          fallbackMessage: 'Failed to initialize OpenSCAD rendering',
+          toastId: 'openscad-init-error',
+          logLabel: '[useOpenScad] WASM init error',
+        });
       });
   }, []);
 
@@ -266,7 +273,13 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         const errorMsg = typeof err === 'string' ? err : String(err);
         setError(errorMsg);
         setPreviewSrc('');
-        console.error('Render error:', err);
+        notifyError({
+          operation: 'render-runtime',
+          error: err,
+          fallbackMessage: 'Rendering failed unexpectedly',
+          toastId: 'render-runtime-error',
+          logLabel: '[useOpenScad] Render error',
+        });
       } finally {
         setIsRendering(false);
       }

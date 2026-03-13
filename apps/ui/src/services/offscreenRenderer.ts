@@ -4,6 +4,10 @@ import {
   FALLBACK_PREVIEW_SCENE_STYLE,
   type PreviewSceneStyle,
 } from './previewSceneConfig';
+import {
+  buildModelFrame,
+  derivePreviewFramingMetrics,
+} from './previewFraming';
 
 export type PresetView = 'front' | 'back' | 'top' | 'bottom' | 'left' | 'right' | 'isometric';
 
@@ -104,11 +108,8 @@ export async function captureOffscreen(
   directionalLight.shadow.mapSize.set(...sceneStyle.directionalLight.shadowMapSize);
   scene.add(directionalLight);
 
-  const box = new THREE.Box3().setFromObject(mesh);
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z);
-  const distance = maxDim * sceneStyle.camera.frameDistanceMultiplier;
+  const modelFrame = buildModelFrame(geometry, 'offscreen-capture');
+  const framing = derivePreviewFramingMetrics(modelFrame.box, sceneStyle);
 
   let direction: [number, number, number];
   if (options.azimuth !== undefined || options.elevation !== undefined) {
@@ -122,10 +123,10 @@ export async function captureOffscreen(
     sceneStyle.camera.perspectiveFov,
     width / height,
     sceneStyle.camera.near,
-    Math.max(distance * sceneStyle.camera.farMultiplier, sceneStyle.camera.near + 1)
+    framing.cameraFar
   );
-  camera.position.copy(computeCameraPosition(direction, center, distance));
-  camera.lookAt(center);
+  camera.position.copy(computeCameraPosition(direction, modelFrame.center, framing.fitDistance));
+  camera.lookAt(modelFrame.center);
 
   renderer.render(scene, camera);
   const dataUrl = canvas.toDataURL('image/png');

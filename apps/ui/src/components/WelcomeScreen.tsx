@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui';
 import { AiComposer } from './AiComposer';
+import { ModelSelector } from './ModelSelector';
+import { getPlatform } from '../platform';
 import { useHasApiKey } from '../stores/apiKeyStore';
 import type { AiDraft, AttachmentStore } from '../types/aiChat';
+import {
+  loadRecentFiles,
+  removeRecentFile,
+  saveRecentFiles,
+  type RecentFile,
+} from '../utils/recentFiles';
 
-interface RecentFile {
-  path: string;
-  name: string;
-  lastOpened: number;
-}
+export type RecentFileOpenResult = 'opened' | 'removed' | 'cancelled';
 
 interface WelcomeScreenProps {
   draft: AiDraft;
@@ -23,10 +27,13 @@ interface WelcomeScreenProps {
   onDraftRemoveAttachment: (attachmentId: string) => void;
   onStartWithDraft: (draftOverride?: AiDraft) => void;
   onStartManually: () => void;
-  onOpenRecent: (path: string) => void;
+  onOpenRecent: (path: string) => Promise<RecentFileOpenResult>;
   onOpenFile?: () => void;
   onOpenSettings?: () => void;
   showRecentFiles?: boolean;
+  currentModel?: string;
+  availableProviders?: string[];
+  onModelChange?: (model: string) => void;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -36,8 +43,6 @@ const EXAMPLE_PROMPTS = [
   'Create a simple mounting bracket',
   'Design a pencil holder with holes',
 ];
-
-const RECENT_FILES_KEY = 'openscad-studio-recent-files';
 
 export function WelcomeScreen({
   draft,
@@ -56,22 +61,66 @@ export function WelcomeScreen({
   onOpenFile,
   onOpenSettings,
   showRecentFiles = true,
+  currentModel = 'claude-sonnet-4-5',
+  availableProviders = [],
+  onModelChange,
 }: WelcomeScreenProps) {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
+  const [recentFilesReady, setRecentFilesReady] = useState(!showRecentFiles);
   const hasApiKey = useHasApiKey();
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(RECENT_FILES_KEY);
-      if (stored) {
-        const files: RecentFile[] = JSON.parse(stored);
-        files.sort((a, b) => b.lastOpened - a.lastOpened);
-        setRecentFiles(files.slice(0, 3));
-      }
-    } catch (error) {
-      console.error('Failed to load recent files:', error);
+    if (!showRecentFiles) {
+      setRecentFiles([]);
+      setRecentFilesReady(true);
+      return;
     }
-  }, []);
+
+    let cancelled = false;
+
+    const loadAndValidateRecentFiles = async () => {
+      const stored = loadRecentFiles();
+      const platform = getPlatform();
+
+      if (!platform.capabilities.hasFileSystem) {
+        if (!cancelled) {
+          setRecentFiles(stored);
+          setRecentFilesReady(true);
+        }
+        return;
+      }
+
+      const validity = await Promise.all(
+        stored.map(async (file) => ({
+          file,
+          exists: await platform.fileExists(file.path),
+        }))
+      );
+
+      if (cancelled) return;
+
+      const validFiles = validity.filter((entry) => entry.exists).map((entry) => entry.file);
+      if (validFiles.length !== stored.length) {
+        saveRecentFiles(validFiles);
+      }
+
+      setRecentFiles(validFiles);
+      setRecentFilesReady(true);
+    };
+
+    void loadAndValidateRecentFiles();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showRecentFiles]);
+
+  const handleOpenRecent = async (path: string) => {
+    const result = await onOpenRecent(path);
+    if (result === 'removed') {
+      setRecentFiles(removeRecentFile(path));
+    }
+  };
 
   return (
     <div
@@ -102,6 +151,14 @@ export function WelcomeScreen({
               variant="welcome"
               submitLabel="Build"
               submitTitle="Build"
+              trailingControls={
+                <ModelSelector
+                  currentModel={currentModel}
+                  availableProviders={availableProviders}
+                  onChange={(model) => onModelChange?.(model)}
+                  compact
+                />
+              }
               onTextChange={onDraftTextChange}
               onFilesSelected={onDraftFilesSelected}
               onRemoveAttachment={onDraftRemoveAttachment}
@@ -165,7 +222,7 @@ export function WelcomeScreen({
           </div>
         </div>
 
-        {showRecentFiles && recentFiles.length > 0 && (
+        {showRecentFiles && recentFilesReady && recentFiles.length > 0 && (
           <div className="space-y-3 pt-4">
             <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
               Recent files:
@@ -174,7 +231,9 @@ export function WelcomeScreen({
               {recentFiles.map((file) => (
                 <button
                   key={file.path}
-                  onClick={() => onOpenRecent(file.path)}
+                  onClick={() => {
+                    void handleOpenRecent(file.path);
+                  }}
                   className="w-full text-left px-4 py-3 rounded-lg transition-colors border flex items-center justify-between group"
                   style={{
                     backgroundColor: 'var(--bg-secondary)',
@@ -227,28 +286,4 @@ export function WelcomeScreen({
       </div>
     </div>
   );
-}
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function addToRecentFiles(path: string) {
-  try {
-    const stored = localStorage.getItem(RECENT_FILES_KEY);
-    const files: RecentFile[] = stored ? JSON.parse(stored) : [];
-    const fileName = path.split('/').pop() || path;
-
-    const existingIndex = files.findIndex((file) => file.path === path);
-    if (existingIndex !== -1) {
-      files[existingIndex].lastOpened = Date.now();
-    } else {
-      files.push({
-        path,
-        name: fileName,
-        lastOpened: Date.now(),
-      });
-    }
-
-    localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(files));
-  } catch (error) {
-    console.error('Failed to save recent file:', error);
-  }
 }

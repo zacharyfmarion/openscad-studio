@@ -18,6 +18,7 @@ export interface UiSettings {
   customizerWidth: number;
   hasCompletedNux: boolean;
   defaultLayoutPreset: 'default' | 'ai-first';
+  hasDismissedViewerControlsHint: boolean;
 }
 
 export interface LibrarySettings {
@@ -74,6 +75,7 @@ const DEFAULT_SETTINGS: Settings = {
     customizerWidth: 420,
     hasCompletedNux: false,
     defaultLayoutPreset: 'default',
+    hasDismissedViewerControlsHint: false,
   },
   library: {
     customPaths: [],

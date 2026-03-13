@@ -3,6 +3,7 @@ import { getPlatform, type ExportFormat } from '../platform';
 import { RenderService, type ExportFormat as WasmExportFormat } from '../services/renderService';
 import { Button, Select, Label } from './ui';
 import { TbX } from 'react-icons/tb';
+import { normalizeAppError, notifyError, notifySuccess } from '../utils/notifications';
 
 interface ExportDialogProps {
   isOpen: boolean;
@@ -44,10 +45,20 @@ export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
         { name: selectedFormat.label, extensions: [selectedFormat.ext] },
       ]);
 
+      notifySuccess('Exported successfully', { toastId: 'export-success' });
+
       // Success - close dialog
       onClose();
     } catch (err) {
-      setError(typeof err === 'string' ? err : String(err));
+      const normalized = normalizeAppError(err, 'Export failed');
+      setError(normalized.message);
+      notifyError({
+        operation: 'export-file',
+        error: err,
+        fallbackMessage: 'Export failed',
+        toastId: 'export-error',
+        logLabel: '[ExportDialog] Export failed',
+      });
     } finally {
       setIsExporting(false);
     }

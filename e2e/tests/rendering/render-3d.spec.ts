@@ -2,6 +2,30 @@ import { test, expect } from '../../fixtures/app.fixture';
 import { setMonacoValue } from '../../helpers/editor';
 import { readFixture } from '../../helpers/platform';
 
+type PreviewState = {
+  currentFits: boolean;
+  fitCount: number;
+  maxDim: number | null;
+  orthographic: boolean;
+  cameraFar: number | null;
+  gridCellSize: number | null;
+  gridSectionSize: number | null;
+  cameraPosition: [number, number, number] | null;
+  cameraTarget: [number, number, number] | null;
+};
+
+function vectorDistance(a: [number, number, number] | null, b: [number, number, number] | null) {
+  if (!a || !b) {
+    return 0;
+  }
+
+  const dx = a[0] - b[0];
+  const dy = a[1] - b[1];
+  const dz = a[2] - b[2];
+
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
 test.describe('3D Rendering', () => {
   test('renders default cube on load', async ({ app }) => {
     // Default content is cube([10,10,10]) — should render automatically
@@ -95,6 +119,81 @@ test.describe('3D Rendering', () => {
     expect(Buffer.compare(screenshotBefore, screenshotAfter)).not.toBe(0);
   });
 
+  test('right drag pans the camera target', async ({ app }) => {
+    await app.waitForRender();
+    await app.page.waitForFunction(() => {
+      const preview = (window as any).__TEST_PREVIEW__;
+      return preview?.cameraTarget && preview?.cameraPosition;
+    });
+
+    const beforePan = (await app.page.evaluate(() => (window as any).__TEST_PREVIEW__)) as PreviewState;
+    const canvas = app.previewCanvas3D;
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+
+    if (box) {
+      const centerX = box.x + box.width / 2;
+      const centerY = box.y + box.height / 2;
+
+      await app.page.mouse.move(centerX, centerY);
+      await app.page.mouse.down({ button: 'right' });
+      await app.page.mouse.move(centerX + 70, centerY + 35, { steps: 8 });
+      await app.page.mouse.up({ button: 'right' });
+      await app.page.waitForTimeout(800);
+    }
+
+    const afterPan = (await app.page.evaluate(() => (window as any).__TEST_PREVIEW__)) as PreviewState;
+
+    expect(afterPan.orthographic).toBe(false);
+    expect(vectorDistance(afterPan.cameraTarget, beforePan.cameraTarget)).toBeGreaterThan(0.5);
+    expect(vectorDistance(afterPan.cameraPosition, beforePan.cameraPosition)).toBeGreaterThan(0.5);
+  });
+
+  test('shift plus left drag pans as a fallback', async ({ app }) => {
+    await app.waitForRender();
+    await app.page.waitForFunction(() => {
+      const preview = (window as any).__TEST_PREVIEW__;
+      return preview?.cameraTarget && preview?.cameraPosition;
+    });
+    const beforePan = (await app.page.evaluate(() => (window as any).__TEST_PREVIEW__)) as PreviewState;
+    const canvas = app.previewCanvas3D;
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+
+    if (box) {
+      const centerX = box.x + box.width / 2;
+      const centerY = box.y + box.height / 2;
+
+      await app.page.keyboard.down('Shift');
+      await app.page.mouse.move(centerX, centerY);
+      await app.page.mouse.down({ button: 'left' });
+      await app.page.mouse.move(centerX - 60, centerY + 25, { steps: 8 });
+      await app.page.mouse.up({ button: 'left' });
+      await app.page.keyboard.up('Shift');
+      await app.page.waitForTimeout(800);
+    }
+
+    const afterPan = (await app.page.evaluate(() => (window as any).__TEST_PREVIEW__)) as PreviewState;
+
+    expect(vectorDistance(afterPan.cameraTarget, beforePan.cameraTarget)).toBeGreaterThan(0.5);
+  });
+
+  test('controls hint can be dismissed and stays dismissed after reload', async ({ app }) => {
+    await app.waitForRender();
+
+    const hint = app.page.getByTestId('preview-controls-hint');
+    const dismissButton = app.page.getByTestId('preview-controls-hint-dismiss');
+
+    await expect(hint).toBeVisible();
+    await dismissButton.click();
+    await expect(hint).toBeHidden();
+
+    await app.page.reload();
+    await app.waitForRender();
+
+    await expect(app.page.getByTestId('preview-controls-hint')).toBeHidden();
+  });
+
   test('multiple objects render', async ({ app }) => {
     await app.waitForRender();
     await setMonacoValue(app.page, 'cube(10);\ntranslate([25, 0, 0]) sphere(r = 5, $fn = 24);');
@@ -102,6 +201,99 @@ test.describe('3D Rendering', () => {
     await app.triggerRender();
     await app.waitForRender();
     await expect(app.previewCanvas3D).toBeVisible();
+  });
+
+  test('large models stay framed across projection changes', async ({ app }) => {
+    await app.waitForRender();
+    await setMonacoValue(app.page, 'cube([50, 50, 406.4]);');
+    await app.focusEditor();
+    await app.triggerRender();
+    await app.waitForRender();
+
+    await app.page.waitForFunction(() => {
+      const preview = (window as any).__TEST_PREVIEW__;
+      return preview && preview.maxDim !== null;
+    });
+
+    const initialState = await app.page.evaluate(() => (window as any).__TEST_PREVIEW__);
+
+    expect(initialState.maxDim).toBeGreaterThan(400);
+    expect(initialState.cameraFar).toBeGreaterThanOrEqual(2000);
+    expect(initialState.fitCount).toBeGreaterThan(0);
+    expect(initialState.orthographic).toBe(false);
+
+    await app.page.getByTestId('preview-toggle-orthographic').click();
+    await app.page.waitForTimeout(1000);
+
+    const orthographicState = await app.page.evaluate(() => (window as any).__TEST_PREVIEW__);
+
+    expect(orthographicState.orthographic).toBe(true);
+    expect(orthographicState.fitCount).toBeGreaterThan(initialState.fitCount);
+  });
+
+  test('small model edits preserve the current panned framing when still visible', async ({ app }) => {
+    await app.waitForRender();
+    await setMonacoValue(app.page, 'cube([20, 20, 20]);');
+    await app.focusEditor();
+    await app.triggerRender();
+    await app.waitForRender();
+    await app.page.waitForFunction(() => {
+      const preview = (window as any).__TEST_PREVIEW__;
+      return preview?.cameraTarget && preview?.cameraPosition;
+    });
+
+    const canvas = app.previewCanvas3D;
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+
+    if (box) {
+      const centerX = box.x + box.width / 2;
+      const centerY = box.y + box.height / 2;
+
+      await app.page.mouse.move(centerX, centerY);
+      await app.page.mouse.down({ button: 'right' });
+      await app.page.mouse.move(centerX + 35, centerY + 18, { steps: 8 });
+      await app.page.mouse.up({ button: 'right' });
+      await app.page.waitForTimeout(800);
+    }
+
+    const beforeEditState = (await app.page.evaluate(
+      () => (window as any).__TEST_PREVIEW__
+    )) as PreviewState;
+
+    await setMonacoValue(app.page, 'cube([21, 20, 20]);');
+    await app.focusEditor();
+    await app.triggerRender();
+    await app.waitForRender();
+
+    const afterEditState = (await app.page.evaluate(
+      () => (window as any).__TEST_PREVIEW__
+    )) as PreviewState;
+
+    expect(afterEditState.currentFits).toBe(true);
+    expect(afterEditState.fitCount).toBe(beforeEditState.fitCount);
+    expect(vectorDistance(afterEditState.cameraTarget, beforeEditState.cameraTarget)).toBeLessThan(0.5);
+  });
+
+  test('large shrink changes reframe the model back down', async ({ app }) => {
+    await app.waitForRender();
+    await setMonacoValue(app.page, 'cube([20, 20, 300]);');
+    await app.focusEditor();
+    await app.triggerRender();
+    await app.waitForRender();
+
+    const tallState = await app.page.evaluate(() => (window as any).__TEST_PREVIEW__);
+
+    await setMonacoValue(app.page, 'cube([20, 20, 60]);');
+    await app.focusEditor();
+    await app.triggerRender();
+    await app.waitForRender();
+    await app.page.waitForTimeout(800);
+
+    const shorterState = await app.page.evaluate(() => (window as any).__TEST_PREVIEW__);
+
+    expect(shorterState.maxDim).toBeLessThan(tallState.maxDim);
+    expect(shorterState.fitCount).toBeGreaterThan(tallState.fitCount);
   });
 
   test('empty code shows no preview or keeps last render', async ({ app }) => {

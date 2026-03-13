@@ -33,10 +33,12 @@ export interface PreviewSceneStyle {
     perspectiveFov: number;
     near: number;
     orthographicNear: number;
-    orthographicFar: number;
-    maxDistance: number;
+    baseFar: number;
+    baseMaxDistance: number;
     frameDistanceMultiplier: number;
     farMultiplier: number;
+    fitPaddingRatio: number;
+    maxDistanceMultiplier: number;
   };
   screenshot: {
     width: number;
@@ -76,10 +78,12 @@ const SHARED_PREVIEW_SCENE_BASE: Omit<
     perspectiveFov: 50,
     near: 0.1,
     orthographicNear: -1000,
-    orthographicFar: 2000,
-    maxDistance: 500,
+    baseFar: 2000,
+    baseMaxDistance: 500,
     frameDistanceMultiplier: 2.5,
     farMultiplier: 10,
+    fitPaddingRatio: 0.05,
+    maxDistanceMultiplier: 4,
   },
   screenshot: {
     width: 800,

@@ -22,7 +22,6 @@ import {
   TbFolderOpen,
 } from 'react-icons/tb';
 import {
-  invalidateApiKeyStatus,
   storeApiKey as storeApiKeyToStorage,
   clearApiKey as clearApiKeyFromStorage,
   hasApiKeyForProvider,
@@ -30,6 +29,7 @@ import {
 } from '../stores/apiKeyStore';
 import { getPlatform } from '../platform';
 import { applyWorkspacePreset } from '../stores/layoutStore';
+import { notifyError, notifySuccess } from '../utils/notifications';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -72,7 +72,6 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
   const [hasOpenAIKey, setHasOpenAIKey] = useState(false);
   const [isLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
 
   const loadAISettings = useCallback(() => {
@@ -149,11 +148,21 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
   };
 
   const handleAddLibraryPath = async () => {
-    const path = await getPlatform().pickDirectory();
-    if (path) {
-      if (settings.library.customPaths.includes(path)) return;
-      const updatedPaths = [...settings.library.customPaths, path];
-      handleLibrarySettingChange('customPaths', updatedPaths);
+    try {
+      const path = await getPlatform().pickDirectory();
+      if (path) {
+        if (settings.library.customPaths.includes(path)) return;
+        const updatedPaths = [...settings.library.customPaths, path];
+        handleLibrarySettingChange('customPaths', updatedPaths);
+      }
+    } catch (err) {
+      notifyError({
+        operation: 'add-library-path',
+        error: err,
+        fallbackMessage: 'Failed to add library path',
+        toastId: 'add-library-path-error',
+        logLabel: '[SettingsDialog] Failed to add library path',
+      });
     }
   };
 
@@ -169,25 +178,30 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     }
 
     setError(null);
-    setSuccessMessage(null);
 
-    storeApiKeyToStorage(provider, apiKey);
-    invalidateApiKeyStatus();
-    setSuccessMessage(
-      `${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key saved successfully!`
-    );
+    try {
+      storeApiKeyToStorage(provider, apiKey);
+      notifySuccess(`${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key saved`, {
+        toastId: `save-api-key-${provider}`,
+      });
 
-    if (provider === 'anthropic') {
-      setHasAnthropicKey(true);
-    } else {
-      setHasOpenAIKey(true);
+      if (provider === 'anthropic') {
+        setHasAnthropicKey(true);
+      } else {
+        setHasOpenAIKey(true);
+      }
+
+      setApiKey('••••••••••••••••••••••••••••••••••••••••••••');
+      setShowKey(false);
+    } catch (err) {
+      notifyError({
+        operation: 'save-api-key',
+        error: err,
+        fallbackMessage: 'Failed to save API key',
+        toastId: `save-api-key-error-${provider}`,
+        logLabel: '[SettingsDialog] Failed to save API key',
+      });
     }
-
-    setApiKey('••••••••••••••••••••••••••••••••••••••••••••');
-    setShowKey(false);
-    setTimeout(() => {
-      setSuccessMessage(null);
-    }, 3000);
   };
 
   const handleClear = async () => {
@@ -198,22 +212,29 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     if (!confirmed) return;
 
     setError(null);
-    setSuccessMessage(null);
 
-    clearApiKeyFromStorage(provider);
-    invalidateApiKeyStatus();
-    setSuccessMessage('API key cleared successfully');
+    try {
+      clearApiKeyFromStorage(provider);
+      notifySuccess('API key cleared', {
+        toastId: `clear-api-key-${provider}`,
+      });
 
-    if (provider === 'anthropic') {
-      setHasAnthropicKey(false);
-    } else {
-      setHasOpenAIKey(false);
+      if (provider === 'anthropic') {
+        setHasAnthropicKey(false);
+      } else {
+        setHasOpenAIKey(false);
+      }
+
+      setApiKey('');
+    } catch (err) {
+      notifyError({
+        operation: 'clear-api-key',
+        error: err,
+        fallbackMessage: 'Failed to clear API key',
+        toastId: `clear-api-key-error-${provider}`,
+        logLabel: '[SettingsDialog] Failed to clear API key',
+      });
     }
-
-    setApiKey('');
-    setTimeout(() => {
-      setSuccessMessage(null);
-    }, 3000);
   };
 
   const handleClose = () => {
@@ -1174,18 +1195,6 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   </div>
                 )}
 
-                {successMessage && (
-                  <div
-                    className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm"
-                    style={{
-                      backgroundColor: 'rgba(133, 153, 0, 0.1)',
-                      border: '1px solid rgba(133, 153, 0, 0.3)',
-                      color: 'var(--color-success)',
-                    }}
-                  >
-                    {successMessage}
-                  </div>
-                )}
               </div>
             )}
           </div>

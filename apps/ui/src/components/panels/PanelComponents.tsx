@@ -8,83 +8,100 @@ import { AiPromptPanel, type AiPromptPanelRef } from '../AiPromptPanel';
 import { DiagnosticsPanel } from '../DiagnosticsPanel';
 import { DiffViewer } from '../DiffViewer';
 import { CustomizerPanel } from '../CustomizerPanel';
+import { PanelErrorBoundary } from '../ErrorBoundary';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 
 const EditorPanel: React.FC<IDockviewPanelProps> = () => {
   const { source, updateSource, diagnostics, onManualRender, settings } = useWorkspace();
   return (
-    <Editor
-      value={source}
-      onChange={updateSource}
-      diagnostics={diagnostics.filter((d) => !d.message.match(/^ECHO:/i))}
-      onManualRender={onManualRender}
-      settings={settings}
-    />
+    <PanelErrorBoundary panelId="editor" panelName="Editor">
+      <Editor
+        value={source}
+        onChange={updateSource}
+        diagnostics={diagnostics.filter((d) => !d.message.match(/^ECHO:/i))}
+        onManualRender={onManualRender}
+        settings={settings}
+      />
+    </PanelErrorBoundary>
   );
 };
 
 const PreviewPanel: React.FC<IDockviewPanelProps> = () => {
   const { previewSrc, previewKind, isRendering, error } = useWorkspace();
-  return <Preview src={previewSrc} kind={previewKind} isRendering={isRendering} error={error} />;
+  return (
+    <PanelErrorBoundary panelId="preview" panelName="Preview">
+      <Preview src={previewSrc} kind={previewKind} isRendering={isRendering} error={error} />
+    </PanelErrorBoundary>
+  );
 };
 
 const AiChatPanel: React.FC<IDockviewPanelProps> = () => {
   const ws = useWorkspace();
   return (
-    <AiPromptPanel
-      ref={ws.aiPromptPanelRef as React.Ref<AiPromptPanelRef>}
-      onSubmit={ws.submitDraft}
-      onTextChange={ws.setDraftText}
-      onFilesSelected={(files) => {
-        void ws.addDraftFiles(files);
-      }}
-      onRemoveAttachment={ws.removeDraftAttachment}
-      draft={ws.draft}
-      attachments={ws.attachments}
-      draftErrors={ws.draftErrors}
-      draftVisionBlockMessage={ws.draftVisionBlockMessage}
-      draftVisionWarningMessage={ws.draftVisionWarningMessage}
-      canSubmitDraft={ws.canSubmitDraft}
-      isProcessingAttachments={ws.isProcessingAttachments}
-      isStreaming={ws.isStreaming}
-      streamingResponse={ws.streamingResponse}
-      onCancel={ws.cancelStream}
-      messages={ws.messages}
-      onNewConversation={ws.newConversation}
-      currentToolCalls={ws.currentToolCalls}
-      currentModel={ws.currentModel}
-      availableProviders={ws.availableProviders}
-      onModelChange={ws.setCurrentModel}
-      onRestoreCheckpoint={ws.handleRestoreCheckpoint}
-      onOpenSettings={ws.onOpenAiSettings}
-    />
+    <PanelErrorBoundary panelId="ai-chat" panelName="AI Chat">
+      <AiPromptPanel
+        ref={ws.aiPromptPanelRef as React.Ref<AiPromptPanelRef>}
+        onSubmit={ws.submitDraft}
+        onTextChange={ws.setDraftText}
+        onFilesSelected={(files) => {
+          void ws.addDraftFiles(files);
+        }}
+        onRemoveAttachment={ws.removeDraftAttachment}
+        draft={ws.draft}
+        attachments={ws.attachments}
+        draftErrors={ws.draftErrors}
+        draftVisionBlockMessage={ws.draftVisionBlockMessage}
+        draftVisionWarningMessage={ws.draftVisionWarningMessage}
+        canSubmitDraft={ws.canSubmitDraft}
+        isProcessingAttachments={ws.isProcessingAttachments}
+        isStreaming={ws.isStreaming}
+        streamingResponse={ws.streamingResponse}
+        onCancel={ws.cancelStream}
+        messages={ws.messages}
+        onNewConversation={ws.newConversation}
+        currentToolCalls={ws.currentToolCalls}
+        currentModel={ws.currentModel}
+        availableProviders={ws.availableProviders}
+        onModelChange={ws.setCurrentModel}
+        onRestoreCheckpoint={ws.handleRestoreCheckpoint}
+        onOpenSettings={ws.onOpenAiSettings}
+      />
+    </PanelErrorBoundary>
   );
 };
 
 const ConsolePanel: React.FC<IDockviewPanelProps> = () => {
   const { diagnostics } = useWorkspace();
-  return <DiagnosticsPanel diagnostics={diagnostics} />;
+  return (
+    <PanelErrorBoundary panelId="console" panelName="Console">
+      <DiagnosticsPanel diagnostics={diagnostics} />
+    </PanelErrorBoundary>
+  );
 };
 
 const DiffViewerPanel: React.FC<IDockviewPanelProps> = () => {
   const { source, acceptDiff, rejectDiff, isApplyingDiff } = useWorkspace();
   return (
-    <DiffViewer
-      oldCode={source}
-      newCode={source}
-      onAccept={acceptDiff}
-      onReject={rejectDiff}
-      isApplying={isApplyingDiff}
-    />
+    <PanelErrorBoundary panelId="diff-viewer" panelName="Diff Viewer">
+      <DiffViewer
+        oldCode={source}
+        newCode={source}
+        onAccept={acceptDiff}
+        onReject={rejectDiff}
+        isApplying={isApplyingDiff}
+      />
+    </PanelErrorBoundary>
   );
 };
 
 const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
   const { source, updateSource } = useWorkspace();
   return (
-    <div className="h-full" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-      <CustomizerPanel code={source} onChange={updateSource} />
-    </div>
+    <PanelErrorBoundary panelId="customizer" panelName="Customizer">
+      <div className="h-full" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+        <CustomizerPanel code={source} onChange={updateSource} />
+      </div>
+    </PanelErrorBoundary>
   );
 };
 

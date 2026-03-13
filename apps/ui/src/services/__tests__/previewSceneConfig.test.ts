@@ -21,6 +21,8 @@ describe('previewSceneConfig', () => {
       width: 800,
       height: 600,
     });
+    expect(FALLBACK_PREVIEW_SCENE_STYLE.camera.baseFar).toBe(2000);
+    expect(FALLBACK_PREVIEW_SCENE_STYLE.camera.baseMaxDistance).toBe(500);
     expect(FALLBACK_PREVIEW_SCENE_STYLE.camera.frameDistanceMultiplier).toBe(2.5);
   });
 });

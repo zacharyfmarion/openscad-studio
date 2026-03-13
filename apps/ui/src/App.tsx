@@ -5,7 +5,7 @@ import 'dockview/dist/styles/dockview.css';
 import { ExportDialog } from './components/ExportDialog';
 import type { AiPromptPanelRef } from './components/AiPromptPanel';
 import { SettingsDialog, type SettingsSection } from './components/SettingsDialog';
-import { WelcomeScreen, addToRecentFiles } from './components/WelcomeScreen';
+import { WelcomeScreen } from './components/WelcomeScreen';
 import { NuxLayoutPicker } from './components/NuxLayoutPicker';
 import { TabBar, type Tab } from './components/TabBar';
 import { WebMenuBar } from './components/WebMenuBar';
@@ -30,8 +30,10 @@ import { RenderService } from './services/renderService';
 import { getPreviewSceneStyle } from './services/previewSceneConfig';
 import { useSettings, loadSettings, updateSetting } from './stores/settingsStore';
 import { formatOpenScadCode } from './utils/formatter';
+import { addRecentFile, removeRecentFile } from './utils/recentFiles';
+import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { TbSettings, TbBox, TbRuler2, TbDownload } from 'react-icons/tb';
-import { Toaster, toast } from 'sonner';
+import { Toaster } from 'sonner';
 import type { AiDraft } from './types/aiChat';
 
 // Helper to generate unique IDs for tabs
@@ -584,6 +586,7 @@ function App() {
 
         if (!savePath) return false;
 
+        const shouldNotifySaveSuccess = promptForPath || !currentTab.filePath;
         const fileName = savePath.split('/').pop() || savePath;
         setTabs((prev) =>
           prev.map((tab) =>
@@ -604,18 +607,28 @@ function App() {
           dockPanel.api.setTitle(fileName);
         }
 
-        addToRecentFiles(savePath);
+        addRecentFile(savePath);
 
         // Trigger render on save (only if OpenSCAD is available)
         if (renderOnSaveRef.current) {
           renderOnSaveRef.current();
         }
 
+        if (shouldNotifySaveSuccess) {
+          notifySuccess('File saved successfully', {
+            toastId: 'save-success',
+          });
+        }
+
         return true;
       } catch (err) {
-        console.error('[saveFile] Save failed:', err);
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        toast.error(`Failed to save file: ${errorMsg}`);
+        notifyError({
+          operation: 'save-file',
+          error: err,
+          fallbackMessage: 'Failed to save file',
+          toastId: 'save-file-error',
+          logLabel: '[saveFile] Save failed',
+        });
         return false;
       }
     },
@@ -656,19 +669,23 @@ function App() {
         if (existingTab) {
           await switchTab(existingTab.id);
           setShowWelcome(false);
-          return;
+          return 'opened' as const;
         }
 
         // On web, recent files won't have real paths — this is a Tauri-only feature
         // but we keep the interface for compatibility
         const platform = getPlatform();
         if (!platform.capabilities.hasFileSystem) {
-          toast.error('Cannot open recent files in web mode');
-          return;
+          notifyError({
+            operation: 'open-recent-file',
+            fallbackMessage: 'Cannot open recent files in web mode',
+            toastId: 'open-recent-file-error',
+          });
+          return 'cancelled' as const;
         }
 
         const result = await platform.fileRead(path);
-        if (!result) return;
+        if (!result) return 'cancelled' as const;
 
         const firstTab = tabs[0];
         const shouldReplaceFirstTab =
@@ -691,7 +708,7 @@ function App() {
         }
 
         setShowWelcome(false);
-        if (result.path) addToRecentFiles(result.path);
+        if (result.path) addRecentFile(result.path);
 
         if (manualRenderRef.current) {
           setTimeout(() => {
@@ -700,9 +717,24 @@ function App() {
             }
           }, 100);
         }
+        return 'opened' as const;
       } catch (err) {
-        console.error('Failed to open recent file:', err);
-        toast.error(`Failed to open file: ${err}`);
+        removeRecentFile(path);
+        const normalized = normalizeAppError(err, 'Failed to open file');
+        const isMissingFile =
+          normalized.message.toLowerCase().includes('no such file') ||
+          normalized.message.toLowerCase().includes('not found');
+
+        notifyError({
+          operation: 'open-recent-file',
+          error: err,
+          fallbackMessage: isMissingFile
+            ? 'File no longer exists. Removed from Recent Files.'
+            : 'Failed to open file',
+          toastId: 'open-recent-file-error',
+          logLabel: 'Failed to open recent file',
+        });
+        return 'removed' as const;
       }
     },
     [tabs, showWelcome, switchTab, createNewTab, updateSource]
@@ -745,7 +777,7 @@ function App() {
       }
 
       setShowWelcome(false);
-      if (result.path) addToRecentFiles(result.path);
+      if (result.path) addRecentFile(result.path);
 
       if (manualRenderRef.current) {
         setTimeout(() => {
@@ -755,8 +787,13 @@ function App() {
         }, 100);
       }
     } catch (err) {
-      console.error('Failed to open file:', err);
-      toast.error(`Failed to open file: ${err}`);
+      notifyError({
+        operation: 'open-file',
+        error: err,
+        fallbackMessage: 'Failed to open file',
+        toastId: 'open-file-error',
+        logLabel: 'Failed to open file',
+      });
     }
   }, [tabs, showWelcome, switchTab, createNewTab, updateSource]);
 
@@ -827,7 +864,7 @@ function App() {
           createNewTab(result.path, result.content, result.name);
           setShowWelcome(false);
 
-          if (result.path) addToRecentFiles(result.path);
+          if (result.path) addRecentFile(result.path);
 
           if (manualRenderRef.current) {
             setTimeout(() => {
@@ -837,8 +874,13 @@ function App() {
             }, 100);
           }
         } catch (err) {
-          console.error('Open failed:', err);
-          toast.error(`Failed to open file: ${err}`);
+          notifyError({
+            operation: 'open-file',
+            error: err,
+            fallbackMessage: 'Failed to open file',
+            toastId: 'open-file-error',
+            logLabel: 'Open failed',
+          });
         }
       })
     );
@@ -875,10 +917,15 @@ function App() {
           await getPlatform().fileExport(exportBytes, `export.${formatInfo.ext}`, [
             { name: formatInfo.label, extensions: [formatInfo.ext] },
           ]);
-          toast.success('Exported successfully');
+          notifySuccess('Exported successfully', { toastId: 'export-success' });
         } catch (err) {
-          console.error('Export failed:', err);
-          toast.error(`Export failed: ${err}`);
+          notifyError({
+            operation: 'export-file',
+            error: err,
+            fallbackMessage: 'Export failed',
+            toastId: 'export-error',
+            logLabel: 'Export failed',
+          });
         }
       })
     );
@@ -987,10 +1034,45 @@ function App() {
 
   useEffect(() => {
     if (aiError) {
-      toast.error(aiError, { duration: Infinity, dismissible: true });
+      notifyError({
+        operation: 'ai-stream',
+        error: aiError,
+        fallbackMessage: 'AI request failed',
+        toastId: 'ai-stream-error',
+      });
       clearAiError();
     }
   }, [aiError, clearAiError]);
+
+  useEffect(() => {
+    const handleWindowError = (event: ErrorEvent) => {
+      notifyError({
+        operation: 'unexpected-runtime-error',
+        error: event.error ?? event.message,
+        fallbackMessage: 'Something went wrong in the app',
+        toastId: 'unexpected-runtime-error',
+        logLabel: '[App] Unhandled window error',
+      });
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      notifyError({
+        operation: 'unexpected-runtime-error',
+        error: event.reason,
+        fallbackMessage: 'An unexpected error interrupted the current action',
+        toastId: 'unexpected-runtime-error',
+        logLabel: '[App] Unhandled promise rejection',
+      });
+    };
+
+    window.addEventListener('error', handleWindowError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleWindowError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
 
   const onDockviewReady = useCallback((event: DockviewReadyEvent) => {
     const { api } = event;
@@ -1109,52 +1191,50 @@ function App() {
     ]
   );
 
-  // Show welcome screen if no file is open and welcome hasn't been dismissed
-  if (showWelcome) {
-    return (
-      <div
-        className="h-screen"
-        data-testid="welcome-container"
-        style={{ backgroundColor: 'var(--bg-primary)' }}
-      >
-        <WelcomeScreen
-          draft={draft}
-          attachments={attachments}
-          draftErrors={draftErrors}
-          draftVisionBlockMessage={draftVisionBlockMessage}
-          draftVisionWarningMessage={draftVisionWarningMessage}
-          canSubmitDraft={canSubmitDraft}
-          isProcessingAttachments={isProcessingAttachments}
-          onDraftTextChange={setDraftText}
-          onDraftFilesSelected={(files) => {
-            void addDraftFiles(files);
-          }}
-          onDraftRemoveAttachment={removeDraftAttachment}
-          onStartWithDraft={handleStartWithDraft}
-          onStartManually={handleStartManually}
-          onOpenRecent={handleOpenRecent}
-          onOpenFile={handleOpenFile}
-          showRecentFiles={capabilities.hasFileSystem}
-          onOpenSettings={() => {
-            setSettingsInitialTab('ai');
-            setShowSettingsDialog(true);
-          }}
-        />
-        <SettingsDialog
-          isOpen={showSettingsDialog}
-          onClose={() => {
-            setShowSettingsDialog(false);
-            setSettingsInitialTab(undefined);
-            loadModelAndProviders();
-          }}
-          initialTab={settingsInitialTab}
-        />
-        <NuxLayoutPicker isOpen={showNux} onSelect={handleNuxSelect} />
-      </div>
-    );
-  }
-
-  return (
+  const content = showWelcome ? (
+    <div
+      className="h-screen"
+      data-testid="welcome-container"
+      style={{ backgroundColor: 'var(--bg-primary)' }}
+    >
+      <WelcomeScreen
+        draft={draft}
+        attachments={attachments}
+        draftErrors={draftErrors}
+        draftVisionBlockMessage={draftVisionBlockMessage}
+        draftVisionWarningMessage={draftVisionWarningMessage}
+        canSubmitDraft={canSubmitDraft}
+        isProcessingAttachments={isProcessingAttachments}
+        onDraftTextChange={setDraftText}
+        onDraftFilesSelected={(files) => {
+          void addDraftFiles(files);
+        }}
+        onDraftRemoveAttachment={removeDraftAttachment}
+        onStartWithDraft={handleStartWithDraft}
+        onStartManually={handleStartManually}
+        onOpenRecent={handleOpenRecent}
+        onOpenFile={handleOpenFile}
+        showRecentFiles={capabilities.hasFileSystem}
+        currentModel={currentModel}
+        availableProviders={availableProviders}
+        onModelChange={setCurrentModel}
+        onOpenSettings={() => {
+          setSettingsInitialTab('ai');
+          setShowSettingsDialog(true);
+        }}
+      />
+      <SettingsDialog
+        isOpen={showSettingsDialog}
+        onClose={() => {
+          setShowSettingsDialog(false);
+          setSettingsInitialTab(undefined);
+          loadModelAndProviders();
+        }}
+        initialTab={settingsInitialTab}
+      />
+      <NuxLayoutPicker isOpen={showNux} onSelect={handleNuxSelect} />
+    </div>
+  ) : (
     <div
       className="h-screen flex flex-col"
       data-testid="app-container"
@@ -1167,7 +1247,6 @@ function App() {
           borderBottom: '1px solid var(--border-subtle)',
         }}
       >
-        {/* Web menu bar (web only — no native menu) */}
         {!capabilities.hasNativeMenu && (
           <WebMenuBar
             onExport={() => setShowExportDialog(true)}
@@ -1177,7 +1256,6 @@ function App() {
           />
         )}
 
-        {/* Tab bar (multi-file / Tauri) or filename label (single-file / web) */}
         <div className="flex-1 min-w-0 overflow-hidden">
           {capabilities.multiFile ? (
             <TabBar
@@ -1282,7 +1360,6 @@ function App() {
         </div>
       </header>
 
-      {/* Main content with dockview */}
       <div className="flex-1 overflow-hidden">
         <WorkspaceProvider value={workspaceState}>
           <DockviewReact
@@ -1296,7 +1373,6 @@ function App() {
         </WorkspaceProvider>
       </div>
 
-      {/* Export dialog */}
       <ExportDialog
         isOpen={showExportDialog}
         onClose={() => setShowExportDialog(false)}
@@ -1304,7 +1380,6 @@ function App() {
         workingDir={workingDir}
       />
 
-      {/* Settings dialog */}
       <SettingsDialog
         isOpen={showSettingsDialog}
         onClose={() => {
@@ -1314,7 +1389,12 @@ function App() {
         }}
         initialTab={settingsInitialTab}
       />
+    </div>
+  );
 
+  return (
+    <>
+      {content}
       <Toaster
         richColors
         position="bottom-right"
@@ -1326,7 +1406,7 @@ function App() {
           },
         }}
       />
-    </div>
+    </>
   );
 }
 

@@ -139,6 +139,16 @@ All tool execution is implemented in TypeScript and runs inside the app frontend
 - SharedArrayBuffer requires COOP/COEP headers
 - local storage and File System Access API behavior depends on browser support
 
+## Parallel agents
+
+Multiple AI agents may be working on this repository simultaneously. If you encounter unexpected changes, new files, or errors that you did not introduce, ignore them and move on. Do not attempt to delete, revert, or fix changes made by other agents unless the user explicitly asks you to work in that area.
+
+## Implementation plans
+
+When starting a non-trivial feature or change, create a Markdown plan file in `implementation-plans/` (for example, `implementation-plans/ai-edit-validation.md`). The plan should outline the goal, approach, affected files, and a checklist of steps.
+
+As you work, mark off progress in the plan file using `- [x]` checkboxes. The plan file serves as a durable, human-readable record of what was done and what remains, and it persists across sessions in a way ephemeral agent state does not.
+
 ## Current Status
 
 This document is intentionally scoped to the architecture that exists today:

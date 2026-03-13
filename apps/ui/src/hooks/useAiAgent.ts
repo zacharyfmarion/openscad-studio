@@ -9,10 +9,10 @@ import {
 } from '../services/aiService';
 import {
   getApiKey,
-  getAvailableProviders,
   getProviderFromModel,
   getStoredModel,
   setStoredModel,
+  useAvailableProviders,
 } from '../stores/apiKeyStore';
 import type {
   AiDraft,
@@ -32,6 +32,7 @@ import {
   processAttachmentFiles,
 } from '../utils/aiAttachments';
 import { getVisionSupportForModelId, messagesToModelMessages } from '../utils/aiMessages';
+import { getPreferredDefaultModel } from '../utils/aiModels';
 import {
   createActiveTurnState,
   deriveCurrentToolCalls,
@@ -59,7 +60,11 @@ const EMPTY_DRAFT: AiDraft = {
 
 // Coding turns regularly need a few extra steps after the last tool call
 // to produce a visible final summary for the user.
-const MAX_AGENT_STEPS = 20;
+const MAX_AGENT_STEPS = 30;
+const IS_DEV =
+  typeof window !== 'undefined' &&
+  !window.navigator.userAgent.includes('jsdom') &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
 function revokePreviewUrlsForIds(ids: string[], attachments: AttachmentStore) {
   for (const id of ids) {
@@ -138,7 +143,6 @@ export interface AiAgentState {
   currentToolCalls: ToolCall[];
   currentModel: string;
   currentModelVisionSupport: VisionSupport;
-  availableProviders: string[];
   draft: AiDraft;
   attachments: AttachmentStore;
   draftErrors: string[];
@@ -146,6 +150,7 @@ export interface AiAgentState {
 }
 
 export function useAiAgent() {
+  const availableProviders = useAvailableProviders();
   const [state, setState] = useState<AiAgentState>({
     isStreaming: false,
     streamingResponse: null,
@@ -158,7 +163,6 @@ export function useAiAgent() {
     currentToolCalls: [],
     currentModel: getStoredModel(),
     currentModelVisionSupport: getVisionSupportForModelId(getStoredModel()),
-    availableProviders: getAvailableProviders(),
     draft: EMPTY_DRAFT,
     attachments: {},
     draftErrors: [],
@@ -288,25 +292,37 @@ export function useAiAgent() {
   }, []);
 
   const loadModelAndProviders = useCallback(() => {
-    const model = getStoredModel();
-    const providers = getAvailableProviders();
+    const storedModel = getStoredModel();
+    const resolvedModel =
+      availableProviders.length === 0 || availableProviders.includes(getProviderFromModel(storedModel))
+        ? storedModel
+        : getPreferredDefaultModel(availableProviders);
+
+    if (resolvedModel !== storedModel) {
+      setStoredModel(resolvedModel);
+    }
+
     setState((prev) => ({
       ...prev,
-      currentModel: model,
-      currentModelVisionSupport: getVisionSupportForModelId(model),
-      availableProviders: providers,
+      currentModel: resolvedModel,
+      currentModelVisionSupport: getVisionSupportForModelId(resolvedModel),
     }));
-    if (import.meta.env.DEV) {
-      console.log('[useAiAgent] Loaded model:', model, 'Available providers:', providers);
+    if (IS_DEV) {
+      console.log(
+        '[useAiAgent] Loaded model:',
+        resolvedModel,
+        'Available providers:',
+        availableProviders
+      );
     }
-  }, []);
+  }, [availableProviders]);
 
   useEffect(() => {
     loadModelAndProviders();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadModelAndProviders]);
 
   const logTurnWarnings = useCallback((warnings: string[]) => {
-    if (!import.meta.env.DEV || warnings.length === 0) return;
+    if (!IS_DEV || warnings.length === 0) return;
     for (const warning of warnings) {
       console.warn('[useAiAgent]', warning);
     }
@@ -597,7 +613,7 @@ export function useAiAgent() {
         for await (const chunk of result.fullStream) {
           if (abortController.signal.aborted) break;
 
-          if (import.meta.env.DEV) {
+          if (IS_DEV) {
             console.log('[useAiAgent] Stream chunk:', chunk.type);
           }
 
@@ -646,7 +662,7 @@ export function useAiAgent() {
         }
 
         if (abortController.signal.aborted) {
-          if (import.meta.env.DEV) console.log('[useAiAgent] Stream was cancelled');
+          if (IS_DEV) console.log('[useAiAgent] Stream was cancelled');
           return;
         }
 
@@ -664,7 +680,7 @@ export function useAiAgent() {
         }
       } catch (error) {
         if (abortController.signal.aborted) {
-          if (import.meta.env.DEV) console.log('[useAiAgent] Stream was cancelled');
+          if (IS_DEV) console.log('[useAiAgent] Stream was cancelled');
           return;
         }
 
@@ -702,7 +718,7 @@ export function useAiAgent() {
   );
 
   const cancelStream = useCallback(() => {
-    if (import.meta.env.DEV) console.log('[useAiAgent] Cancelling stream...');
+    if (IS_DEV) console.log('[useAiAgent] Cancelling stream...');
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -728,7 +744,7 @@ export function useAiAgent() {
   }, []);
 
   const setCurrentModel = useCallback((model: string) => {
-    if (import.meta.env.DEV) console.log('[useAiAgent] Setting current model to:', model);
+    if (IS_DEV) console.log('[useAiAgent] Setting current model to:', model);
     setState((prev) => ({
       ...prev,
       currentModel: model,
@@ -758,7 +774,7 @@ export function useAiAgent() {
   }, []);
 
   const handleRestoreCheckpoint = useCallback((checkpointId: string, truncatedMessages: Message[]) => {
-    if (import.meta.env.DEV) console.log('[useAiAgent] Restoring checkpoint:', checkpointId);
+    if (IS_DEV) console.log('[useAiAgent] Restoring checkpoint:', checkpointId);
 
     const checkpoint = historyService.restoreTo(checkpointId);
     if (checkpoint) {
@@ -779,6 +795,7 @@ export function useAiAgent() {
 
   return {
     ...state,
+    availableProviders,
     submitPrompt,
     submitDraft,
     cancelStream,
