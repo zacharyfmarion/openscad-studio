@@ -190,7 +190,10 @@ interface PanelErrorBoundaryState {
   resetError: string | null;
 }
 
-export class PanelErrorBoundary extends Component<PanelErrorBoundaryProps, PanelErrorBoundaryState> {
+export class PanelErrorBoundary extends Component<
+  PanelErrorBoundaryProps,
+  PanelErrorBoundaryState
+> {
   state: PanelErrorBoundaryState = {
     hasError: false,
     error: null,
@@ -240,7 +243,11 @@ export class PanelErrorBoundary extends Component<PanelErrorBoundaryProps, Panel
 
   render() {
     if (!this.state.hasError) {
-      return <div key={this.state.resetCounter} className="h-full">{this.props.children}</div>;
+      return (
+        <div key={this.state.resetCounter} className="h-full">
+          {this.props.children}
+        </div>
+      );
     }
 
     return (

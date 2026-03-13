@@ -22,7 +22,10 @@ function normalizeRecentFile(file: Partial<RecentFile>): RecentFile | null {
   };
 }
 
-export function pruneRecentFiles(files: RecentFile[], maxCount: number = MAX_RECENT_FILES): RecentFile[] {
+export function pruneRecentFiles(
+  files: RecentFile[],
+  maxCount: number = MAX_RECENT_FILES
+): RecentFile[] {
   const deduped = new Map<string, RecentFile>();
 
   for (const file of files) {
@@ -35,9 +38,7 @@ export function pruneRecentFiles(files: RecentFile[], maxCount: number = MAX_REC
     }
   }
 
-  return [...deduped.values()]
-    .sort((a, b) => b.lastOpened - a.lastOpened)
-    .slice(0, maxCount);
+  return [...deduped.values()].sort((a, b) => b.lastOpened - a.lastOpened).slice(0, maxCount);
 }
 
 export function loadRecentFiles(): RecentFile[] {

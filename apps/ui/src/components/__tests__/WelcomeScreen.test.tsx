@@ -72,6 +72,7 @@ describe('WelcomeScreen', () => {
       />
     );
 
+    expect(screen.getByTestId('welcome-ai-entry').className).toContain('ph-no-capture');
     expect(await screen.findByRole('combobox')).toBeTruthy();
     expect(await screen.findByRole('option', { name: 'GPT-5.4' })).toBeTruthy();
   });

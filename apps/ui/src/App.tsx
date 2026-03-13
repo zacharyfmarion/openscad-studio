@@ -15,6 +15,7 @@ import { panelComponents, tabComponents, WorkspaceTab } from './components/panel
 import { useTheme } from './contexts/ThemeContext';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import type { WorkspaceState } from './contexts/WorkspaceContext';
+import { useAnalytics } from './analytics/runtime';
 import {
   setDockviewApi,
   getDockviewApi,
@@ -50,6 +51,30 @@ const RELEASE_VERSION = '0.8.1';
 const RELEASE_BASE = `https://github.com/zacharyfmarion/openscad-studio/releases/download/v${RELEASE_VERSION}`;
 
 type MacArch = 'aarch64' | 'x64';
+
+function isIgnorableRejection(reason: unknown): boolean {
+  const message =
+    reason instanceof Error
+      ? reason.message
+      : typeof reason === 'string'
+        ? reason
+        : typeof reason === 'object' &&
+            reason !== null &&
+            'message' in reason &&
+            typeof (reason as { message?: unknown }).message === 'string'
+          ? (reason as { message: string }).message
+          : '';
+
+  const normalized = message.trim().toLowerCase();
+  return (
+    normalized === 'canceled' ||
+    normalized === 'cancelled' ||
+    normalized === 'render cancelled' ||
+    normalized === 'render canceled' ||
+    normalized.includes('aborterror') ||
+    normalized.includes('aborted')
+  );
+}
 
 function DownloadForMacLink() {
   const [arch, setArch] = useState<MacArch>('aarch64');
@@ -200,6 +225,7 @@ function App() {
     dimensionMode,
     manualRender,
     renderOnSave,
+    renderWithTrigger,
     auxiliaryFiles,
   } = useOpenScad({
     workingDir,
@@ -219,6 +245,7 @@ function App() {
   }, [redo, updateSource]);
 
   const aiPromptPanelRef = useRef<AiPromptPanelRef>(null);
+  const analytics = useAnalytics();
 
   // AI Agent state
   const {
@@ -396,6 +423,7 @@ function App() {
   const workingDirRef = useRef<string | null>(workingDir);
   const renderOnSaveRef = useRef(renderOnSave);
   const manualRenderRef = useRef(manualRender);
+  const renderWithTriggerRef = useRef(renderWithTrigger);
   const updateSourceAndRenderRef = useRef(updateSourceAndRender);
 
   // Keep refs in sync with state
@@ -491,6 +519,10 @@ function App() {
   }, [manualRender]);
 
   useEffect(() => {
+    renderWithTriggerRef.current = renderWithTrigger;
+  }, [renderWithTrigger]);
+
+  useEffect(() => {
     updateSourceAndRenderRef.current = updateSourceAndRender;
   }, [updateSourceAndRender]);
 
@@ -521,11 +553,11 @@ function App() {
 
       // Debounced render - handles rapid tab switching gracefully
       tabSwitchRenderTimerRef.current = window.setTimeout(() => {
-        if (manualRenderRef.current) {
+        if (renderWithTriggerRef.current) {
           const currentTab = tabs.find((t) => t.id === activeTabId);
           if (import.meta.env.DEV)
             console.log('[App] Auto-rendering after tab change to:', currentTab?.name);
-          manualRenderRef.current();
+          renderWithTriggerRef.current('tab_switch');
         }
         tabSwitchRenderTimerRef.current = null;
       }, 150);
@@ -614,6 +646,13 @@ function App() {
           renderOnSaveRef.current();
         }
 
+        analytics.track('file saved', {
+          source: promptForPath ? 'save_as' : 'save',
+          had_existing_path: Boolean(currentTab.filePath),
+          format_on_save: currentSettings.editor.formatOnSave,
+          render_after_save: Boolean(renderOnSaveRef.current),
+        });
+
         if (shouldNotifySaveSuccess) {
           notifySuccess('File saved successfully', {
             toastId: 'save-success',
@@ -632,7 +671,7 @@ function App() {
         return false;
       }
     },
-    [updateSource]
+    [analytics, updateSource]
   );
 
   const handleStartWithDraft = useCallback(
@@ -650,17 +689,24 @@ function App() {
     setShowWelcome(false);
   }, []);
 
-  const handleNuxSelect = useCallback((preset: 'default' | 'ai-first') => {
-    updateSetting('ui', { hasCompletedNux: true, defaultLayoutPreset: preset });
-    setShowNux(false);
+  const handleNuxSelect = useCallback(
+    (preset: 'default' | 'ai-first') => {
+      updateSetting('ui', { hasCompletedNux: true, defaultLayoutPreset: preset });
+      setShowNux(false);
+      analytics.track('workspace layout selected', {
+        preset,
+        is_first_run: true,
+      });
 
-    const api = getDockviewApi();
-    if (api) {
-      api.clear();
-      addPresetPanels(api, preset);
-      saveLayout();
-    }
-  }, []);
+      const api = getDockviewApi();
+      if (api) {
+        api.clear();
+        addPresetPanels(api, preset);
+        saveLayout();
+      }
+    },
+    [analytics]
+  );
 
   const handleOpenRecent = useCallback(
     async (path: string) => {
@@ -669,6 +715,12 @@ function App() {
         if (existingTab) {
           await switchTab(existingTab.id);
           setShowWelcome(false);
+          analytics.track('file opened', {
+            source: 'recent',
+            has_disk_path: true,
+            reused_existing_tab: true,
+            replaced_welcome_tab: false,
+          });
           return 'opened' as const;
         }
 
@@ -709,11 +761,17 @@ function App() {
 
         setShowWelcome(false);
         if (result.path) addRecentFile(result.path);
+        analytics.track('file opened', {
+          source: 'recent',
+          has_disk_path: Boolean(result.path),
+          reused_existing_tab: false,
+          replaced_welcome_tab: shouldReplaceFirstTab,
+        });
 
-        if (manualRenderRef.current) {
+        if (renderWithTriggerRef.current) {
           setTimeout(() => {
-            if (manualRenderRef.current) {
-              manualRenderRef.current();
+            if (renderWithTriggerRef.current) {
+              renderWithTriggerRef.current('file_open');
             }
           }, 100);
         }
@@ -737,7 +795,7 @@ function App() {
         return 'removed' as const;
       }
     },
-    [tabs, showWelcome, switchTab, createNewTab, updateSource]
+    [analytics, tabs, showWelcome, switchTab, createNewTab, updateSource]
   );
 
   const handleOpenFile = useCallback(async () => {
@@ -752,6 +810,12 @@ function App() {
         if (existingTab) {
           await switchTab(existingTab.id);
           setShowWelcome(false);
+          analytics.track('file opened', {
+            source: 'open',
+            has_disk_path: true,
+            reused_existing_tab: true,
+            replaced_welcome_tab: false,
+          });
           return;
         }
       }
@@ -778,11 +842,17 @@ function App() {
 
       setShowWelcome(false);
       if (result.path) addRecentFile(result.path);
+      analytics.track('file opened', {
+        source: 'open',
+        has_disk_path: Boolean(result.path),
+        reused_existing_tab: false,
+        replaced_welcome_tab: shouldReplaceFirstTab,
+      });
 
-      if (manualRenderRef.current) {
+      if (renderWithTriggerRef.current) {
         setTimeout(() => {
-          if (manualRenderRef.current) {
-            manualRenderRef.current();
+          if (renderWithTriggerRef.current) {
+            renderWithTriggerRef.current('file_open');
           }
         }, 100);
       }
@@ -795,7 +865,7 @@ function App() {
         logLabel: 'Failed to open file',
       });
     }
-  }, [tabs, showWelcome, switchTab, createNewTab, updateSource]);
+  }, [analytics, tabs, showWelcome, switchTab, createNewTab, updateSource]);
 
   // Helper function to check for unsaved changes before destructive operations
   // Returns: true if ok to proceed, false if user wants to cancel
@@ -857,6 +927,12 @@ function App() {
             if (existingTab) {
               await switchTab(existingTab.id);
               setShowWelcome(false);
+              analytics.track('file opened', {
+                source: 'menu_open',
+                has_disk_path: true,
+                reused_existing_tab: true,
+                replaced_welcome_tab: false,
+              });
               return;
             }
           }
@@ -865,11 +941,17 @@ function App() {
           setShowWelcome(false);
 
           if (result.path) addRecentFile(result.path);
+          analytics.track('file opened', {
+            source: 'menu_open',
+            has_disk_path: Boolean(result.path),
+            reused_existing_tab: false,
+            replaced_welcome_tab: false,
+          });
 
-          if (manualRenderRef.current) {
+          if (renderWithTriggerRef.current) {
             setTimeout(() => {
-              if (manualRenderRef.current) {
-                manualRenderRef.current();
+              if (renderWithTriggerRef.current) {
+                renderWithTriggerRef.current('file_open');
               }
             }, 100);
           }
@@ -917,6 +999,9 @@ function App() {
           await getPlatform().fileExport(exportBytes, `export.${formatInfo.ext}`, [
             { name: formatInfo.label, extensions: [formatInfo.ext] },
           ]);
+          analytics.track('file exported', {
+            format,
+          });
           notifySuccess('Exported successfully', { toastId: 'export-success' });
         } catch (err) {
           notifyError({
@@ -934,7 +1019,7 @@ function App() {
       unlistenFns.forEach((fn) => fn());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [analytics, showWelcome, switchTab, createNewTab]);
 
   useEffect(() => {
     const platform = getPlatform();
@@ -975,7 +1060,7 @@ function App() {
 
   useEffect(() => {
     const unlisten = eventBus.on('history:restore', ({ code }) => {
-      updateSourceAndRenderRef.current(code);
+      updateSourceAndRenderRef.current(code, 'history_restore');
       setTabs((prev) =>
         prev.map((tab) =>
           tab.id === activeTabId
@@ -989,7 +1074,7 @@ function App() {
 
   useEffect(() => {
     const unlisten = eventBus.on('code-updated', ({ code }) => {
-      updateSourceAndRenderRef.current(code);
+      updateSourceAndRenderRef.current(code, 'code_update');
       setTabs((prev) =>
         prev.map((tab) =>
           tab.id === activeTabId
@@ -1000,6 +1085,16 @@ function App() {
     });
     return unlisten;
   }, [activeTabId]);
+
+  const previousSettingsDialogRef = useRef(false);
+  useEffect(() => {
+    if (showSettingsDialog && !previousSettingsDialogRef.current) {
+      analytics.track('settings opened', {
+        section: settingsInitialTab ?? 'appearance',
+      });
+    }
+    previousSettingsDialogRef.current = showSettingsDialog;
+  }, [analytics, settingsInitialTab, showSettingsDialog]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -1056,6 +1151,10 @@ function App() {
     };
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (isIgnorableRejection(event.reason)) {
+        return;
+      }
+
       notifyError({
         operation: 'unexpected-runtime-error',
         error: event.reason,

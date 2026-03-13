@@ -18,7 +18,8 @@ export function ModelSelector({
   disabled,
   compact = false,
 }: ModelSelectorProps) {
-  const { groupedByProvider, isLoading, error, fromCache, refreshModels } = useModels(availableProviders);
+  const { groupedByProvider, isLoading, error, fromCache, refreshModels } =
+    useModels(availableProviders);
 
   const { anthropic: anthropicModels, openai: openaiModels } = groupedByProvider;
   const hasModels = anthropicModels.length > 0 || openaiModels.length > 0;

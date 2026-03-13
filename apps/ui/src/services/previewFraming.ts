@@ -54,10 +54,7 @@ const DEFAULT_GRID_METRICS: PreviewGridMetrics = {
   sectionThickness: 1.2,
 };
 
-export function buildModelFrame(
-  geometry: THREE.BufferGeometry,
-  version: string
-): ModelFrame {
+export function buildModelFrame(geometry: THREE.BufferGeometry, version: string): ModelFrame {
   geometry.computeBoundingBox();
 
   const sourceBox = geometry.boundingBox?.clone() ?? new THREE.Box3();
@@ -118,10 +115,7 @@ export function getFitPaddingOptions(
   };
 }
 
-export function getExpandedFitBox(
-  box: THREE.Box3,
-  sceneStyle: PreviewSceneStyle
-): THREE.Box3 {
+export function getExpandedFitBox(box: THREE.Box3, sceneStyle: PreviewSceneStyle): THREE.Box3 {
   const framing = derivePreviewFramingMetrics(box, sceneStyle);
   const expandedBox = box.clone();
 
@@ -233,10 +227,7 @@ function getBoxCorners(box: THREE.Box3): THREE.Vector3[] {
   ];
 }
 
-function getProjectedBoxBounds(
-  camera: THREE.Camera,
-  box: THREE.Box3
-): ProjectedBoxBounds | null {
+function getProjectedBoxBounds(camera: THREE.Camera, box: THREE.Box3): ProjectedBoxBounds | null {
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;

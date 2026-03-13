@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAnalytics } from '../analytics/runtime';
 import { getPlatform, type ExportFormat } from '../platform';
 import { RenderService, type ExportFormat as WasmExportFormat } from '../services/renderService';
 import { Button, Select, Label } from './ui';
@@ -22,6 +23,7 @@ const FORMAT_OPTIONS: { value: ExportFormat; label: string; ext: string }[] = [
 ];
 
 export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
+  const analytics = useAnalytics();
   const [format, setFormat] = useState<ExportFormat>('stl');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string>('');
@@ -44,6 +46,10 @@ export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
       await getPlatform().fileExport(exportBytes, `export.${selectedFormat.ext}`, [
         { name: selectedFormat.label, extensions: [selectedFormat.ext] },
       ]);
+
+      analytics.track('file exported', {
+        format,
+      });
 
       notifySuccess('Exported successfully', { toastId: 'export-success' });
 

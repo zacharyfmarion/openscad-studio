@@ -12,9 +12,7 @@ import {
 describe('recentFiles', () => {
   beforeEach(() => {
     localStorage.clear();
-    jest.spyOn(Date, 'now')
-      .mockReturnValueOnce(1)
-      .mockReturnValueOnce(2);
+    jest.spyOn(Date, 'now').mockReturnValueOnce(1).mockReturnValueOnce(2);
   });
 
   afterEach(() => {

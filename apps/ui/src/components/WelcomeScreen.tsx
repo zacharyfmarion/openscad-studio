@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { ModelSelectionSurface } from '../analytics/runtime';
 import { Button } from './ui';
 import { AiComposer } from './AiComposer';
 import { ModelSelector } from './ModelSelector';
@@ -23,8 +24,8 @@ interface WelcomeScreenProps {
   canSubmitDraft: boolean;
   isProcessingAttachments: boolean;
   onDraftTextChange: (text: string) => void;
-  onDraftFilesSelected: (files: File[]) => void;
-  onDraftRemoveAttachment: (attachmentId: string) => void;
+  onDraftFilesSelected: (files: File[], sourceSurface?: ModelSelectionSurface) => void;
+  onDraftRemoveAttachment: (attachmentId: string, sourceSurface?: ModelSelectionSurface) => void;
   onStartWithDraft: (draftOverride?: AiDraft) => void;
   onStartManually: () => void;
   onOpenRecent: (path: string) => Promise<RecentFileOpenResult>;
@@ -33,7 +34,7 @@ interface WelcomeScreenProps {
   showRecentFiles?: boolean;
   currentModel?: string;
   availableProviders?: string[];
-  onModelChange?: (model: string) => void;
+  onModelChange?: (model: string, sourceSurface?: ModelSelectionSurface) => void;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -137,7 +138,7 @@ export function WelcomeScreen({
         </h1>
 
         {hasApiKey ? (
-          <div className="space-y-2">
+          <div data-testid="welcome-ai-entry" className="space-y-6 ph-no-capture">
             <AiComposer
               draft={draft}
               attachments={attachments}
@@ -155,7 +156,7 @@ export function WelcomeScreen({
                 <ModelSelector
                   currentModel={currentModel}
                   availableProviders={availableProviders}
-                  onChange={(model) => onModelChange?.(model)}
+                  onChange={(model) => onModelChange?.(model, 'welcome')}
                   compact
                 />
               }
@@ -164,6 +165,34 @@ export function WelcomeScreen({
               onRemoveAttachment={onDraftRemoveAttachment}
               onSubmit={onStartWithDraft}
             />
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Try an example:
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {EXAMPLE_PROMPTS.map((example) => (
+                  <button
+                    key={example}
+                    onClick={() => {
+                      if (!hasApiKey) return;
+                      onStartWithDraft({ text: example, attachmentIds: [] });
+                    }}
+                    disabled={!hasApiKey}
+                    className="px-3 py-1.5 rounded-lg text-sm transition-colors border"
+                    style={{
+                      backgroundColor: 'var(--bg-secondary)',
+                      color: hasApiKey ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+                      borderColor: 'var(--border-secondary)',
+                      opacity: hasApiKey ? 1 : 0.5,
+                      cursor: hasApiKey ? 'pointer' : 'not-allowed',
+                    }}
+                    title={!hasApiKey ? 'Configure an API key in Settings to use AI' : example}
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : hasApiKey === false ? (
           <div
@@ -192,35 +221,6 @@ export function WelcomeScreen({
             </p>
           </div>
         ) : null}
-
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-            Try an example:
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {EXAMPLE_PROMPTS.map((example) => (
-              <button
-                key={example}
-                onClick={() => {
-                  if (!hasApiKey) return;
-                  onStartWithDraft({ text: example, attachmentIds: [] });
-                }}
-                disabled={!hasApiKey}
-                className="px-3 py-1.5 rounded-lg text-sm transition-colors border"
-                style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  color: hasApiKey ? 'var(--text-secondary)' : 'var(--text-tertiary)',
-                  borderColor: 'var(--border-secondary)',
-                  opacity: hasApiKey ? 1 : 0.5,
-                  cursor: hasApiKey ? 'pointer' : 'not-allowed',
-                }}
-                title={!hasApiKey ? 'Configure an API key in Settings to use AI' : example}
-              >
-                {example}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {showRecentFiles && recentFilesReady && recentFiles.length > 0 && (
           <div className="space-y-3 pt-4">

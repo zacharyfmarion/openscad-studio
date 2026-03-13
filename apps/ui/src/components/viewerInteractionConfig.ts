@@ -19,9 +19,7 @@ export const VIEWER_CONTROL_ACTIONS = {
   TOUCH_DOLLY_TRUCK: 4096,
 } as const;
 
-export function createViewerInteractionConfig(
-  shiftPanActive = false
-): ViewerInteractionConfig {
+export function createViewerInteractionConfig(shiftPanActive = false): ViewerInteractionConfig {
   return {
     mouseButtons: {
       left: shiftPanActive ? VIEWER_CONTROL_ACTIONS.TRUCK : VIEWER_CONTROL_ACTIONS.ROTATE,

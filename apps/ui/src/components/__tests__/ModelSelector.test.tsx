@@ -1,11 +1,10 @@
 /** @jest-environment jsdom */
 
+import { TransformStream } from 'node:stream/web';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { ModelSelector } from '../ModelSelector';
 import { clearApiKey, storeApiKey } from '../../stores/apiKeyStore';
-
-const { TransformStream } = require('node:stream/web');
 
 if (!globalThis.TransformStream) {
   Object.defineProperty(globalThis, 'TransformStream', {
@@ -23,6 +22,10 @@ jest.mock('../../services/aiService', () => ({
 jest.mock('../../services/aiStream', () => ({
   startAiStream: jest.fn(),
 }));
+
+let useAiAgent = (() => {
+  throw new Error('useAiAgent test dependency not loaded');
+}) as typeof import('../../hooks/useAiAgent').useAiAgent;
 
 function createJsonResponse(body: unknown) {
   return {
@@ -60,7 +63,6 @@ function createFetchMock() {
 }
 
 function ModelSelectorHarness() {
-  const { useAiAgent } = require('../../hooks/useAiAgent') as typeof import('../../hooks/useAiAgent');
   const { currentModel, availableProviders, setCurrentModel } = useAiAgent();
 
   return (
@@ -73,6 +75,10 @@ function ModelSelectorHarness() {
 }
 
 describe('ModelSelector provider refresh', () => {
+  beforeAll(async () => {
+    ({ useAiAgent } = await import('../../hooks/useAiAgent'));
+  });
+
   beforeEach(() => {
     localStorage.clear();
     clearApiKey('anthropic');

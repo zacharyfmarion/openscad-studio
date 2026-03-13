@@ -26,11 +26,16 @@ export interface LibrarySettings {
   autoDiscoverSystem: boolean;
 }
 
+export interface PrivacySettings {
+  analyticsEnabled: boolean;
+}
+
 export interface Settings {
   editor: EditorSettings;
   appearance: AppearanceSettings;
   ui: UiSettings;
   library: LibrarySettings;
+  privacy: PrivacySettings;
 }
 
 const DEFAULT_VIM_CONFIG = `# Vim Configuration
@@ -81,6 +86,9 @@ const DEFAULT_SETTINGS: Settings = {
     customPaths: [],
     autoDiscoverSystem: true,
   },
+  privacy: {
+    analyticsEnabled: true,
+  },
 };
 
 const SETTINGS_KEY = 'openscad-studio-settings';
@@ -112,6 +120,10 @@ export function loadSettings(): Settings {
         library: {
           ...DEFAULT_SETTINGS.library,
           ...(parsed.library || {}),
+        },
+        privacy: {
+          ...DEFAULT_SETTINGS.privacy,
+          ...(parsed.privacy || {}),
         },
       };
     }

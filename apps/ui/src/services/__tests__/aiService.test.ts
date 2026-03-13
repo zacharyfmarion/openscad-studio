@@ -15,9 +15,7 @@ type ExecutableTool = {
   execute: (input: unknown) => Promise<unknown>;
 };
 
-function createCallbacks(
-  overrides: Partial<AiToolCallbacks> = {}
-): AiToolCallbacks {
+function createCallbacks(overrides: Partial<AiToolCallbacks> = {}): AiToolCallbacks {
   return {
     getCurrentCode: () => 'cube(10);',
     captureCurrentView: async () => null,

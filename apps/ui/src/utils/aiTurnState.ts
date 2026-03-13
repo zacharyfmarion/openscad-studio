@@ -200,16 +200,11 @@ function finalizePendingToolCalls(
 
     const finalizedTool: ToolCall = {
       ...toolCall,
-      state:
-        reason === 'cancelled'
-          ? 'pending'
-          : reason === 'error'
-            ? 'error'
-            : 'error',
+      state: reason === 'cancelled' ? 'pending' : reason === 'error' ? 'error' : 'error',
       errorText:
         reason === 'cancelled'
           ? toolCall.errorText
-          : errorText ?? toolCall.errorText ?? 'Tool call did not complete.',
+          : (errorText ?? toolCall.errorText ?? 'Tool call did not complete.'),
     };
     const toolMessage = createToolMessage(finalizedTool);
     const removed = removePendingToolCall(
@@ -246,10 +241,7 @@ export function createActiveTurnState(turnId: string, userMessageId: string): Ac
   };
 }
 
-export function reduceActiveTurnChunk(
-  state: ActiveTurnState,
-  chunk: StreamChunk
-): TurnChunkResult {
+export function reduceActiveTurnChunk(state: ActiveTurnState, chunk: StreamChunk): TurnChunkResult {
   switch (chunk.type) {
     case 'start':
       return { state, warnings: [] };
@@ -455,10 +447,7 @@ export function reduceActiveTurnChunk(
       const finalizedToolCall: ToolCall = {
         toolCallId: chunk.toolCallId,
         name: chunk.toolName,
-        args:
-          (chunk.input as Record<string, unknown>) ??
-          existingToolCall.args ??
-          undefined,
+        args: (chunk.input as Record<string, unknown>) ?? existingToolCall.args ?? undefined,
         state: 'completed',
         result: chunk.output,
       };
@@ -493,10 +482,7 @@ export function reduceActiveTurnChunk(
       const finalizedToolCall: ToolCall = {
         toolCallId: chunk.toolCallId,
         name: chunk.toolName,
-        args:
-          (chunk.input as Record<string, unknown>) ??
-          existingToolCall.args ??
-          undefined,
+        args: (chunk.input as Record<string, unknown>) ?? existingToolCall.args ?? undefined,
         state: 'error',
         errorText: stringifyError(chunk.error),
       };
@@ -629,7 +615,11 @@ export function deriveCurrentToolCalls(state: ActiveTurnState): ToolCall[] {
   return state.pendingToolCallOrder
     .map((toolCallId) => state.pendingToolCallsById[toolCallId])
     .filter((toolCall): toolCall is PendingToolCall => Boolean(toolCall))
-    .map(({ inputText: _inputText, ...toolCall }) => toolCall);
+    .map((toolCall) => {
+      const { inputText, ...currentToolCall } = toolCall;
+      void inputText;
+      return currentToolCall;
+    });
 }
 
 export function attachmentIsReferencedByMessages(id: string, messages: Message[]) {

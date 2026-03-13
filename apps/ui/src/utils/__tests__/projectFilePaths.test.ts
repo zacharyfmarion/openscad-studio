@@ -1,7 +1,4 @@
-import {
-  getRelativeProjectPath,
-  normalizeProjectRelativePath,
-} from '../projectFilePaths';
+import { getRelativeProjectPath, normalizeProjectRelativePath } from '../projectFilePaths';
 
 describe('normalizeProjectRelativePath', () => {
   it('keeps simple relative paths', () => {

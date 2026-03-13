@@ -23,7 +23,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
     return (
       <div
         data-testid="diagnostics-panel"
-        className="h-full px-4 py-3 text-sm"
+        className="h-full px-4 py-3 text-sm ph-no-capture"
         style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
       >
         No messages
@@ -34,7 +34,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
   return (
     <div
       data-testid="diagnostics-panel"
-      className="h-full overflow-y-auto"
+      className="h-full overflow-y-auto ph-no-capture"
       style={{ backgroundColor: 'var(--bg-secondary)' }}
     >
       {/* Output (ECHO) section */}

@@ -1,13 +1,7 @@
 import * as THREE from 'three';
 import { STLLoader } from 'three-stdlib';
-import {
-  FALLBACK_PREVIEW_SCENE_STYLE,
-  type PreviewSceneStyle,
-} from './previewSceneConfig';
-import {
-  buildModelFrame,
-  derivePreviewFramingMetrics,
-} from './previewFraming';
+import { FALLBACK_PREVIEW_SCENE_STYLE, type PreviewSceneStyle } from './previewSceneConfig';
+import { buildModelFrame, derivePreviewFramingMetrics } from './previewFraming';
 
 export type PresetView = 'front' | 'back' | 'top' | 'bottom' | 'left' | 'right' | 'isometric';
 
@@ -54,10 +48,7 @@ export async function captureOffscreen(
   options: CaptureOptions = {}
 ): Promise<string> {
   const sceneStyle = options.sceneStyle ?? FALLBACK_PREVIEW_SCENE_STYLE;
-  const {
-    width = sceneStyle.screenshot.width,
-    height = sceneStyle.screenshot.height,
-  } = options;
+  const { width = sceneStyle.screenshot.width, height = sceneStyle.screenshot.height } = options;
 
   const geometry = await new Promise<THREE.BufferGeometry>((resolve, reject) => {
     const loader = new STLLoader();

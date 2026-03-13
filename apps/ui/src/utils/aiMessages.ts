@@ -98,8 +98,7 @@ export function messagesToModelMessages(
 
 function userMessagePartsToModelContent(message: UserMessage, attachments: AttachmentStore) {
   const parts: Array<
-    | { type: 'text'; text: string }
-    | { type: 'image'; image: string; mediaType?: string }
+    { type: 'text'; text: string } | { type: 'image'; image: string; mediaType?: string }
   > = [];
 
   for (const part of message.parts) {

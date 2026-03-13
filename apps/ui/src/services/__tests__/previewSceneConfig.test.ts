@@ -1,8 +1,5 @@
 import { getTheme } from '../../themes';
-import {
-  FALLBACK_PREVIEW_SCENE_STYLE,
-  getPreviewSceneStyle,
-} from '../previewSceneConfig';
+import { FALLBACK_PREVIEW_SCENE_STYLE, getPreviewSceneStyle } from '../previewSceneConfig';
 
 describe('previewSceneConfig', () => {
   it('maps theme colors into shared preview scene tokens', () => {

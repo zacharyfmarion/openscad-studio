@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { type ToolSet, stepCountIs } from 'ai';
+import { bucketCount, useAnalytics, type ModelSelectionSurface } from '../analytics/runtime';
 import { historyService, eventBus, getPlatform } from '../platform';
 import {
   createModel,
@@ -48,10 +49,7 @@ import {
   FALLBACK_PREVIEW_SCENE_STYLE,
   type PreviewSceneStyle,
 } from '../services/previewSceneConfig';
-import {
-  getRelativeProjectPath,
-  normalizeProjectRelativePath,
-} from '../utils/projectFilePaths';
+import { getRelativeProjectPath, normalizeProjectRelativePath } from '../utils/projectFilePaths';
 
 const EMPTY_DRAFT: AiDraft = {
   text: '',
@@ -150,6 +148,7 @@ export interface AiAgentState {
 }
 
 export function useAiAgent() {
+  const analytics = useAnalytics();
   const availableProviders = useAvailableProviders();
   const [state, setState] = useState<AiAgentState>({
     isStreaming: false,
@@ -190,6 +189,7 @@ export function useAiAgent() {
   } | null>(null);
   const pendingCheckpointIdRef = useRef<string | null>(null);
   const didReceiveResponseRef = useRef(false);
+  const requestStartedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!state.isStreaming) {
@@ -294,7 +294,8 @@ export function useAiAgent() {
   const loadModelAndProviders = useCallback(() => {
     const storedModel = getStoredModel();
     const resolvedModel =
-      availableProviders.length === 0 || availableProviders.includes(getProviderFromModel(storedModel))
+      availableProviders.length === 0 ||
+      availableProviders.includes(getProviderFromModel(storedModel))
         ? storedModel
         : getPreferredDefaultModel(availableProviders);
 
@@ -401,19 +402,47 @@ export function useAiAgent() {
           error: options.errorText ? `Failed: ${options.errorText}` : null,
           messages: nextMessages,
           attachments: nextConversation.attachments,
-          draft:
-            options.restoreDraft && submittedDraft
-              ? submittedDraft
-              : prev.draft,
+          draft: options.restoreDraft && submittedDraft ? submittedDraft : prev.draft,
         };
       });
+
+      const durationMs =
+        requestStartedAtRef.current === null
+          ? undefined
+          : Math.round(performance.now() - requestStartedAtRef.current);
+      requestStartedAtRef.current = null;
+
+      const toolMessages = finalizedTurn.state.completedToolCalls;
+      const toolNamesUsed = Array.from(new Set(toolMessages.map((tool) => tool.toolName))).sort();
+      const appliedEditCount = toolMessages.filter((tool) => tool.toolName === 'apply_edit').length;
+      const baseProperties = {
+        provider: getProviderFromModel(stateRef.current.currentModel),
+        model_id: stateRef.current.currentModel,
+        duration_ms: durationMs,
+        tool_call_count: toolMessages.length,
+        tool_names_used: toolNamesUsed,
+        applied_edit_count: appliedEditCount,
+      };
+
+      if (options.reason === 'cancelled') {
+        analytics.track('ai request cancelled', baseProperties);
+      } else {
+        analytics.track('ai request completed', {
+          ...baseProperties,
+          finish_reason: options.completionNotice ? 'step-budget' : options.reason,
+          had_error: options.reason === 'error',
+        });
+      }
     },
-    [logTurnWarnings]
+    [analytics, logTurnWarnings]
   );
 
   useEffect(() => {
     return () => {
-      revokePreviewUrlsForIds(Object.keys(stateRef.current.attachments), stateRef.current.attachments);
+      revokePreviewUrlsForIds(
+        Object.keys(stateRef.current.attachments),
+        stateRef.current.attachments
+      );
     };
   }, []);
 
@@ -451,60 +480,81 @@ export function useAiAgent() {
     });
   }, []);
 
-  const addDraftFiles = useCallback(async (files: File[]) => {
-    if (files.length === 0) return;
+  const addDraftFiles = useCallback(
+    async (files: File[], sourceSurface: ModelSelectionSurface = 'unknown') => {
+      if (files.length === 0) return;
 
-    const snapshot = stateRef.current;
-    setState((prev) => ({
-      ...prev,
-      isProcessingAttachments: true,
-      draftErrors: [],
-    }));
-
-    const result = await processAttachmentFiles(files, snapshot.draft, snapshot.attachments);
-
-    setState((prev) => {
-      const nextAttachments = { ...prev.attachments };
-      const nextAttachmentIds = [...prev.draft.attachmentIds];
-
-      for (const attachment of result.attachments) {
-        nextAttachments[attachment.id] = attachment;
-        nextAttachmentIds.push(attachment.id);
-      }
-
-      return {
+      const snapshot = stateRef.current;
+      setState((prev) => ({
         ...prev,
-        isProcessingAttachments: false,
-        attachments: nextAttachments,
-        draft: {
-          ...prev.draft,
-          attachmentIds: nextAttachmentIds,
-        },
-        draftErrors: result.errors,
-      };
-    });
-  }, []);
+        isProcessingAttachments: true,
+        draftErrors: [],
+      }));
 
-  const removeDraftAttachment = useCallback((attachmentId: string) => {
-    setState((prev) => {
-      const attachment = prev.attachments[attachmentId];
-      if (attachment?.previewUrl) {
-        URL.revokeObjectURL(attachment.previewUrl);
-      }
+      const result = await processAttachmentFiles(files, snapshot.draft, snapshot.attachments);
+      const readyCount = result.attachments.filter(
+        (attachment) => attachment.status === 'ready'
+      ).length;
+      const errorCount = result.attachments.length - readyCount;
 
-      const nextAttachments = { ...prev.attachments };
-      delete nextAttachments[attachmentId];
+      setState((prev) => {
+        const nextAttachments = { ...prev.attachments };
+        const nextAttachmentIds = [...prev.draft.attachmentIds];
 
-      return {
-        ...prev,
-        attachments: nextAttachments,
-        draft: {
-          ...prev.draft,
-          attachmentIds: prev.draft.attachmentIds.filter((id) => id !== attachmentId),
-        },
-      };
-    });
-  }, []);
+        for (const attachment of result.attachments) {
+          nextAttachments[attachment.id] = attachment;
+          nextAttachmentIds.push(attachment.id);
+        }
+
+        return {
+          ...prev,
+          isProcessingAttachments: false,
+          attachments: nextAttachments,
+          draft: {
+            ...prev.draft,
+            attachmentIds: nextAttachmentIds,
+          },
+          draftErrors: result.errors,
+        };
+      });
+
+      analytics.track('attachment added', {
+        source_surface: sourceSurface,
+        selected_count: files.length,
+        ready_count: readyCount,
+        error_count: errorCount,
+      });
+    },
+    [analytics]
+  );
+
+  const removeDraftAttachment = useCallback(
+    (attachmentId: string, sourceSurface: ModelSelectionSurface = 'unknown') => {
+      setState((prev) => {
+        const attachment = prev.attachments[attachmentId];
+        if (attachment?.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl);
+        }
+
+        const nextAttachments = { ...prev.attachments };
+        delete nextAttachments[attachmentId];
+
+        return {
+          ...prev,
+          attachments: nextAttachments,
+          draft: {
+            ...prev.draft,
+            attachmentIds: prev.draft.attachmentIds.filter((id) => id !== attachmentId),
+          },
+        };
+      });
+
+      analytics.track('attachment removed', {
+        source_surface: sourceSurface,
+      });
+    },
+    [analytics]
+  );
 
   const clearDraft = useCallback(() => {
     setState((prev) => {
@@ -590,6 +640,15 @@ export function useAiAgent() {
       }));
       pendingCheckpointIdRef.current = null;
       didReceiveResponseRef.current = false;
+      requestStartedAtRef.current = performance.now();
+      analytics.track('ai request submitted', {
+        provider,
+        model_id: currentState.currentModel,
+        attachment_count: submittedReadyIds.length,
+        has_project_file_access: callbacks.hasProjectFileAccess(),
+        prompt_length_bucket: bucketCount(draft.text.trim().length, [20, 80, 200, 500]),
+        conversation_length_bucket: bucketCount(updatedMessages.length, [2, 5, 10, 20]),
+      });
 
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
@@ -707,7 +766,7 @@ export function useAiAgent() {
         abortControllerRef.current = null;
       }
     },
-    [finalizeStreamTurn, logTurnWarnings, syncActiveTurnState, tools]
+    [analytics, callbacks, finalizeStreamTurn, logTurnWarnings, syncActiveTurnState, tools]
   );
 
   const submitPrompt = useCallback(
@@ -743,17 +802,33 @@ export function useAiAgent() {
     setState((prev) => ({ ...prev, error: null }));
   }, []);
 
-  const setCurrentModel = useCallback((model: string) => {
-    if (IS_DEV) console.log('[useAiAgent] Setting current model to:', model);
-    setState((prev) => ({
-      ...prev,
-      currentModel: model,
-      currentModelVisionSupport: getVisionSupportForModelId(model),
-    }));
-    setStoredModel(model);
-  }, []);
+  const setCurrentModel = useCallback(
+    (model: string, sourceSurface: ModelSelectionSurface = 'unknown') => {
+      if (IS_DEV) console.log('[useAiAgent] Setting current model to:', model);
+      setState((prev) => ({
+        ...prev,
+        currentModel: model,
+        currentModelVisionSupport: getVisionSupportForModelId(model),
+      }));
+      setStoredModel(model);
+      analytics.track('model selected', {
+        provider: getProviderFromModel(model),
+        model_id: model,
+        source_surface: sourceSurface,
+      });
+    },
+    [analytics]
+  );
 
   const newConversation = useCallback(() => {
+    const currentState = stateRef.current;
+    analytics.track('conversation started', {
+      source_surface: 'ai_panel',
+      had_messages: currentState.messages.length > 0,
+      had_draft_text: currentState.draft.text.trim().length > 0,
+      draft_attachment_count: currentState.draft.attachmentIds.length,
+      previous_message_count_bucket: bucketCount(currentState.messages.length, [1, 3, 8, 20]),
+    });
     activeTurnRef.current = null;
     activeTurnDraftRef.current = null;
     committedMessagesRef.current = [];
@@ -771,27 +846,33 @@ export function useAiAgent() {
         currentToolCalls: [],
       };
     });
-  }, []);
+  }, [analytics]);
 
-  const handleRestoreCheckpoint = useCallback((checkpointId: string, truncatedMessages: Message[]) => {
-    if (IS_DEV) console.log('[useAiAgent] Restoring checkpoint:', checkpointId);
+  const handleRestoreCheckpoint = useCallback(
+    (checkpointId: string, truncatedMessages: Message[]) => {
+      if (IS_DEV) console.log('[useAiAgent] Restoring checkpoint:', checkpointId);
 
-    const checkpoint = historyService.restoreTo(checkpointId);
-    if (checkpoint) {
-      eventBus.emit('history:restore', { code: checkpoint.code });
-    } else {
-      console.error('[useAiAgent] Failed to restore checkpoint: not found', checkpointId);
-    }
+      const checkpoint = historyService.restoreTo(checkpointId);
+      if (checkpoint) {
+        eventBus.emit('history:restore', { code: checkpoint.code });
+      } else {
+        console.error('[useAiAgent] Failed to restore checkpoint: not found', checkpointId);
+      }
 
-    committedMessagesRef.current = truncatedMessages;
-    activeTurnRef.current = null;
-    activeTurnDraftRef.current = null;
+      committedMessagesRef.current = truncatedMessages;
+      activeTurnRef.current = null;
+      activeTurnDraftRef.current = null;
 
-    setState((prev) => ({
-      ...prev,
-      messages: truncatedMessages,
-    }));
-  }, []);
+      setState((prev) => ({
+        ...prev,
+        messages: truncatedMessages,
+      }));
+      analytics.track('checkpoint restored', {
+        had_later_messages: stateRef.current.messages.length > truncatedMessages.length,
+      });
+    },
+    [analytics]
+  );
 
   return {
     ...state,

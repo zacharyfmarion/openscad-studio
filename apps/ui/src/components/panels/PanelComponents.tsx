@@ -44,9 +44,9 @@ const AiChatPanel: React.FC<IDockviewPanelProps> = () => {
         onSubmit={ws.submitDraft}
         onTextChange={ws.setDraftText}
         onFilesSelected={(files) => {
-          void ws.addDraftFiles(files);
+          void ws.addDraftFiles(files, 'ai_panel');
         }}
-        onRemoveAttachment={ws.removeDraftAttachment}
+        onRemoveAttachment={(attachmentId) => ws.removeDraftAttachment(attachmentId, 'ai_panel')}
         draft={ws.draft}
         attachments={ws.attachments}
         draftErrors={ws.draftErrors}

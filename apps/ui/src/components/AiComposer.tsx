@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { TbPaperclip, TbX } from 'react-icons/tb';
 import { Button, IconButton } from './ui';
+import type { ModelSelectionSurface } from '../analytics/runtime';
 import type { AiDraft, AttachmentStore } from '../types/aiChat';
 
 interface AiComposerProps {
@@ -30,8 +31,8 @@ interface AiComposerProps {
   helperText?: ReactNode;
   trailingControls?: ReactNode;
   onTextChange: (text: string) => void;
-  onFilesSelected: (files: File[]) => void;
-  onRemoveAttachment: (attachmentId: string) => void;
+  onFilesSelected: (files: File[], sourceSurface?: ModelSelectionSurface) => void;
+  onRemoveAttachment: (attachmentId: string, sourceSurface?: ModelSelectionSurface) => void;
   onSubmit: () => void;
   onCancel?: () => void;
 }
@@ -42,6 +43,10 @@ export interface AiComposerRef {
 
 function hasFilePayload(event: React.DragEvent | DragEvent) {
   return Array.from(event.dataTransfer?.types ?? []).includes('Files');
+}
+
+function getComposerSourceSurface(variant: 'panel' | 'welcome'): ModelSelectionSurface {
+  return variant === 'welcome' ? 'welcome' : 'ai_panel';
 }
 
 export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
@@ -119,11 +124,12 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
       [attachments, draft.attachmentIds]
     );
 
-    const submitDisabled = disabled || isProcessingAttachments || !canSubmit || Boolean(blockedMessage);
+    const submitDisabled =
+      disabled || isProcessingAttachments || !canSubmit || Boolean(blockedMessage);
 
     const handleFiles = (files: FileList | File[] | null) => {
       if (disabled || !files?.length) return;
-      onFilesSelected(Array.from(files));
+      onFilesSelected(Array.from(files), getComposerSourceSurface(variant));
     };
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -187,11 +193,11 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
     return (
       <div
         data-testid="ai-composer"
+        className="rounded-xl border transition-colors ph-no-capture"
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className="rounded-xl border transition-colors"
         style={{
           borderColor: rootBorderColor,
           backgroundColor: variant === 'welcome' ? 'var(--bg-elevated)' : 'var(--bg-primary)',
@@ -209,29 +215,23 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
             style={{
               backgroundColor: 'transparent',
               color: 'var(--text-primary)',
-              minHeight:
-                variant === 'welcome'
-                  ? rows >= 4
-                    ? '84px'
-                    : undefined
-                  : undefined,
+              minHeight: variant === 'welcome' ? (rows >= 4 ? '84px' : undefined) : undefined,
               fontFamily: 'inherit',
-              padding:
-                variant === 'welcome' ? undefined : '0.25rem 0.25rem 0.125rem 0.25rem',
+              padding: variant === 'welcome' ? undefined : '0.25rem 0.25rem 0.125rem 0.25rem',
               lineHeight: variant === 'welcome' ? undefined : '1.45',
             }}
             rows={rows}
             disabled={disabled}
-            title={
-              variant === 'panel'
-                ? 'Enter submits. Shift+Enter adds a newline.'
-                : undefined
-            }
+            title={variant === 'panel' ? 'Enter submits. Shift+Enter adds a newline.' : undefined}
           />
 
           {draftAttachments.length > 0 && (
             <div
-              className={variant === 'welcome' ? 'mt-3 flex flex-wrap gap-2' : 'mt-2 flex gap-2 overflow-x-auto pb-1'}
+              className={
+                variant === 'welcome'
+                  ? 'mt-3 flex flex-wrap gap-2'
+                  : 'mt-2 flex gap-2 overflow-x-auto pb-1'
+              }
             >
               {draftAttachments.map((attachment) => (
                 <div
@@ -251,7 +251,9 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
                 >
                   <button
                     type="button"
-                    onClick={() => onRemoveAttachment(attachment.id)}
+                    onClick={() =>
+                      onRemoveAttachment(attachment.id, getComposerSourceSurface(variant))
+                    }
                     className="absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full opacity-0 transition-opacity group-hover:opacity-100"
                     style={{
                       color: 'var(--text-primary)',
@@ -295,7 +297,10 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
                       >
                         {attachment.filename}
                       </div>
-                      <div className="text-[10px] truncate" style={{ color: 'var(--text-tertiary)' }}>
+                      <div
+                        className="text-[10px] truncate"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
                         {attachment.status === 'ready'
                           ? `${Math.round(attachment.sizeBytes / 1024)} KB`
                           : attachment.status === 'pending'
@@ -368,10 +373,7 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
               >
                 <TbPaperclip size={14} />
               </IconButton>
-              <div
-                className="text-xs whitespace-nowrap"
-                style={{ color: 'var(--text-tertiary)' }}
-              >
+              <div className="text-xs whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>
                 {variant === 'welcome' ? 'Drop up to 4 images' : 'Attach images'}
               </div>
             </div>

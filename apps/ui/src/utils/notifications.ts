@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { trackAnalyticsError, type AnalyticsErrorDomain } from '../analytics/runtime';
 
 export interface NormalizedAppError {
   message: string;
@@ -12,6 +13,10 @@ export interface UiErrorContext {
   toastId?: string;
   logLabel?: string;
   description?: string;
+  errorDomain?: AnalyticsErrorDomain;
+  sourceComponent?: string;
+  handled?: boolean;
+  analyticsProperties?: Record<string, unknown>;
 }
 
 export interface NotifyOperationOptions<T> {
@@ -62,6 +67,10 @@ export function notifyError({
   toastId,
   logLabel,
   description,
+  errorDomain,
+  sourceComponent,
+  handled,
+  analyticsProperties,
 }: UiErrorContext): NormalizedAppError {
   const normalized = normalizeAppError(error, fallbackMessage ?? operation);
 
@@ -74,10 +83,22 @@ export function notifyError({
     description,
   });
 
+  trackAnalyticsError({
+    operation,
+    error,
+    errorDomain,
+    handled,
+    sourceComponent: sourceComponent ?? logLabel ?? operation,
+    properties: analyticsProperties,
+  });
+
   return normalized;
 }
 
-export function notifySuccess(message: string, options?: { toastId?: string; description?: string }) {
+export function notifySuccess(
+  message: string,
+  options?: { toastId?: string; description?: string }
+) {
   toast.success(message, {
     id: options?.toastId,
     description: options?.description,

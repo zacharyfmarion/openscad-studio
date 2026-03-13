@@ -1,7 +1,4 @@
-import {
-  VIEWER_CONTROL_ACTIONS,
-  createViewerInteractionConfig,
-} from '../viewerInteractionConfig';
+import { VIEWER_CONTROL_ACTIONS, createViewerInteractionConfig } from '../viewerInteractionConfig';
 
 describe('viewerInteractionConfig', () => {
   it('uses standard 3D desktop bindings by default', () => {

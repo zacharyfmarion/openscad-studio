@@ -3,6 +3,7 @@ import { Button } from './ui';
 import { MarkdownMessage } from './MarkdownMessage';
 import { ModelSelector } from './ModelSelector';
 import { AiComposer, type AiComposerRef } from './AiComposer';
+import { useAnalytics, type ModelSelectionSurface } from '../analytics/runtime';
 import { useHistory } from '../hooks/useHistory';
 import { getPlatform } from '../platform';
 import { useHasApiKey } from '../stores/apiKeyStore';
@@ -119,7 +120,7 @@ export interface AiPromptPanelProps {
   currentToolCalls?: ToolCall[];
   currentModel?: string;
   availableProviders?: string[];
-  onModelChange?: (model: string) => void;
+  onModelChange?: (model: string, sourceSurface?: ModelSelectionSurface) => void;
   onRestoreCheckpoint?: (checkpointId: string, truncatedMessages: Message[]) => void;
   onOpenSettings?: () => void;
 }
@@ -156,6 +157,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
     },
     ref
   ) => {
+    const analytics = useAnalytics();
     const hasApiKey = useHasApiKey();
     const responseRef = useRef<HTMLDivElement>(null);
     const composerRef = useRef<AiComposerRef>(null);
@@ -178,6 +180,15 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
         console.log('[AiPromptPanel] Messages updated. Count:', messages.length);
       }
     }, [messages]);
+
+    useEffect(() => {
+      analytics.track('ai panel opened', {
+        source_surface: 'ai_panel',
+        has_messages: messages.length > 0,
+      });
+      // Only fire once per panel mount.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleRestoreCheckpoint = async (checkpointId: string, messageId: string) => {
       try {
@@ -252,7 +263,8 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
 
     return (
       <div
-        className="relative h-full flex flex-col"
+        data-testid="ai-prompt-panel"
+        className="relative h-full flex flex-col ph-no-capture"
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
         {onNewConversation && (
@@ -289,7 +301,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
           <div
             ref={responseRef}
             data-testid="ai-transcript"
-            className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
+            className="flex-1 overflow-y-auto px-4 py-3 space-y-3 ph-no-capture"
             style={{
               backgroundColor: 'var(--bg-secondary)',
               borderBottom: '1px solid var(--border-primary)',
@@ -415,10 +427,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                     >
                       <div className="flex items-center gap-2 text-sm">
                         {toolStateMeta.icon}
-                        <span
-                          className="font-semibold"
-                          style={{ color: toolStateMeta.color }}
-                        >
+                        <span className="font-semibold" style={{ color: toolStateMeta.color }}>
                           {message.toolName}
                         </span>
                         <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -472,10 +481,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                       >
                         <div className="flex items-center gap-2 text-sm">
                           {toolStateMeta.icon}
-                          <span
-                            className="font-semibold"
-                            style={{ color: toolStateMeta.color }}
-                          >
+                          <span className="font-semibold" style={{ color: toolStateMeta.color }}>
                             {tool.name}
                           </span>
                           <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -584,7 +590,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
               <ModelSelector
                 currentModel={currentModel}
                 availableProviders={availableProviders}
-                onChange={(model) => onModelChange?.(model)}
+                onChange={(model) => onModelChange?.(model, 'ai_panel')}
                 disabled={isStreaming}
                 compact
               />

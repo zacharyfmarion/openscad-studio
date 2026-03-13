@@ -54,10 +54,7 @@ export function getDraftCanSubmit(draft: AiDraft, attachments: AttachmentStore):
   return draft.text.trim().length > 0 || getReadyAttachmentIds(draft, attachments).length > 0;
 }
 
-export function getDraftNormalizedSizeBytes(
-  draft: AiDraft,
-  attachments: AttachmentStore
-): number {
+export function getDraftNormalizedSizeBytes(draft: AiDraft, attachments: AttachmentStore): number {
   return draft.attachmentIds.reduce((total, id) => {
     const attachment = attachments[id];
     if (!attachment || attachment.status !== 'ready') return total;
@@ -149,9 +146,7 @@ export async function processAttachmentFiles(
         buildErrorAttachment(
           file,
           dedupeKey,
-          `${file.name}: ${
-            error instanceof Error ? error.message : 'failed to process image.'
-          }`
+          `${file.name}: ${error instanceof Error ? error.message : 'failed to process image.'}`
         )
       );
     }
@@ -265,13 +260,17 @@ async function createPreviewBlob(canvas: HTMLCanvasElement, hasAlpha: boolean): 
 
 function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        reject(new Error('failed to encode image.'));
-        return;
-      }
-      resolve(blob);
-    }, type, quality);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('failed to encode image.'));
+          return;
+        }
+        resolve(blob);
+      },
+      type,
+      quality
+    );
   });
 }
 

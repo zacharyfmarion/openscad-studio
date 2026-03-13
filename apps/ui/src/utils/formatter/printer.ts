@@ -621,7 +621,9 @@ function printParenthesizedAssignments(
 
       if (child.type === 'comment') {
         const isInlineComment =
-          prev !== null && prev.type !== 'comment' && child.startPosition.row === prev.endPosition.row;
+          prev !== null &&
+          prev.type !== 'comment' &&
+          child.startPosition.row === prev.endPosition.row;
 
         if (!isInlineComment && parts.length > 0) {
           parts.push(hardline());
@@ -647,7 +649,9 @@ function printParenthesizedAssignments(
       valueIndex++;
 
       const nextIsInlineComment =
-        next !== null && next.type === 'comment' && next.startPosition.row === child.endPosition.row;
+        next !== null &&
+        next.type === 'comment' &&
+        next.startPosition.row === child.endPosition.row;
 
       if (!nextIsInlineComment && next) {
         parts.push(hardline());
@@ -657,7 +661,14 @@ function printParenthesizedAssignments(
     return concat(['(', indent(concat([hardline(), ...parts])), hardline(), ')']);
   }
 
-  return concat(['(', join(',', valueNodes.map((child) => printNode(child, options))), ')']);
+  return concat([
+    '(',
+    join(
+      ',',
+      valueNodes.map((child) => printNode(child, options))
+    ),
+    ')',
+  ]);
 }
 
 function printAssignment(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
@@ -904,7 +915,8 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
   }
 
   // Check if array was originally multiline
-  const isMultiline = lastItemLine > firstItemLine || entries.some((child) => child.type === 'comment');
+  const isMultiline =
+    lastItemLine > firstItemLine || entries.some((child) => child.type === 'comment');
 
   if (isMultiline) {
     const parts: Doc[] = [];
@@ -916,7 +928,9 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
 
       if (child.type === 'comment') {
         const isInlineComment =
-          prev !== null && prev.type !== 'comment' && child.startPosition.row === prev.endPosition.row;
+          prev !== null &&
+          prev.type !== 'comment' &&
+          child.startPosition.row === prev.endPosition.row;
 
         if (!isInlineComment && parts.length > 0) {
           parts.push(hardline());
@@ -942,7 +956,9 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       valueIndex++;
 
       const nextIsInlineComment =
-        next !== null && next.type === 'comment' && next.startPosition.row === child.endPosition.row;
+        next !== null &&
+        next.type === 'comment' &&
+        next.startPosition.row === child.endPosition.row;
 
       if (!nextIsInlineComment && next) {
         parts.push(hardline());
@@ -953,7 +969,14 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
   }
 
   // Keep single-line arrays compact: [1, 2, 3] not [ 1, 2, 3 ]
-  return concat(['[', join(', ', valueNodes.map((child) => printNode(child, options))), ']']);
+  return concat([
+    '[',
+    join(
+      ', ',
+      valueNodes.map((child) => printNode(child, options))
+    ),
+    ']',
+  ]);
 }
 
 function printRange(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {

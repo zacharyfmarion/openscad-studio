@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAnalytics, type RenderTrigger } from '../analytics/runtime';
 import { RenderService, type Diagnostic } from '../services/renderService';
 import { getPlatform } from '../platform';
 import type { LibrarySettings } from '../stores/settingsStore';
@@ -14,6 +15,7 @@ interface UseOpenScadOptions {
 }
 
 export function useOpenScad(options: UseOpenScadOptions = {}) {
+  const analytics = useAnalytics();
   const { autoRenderOnIdle = false, autoRenderDelayMs = 500, library } = options;
   const [source, setSource] = useState<string>(
     '// Type your OpenSCAD code here\ncube([10, 10, 10]);'
@@ -125,11 +127,29 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   }, []);
 
   const doRender = useCallback(
-    async (code: string, dimension: '2d' | '3d' = '3d') => {
+    async (code: string, dimension: '2d' | '3d' = '3d', trigger: RenderTrigger = 'manual') => {
       if (!renderServiceRef.current) {
         setError('RenderService not available');
         return;
       }
+
+      const renderStartedAt = performance.now();
+      let cacheHit = false;
+      let resolvedDimension: '2d' | '3d' = dimension;
+      let switchedDimension = false;
+
+      const trackRenderCompleted = (renderDiagnostics: Diagnostic[]) => {
+        analytics.track('render completed', {
+          trigger,
+          duration_ms: Math.round(performance.now() - renderStartedAt),
+          cache_hit: cacheHit,
+          requested_dimension: dimension,
+          resolved_dimension: resolvedDimension,
+          switched_dimension: switchedDimension,
+          warning_count: renderDiagnostics.filter((d) => d.severity === 'warning').length,
+          error_count: renderDiagnostics.filter((d) => d.severity === 'error').length,
+        });
+      };
 
       setIsRendering(true);
       setError('');
@@ -145,6 +165,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           auxiliaryFiles: auxFiles,
         });
         if (cached) {
+          cacheHit = true;
           setDiagnostics(cached.diagnostics);
           setPreviewKind(cached.kind);
 
@@ -161,6 +182,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           }
 
           setIsRendering(false);
+          trackRenderCompleted(cached.diagnostics);
           return;
         }
 
@@ -215,6 +237,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           const blobUrl = URL.createObjectURL(blob);
           prevBlobUrlRef.current = blobUrl;
           setPreviewSrc(blobUrl);
+          trackRenderCompleted(result.diagnostics);
         } else {
           // No output — check for dimension mismatch and auto-retry with opposite mode.
           // The WASM Manifold backend silently produces empty output (no diagnostics)
@@ -247,6 +270,8 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
             if (retryResult.output.length > 0) {
               // Opposite dimension worked — switch to it
+              resolvedDimension = newDimension;
+              switchedDimension = true;
               setDimensionMode(newDimension);
               setDiagnostics(retryResult.diagnostics);
               setPreviewKind(retryResult.kind);
@@ -257,16 +282,19 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
               const blobUrl = URL.createObjectURL(blob);
               prevBlobUrlRef.current = blobUrl;
               setPreviewSrc(blobUrl);
+              trackRenderCompleted(retryResult.diagnostics);
             } else {
               // Neither dimension produced output
               setError('Render produced no output');
               setPreviewSrc('');
+              trackRenderCompleted(retryResult.diagnostics);
             }
           } else {
             // Has real errors (not dimension mismatch) — report them
             const errors = result.diagnostics.filter((d) => d.severity === 'error');
             setError(errors.map((e) => e.message).join('\n'));
             setPreviewSrc('');
+            trackRenderCompleted(result.diagnostics);
           }
         }
       } catch (err) {
@@ -284,7 +312,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         setIsRendering(false);
       }
     },
-    [mergeAndSetAuxFiles]
+    [analytics, mergeAndSetAuxFiles]
   );
 
   const updateSource = useCallback((newSource: string) => {
@@ -296,10 +324,10 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   // render with the previous `source` because React hasn't flushed the
   // state update from updateSource() yet.
   const updateSourceAndRender = useCallback(
-    (newSource: string) => {
+    (newSource: string, trigger: RenderTrigger = 'code_update') => {
       setSource(newSource);
       lastRenderedSourceRef.current = newSource;
-      doRender(newSource, dimensionMode);
+      void doRender(newSource, dimensionMode, trigger);
     },
     [dimensionMode, doRender]
   );
@@ -308,7 +336,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   useEffect(() => {
     if (ready && source) {
       lastRenderedSourceRef.current = source;
-      doRender(source, dimensionMode);
+      void doRender(source, dimensionMode, 'initial');
     }
   }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -330,14 +358,22 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   // Manual render function (stable callback)
   const manualRender = useCallback(() => {
     lastRenderedSourceRef.current = source;
-    doRender(source, dimensionMode);
+    void doRender(source, dimensionMode, 'manual');
   }, [source, dimensionMode, doRender]);
 
   // Render on save function (stable callback)
   const renderOnSave = useCallback(() => {
     lastRenderedSourceRef.current = source;
-    doRender(source, dimensionMode);
+    void doRender(source, dimensionMode, 'save');
   }, [source, dimensionMode, doRender]);
+
+  const renderWithTrigger = useCallback(
+    (trigger: RenderTrigger) => {
+      lastRenderedSourceRef.current = source;
+      void doRender(source, dimensionMode, trigger);
+    },
+    [dimensionMode, doRender, source]
+  );
 
   useEffect(() => {
     if (!autoRenderOnIdle || !ready) return;
@@ -349,7 +385,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
     autoRenderTimerRef.current = setTimeout(() => {
       lastRenderedSourceRef.current = source;
-      doRender(source, dimensionMode);
+      void doRender(source, dimensionMode, 'auto_idle');
     }, autoRenderDelayMs);
 
     return () => {
@@ -375,6 +411,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         doRender,
         manualRender,
         updateSourceAndRender,
+        renderWithTrigger,
         dimensionMode,
         renderService: renderServiceRef.current,
         setTestAuxiliaryFiles: (files: Record<string, string>) => {
@@ -390,7 +427,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         delete window.__TEST_OPENSCAD__;
       }
     };
-  }, [doRender, manualRender, updateSourceAndRender, dimensionMode]);
+  }, [doRender, manualRender, renderWithTrigger, updateSourceAndRender, dimensionMode]);
 
   return {
     source,
@@ -405,6 +442,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     dimensionMode,
     manualRender,
     renderOnSave,
+    renderWithTrigger,
     clearPreview,
     auxiliaryFiles,
   };

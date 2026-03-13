@@ -24,7 +24,9 @@ describe('OpenSCAD Formatter Integration', () => {
       }
 
       const originalCompile = await compileOpenScad(testCase.input);
-      expect(originalCompile.diagnostics.filter((diag) => diag.severity === 'error')).toHaveLength(0);
+      expect(originalCompile.diagnostics.filter((diag) => diag.severity === 'error')).toHaveLength(
+        0
+      );
 
       const formattedOnce = await formatOpenScadCode(testCase.input);
       const formattedCompile = await compileOpenScad(formattedOnce);

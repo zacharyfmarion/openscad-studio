@@ -7,6 +7,7 @@ import {
 } from '../stores/settingsStore';
 import { getAvailableThemes, getTheme } from '../themes';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAnalytics } from '../analytics/runtime';
 import { Button, Input, Select, Label, Toggle } from './ui';
 import { Editor as MonacoEditor } from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
@@ -20,6 +21,7 @@ import {
   TbPlus,
   TbTrash,
   TbFolderOpen,
+  TbShield,
 } from 'react-icons/tb';
 import {
   storeApiKey as storeApiKeyToStorage,
@@ -50,7 +52,7 @@ function saveVimConfigIfChanged(localVimConfig: string, currentSettings: Setting
   }
 }
 
-export type SettingsSection = 'appearance' | 'editor' | 'ai' | 'libraries';
+export type SettingsSection = 'appearance' | 'editor' | 'privacy' | 'ai' | 'libraries';
 type EditorSubTab = 'general' | 'vim';
 
 export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogProps) {
@@ -73,6 +75,8 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
   const [isLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
+  const lastTrackedSectionRef = useRef<SettingsSection | null>(null);
+  const analytics = useAnalytics();
 
   const loadAISettings = useCallback(() => {
     const availableProviders = getAvailableProvidersFromStore();
@@ -95,8 +99,24 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
       loadAISettings();
       if (initialTab) setActiveSection(initialTab);
       getPlatform().getLibraryPaths().then(setAutoDiscoveredPaths);
+      lastTrackedSectionRef.current = null;
     }
   }, [isOpen, initialTab, loadAISettings]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      lastTrackedSectionRef.current = null;
+      return;
+    }
+
+    if (activeSection === 'ai' && lastTrackedSectionRef.current !== 'ai') {
+      analytics.track('ai settings opened', {
+        source_surface: initialTab === 'ai' ? 'unknown' : 'ai_panel',
+      });
+    }
+
+    lastTrackedSectionRef.current = activeSection;
+  }, [activeSection, analytics, initialTab, isOpen]);
 
   const handleAppearanceSettingChange = <K extends keyof Settings['appearance']>(
     key: K,
@@ -147,6 +167,21 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     saveSettings(updated);
   };
 
+  const handlePrivacySettingChange = <K extends keyof Settings['privacy']>(
+    key: K,
+    value: Settings['privacy'][K]
+  ) => {
+    const updated = {
+      ...settings,
+      privacy: {
+        ...settings.privacy,
+        [key]: value,
+      },
+    };
+    setSettings(updated);
+    saveSettings(updated);
+  };
+
   const handleAddLibraryPath = async () => {
     try {
       const path = await getPlatform().pickDirectory();
@@ -181,6 +216,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
     try {
       storeApiKeyToStorage(provider, apiKey);
+      analytics.track('api key saved', {
+        provider,
+      });
       notifySuccess(`${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key saved`, {
         toastId: `save-api-key-${provider}`,
       });
@@ -215,6 +253,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
     try {
       clearApiKeyFromStorage(provider);
+      analytics.track('api key cleared', {
+        provider,
+      });
       notifySuccess('API key cleared', {
         toastId: `clear-api-key-${provider}`,
       });
@@ -250,6 +291,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
   const navItems: { key: SettingsSection; label: string; icon: React.ReactNode }[] = [
     { key: 'appearance', label: 'Appearance', icon: <TbPalette size={16} /> },
     { key: 'editor', label: 'Editor', icon: <TbCode size={16} /> },
+    { key: 'privacy', label: 'Privacy', icon: <TbShield size={16} /> },
     ...(isDesktop
       ? [{ key: 'libraries' as const, label: 'Libraries', icon: <TbBooks size={16} /> }]
       : []),
@@ -332,9 +374,11 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                 ? 'Appearance'
                 : activeSection === 'editor'
                   ? 'Editor'
-                  : activeSection === 'libraries'
-                    ? 'Libraries'
-                    : 'AI Assistant'}
+                  : activeSection === 'privacy'
+                    ? 'Privacy'
+                    : activeSection === 'libraries'
+                      ? 'Libraries'
+                      : 'AI Assistant'}
             </h3>
             <button
               type="button"
@@ -824,6 +868,129 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
               </div>
             )}
 
+            {activeSection === 'privacy' && (
+              <div className="space-y-5">
+                <div
+                  className="rounded-lg"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                  }}
+                >
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderBottom: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label className="mb-0">Share anonymous product analytics</Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Anonymous product journeys help us understand how the app is used. Session
+                        recording stays disabled.
+                      </p>
+                    </div>
+                    <Toggle
+                      checked={settings.privacy.analyticsEnabled}
+                      onChange={(event) => {
+                        const nextValue = event.target.checked;
+                        handlePrivacySettingChange('analyticsEnabled', nextValue);
+                        analytics.setAnalyticsEnabled(nextValue, {
+                          capturePreferenceChange: true,
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="grid gap-3 p-4 md:grid-cols-2">
+                    <div
+                      className="rounded-md p-3"
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-primary)',
+                      }}
+                    >
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        What we collect
+                      </p>
+                      <p
+                        className="text-xs mt-2 leading-5"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        OpenSCAD Studio uses a persistent anonymous identifier on this
+                        device/browser to understand product journeys over time. Product
+                        interactions may be autocaptured.
+                      </p>
+                    </div>
+                    <div
+                      className="rounded-md p-3"
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-primary)',
+                      }}
+                    >
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        What stays out
+                      </p>
+                      <p
+                        className="text-xs mt-2 leading-5"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        We do not intentionally send OpenSCAD code, AI prompt text, attachment
+                        contents, API keys, diagnostics text, stack traces, or absolute file paths.
+                      </p>
+                    </div>
+                    <div
+                      className="rounded-md p-3"
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-primary)',
+                      }}
+                    >
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        Turning it off
+                      </p>
+                      <p
+                        className="text-xs mt-2 leading-5"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        Turning this off stops future analytics capture on this device/browser
+                        immediately. It does not delete data already collected.
+                      </p>
+                    </div>
+                    <div
+                      className="rounded-md p-3"
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-primary)',
+                      }}
+                    >
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        Where it applies
+                      </p>
+                      <p
+                        className="text-xs mt-2 leading-5"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        This preference is stored locally and does not sync across devices or
+                        accounts. On the web it applies per browser/profile. On desktop it applies
+                        per installed app profile/webview storage.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeSection === 'libraries' && (
               <div className="space-y-6">
                 <div>
@@ -954,7 +1121,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
             )}
 
             {activeSection === 'ai' && (
-              <div className="space-y-5">
+              <div className="space-y-5 ph-no-capture">
                 <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                   Add your API keys to enable AI assistant features. Model selection is available in
                   the chat interface.
@@ -962,7 +1129,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
                 {/* Anthropic Section */}
                 <div
-                  className="rounded-lg p-4 space-y-3"
+                  className="rounded-lg p-4 space-y-3 ph-no-capture"
                   style={{
                     backgroundColor: 'var(--bg-primary)',
                     border: '1px solid var(--border-primary)',
@@ -983,8 +1150,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     </span>
                   </div>
                   <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    Required for Claude models. Your key is stored securely and never leaves your
-                    device.
+                    Required for Claude models. Your key is stored locally on this device/browser
+                    profile and used for direct requests to Anthropic from the app. It is not sent
+                    to our analytics.
                   </p>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
@@ -1003,7 +1171,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           }
                         }}
                         placeholder="sk-ant-..."
-                        className="pr-20 font-mono text-sm"
+                        className="pr-20 font-mono text-sm ph-no-capture"
                         disabled={isLoading}
                       />
                       {provider === 'anthropic' && apiKey && !apiKey.startsWith('•') && (
@@ -1073,7 +1241,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
                 {/* OpenAI Section */}
                 <div
-                  className="rounded-lg p-4 space-y-3"
+                  className="rounded-lg p-4 space-y-3 ph-no-capture"
                   style={{
                     backgroundColor: 'var(--bg-primary)',
                     border: '1px solid var(--border-primary)',
@@ -1094,8 +1262,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     </span>
                   </div>
                   <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    Required for GPT models. Your key is stored securely and never leaves your
-                    device.
+                    Required for GPT models. Your key is stored locally on this device/browser
+                    profile and used for direct requests to OpenAI from the app. It is not sent to
+                    our analytics.
                   </p>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
@@ -1114,7 +1283,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           }
                         }}
                         placeholder="sk-..."
-                        className="pr-20 font-mono text-sm"
+                        className="pr-20 font-mono text-sm ph-no-capture"
                         disabled={isLoading}
                       />
                       {provider === 'openai' && apiKey && !apiKey.startsWith('•') && (
@@ -1194,7 +1363,6 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     {error}
                   </div>
                 )}
-
               </div>
             )}
           </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import {
   CameraControls,
@@ -28,10 +28,7 @@ import {
   SIGNIFICANT_SHRINK_RATIO,
   type ModelFrame,
 } from '../services/previewFraming';
-import {
-  getPreviewSceneStyle,
-  type PreviewSceneStyle,
-} from '../services/previewSceneConfig';
+import { getPreviewSceneStyle, type PreviewSceneStyle } from '../services/previewSceneConfig';
 import { TbBox, TbBoxModel, TbSun, TbFocus2, TbX } from 'react-icons/tb';
 
 interface ThreeViewerProps {
@@ -167,55 +164,60 @@ function ViewerCameraManager({
 
   latestModelFrameRef.current = modelFrame;
 
-  function publishTestState(frame = latestModelFrameRef.current) {
-    if (!import.meta.env.DEV) {
-      return;
-    }
+  const publishTestState = useCallback(
+    (frame = latestModelFrameRef.current) => {
+      if (!import.meta.env.DEV) {
+        return;
+      }
 
-    currentFitsRef.current = frame ? boxFitsCameraView(camera, frame.box) : true;
-    const gridMetrics = derivePreviewGridMetrics(frame);
-    const cameraControls = cameraControlsRef.current;
-    const cameraPosition = cameraControls?.getPosition(new THREE.Vector3(), true) ?? null;
-    const cameraTarget = cameraControls?.getTarget(new THREE.Vector3(), true) ?? null;
+      currentFitsRef.current = frame ? boxFitsCameraView(camera, frame.box) : true;
+      const gridMetrics = derivePreviewGridMetrics(frame);
+      const cameraControls = cameraControlsRef.current;
+      const cameraPosition = cameraControls?.getPosition(new THREE.Vector3(), true) ?? null;
+      const cameraTarget = cameraControls?.getTarget(new THREE.Vector3(), true) ?? null;
 
-    window.__TEST_PREVIEW__ = {
-      currentFits: currentFitsRef.current,
-      fitCount: fitCountRef.current,
-      maxDim: frame?.maxDim ?? null,
-      orthographic,
-      cameraFar:
-        camera instanceof THREE.PerspectiveCamera || camera instanceof THREE.OrthographicCamera
-          ? camera.far
-          : null,
-      gridCellSize: gridMetrics.cellSize,
-      gridSectionSize: gridMetrics.sectionSize,
-      cameraPosition: cameraPosition ? tupleFromVector(cameraPosition) : null,
-      cameraTarget: cameraTarget ? tupleFromVector(cameraTarget) : null,
-    };
-  }
+      window.__TEST_PREVIEW__ = {
+        currentFits: currentFitsRef.current,
+        fitCount: fitCountRef.current,
+        maxDim: frame?.maxDim ?? null,
+        orthographic,
+        cameraFar:
+          camera instanceof THREE.PerspectiveCamera || camera instanceof THREE.OrthographicCamera
+            ? camera.far
+            : null,
+        gridCellSize: gridMetrics.cellSize,
+        gridSectionSize: gridMetrics.sectionSize,
+        cameraPosition: cameraPosition ? tupleFromVector(cameraPosition) : null,
+        cameraTarget: cameraTarget ? tupleFromVector(cameraTarget) : null,
+      };
+    },
+    [camera, cameraControlsRef, orthographic]
+  );
 
-  function fitModelToView(frame: ModelFrame, enableTransition: boolean) {
-    const cameraControls = cameraControlsRef.current;
+  const fitModelToView = useCallback(
+    (frame: ModelFrame, enableTransition: boolean) => {
+      const cameraControls = cameraControlsRef.current;
 
-    if (!cameraControls) {
-      return;
-    }
+      if (!cameraControls) {
+        return;
+      }
 
-    fitCountRef.current += 1;
-    pendingAutoFitVersionRef.current = null;
-    hasFramedOnceRef.current = true;
+      fitCountRef.current += 1;
+      pendingAutoFitVersionRef.current = null;
+      hasFramedOnceRef.current = true;
 
-    void fitCameraToModel({
-      cameraControls,
-      frame,
-      orthographic,
-      sceneStyle,
-      enableTransition,
-    })
-      .then(() => {
+      void fitCameraToModel({
+        cameraControls,
+        frame,
+        orthographic,
+        sceneStyle,
+        enableTransition,
+      }).then(() => {
         publishTestState(frame);
       });
-  }
+    },
+    [cameraControlsRef, orthographic, publishTestState, sceneStyle]
+  );
 
   useEffect(() => {
     const cameraControls = cameraControlsRef.current;
@@ -255,7 +257,7 @@ function ViewerCameraManager({
       cameraControls.removeEventListener('rest', handleRest);
       gl.domElement.removeEventListener('wheel', handleWheel);
     };
-  }, [cameraControlsRef, gl.domElement, orthographic, sceneStyle]);
+  }, [cameraControlsRef, fitModelToView, gl.domElement, publishTestState]);
 
   useEffect(() => {
     publishTestState(modelFrame);
@@ -265,7 +267,7 @@ function ViewerCameraManager({
         delete window.__TEST_PREVIEW__;
       }
     };
-  }, [camera, modelFrame, orthographic]);
+  }, [modelFrame, publishTestState]);
 
   useEffect(() => {
     if (!modelFrame) {
@@ -327,7 +329,15 @@ function ViewerCameraManager({
     }
 
     fitModelToView(modelFrame, true);
-  }, [camera, cameraControlsRef, modelFrame, orthographic, sceneStyle]);
+  }, [
+    camera,
+    cameraControlsRef,
+    fitModelToView,
+    modelFrame,
+    orthographic,
+    publishTestState,
+    sceneStyle,
+  ]);
 
   return null;
 }
@@ -658,5 +668,9 @@ function fitCameraToModel({
     );
   }
 
-  return cameraControls.fitToBox(frame.box, enableTransition, getFitPaddingOptions(frame.box, sceneStyle));
+  return cameraControls.fitToBox(
+    frame.box,
+    enableTransition,
+    getFitPaddingOptions(frame.box, sceneStyle)
+  );
 }

@@ -45,7 +45,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ? disabledStyles
         : { backgroundColor: 'var(--color-error)', color: 'var(--text-inverse)' },
       ghost: disabled
-        ? { backgroundColor: 'transparent', color: 'var(--text-secondary)', cursor: 'not-allowed', opacity: 0.65 }
+        ? {
+            backgroundColor: 'transparent',
+            color: 'var(--text-secondary)',
+            cursor: 'not-allowed',
+            opacity: 0.65,
+          }
         : { backgroundColor: 'transparent', color: 'var(--text-secondary)' },
     };
 

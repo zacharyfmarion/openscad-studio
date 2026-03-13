@@ -1,18 +1,28 @@
 import ReactDOM from 'react-dom/client';
+import posthog from 'posthog-js';
+import { PostHogProvider } from '@posthog/react';
 import App from './App';
+import { captureAppOpened, captureBootstrapError, initializePostHog } from './analytics/bootstrap';
+import { shouldCaptureBootstrapAnalytics } from './analytics/bootstrapPolicy';
+import { AnalyticsRuntimeProvider } from './analytics/runtime';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { loadSettings } from './stores/settingsStore';
 import { initFormatter } from './utils/formatter';
 import { initializePlatform } from './platform';
 import './index.css';
 
 function renderApp() {
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-    <ThemeProvider>
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    </ThemeProvider>
+    <PostHogProvider client={posthog}>
+      <ThemeProvider>
+        <AnalyticsRuntimeProvider>
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
+        </AnalyticsRuntimeProvider>
+      </ThemeProvider>
+    </PostHogProvider>
   );
 }
 
@@ -42,7 +52,9 @@ function renderBootstrapError(error: unknown) {
           border: '1px solid rgba(131, 148, 150, 0.35)',
         }}
       >
-        <h1 style={{ fontSize: '1.75rem', marginBottom: '0.75rem' }}>OpenSCAD Studio could not start</h1>
+        <h1 style={{ fontSize: '1.75rem', marginBottom: '0.75rem' }}>
+          OpenSCAD Studio could not start
+        </h1>
         <p style={{ lineHeight: 1.6, marginBottom: '1rem', color: '#93a1a1' }}>
           A required startup step failed, so the app cannot safely continue.
         </p>
@@ -81,11 +93,31 @@ function renderBootstrapError(error: unknown) {
   );
 }
 
+const analyticsEnabled = loadSettings().privacy.analyticsEnabled;
+const posthogReady = initializePostHog(posthog, { analyticsEnabled });
+const shouldCaptureBootstrapEvents = shouldCaptureBootstrapAnalytics(
+  posthogReady,
+  analyticsEnabled
+);
+
 Promise.all([initFormatter(), initializePlatform()])
-  .then(() => {
+  .then(([, platform]) => {
+    if (shouldCaptureBootstrapEvents) {
+      captureAppOpened(posthog, {
+        analyticsEnabled,
+        capabilities: platform.capabilities,
+      });
+    }
     renderApp();
   })
   .catch((error) => {
+    if (shouldCaptureBootstrapEvents) {
+      captureBootstrapError(posthog, error, {
+        analyticsEnabled,
+        capabilities: undefined,
+        operation: 'startup',
+      });
+    }
     console.error('[main] Failed to initialize application:', error);
     renderBootstrapError(error);
   });
