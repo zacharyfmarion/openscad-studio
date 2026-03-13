@@ -1,6 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui';
+import { AiComposer } from './AiComposer';
 import { useHasApiKey } from '../stores/apiKeyStore';
+import type { AiDraft, AttachmentStore } from '../types/aiChat';
 
 interface RecentFile {
   path: string;
@@ -9,7 +11,17 @@ interface RecentFile {
 }
 
 interface WelcomeScreenProps {
-  onStartWithPrompt: (prompt: string) => void;
+  draft: AiDraft;
+  attachments: AttachmentStore;
+  draftErrors: string[];
+  draftVisionBlockMessage?: string | null;
+  draftVisionWarningMessage?: string | null;
+  canSubmitDraft: boolean;
+  isProcessingAttachments: boolean;
+  onDraftTextChange: (text: string) => void;
+  onDraftFilesSelected: (files: File[]) => void;
+  onDraftRemoveAttachment: (attachmentId: string) => void;
+  onStartWithDraft: (draftOverride?: AiDraft) => void;
   onStartManually: () => void;
   onOpenRecent: (path: string) => void;
   onOpenFile?: () => void;
@@ -28,44 +40,38 @@ const EXAMPLE_PROMPTS = [
 const RECENT_FILES_KEY = 'openscad-studio-recent-files';
 
 export function WelcomeScreen({
-  onStartWithPrompt,
+  draft,
+  attachments,
+  draftErrors,
+  draftVisionBlockMessage,
+  draftVisionWarningMessage,
+  canSubmitDraft,
+  isProcessingAttachments,
+  onDraftTextChange,
+  onDraftFilesSelected,
+  onDraftRemoveAttachment,
+  onStartWithDraft,
   onStartManually,
   onOpenRecent,
   onOpenFile,
   onOpenSettings,
   showRecentFiles = true,
 }: WelcomeScreenProps) {
-  const [prompt, setPrompt] = useState('');
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const hasApiKey = useHasApiKey();
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load recent files from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem(RECENT_FILES_KEY);
       if (stored) {
         const files: RecentFile[] = JSON.parse(stored);
-        // Sort by last opened, most recent first
         files.sort((a, b) => b.lastOpened - a.lastOpened);
-        setRecentFiles(files.slice(0, 3)); // Show max 3 recent files
+        setRecentFiles(files.slice(0, 3));
       }
-    } catch (err) {
-      console.error('Failed to load recent files:', err);
+    } catch (error) {
+      console.error('Failed to load recent files:', error);
     }
   }, []);
-
-  const handleSubmit = () => {
-    if (!prompt.trim()) return;
-    onStartWithPrompt(prompt);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
 
   return (
     <div
@@ -74,7 +80,6 @@ export function WelcomeScreen({
       style={{ backgroundColor: 'var(--bg-primary)' }}
     >
       <div className="w-full max-w-3xl space-y-8">
-        {/* Main heading */}
         <h1
           className="text-4xl font-bold text-center mb-8"
           style={{ color: 'var(--text-primary)' }}
@@ -82,56 +87,26 @@ export function WelcomeScreen({
           What do you want to create?
         </h1>
 
-        {/* Main input — only show when API key is configured */}
         {hasApiKey ? (
           <div className="space-y-2">
-            <div className="relative">
-              <textarea
-                ref={inputRef}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Describe your OpenSCAD project..."
-                className="w-full rounded-lg px-4 py-3 resize-none focus:outline-none focus:ring-2 text-base"
-                style={{
-                  backgroundColor: 'var(--bg-elevated)',
-                  color: 'var(--text-primary)',
-                  borderColor: 'var(--border-secondary)',
-                  borderWidth: '1px',
-                  borderStyle: 'solid',
-                  minHeight: '120px',
-                  paddingRight: prompt.trim() ? '3rem' : '1rem',
-                }}
-                rows={4}
-              />
-              {prompt.trim() && (
-                <button
-                  onClick={handleSubmit}
-                  className="absolute right-3 bottom-3 p-2 rounded-lg transition-colors"
-                  style={{
-                    backgroundColor: 'var(--accent-primary)',
-                    color: 'var(--text-inverse)',
-                  }}
-                  title="Start with AI (⌘↵)"
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            {prompt.trim() && (
-              <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                Press <span className="font-medium">⌘↵</span> to start with AI
-              </div>
-            )}
+            <AiComposer
+              draft={draft}
+              attachments={attachments}
+              isProcessingAttachments={isProcessingAttachments}
+              canSubmit={canSubmitDraft}
+              blockedMessage={draftVisionBlockMessage}
+              warningMessage={draftVisionWarningMessage}
+              errors={draftErrors}
+              placeholder="Describe what you want to build..."
+              rows={3}
+              variant="welcome"
+              submitLabel="Build"
+              submitTitle="Build"
+              onTextChange={onDraftTextChange}
+              onFilesSelected={onDraftFilesSelected}
+              onRemoveAttachment={onDraftRemoveAttachment}
+              onSubmit={onStartWithDraft}
+            />
           </div>
         ) : hasApiKey === false ? (
           <div
@@ -147,8 +122,8 @@ export function WelcomeScreen({
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               <a
                 href="#"
-                onClick={(e) => {
-                  e.preventDefault();
+                onClick={(event) => {
+                  event.preventDefault();
                   onOpenSettings?.();
                 }}
                 className="underline hover:no-underline"
@@ -161,16 +136,18 @@ export function WelcomeScreen({
           </div>
         ) : null}
 
-        {/* Example prompts */}
         <div className="space-y-3">
           <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
             Try an example:
           </h3>
           <div className="flex flex-wrap gap-2">
-            {EXAMPLE_PROMPTS.map((example, idx) => (
+            {EXAMPLE_PROMPTS.map((example) => (
               <button
-                key={idx}
-                onClick={() => hasApiKey && onStartWithPrompt(example)}
+                key={example}
+                onClick={() => {
+                  if (!hasApiKey) return;
+                  onStartWithDraft({ text: example, attachmentIds: [] });
+                }}
                 disabled={!hasApiKey}
                 className="px-3 py-1.5 rounded-lg text-sm transition-colors border"
                 style={{
@@ -237,7 +214,6 @@ export function WelcomeScreen({
           </div>
         )}
 
-        {/* Action buttons */}
         <div className="flex justify-center gap-4 pt-4">
           {onOpenFile && (
             <Button variant="secondary" onClick={onOpenFile} className="text-sm">
@@ -253,29 +229,26 @@ export function WelcomeScreen({
   );
 }
 
-// Helper function to add a file to recent files
 // eslint-disable-next-line react-refresh/only-export-components
 export function addToRecentFiles(path: string) {
   try {
     const stored = localStorage.getItem(RECENT_FILES_KEY);
-    let files: RecentFile[] = stored ? JSON.parse(stored) : [];
+    const files: RecentFile[] = stored ? JSON.parse(stored) : [];
+    const fileName = path.split('/').pop() || path;
 
-    // Remove if already exists
-    files = files.filter((f) => f.path !== path);
-
-    // Add to front
-    const name = path.split('/').pop() || path;
-    files.unshift({
-      path,
-      name,
-      lastOpened: Date.now(),
-    });
-
-    // Keep max 10 recent files
-    files = files.slice(0, 10);
+    const existingIndex = files.findIndex((file) => file.path === path);
+    if (existingIndex !== -1) {
+      files[existingIndex].lastOpened = Date.now();
+    } else {
+      files.push({
+        path,
+        name: fileName,
+        lastOpened: Date.now(),
+      });
+    }
 
     localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(files));
-  } catch (err) {
-    console.error('Failed to save recent file:', err);
+  } catch (error) {
+    console.error('Failed to save recent file:', error);
   }
 }

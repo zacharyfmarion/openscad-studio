@@ -10,7 +10,7 @@ export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className = '', disabled, size = 'md', children, ...props }, ref) => {
+  ({ className = '', disabled, size = 'md', children, style, ...props }, ref) => {
     // Base styles for VSCode-like appearance
     const baseStyles = `
       w-full rounded appearance-none bg-no-repeat
@@ -37,9 +37,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       cursor: disabled ? 'not-allowed' : 'pointer',
       backgroundImage: `url("${dropdownArrow}")`,
       backgroundSize: size === 'sm' ? '12px 12px' : '14px 14px',
-      backgroundPosition: size === 'sm' ? 'right 0.35rem center' : 'right 0.5rem center',
+      backgroundPosition: size === 'sm' ? 'right 0.45rem center' : 'right 0.6rem center',
       opacity: disabled ? 0.6 : 1,
       boxShadow: 'none',
+      paddingRight: size === 'sm' ? '2rem' : '2.35rem',
+      backgroundClip: 'padding-box',
     };
 
     // VSCode-style focus ring
@@ -53,7 +55,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       <select
         ref={ref}
         className={`${baseStyles} ${sizeStyles[size]} ${className}`}
-        style={{ ...styles, ...focusRingStyle }}
+        style={{ ...styles, ...focusRingStyle, ...style }}
         disabled={disabled}
         {...props}
       >

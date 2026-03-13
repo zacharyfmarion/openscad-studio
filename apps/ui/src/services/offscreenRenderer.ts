@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { STLLoader } from 'three-stdlib';
+import {
+  FALLBACK_PREVIEW_SCENE_STYLE,
+  type PreviewSceneStyle,
+} from './previewSceneConfig';
 
 export type PresetView = 'front' | 'back' | 'top' | 'bottom' | 'left' | 'right' | 'isometric';
 
@@ -9,6 +13,7 @@ export interface CaptureOptions {
   elevation?: number;
   width?: number;
   height?: number;
+  sceneStyle?: PreviewSceneStyle;
 }
 
 const PRESET_DIRECTIONS: Record<PresetView, [number, number, number]> = {
@@ -44,7 +49,11 @@ export async function captureOffscreen(
   stlBlobUrl: string,
   options: CaptureOptions = {}
 ): Promise<string> {
-  const { width = 800, height = 600 } = options;
+  const sceneStyle = options.sceneStyle ?? FALLBACK_PREVIEW_SCENE_STYLE;
+  const {
+    width = sceneStyle.screenshot.width,
+    height = sceneStyle.screenshot.height,
+  } = options;
 
   const geometry = await new Promise<THREE.BufferGeometry>((resolve, reject) => {
     const loader = new STLLoader();
@@ -63,15 +72,16 @@ export async function captureOffscreen(
   });
   renderer.setSize(width, height);
   renderer.setPixelRatio(1);
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled =
+    sceneStyle.contactShadows.enabledByDefault || sceneStyle.directionalLight.intensity > 0;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf0f0f0);
+  scene.background = new THREE.Color(sceneStyle.backgroundColor);
 
   const material = new THREE.MeshStandardMaterial({
-    color: 0x6699cc,
-    metalness: 0.3,
-    roughness: 0.4,
+    color: sceneStyle.modelColor,
+    metalness: sceneStyle.material.metalness,
+    roughness: sceneStyle.material.roughness,
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.rotation.x = -Math.PI / 2;
@@ -79,19 +89,26 @@ export async function captureOffscreen(
   mesh.receiveShadow = true;
   scene.add(mesh);
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  const ambientLight = new THREE.AmbientLight(
+    sceneStyle.ambientLight.color,
+    sceneStyle.ambientLight.intensity
+  );
   scene.add(ambientLight);
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  directionalLight.position.set(10, 10, 5);
+  const directionalLight = new THREE.DirectionalLight(
+    sceneStyle.directionalLight.color,
+    sceneStyle.directionalLight.intensity
+  );
+  directionalLight.position.set(...sceneStyle.directionalLight.position);
   directionalLight.castShadow = true;
+  directionalLight.shadow.mapSize.set(...sceneStyle.directionalLight.shadowMapSize);
   scene.add(directionalLight);
 
   const box = new THREE.Box3().setFromObject(mesh);
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z);
-  const distance = maxDim * 2.5;
+  const distance = maxDim * sceneStyle.camera.frameDistanceMultiplier;
 
   let direction: [number, number, number];
   if (options.azimuth !== undefined || options.elevation !== undefined) {
@@ -101,7 +118,12 @@ export async function captureOffscreen(
     direction = PRESET_DIRECTIONS[preset] ?? PRESET_DIRECTIONS.isometric;
   }
 
-  const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, distance * 10);
+  const camera = new THREE.PerspectiveCamera(
+    sceneStyle.camera.perspectiveFov,
+    width / height,
+    sceneStyle.camera.near,
+    Math.max(distance * sceneStyle.camera.farMultiplier, sceneStyle.camera.near + 1)
+  );
   camera.position.copy(computeCameraPosition(direction, center, distance));
   camera.lookAt(center);
 

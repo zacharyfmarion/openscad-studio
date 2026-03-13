@@ -11,7 +11,8 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "type-check": "tsc --noEmit",
     "test": "node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js",
-    "test:formatter": "node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js src/utils/formatter/__tests__",
+    "test:formatter": "node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --config jest.formatter.config.cjs",
+    "test:formatter:ci": "pnpm test:formatter",
     "test:watch": "node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --watch"
   },
   "dependencies": {

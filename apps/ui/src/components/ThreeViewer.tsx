@@ -15,6 +15,7 @@ import type { CameraControls as CameraControlsType } from '@react-three/drei';
 import { STLLoader } from 'three-stdlib';
 import * as THREE from 'three';
 import { useTheme } from '../contexts/ThemeContext';
+import { getPreviewSceneStyle } from '../services/previewSceneConfig';
 import { TbBox, TbBoxModel, TbSun, TbFocus2 } from 'react-icons/tb';
 
 interface ThreeViewerProps {
@@ -26,12 +27,12 @@ function STLModel({
   url,
   wireframe,
   meshRef,
-  modelColor,
+  sceneStyle,
 }: {
   url: string;
   wireframe: boolean;
   meshRef: React.RefObject<THREE.Mesh>;
-  modelColor: string;
+  sceneStyle: ReturnType<typeof getPreviewSceneStyle>;
 }) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
 
@@ -64,17 +65,26 @@ function STLModel({
     >
       {wireframe ? (
         <>
-          <meshBasicMaterial color={modelColor} transparent opacity={0.2} side={THREE.DoubleSide} />
+          <meshBasicMaterial
+            color={sceneStyle.modelColor}
+            transparent
+            opacity={0.2}
+            side={THREE.DoubleSide}
+          />
           <DreiWireframe
             geometry={geometry}
-            stroke={modelColor}
+            stroke={sceneStyle.modelColor}
             thickness={0.05}
             fillOpacity={0}
             strokeOpacity={0.9}
           />
         </>
       ) : (
-        <meshStandardMaterial color={modelColor} metalness={0.3} roughness={0.4} />
+        <meshStandardMaterial
+          color={sceneStyle.modelColor}
+          metalness={sceneStyle.material.metalness}
+          roughness={sceneStyle.material.roughness}
+        />
       )}
     </mesh>
   );
@@ -82,17 +92,7 @@ function STLModel({
 
 export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
   const { theme } = useTheme();
-
-  // Derive theme colors from context
-  const themeColors = useMemo(
-    () => ({
-      background: theme.colors.bg.primary,
-      grid: theme.colors.border.secondary,
-      gridSection: theme.colors.border.primary,
-      model: theme.colors.accent.secondary,
-    }),
-    [theme]
-  );
+  const sceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
 
   const [orthographic, setOrthographic] = useState(false);
   const [wireframe, setWireframe] = useState(false);
@@ -108,7 +108,7 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
   };
 
   return (
-    <div className="w-full h-full relative" style={{ backgroundColor: themeColors.background }}>
+    <div className="w-full h-full relative" style={{ backgroundColor: sceneStyle.backgroundColor }}>
       {/* Loading overlay - shows on top of viewer during rendering */}
       {isLoading && (
         <div
@@ -189,43 +189,60 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
       <Canvas
         shadows
         gl={{ preserveDrawingBuffer: true }}
-        style={{ width: '100%', height: '100%', background: themeColors.background }}
+        style={{ width: '100%', height: '100%', background: sceneStyle.backgroundColor }}
       >
         {/* Camera */}
         {orthographic ? (
           <OrthographicCamera
             makeDefault
-            position={[100, 100, 100]}
-            zoom={2}
-            near={-1000}
-            far={2000}
+            position={sceneStyle.camera.defaultPosition}
+            zoom={sceneStyle.camera.orthographicZoom}
+            near={sceneStyle.camera.orthographicNear}
+            far={sceneStyle.camera.orthographicFar}
           />
         ) : (
           <PerspectiveCamera
             makeDefault
-            position={[100, 100, 100]}
-            fov={50}
-            near={0.1}
-            far={2000}
+            position={sceneStyle.camera.defaultPosition}
+            fov={sceneStyle.camera.perspectiveFov}
+            near={sceneStyle.camera.near}
+            far={sceneStyle.camera.orthographicFar}
           />
         )}
 
         {/* Lighting */}
-        <Environment preset="city" />
-        <ambientLight intensity={0.5} />
+        <Environment preset={sceneStyle.environmentPreset} />
+        <ambientLight
+          color={sceneStyle.ambientLight.color}
+          intensity={sceneStyle.ambientLight.intensity}
+        />
         <directionalLight
-          position={[10, 10, 5]}
-          intensity={1}
+          color={sceneStyle.directionalLight.color}
+          position={sceneStyle.directionalLight.position}
+          intensity={sceneStyle.directionalLight.intensity}
           castShadow
-          shadow-mapSize={[2048, 2048]}
+          shadow-mapSize={sceneStyle.directionalLight.shadowMapSize}
         />
 
         {/* Grid */}
-        <Grid infiniteGrid cellSize={10} sectionSize={50} fadeDistance={500} />
+        <Grid
+          infiniteGrid
+          cellSize={10}
+          sectionSize={50}
+          fadeDistance={500}
+          cellColor={sceneStyle.gridColor}
+          sectionColor={sceneStyle.gridSectionColor}
+        />
 
         {/* Contact Shadows */}
-        {showShadows && (
-          <ContactShadows position={[0, 0, 0]} opacity={0.3} scale={200} blur={2} far={50} />
+        {showShadows && sceneStyle.contactShadows.enabledByDefault && (
+          <ContactShadows
+            position={[0, 0, 0]}
+            opacity={sceneStyle.contactShadows.opacity}
+            scale={sceneStyle.contactShadows.scale}
+            blur={sceneStyle.contactShadows.blur}
+            far={sceneStyle.contactShadows.far}
+          />
         )}
 
         {/* STL Model */}
@@ -233,7 +250,7 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
           url={stlPath}
           wireframe={wireframe}
           meshRef={meshRef}
-          modelColor={themeColors.model}
+          sceneStyle={sceneStyle}
         />
 
         {/* Camera Controls */}
@@ -241,7 +258,7 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
           ref={cameraControlsRef}
           makeDefault
           minDistance={5}
-          maxDistance={500}
+          maxDistance={sceneStyle.camera.maxDistance}
           dollySpeed={0.5}
           truckSpeed={0.5}
         />
@@ -252,8 +269,8 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
             font="16px Inter, sans-serif"
             opacity={1}
             faces={['Front', 'Back', 'Top', 'Bottom', 'Left', 'Right']}
-            textColor={themeColors.background}
-            color={themeColors.model}
+            textColor={sceneStyle.backgroundColor}
+            color={sceneStyle.modelColor}
           />
         </GizmoHelper>
       </Canvas>

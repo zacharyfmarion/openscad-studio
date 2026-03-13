@@ -10,8 +10,9 @@ import { NuxLayoutPicker } from './components/NuxLayoutPicker';
 import { TabBar, type Tab } from './components/TabBar';
 import { WebMenuBar } from './components/WebMenuBar';
 import { EditableFileName } from './components/EditableFileName';
-import { Button } from './components/ui';
+import { Button, IconButton } from './components/ui';
 import { panelComponents, tabComponents, WorkspaceTab } from './components/panels/PanelComponents';
+import { useTheme } from './contexts/ThemeContext';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import type { WorkspaceState } from './contexts/WorkspaceContext';
 import {
@@ -26,10 +27,12 @@ import { useAiAgent } from './hooks/useAiAgent';
 import { useHistory } from './hooks/useHistory';
 import { getPlatform, eventBus, type ExportFormat } from './platform';
 import { RenderService } from './services/renderService';
+import { getPreviewSceneStyle } from './services/previewSceneConfig';
 import { useSettings, loadSettings, updateSetting } from './stores/settingsStore';
 import { formatOpenScadCode } from './utils/formatter';
 import { TbSettings, TbBox, TbRuler2, TbDownload } from 'react-icons/tb';
 import { Toaster, toast } from 'sonner';
+import type { AiDraft } from './types/aiChat';
 
 // Helper to generate unique IDs for tabs
 function generateId(): string {
@@ -177,6 +180,8 @@ function App() {
     undefined
   );
   const [settings] = useSettings();
+  const { theme } = useTheme();
+  const previewSceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
   const { capabilities } = getPlatform();
   const { undo, redo } = useHistory();
 
@@ -221,10 +226,22 @@ function App() {
     error: aiError,
     isApplyingDiff,
     messages,
+    draft,
+    attachments,
+    draftErrors,
+    draftVisionBlockMessage,
+    draftVisionWarningMessage,
+    canSubmitDraft,
+    isProcessingAttachments,
     currentToolCalls,
     currentModel,
+    currentModelVisionSupport,
     availableProviders,
-    submitPrompt,
+    submitDraft,
+    setDraft,
+    setDraftText,
+    addDraftFiles,
+    removeDraftAttachment,
     cancelStream,
     acceptDiff,
     rejectDiff,
@@ -236,7 +253,9 @@ function App() {
     updateCapturePreview,
     updateStlBlobUrl,
     updateWorkingDir,
+    updateCurrentFilePath,
     updateAuxiliaryFiles,
+    updatePreviewSceneStyle,
     loadModelAndProviders,
   } = useAiAgent();
 
@@ -450,8 +469,16 @@ function App() {
   }, [workingDir, updateWorkingDir]);
 
   useEffect(() => {
+    updateCurrentFilePath(activeTab?.filePath ?? null);
+  }, [activeTab?.filePath, updateCurrentFilePath]);
+
+  useEffect(() => {
     updateAuxiliaryFiles(auxiliaryFiles);
   }, [auxiliaryFiles, updateAuxiliaryFiles]);
+
+  useEffect(() => {
+    updatePreviewSceneStyle(previewSceneStyle);
+  }, [previewSceneStyle, updatePreviewSceneStyle]);
 
   useEffect(() => {
     renderOnSaveRef.current = renderOnSave;
@@ -595,16 +622,15 @@ function App() {
     [updateSource]
   );
 
-  // Handle starting with AI prompt from welcome screen
-  const handleStartWithPrompt = useCallback(
-    (prompt: string) => {
+  const handleStartWithDraft = useCallback(
+    (draftOverride?: AiDraft) => {
+      if (draftOverride) {
+        setDraft(draftOverride);
+      }
       setShowWelcome(false);
-      // Submit prompt after a small delay to ensure UI is ready
-      setTimeout(() => {
-        submitPrompt(prompt);
-      }, 100);
+      void submitDraft(draftOverride);
     },
-    [submitPrompt]
+    [setDraft, submitDraft]
   );
 
   const handleStartManually = useCallback(() => {
@@ -1006,10 +1032,21 @@ function App() {
       aiError,
       isApplyingDiff,
       messages,
+      draft,
+      attachments,
+      draftErrors,
+      draftVisionBlockMessage,
+      draftVisionWarningMessage,
+      canSubmitDraft,
+      isProcessingAttachments,
       currentToolCalls,
       currentModel,
+      currentModelVisionSupport,
       availableProviders,
-      submitPrompt,
+      submitDraft,
+      setDraftText,
+      addDraftFiles,
+      removeDraftAttachment,
       cancelStream,
       acceptDiff,
       rejectDiff,
@@ -1047,10 +1084,21 @@ function App() {
       aiError,
       isApplyingDiff,
       messages,
+      draft,
+      attachments,
+      draftErrors,
+      draftVisionBlockMessage,
+      draftVisionWarningMessage,
+      canSubmitDraft,
+      isProcessingAttachments,
       currentToolCalls,
       currentModel,
+      currentModelVisionSupport,
       availableProviders,
-      submitPrompt,
+      submitDraft,
+      setDraftText,
+      addDraftFiles,
+      removeDraftAttachment,
       cancelStream,
       acceptDiff,
       rejectDiff,
@@ -1070,7 +1118,19 @@ function App() {
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
         <WelcomeScreen
-          onStartWithPrompt={handleStartWithPrompt}
+          draft={draft}
+          attachments={attachments}
+          draftErrors={draftErrors}
+          draftVisionBlockMessage={draftVisionBlockMessage}
+          draftVisionWarningMessage={draftVisionWarningMessage}
+          canSubmitDraft={canSubmitDraft}
+          isProcessingAttachments={isProcessingAttachments}
+          onDraftTextChange={setDraftText}
+          onDraftFilesSelected={(files) => {
+            void addDraftFiles(files);
+          }}
+          onDraftRemoveAttachment={removeDraftAttachment}
+          onStartWithDraft={handleStartWithDraft}
           onStartManually={handleStartManually}
           onOpenRecent={handleOpenRecent}
           onOpenFile={handleOpenFile}
@@ -1210,19 +1270,15 @@ function App() {
             style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }}
           />
 
-          <button
+          <IconButton
             data-testid="settings-button"
-            type="button"
             onClick={() => setShowSettingsDialog(true)}
-            className="p-1 rounded-md transition-colors"
-            style={{
-              backgroundColor: 'transparent',
-              color: 'var(--text-secondary)',
-            }}
+            size="sm"
             title="Settings (⌘,)"
+            aria-label="Settings"
           >
             <TbSettings size={16} />
-          </button>
+          </IconButton>
         </div>
       </header>
 

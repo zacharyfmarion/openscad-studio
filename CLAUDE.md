@@ -36,7 +36,7 @@ openscad-studio/
 │   │   │   │   └── useAiAgent.ts   # AI agent communication
 │   │   │   ├── platform/           # Platform abstraction
 │   │   │   │   ├── types.ts        # PlatformBridge interface
-│   │   │   │   ├── tauriBridge.ts  # Desktop (Tauri IPC)
+│   │   │   │   ├── tauriBridge.ts  # Desktop shell/file bridge
 │   │   │   │   └── webBridge.ts    # Web (localStorage, fetch)
 │   │   │   ├── services/           # Core services
 │   │   │   │   ├── aiService.ts    # AI agent (Vercel AI SDK)
@@ -67,8 +67,8 @@ React Frontend (TypeScript)
     ↓ (Platform Bridge)
 ┌─────────────────┬──────────────────┐
 │  Desktop (Tauri) │  Web (Browser)   │
-│  Tauri IPC       │  localStorage    │
-│  Native file I/O │  File System API │
+│  Tauri shell      │  Browser runtime │
+│  Native file I/O  │  File System API │
 └─────────────────┴──────────────────┘
     ↓
 OpenSCAD WASM (Web Worker) — shared by both platforms
@@ -84,7 +84,7 @@ Vercel AI SDK → Anthropic/OpenAI API (HTTPS)
    - Interactive STL/3D mesh for manipulation
    - SVG for 2D designs
 
-3. **Platform-Adaptive AI**: API keys stored in Tauri encrypted store (desktop) or localStorage with security warning (web). AI uses Vercel AI SDK's `streamText` for streaming.
+3. **Shared Client-Side AI**: Both web and desktop use the same frontend AI stack. Requests are made directly from the React app with Vercel AI SDK's `streamText`, and API keys are currently stored in local storage state inside the browser/webview.
 
 4. **Diff-based AI Editing**: AI returns exact string replacements, not full file rewrites.
 
@@ -102,14 +102,15 @@ Vercel AI SDK → Anthropic/OpenAI API (HTTPS)
 - **`apps/ui/src/components/Editor.tsx`**: Monaco editor wrapper with OpenSCAD syntax highlighting.
 - **`apps/ui/src/components/Preview.tsx`**: Conditional preview renderer (STL/SVG) with customizer integration.
 - **`apps/ui/src/components/CustomizerPanel.tsx`**: Interactive parameter controls panel with collapsible tabs.
-- **`apps/ui/src/components/AiPromptPanel.tsx`**: AI chat interface with mode selection (Generate/Edit/Fix/Explain).
+- **`apps/ui/src/components/AiPromptPanel.tsx`**: AI chat transcript and shared composer host.
+- **`apps/ui/src/components/AiComposer.tsx`**: Shared text + image composer used by the welcome screen and main AI panel.
 - **`apps/ui/src/components/ErrorBoundary.tsx`**: React error boundary with dark-themed recovery UI.
 - **`apps/ui/src/utils/customizer/parser.ts`**: Tree-sitter based OpenSCAD parameter parser.
 
 ### Platform Layer
 
 - **`apps/ui/src/platform/types.ts`**: `PlatformBridge` interface — defines all platform-dependent operations.
-- **`apps/ui/src/platform/tauriBridge.ts`**: Desktop implementation using Tauri IPC, native file dialogs, encrypted store.
+- **`apps/ui/src/platform/tauriBridge.ts`**: Desktop implementation for native file dialogs, directory access, and menu events.
 - **`apps/ui/src/platform/webBridge.ts`**: Web implementation using localStorage, File System Access API, fetch.
 
 ### Services
@@ -204,7 +205,7 @@ pnpm format             # Format all code
 ### Platform Abstraction
 
 - **PlatformBridge**: Components should use the `PlatformBridge` interface (`apps/ui/src/platform/types.ts`), never import Tauri or web APIs directly.
-- **API keys**: Stored in Tauri encrypted store (desktop) or localStorage with security warning (web).
+- **API keys**: Stored client-side in local storage state today, including in the Tauri webview. This is a convenience tradeoff, not hardened secret isolation.
 - **File I/O**: Desktop uses native file dialogs via Tauri. Web uses File System Access API with fallbacks.
 
 ### WASM Rendering

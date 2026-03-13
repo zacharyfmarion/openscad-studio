@@ -5,15 +5,22 @@ import { z } from 'zod';
 import { eventBus, historyService } from '../platform';
 import { RenderService } from './renderService';
 import { captureOffscreen, type CaptureOptions } from './offscreenRenderer';
+import type { PreviewSceneStyle } from './previewSceneConfig';
 import type { AiProvider } from '../stores/apiKeyStore';
 
 export interface AiToolCallbacks {
   getCurrentCode: () => string;
   captureCurrentView: () => Promise<string | null>;
   getStlBlobUrl: () => string | null;
-  getWorkingDir: () => string | null;
-  getAuxiliaryFiles: () => Record<string, string>;
+  getPreviewSceneStyle: () => PreviewSceneStyle;
+  hasProjectFileAccess: () => boolean;
+  getCurrentFileRelativePath: () => string | null;
+  listProjectFiles: () => Promise<string[] | null>;
+  readProjectFile: (path: string) => Promise<string | null>;
 }
+
+const PROJECT_FILE_ACCESS_UNAVAILABLE_MESSAGE =
+  'Project file browsing is unavailable in web mode or for unsaved files. Save the file to disk in the desktop app to let the AI inspect sibling project files.';
 
 export const SYSTEM_PROMPT = `## OpenSCAD AI Assistant
 
@@ -21,8 +28,8 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
 
 ### Your Capabilities:
 - **View code**: Use \`get_current_code\` to see what you're working with
-- **Browse project files**: Use \`list_project_files\` to see all .scad files in the working directory
-- **Read any file**: Use \`read_file\` to read any .scad file in the project (for understanding includes/uses)
+- **Browse project files**: Use \`list_project_files\` to see all .scad files under the current file's directory on desktop
+- **Read any file**: Use \`read_file\` to read any .scad file in that desktop project tree (for understanding includes/uses)
 - **See the design**: Use \`get_preview_screenshot\` to see the rendered output
 - **Check for errors**: Use \`get_diagnostics\` to check compilation errors and warnings
 - **Make changes**: Use \`apply_edit\` to modify the code with exact string replacement
@@ -106,13 +113,16 @@ export function buildTools(callbacks: AiToolCallbacks) {
 
     list_project_files: tool({
       description:
-        'List all .scad files in the current working directory. Returns relative file paths. Use this to discover project structure and find files referenced by include/use statements.',
+        "List all .scad files under the current file's directory on desktop. Returns relative file paths. Unavailable in web mode or for unsaved files.",
       inputSchema: z.object({}),
       execute: async () => {
-        const files = callbacks.getAuxiliaryFiles();
-        const paths = Object.keys(files);
-        if (paths.length === 0) {
-          return 'No project files found. The current file may not have been saved to disk, or the working directory has no other .scad files.';
+        if (!callbacks.hasProjectFileAccess()) {
+          return PROJECT_FILE_ACCESS_UNAVAILABLE_MESSAGE;
+        }
+
+        const paths = await callbacks.listProjectFiles();
+        if (!paths || paths.length === 0) {
+          return 'No project files found in the current working directory.';
         }
         return `Project files (${paths.length}):\n${paths.map((p) => `  ${p}`).join('\n')}`;
       },
@@ -120,19 +130,27 @@ export function buildTools(callbacks: AiToolCallbacks) {
 
     read_file: tool({
       description:
-        'Read the contents of a .scad file from the working directory. Use the relative path as shown by list_project_files.',
+        "Read the contents of a .scad file from the current file's directory tree on desktop. Use the relative path as shown by list_project_files.",
       inputSchema: z.object({
         path: z
           .string()
           .describe('Relative path to the file (e.g. "parts.scad" or "lib/utils.scad")'),
       }),
       execute: async ({ path }) => {
-        const files = callbacks.getAuxiliaryFiles();
-        const content = files[path];
-        if (content === undefined) {
-          const available = Object.keys(files);
-          if (available.length === 0) {
-            return `❌ File not found: ${path}\n\nNo project files are available. The current file may not have been saved to disk.`;
+        if (!callbacks.hasProjectFileAccess()) {
+          return `❌ Unable to read file: ${path}\n\n${PROJECT_FILE_ACCESS_UNAVAILABLE_MESSAGE}`;
+        }
+
+        const currentFilePath = callbacks.getCurrentFileRelativePath();
+        if (currentFilePath && path === currentFilePath) {
+          return callbacks.getCurrentCode();
+        }
+
+        const content = await callbacks.readProjectFile(path);
+        if (content === null) {
+          const available = await callbacks.listProjectFiles();
+          if (!available || available.length === 0) {
+            return `❌ File not found: ${path}\n\nNo project files are available in the current working directory.`;
           }
           return `❌ File not found: ${path}\n\nAvailable files:\n${available.map((p) => `  ${p}`).join('\n')}`;
         }
@@ -190,6 +208,7 @@ export function buildTools(callbacks: AiToolCallbacks) {
           } else if (view !== 'current') {
             opts.view = view;
           }
+          opts.sceneStyle = callbacks.getPreviewSceneStyle();
           const dataUrl = await captureOffscreen(stlUrl, opts);
           return { image_data_url: dataUrl };
         } catch (err) {

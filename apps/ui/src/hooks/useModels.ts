@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getApiKey, type AiProvider } from '../stores/apiKeyStore';
+import { getVisionSupportForModelId } from '../utils/aiMessages';
+import type { VisionSupport } from '../types/aiChat';
 
 export interface ModelInfo {
   id: string;
   display_name: string;
   provider: AiProvider;
+  visionSupport: VisionSupport;
 }
 
 export interface GroupedModels {
@@ -47,12 +50,27 @@ const KNOWN_DISPLAY_NAMES: Record<string, string> = {
 };
 
 const DEFAULT_MODELS: ModelInfo[] = [
-  { id: 'claude-sonnet-4-5', display_name: 'Claude Sonnet 4.5 (Latest)', provider: 'anthropic' },
-  { id: 'claude-opus-4', display_name: 'Claude Opus 4 (Latest)', provider: 'anthropic' },
-  { id: 'claude-haiku-3-5', display_name: 'Claude Haiku 3.5 (Latest)', provider: 'anthropic' },
-  { id: 'o1', display_name: 'o1 (Latest)', provider: 'openai' },
-  { id: 'o3-mini', display_name: 'o3 Mini (Latest)', provider: 'openai' },
-  { id: 'gpt-4o', display_name: 'GPT-4o', provider: 'openai' },
+  {
+    id: 'claude-sonnet-4-5',
+    display_name: 'Claude Sonnet 4.5 (Latest)',
+    provider: 'anthropic',
+    visionSupport: 'yes',
+  },
+  {
+    id: 'claude-opus-4',
+    display_name: 'Claude Opus 4 (Latest)',
+    provider: 'anthropic',
+    visionSupport: 'yes',
+  },
+  {
+    id: 'claude-haiku-3-5',
+    display_name: 'Claude Haiku 3.5 (Latest)',
+    provider: 'anthropic',
+    visionSupport: 'yes',
+  },
+  { id: 'o1', display_name: 'o1 (Latest)', provider: 'openai', visionSupport: 'yes' },
+  { id: 'o3-mini', display_name: 'o3 Mini (Latest)', provider: 'openai', visionSupport: 'yes' },
+  { id: 'gpt-4o', display_name: 'GPT-4o', provider: 'openai', visionSupport: 'yes' },
 ];
 
 function isAlias(modelId: string): boolean {
@@ -117,6 +135,7 @@ async function fetchAnthropicModels(apiKey: string): Promise<ModelInfo[]> {
         id: m.id,
         display_name: KNOWN_DISPLAY_NAMES[m.id] || m.display_name,
         provider: 'anthropic',
+        visionSupport: getVisionSupportForModelId(m.id),
       });
     }
 
@@ -144,6 +163,7 @@ async function fetchOpenAiModels(apiKey: string): Promise<ModelInfo[]> {
       id: m.id,
       display_name: KNOWN_DISPLAY_NAMES[m.id] || m.id,
       provider: 'openai' as const,
+      visionSupport: getVisionSupportForModelId(m.id),
     }));
 }
 
@@ -164,7 +184,12 @@ function loadCache(providers: string[]): { models: ModelInfo[]; ageMinutes: numb
     const cached: CachedModels = JSON.parse(raw);
     const age = Date.now() - cached.fetchedAt;
     if (age > CACHE_TTL_MS) return null;
-    const filtered = cached.models.filter((m) => providers.includes(m.provider));
+    const filtered = cached.models
+      .filter((m) => providers.includes(m.provider))
+      .map((model) => ({
+        ...model,
+        visionSupport: model.visionSupport || getVisionSupportForModelId(model.id),
+      }));
     if (filtered.length === 0) return null;
     return { models: filtered, ageMinutes: Math.floor(age / 60000) };
   } catch {

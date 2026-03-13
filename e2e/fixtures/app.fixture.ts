@@ -148,10 +148,11 @@ export class AppHelper {
 
   /** Dismiss the welcome screen if it's showing */
   async dismissWelcomeScreen() {
-    const startButton = this.page.getByText('Start with empty project');
+    const startButton = this.page.getByRole('button', { name: /start with empty project/i });
     if (await startButton.isVisible({ timeout: 2000 }).catch(() => false)) {
       await startButton.click();
       await startButton.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+      await this.page.waitForTimeout(300);
     }
   }
 
@@ -185,8 +186,39 @@ export class AppHelper {
     await this.page.keyboard.press('Meta+K');
   }
 
+  async openAiPanel() {
+    await this.dismissNux();
+    await this.dismissWelcomeScreen();
+    const aiTab = this.page.locator('.dv-tab').filter({ hasText: 'AI' });
+    await aiTab.click();
+    await this.page.waitForTimeout(300);
+  }
+
+  async configureAnthropicApiKey(key = 'test-anthropic-key') {
+    await this.page.evaluate((apiKey) => {
+      localStorage.setItem('openscad_studio_anthropic_api_key', apiKey);
+    }, key);
+    await this.page.reload();
+    await this.page.waitForLoadState('domcontentloaded');
+    await this.dismissNux();
+    await this.dismissWelcomeScreen();
+    await this.page.waitForTimeout(500);
+  }
+
   get aiChatInput(): Locator {
     return this.page.locator('textarea[placeholder="Describe the changes you want to make..."]');
+  }
+
+  get aiTranscript(): Locator {
+    return this.page.getByTestId('ai-transcript');
+  }
+
+  get aiSubmitButton(): Locator {
+    return this.page.getByTestId('ai-submit-button');
+  }
+
+  get aiCancelButton(): Locator {
+    return this.page.getByTestId('ai-cancel-button');
   }
 
   get aiMessages(): Locator {

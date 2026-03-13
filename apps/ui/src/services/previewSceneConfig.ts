@@ -1,0 +1,106 @@
+import type { Theme } from '../themes';
+
+export interface PreviewSceneStyle {
+  backgroundColor: string;
+  gridColor: string;
+  gridSectionColor: string;
+  modelColor: string;
+  environmentPreset: 'city';
+  material: {
+    metalness: number;
+    roughness: number;
+  };
+  ambientLight: {
+    color: string;
+    intensity: number;
+  };
+  directionalLight: {
+    color: string;
+    intensity: number;
+    position: [number, number, number];
+    shadowMapSize: [number, number];
+  };
+  contactShadows: {
+    opacity: number;
+    scale: number;
+    blur: number;
+    far: number;
+    enabledByDefault: boolean;
+  };
+  camera: {
+    defaultPosition: [number, number, number];
+    orthographicZoom: number;
+    perspectiveFov: number;
+    near: number;
+    orthographicNear: number;
+    orthographicFar: number;
+    maxDistance: number;
+    frameDistanceMultiplier: number;
+    farMultiplier: number;
+  };
+  screenshot: {
+    width: number;
+    height: number;
+  };
+}
+
+const SHARED_PREVIEW_SCENE_BASE: Omit<
+  PreviewSceneStyle,
+  'backgroundColor' | 'gridColor' | 'gridSectionColor' | 'modelColor'
+> = {
+  environmentPreset: 'city',
+  material: {
+    metalness: 0.3,
+    roughness: 0.4,
+  },
+  ambientLight: {
+    color: '#ffffff',
+    intensity: 0.5,
+  },
+  directionalLight: {
+    color: '#ffffff',
+    intensity: 1,
+    position: [10, 10, 5],
+    shadowMapSize: [2048, 2048],
+  },
+  contactShadows: {
+    opacity: 0.3,
+    scale: 200,
+    blur: 2,
+    far: 50,
+    enabledByDefault: true,
+  },
+  camera: {
+    defaultPosition: [100, 100, 100],
+    orthographicZoom: 2,
+    perspectiveFov: 50,
+    near: 0.1,
+    orthographicNear: -1000,
+    orthographicFar: 2000,
+    maxDistance: 500,
+    frameDistanceMultiplier: 2.5,
+    farMultiplier: 10,
+  },
+  screenshot: {
+    width: 800,
+    height: 600,
+  },
+};
+
+export const FALLBACK_PREVIEW_SCENE_STYLE: PreviewSceneStyle = {
+  ...SHARED_PREVIEW_SCENE_BASE,
+  backgroundColor: '#f0f0f0',
+  gridColor: '#d0d0d0',
+  gridSectionColor: '#b8b8b8',
+  modelColor: '#6699cc',
+};
+
+export function getPreviewSceneStyle(theme: Theme): PreviewSceneStyle {
+  return {
+    ...SHARED_PREVIEW_SCENE_BASE,
+    backgroundColor: theme.colors.bg.primary,
+    gridColor: theme.colors.border.secondary,
+    gridSectionColor: theme.colors.border.primary,
+    modelColor: theme.colors.accent.secondary,
+  };
+}

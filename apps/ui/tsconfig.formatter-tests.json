@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["jest", "node"],
+    "isolatedModules": true,
+    "noEmit": true
+  },
+  "include": ["src/utils/formatter/**/*.ts", "src/utils/formatter/**/*.test.ts"],
+  "exclude": []
+}

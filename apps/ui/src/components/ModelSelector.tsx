@@ -6,6 +6,7 @@ interface ModelSelectorProps {
   availableProviders: string[];
   onChange: (model: string) => void;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 export function ModelSelector({
@@ -13,6 +14,7 @@ export function ModelSelector({
   availableProviders,
   onChange,
   disabled,
+  compact = false,
 }: ModelSelectorProps) {
   const { groupedByProvider, isLoading, fromCache, refreshModels } = useModels(availableProviders);
 
@@ -29,7 +31,14 @@ export function ModelSelector({
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: compact ? '6px' : '4px',
+        minHeight: compact ? '32px' : undefined,
+      }}
+    >
       <Select
         value={currentModel}
         onChange={(e) => onChange(e.target.value)}
@@ -37,12 +46,17 @@ export function ModelSelector({
         size="sm"
         className="model-selector font-semibold"
         style={{
-          color: 'var(--text-secondary)',
-          width: 'auto',
-          minWidth: '120px',
-          backgroundColor: 'var(--bg-tertiary)',
-          border: '1px solid var(--border-primary)',
+          color: 'var(--text-primary)',
+          width: compact ? 'min(180px, 42vw)' : 'auto',
+          minWidth: compact ? '100px' : '120px',
+          backgroundColor: compact ? 'var(--bg-elevated)' : 'var(--bg-tertiary)',
+          border: '1px solid var(--border-secondary)',
           borderRadius: '4px',
+          paddingRight: compact ? '1.5rem' : undefined,
+          height: compact ? '32px' : undefined,
+          boxShadow: compact
+            ? 'inset -28px 0 0 rgba(255,255,255,0.04), inset -29px 0 0 var(--border-primary)'
+            : undefined,
         }}
       >
         {anthropicModels.length > 0 && (
@@ -72,17 +86,19 @@ export function ModelSelector({
           background: 'none',
           border: 'none',
           cursor: isLoading ? 'wait' : 'pointer',
-          padding: '2px',
+          padding: compact ? '0' : '2px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           opacity: isLoading ? 0.5 : 0.7,
           color: 'var(--text-tertiary)',
+          width: compact ? '18px' : undefined,
+          height: compact ? '18px' : undefined,
         }}
       >
         <svg
-          width="12"
-          height="12"
+          width={compact ? '11' : '12'}
+          height={compact ? '11' : '12'}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -108,7 +124,7 @@ export function ModelSelector({
           transition: background-color 0.15s ease, border-color 0.15s ease;
         }
         .model-selector:hover:not(:disabled) {
-          background-color: var(--bg-elevated) !important;
+          background-color: var(--bg-primary) !important;
           border-color: var(--border-secondary) !important;
         }
         .model-selector:focus {

@@ -10,6 +10,7 @@ module.exports = {
     '/node_modules/',
     '/__tests__/fixtures/',
     '/__tests__/test-utils.ts',
+    '/utils/formatter/__tests__/',
     '\\.scad$',
   ],
   moduleNameMapper: {

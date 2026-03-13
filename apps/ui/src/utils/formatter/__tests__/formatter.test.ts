@@ -2,6 +2,7 @@
  * Formatter test suite using file-based fixtures
  */
 
+import { beforeAll, describe, expect, it, jest } from '@jest/globals';
 import { formatOpenScadCode, initFormatter } from '../index';
 import { getAllTestCases, createDiff } from './test-utils';
 

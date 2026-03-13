@@ -1,0 +1,57 @@
+c581948628e8ff302a8ff142d11f906f
+/**
+ * OpenSCAD Code Formatter
+ *
+ * Tree-sitter based formatter for OpenSCAD code
+ */
+import { initParser, parse } from './parser';
+import { printTree } from './printer';
+const DEFAULT_OPTIONS = {
+    indentSize: 4,
+    useTabs: false,
+    printWidth: 80,
+};
+let isInitialized = false;
+/**
+ * Initialize the formatter (must be called once before formatting)
+ */
+export async function initFormatter() {
+    if (isInitialized) {
+        return;
+    }
+    await initParser();
+    isInitialized = true;
+}
+/**
+ * Format OpenSCAD code
+ */
+export async function formatOpenScadCode(code, options = {}) {
+    // Ensure formatter is initialized
+    if (!isInitialized) {
+        await initFormatter();
+    }
+    // Parse the code
+    const tree = parse(code);
+    if (!tree) {
+        console.warn('[OpenSCAD Formatter] Failed to parse code, returning original');
+        return code;
+    }
+    try {
+        // Merge options with defaults
+        const opts = { ...DEFAULT_OPTIONS, ...options };
+        // Print the formatted code
+        const formatted = printTree(tree, opts);
+        return formatted;
+    }
+    catch (error) {
+        console.error('[OpenSCAD Formatter] Formatting error:', error);
+        return code; // Return original code on error
+    }
+    finally {
+        // Clean up the tree
+        tree.delete();
+    }
+}
+// Re-export types and utilities
+export { initParser, parse, isParserReady, onParserReady } from './parser';
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL3phY2hhcnltYXJpb24vRG9jdW1lbnRzL2NvZGUvb3BlbnNjYWQtc3R1ZGlvL2FwcHMvdWkvc3JjL3V0aWxzL2Zvcm1hdHRlci9pbmRleC50cyIsIm1hcHBpbmdzIjoiQUFBQTs7OztHQUlHO0FBRUgsT0FBTyxFQUFFLFVBQVUsRUFBRSxLQUFLLEVBQUUsTUFBTSxVQUFVLENBQUM7QUFDN0MsT0FBTyxFQUFFLFNBQVMsRUFBRSxNQUFNLFdBQVcsQ0FBQztBQVF0QyxNQUFNLGVBQWUsR0FBNEI7SUFDL0MsVUFBVSxFQUFFLENBQUM7SUFDYixPQUFPLEVBQUUsS0FBSztJQUNkLFVBQVUsRUFBRSxFQUFFO0NBQ2YsQ0FBQztBQUVGLElBQUksYUFBYSxHQUFHLEtBQUssQ0FBQztBQUUxQjs7R0FFRztBQUNILE1BQU0sQ0FBQyxLQUFLLFVBQVUsYUFBYTtJQUNqQyxJQUFJLGFBQWEsRUFBRSxDQUFDO1FBQ2xCLE9BQU87SUFDVCxDQUFDO0lBRUQsTUFBTSxVQUFVLEVBQUUsQ0FBQztJQUNuQixhQUFhLEdBQUcsSUFBSSxDQUFDO0FBQ3ZCLENBQUM7QUFFRDs7R0FFRztBQUNILE1BQU0sQ0FBQyxLQUFLLFVBQVUsa0JBQWtCLENBQ3RDLElBQVksRUFDWixVQUF5QixFQUFFO0lBRTNCLGtDQUFrQztJQUNsQyxJQUFJLENBQUMsYUFBYSxFQUFFLENBQUM7UUFDbkIsTUFBTSxhQUFhLEVBQUUsQ0FBQztJQUN4QixDQUFDO0lBRUQsaUJBQWlCO0lBQ2pCLE1BQU0sSUFBSSxHQUFHLEtBQUssQ0FBQyxJQUFJLENBQUMsQ0FBQztJQUN6QixJQUFJLENBQUMsSUFBSSxFQUFFLENBQUM7UUFDVixPQUFPLENBQUMsSUFBSSxDQUFDLCtEQUErRCxDQUFDLENBQUM7UUFDOUUsT0FBTyxJQUFJLENBQUM7SUFDZCxDQUFDO0lBRUQsSUFBSSxDQUFDO1FBQ0gsOEJBQThCO1FBQzlCLE1BQU0sSUFBSSxHQUFHLEVBQUUsR0FBRyxlQUFlLEVBQUUsR0FBRyxPQUFPLEVBQUUsQ0FBQztRQUVoRCwyQkFBMkI7UUFDM0IsTUFBTSxTQUFTLEdBQUcsU0FBUyxDQUFDLElBQUksRUFBRSxJQUFJLENBQUMsQ0FBQztRQUV4QyxPQUFPLFNBQVMsQ0FBQztJQUNuQixDQUFDO0lBQUMsT0FBTyxLQUFLLEVBQUUsQ0FBQztRQUNmLE9BQU8sQ0FBQyxLQUFLLENBQUMsd0NBQXdDLEVBQUUsS0FBSyxDQUFDLENBQUM7UUFDL0QsT0FBTyxJQUFJLENBQUMsQ0FBQyxnQ0FBZ0M7SUFDL0MsQ0FBQztZQUFTLENBQUM7UUFDVCxvQkFBb0I7UUFDcEIsSUFBSSxDQUFDLE1BQU0sRUFBRSxDQUFDO0lBQ2hCLENBQUM7QUFDSCxDQUFDO0FBRUQsZ0NBQWdDO0FBQ2hDLE9BQU8sRUFBRSxVQUFVLEVBQUUsS0FBSyxFQUFFLGFBQWEsRUFBRSxhQUFhLEVBQUUsTUFBTSxVQUFVLENBQUMiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL3phY2hhcnltYXJpb24vRG9jdW1lbnRzL2NvZGUvb3BlbnNjYWQtc3R1ZGlvL2FwcHMvdWkvc3JjL3V0aWxzL2Zvcm1hdHRlci9pbmRleC50cyJdLCJzb3VyY2VzQ29udGVudCI6WyIvKipcbiAqIE9wZW5TQ0FEIENvZGUgRm9ybWF0dGVyXG4gKlxuICogVHJlZS1zaXR0ZXIgYmFzZWQgZm9ybWF0dGVyIGZvciBPcGVuU0NBRCBjb2RlXG4gKi9cblxuaW1wb3J0IHsgaW5pdFBhcnNlciwgcGFyc2UgfSBmcm9tICcuL3BhcnNlcic7XG5pbXBvcnQgeyBwcmludFRyZWUgfSBmcm9tICcuL3ByaW50ZXInO1xuXG5leHBvcnQgaW50ZXJmYWNlIEZvcm1hdE9wdGlvbnMge1xuICBpbmRlbnRTaXplPzogbnVtYmVyO1xuICB1c2VUYWJzPzogYm9vbGVhbjtcbiAgcHJpbnRXaWR0aD86IG51bWJlcjtcbn1cblxuY29uc3QgREVGQVVMVF9PUFRJT05TOiBSZXF1aXJlZDxGb3JtYXRPcHRpb25zPiA9IHtcbiAgaW5kZW50U2l6ZTogNCxcbiAgdXNlVGFiczogZmFsc2UsXG4gIHByaW50V2lkdGg6IDgwLFxufTtcblxubGV0IGlzSW5pdGlhbGl6ZWQgPSBmYWxzZTtcblxuLyoqXG4gKiBJbml0aWFsaXplIHRoZSBmb3JtYXR0ZXIgKG11c3QgYmUgY2FsbGVkIG9uY2UgYmVmb3JlIGZvcm1hdHRpbmcpXG4gKi9cbmV4cG9ydCBhc3luYyBmdW5jdGlvbiBpbml0Rm9ybWF0dGVyKCk6IFByb21pc2U8dm9pZD4ge1xuICBpZiAoaXNJbml0aWFsaXplZCkge1xuICAgIHJldHVybjtcbiAgfVxuXG4gIGF3YWl0IGluaXRQYXJzZXIoKTtcbiAgaXNJbml0aWFsaXplZCA9IHRydWU7XG59XG5cbi8qKlxuICogRm9ybWF0IE9wZW5TQ0FEIGNvZGVcbiAqL1xuZXhwb3J0IGFzeW5jIGZ1bmN0aW9uIGZvcm1hdE9wZW5TY2FkQ29kZShcbiAgY29kZTogc3RyaW5nLFxuICBvcHRpb25zOiBGb3JtYXRPcHRpb25zID0ge31cbik6IFByb21pc2U8c3RyaW5nPiB7XG4gIC8vIEVuc3VyZSBmb3JtYXR0ZXIgaXMgaW5pdGlhbGl6ZWRcbiAgaWYgKCFpc0luaXRpYWxpemVkKSB7XG4gICAgYXdhaXQgaW5pdEZvcm1hdHRlcigpO1xuICB9XG5cbiAgLy8gUGFyc2UgdGhlIGNvZGVcbiAgY29uc3QgdHJlZSA9IHBhcnNlKGNvZGUpO1xuICBpZiAoIXRyZWUpIHtcbiAgICBjb25zb2xlLndhcm4oJ1tPcGVuU0NBRCBGb3JtYXR0ZXJdIEZhaWxlZCB0byBwYXJzZSBjb2RlLCByZXR1cm5pbmcgb3JpZ2luYWwnKTtcbiAgICByZXR1cm4gY29kZTtcbiAgfVxuXG4gIHRyeSB7XG4gICAgLy8gTWVyZ2Ugb3B0aW9ucyB3aXRoIGRlZmF1bHRzXG4gICAgY29uc3Qgb3B0cyA9IHsgLi4uREVGQVVMVF9PUFRJT05TLCAuLi5vcHRpb25zIH07XG5cbiAgICAvLyBQcmludCB0aGUgZm9ybWF0dGVkIGNvZGVcbiAgICBjb25zdCBmb3JtYXR0ZWQgPSBwcmludFRyZWUodHJlZSwgb3B0cyk7XG5cbiAgICByZXR1cm4gZm9ybWF0dGVkO1xuICB9IGNhdGNoIChlcnJvcikge1xuICAgIGNvbnNvbGUuZXJyb3IoJ1tPcGVuU0NBRCBGb3JtYXR0ZXJdIEZvcm1hdHRpbmcgZXJyb3I6JywgZXJyb3IpO1xuICAgIHJldHVybiBjb2RlOyAvLyBSZXR1cm4gb3JpZ2luYWwgY29kZSBvbiBlcnJvclxuICB9IGZpbmFsbHkge1xuICAgIC8vIENsZWFuIHVwIHRoZSB0cmVlXG4gICAgdHJlZS5kZWxldGUoKTtcbiAgfVxufVxuXG4vLyBSZS1leHBvcnQgdHlwZXMgYW5kIHV0aWxpdGllc1xuZXhwb3J0IHsgaW5pdFBhcnNlciwgcGFyc2UsIGlzUGFyc2VyUmVhZHksIG9uUGFyc2VyUmVhZHkgfSBmcm9tICcuL3BhcnNlcic7XG5leHBvcnQgdHlwZSB7IFBhcnNlciB9IGZyb20gJ3dlYi10cmVlLXNpdHRlcic7XG4iXSwidmVyc2lvbiI6M30=
