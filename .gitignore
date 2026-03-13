@@ -40,3 +40,4 @@ src-tauri/WixTools/
 
 # Jest cache
 .jest-cache/
+.jest-cache-formatter/
