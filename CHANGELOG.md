@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-03-13
+
+Added privacy-aware product analytics with clear opt-out controls and stronger protection for AI conversation content.
+Improved the AI chat experience with better streaming updates, attachment handling, tool-call state, and model/provider refresh behavior.
+Upgraded the 3D viewer with configurable axes and axis labels, better framing behavior, and more reliable camera interactions.
+Added stronger error handling with improved startup, app, and panel crash recovery states.
+Expanded test coverage across analytics, AI, viewer behavior, and formatting regressions.
+Fixed CI and e2e reliability issues, including the viewer settings toggle interaction used by automated tests.
+
 ## [0.8.1] - 2026-03-06
 
 - Hide libraries settings tab on web
