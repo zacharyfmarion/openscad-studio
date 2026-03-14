@@ -18,6 +18,12 @@ export interface UiSettings {
   customizerWidth: number;
   hasCompletedNux: boolean;
   defaultLayoutPreset: 'default' | 'ai-first';
+  hasDismissedViewerControlsHint: boolean;
+}
+
+export interface ViewerSettings {
+  showAxes: boolean;
+  showAxisLabels: boolean;
 }
 
 export interface LibrarySettings {
@@ -25,11 +31,17 @@ export interface LibrarySettings {
   autoDiscoverSystem: boolean;
 }
 
+export interface PrivacySettings {
+  analyticsEnabled: boolean;
+}
+
 export interface Settings {
   editor: EditorSettings;
   appearance: AppearanceSettings;
   ui: UiSettings;
+  viewer: ViewerSettings;
   library: LibrarySettings;
+  privacy: PrivacySettings;
 }
 
 const DEFAULT_VIM_CONFIG = `# Vim Configuration
@@ -74,10 +86,18 @@ const DEFAULT_SETTINGS: Settings = {
     customizerWidth: 420,
     hasCompletedNux: false,
     defaultLayoutPreset: 'default',
+    hasDismissedViewerControlsHint: false,
+  },
+  viewer: {
+    showAxes: true,
+    showAxisLabels: true,
   },
   library: {
     customPaths: [],
     autoDiscoverSystem: true,
+  },
+  privacy: {
+    analyticsEnabled: true,
   },
 };
 
@@ -107,9 +127,17 @@ export function loadSettings(): Settings {
           ...DEFAULT_SETTINGS.ui,
           ...(parsed.ui || {}),
         },
+        viewer: {
+          ...DEFAULT_SETTINGS.viewer,
+          ...(parsed.viewer || {}),
+        },
         library: {
           ...DEFAULT_SETTINGS.library,
           ...(parsed.library || {}),
+        },
+        privacy: {
+          ...DEFAULT_SETTINGS.privacy,
+          ...(parsed.privacy || {}),
         },
       };
     }

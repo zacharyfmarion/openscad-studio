@@ -5,15 +5,17 @@ import 'dockview/dist/styles/dockview.css';
 import { ExportDialog } from './components/ExportDialog';
 import type { AiPromptPanelRef } from './components/AiPromptPanel';
 import { SettingsDialog, type SettingsSection } from './components/SettingsDialog';
-import { WelcomeScreen, addToRecentFiles } from './components/WelcomeScreen';
+import { WelcomeScreen } from './components/WelcomeScreen';
 import { NuxLayoutPicker } from './components/NuxLayoutPicker';
 import { TabBar, type Tab } from './components/TabBar';
 import { WebMenuBar } from './components/WebMenuBar';
 import { EditableFileName } from './components/EditableFileName';
-import { Button } from './components/ui';
+import { Button, IconButton } from './components/ui';
 import { panelComponents, tabComponents, WorkspaceTab } from './components/panels/PanelComponents';
+import { useTheme } from './contexts/ThemeContext';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import type { WorkspaceState } from './contexts/WorkspaceContext';
+import { useAnalytics } from './analytics/runtime';
 import {
   setDockviewApi,
   getDockviewApi,
@@ -26,10 +28,14 @@ import { useAiAgent } from './hooks/useAiAgent';
 import { useHistory } from './hooks/useHistory';
 import { getPlatform, eventBus, type ExportFormat } from './platform';
 import { RenderService } from './services/renderService';
+import { getPreviewSceneStyle } from './services/previewSceneConfig';
 import { useSettings, loadSettings, updateSetting } from './stores/settingsStore';
 import { formatOpenScadCode } from './utils/formatter';
+import { addRecentFile, removeRecentFile } from './utils/recentFiles';
+import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { TbSettings, TbBox, TbRuler2, TbDownload } from 'react-icons/tb';
-import { Toaster, toast } from 'sonner';
+import { Toaster } from 'sonner';
+import type { AiDraft } from './types/aiChat';
 
 // Helper to generate unique IDs for tabs
 function generateId(): string {
@@ -45,6 +51,30 @@ const RELEASE_VERSION = '0.8.1';
 const RELEASE_BASE = `https://github.com/zacharyfmarion/openscad-studio/releases/download/v${RELEASE_VERSION}`;
 
 type MacArch = 'aarch64' | 'x64';
+
+function isIgnorableRejection(reason: unknown): boolean {
+  const message =
+    reason instanceof Error
+      ? reason.message
+      : typeof reason === 'string'
+        ? reason
+        : typeof reason === 'object' &&
+            reason !== null &&
+            'message' in reason &&
+            typeof (reason as { message?: unknown }).message === 'string'
+          ? (reason as { message: string }).message
+          : '';
+
+  const normalized = message.trim().toLowerCase();
+  return (
+    normalized === 'canceled' ||
+    normalized === 'cancelled' ||
+    normalized === 'render cancelled' ||
+    normalized === 'render canceled' ||
+    normalized.includes('aborterror') ||
+    normalized.includes('aborted')
+  );
+}
 
 function DownloadForMacLink() {
   const [arch, setArch] = useState<MacArch>('aarch64');
@@ -177,6 +207,8 @@ function App() {
     undefined
   );
   const [settings] = useSettings();
+  const { theme } = useTheme();
+  const previewSceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
   const { capabilities } = getPlatform();
   const { undo, redo } = useHistory();
 
@@ -193,6 +225,7 @@ function App() {
     dimensionMode,
     manualRender,
     renderOnSave,
+    renderWithTrigger,
     auxiliaryFiles,
   } = useOpenScad({
     workingDir,
@@ -212,6 +245,7 @@ function App() {
   }, [redo, updateSource]);
 
   const aiPromptPanelRef = useRef<AiPromptPanelRef>(null);
+  const analytics = useAnalytics();
 
   // AI Agent state
   const {
@@ -221,10 +255,22 @@ function App() {
     error: aiError,
     isApplyingDiff,
     messages,
+    draft,
+    attachments,
+    draftErrors,
+    draftVisionBlockMessage,
+    draftVisionWarningMessage,
+    canSubmitDraft,
+    isProcessingAttachments,
     currentToolCalls,
     currentModel,
+    currentModelVisionSupport,
     availableProviders,
-    submitPrompt,
+    submitDraft,
+    setDraft,
+    setDraftText,
+    addDraftFiles,
+    removeDraftAttachment,
     cancelStream,
     acceptDiff,
     rejectDiff,
@@ -236,7 +282,9 @@ function App() {
     updateCapturePreview,
     updateStlBlobUrl,
     updateWorkingDir,
+    updateCurrentFilePath,
     updateAuxiliaryFiles,
+    updatePreviewSceneStyle,
     loadModelAndProviders,
   } = useAiAgent();
 
@@ -375,6 +423,7 @@ function App() {
   const workingDirRef = useRef<string | null>(workingDir);
   const renderOnSaveRef = useRef(renderOnSave);
   const manualRenderRef = useRef(manualRender);
+  const renderWithTriggerRef = useRef(renderWithTrigger);
   const updateSourceAndRenderRef = useRef(updateSourceAndRender);
 
   // Keep refs in sync with state
@@ -450,8 +499,16 @@ function App() {
   }, [workingDir, updateWorkingDir]);
 
   useEffect(() => {
+    updateCurrentFilePath(activeTab?.filePath ?? null);
+  }, [activeTab?.filePath, updateCurrentFilePath]);
+
+  useEffect(() => {
     updateAuxiliaryFiles(auxiliaryFiles);
   }, [auxiliaryFiles, updateAuxiliaryFiles]);
+
+  useEffect(() => {
+    updatePreviewSceneStyle(previewSceneStyle);
+  }, [previewSceneStyle, updatePreviewSceneStyle]);
 
   useEffect(() => {
     renderOnSaveRef.current = renderOnSave;
@@ -460,6 +517,10 @@ function App() {
   useEffect(() => {
     manualRenderRef.current = manualRender;
   }, [manualRender]);
+
+  useEffect(() => {
+    renderWithTriggerRef.current = renderWithTrigger;
+  }, [renderWithTrigger]);
 
   useEffect(() => {
     updateSourceAndRenderRef.current = updateSourceAndRender;
@@ -492,11 +553,11 @@ function App() {
 
       // Debounced render - handles rapid tab switching gracefully
       tabSwitchRenderTimerRef.current = window.setTimeout(() => {
-        if (manualRenderRef.current) {
+        if (renderWithTriggerRef.current) {
           const currentTab = tabs.find((t) => t.id === activeTabId);
           if (import.meta.env.DEV)
             console.log('[App] Auto-rendering after tab change to:', currentTab?.name);
-          manualRenderRef.current();
+          renderWithTriggerRef.current('tab_switch');
         }
         tabSwitchRenderTimerRef.current = null;
       }, 150);
@@ -557,6 +618,7 @@ function App() {
 
         if (!savePath) return false;
 
+        const shouldNotifySaveSuccess = promptForPath || !currentTab.filePath;
         const fileName = savePath.split('/').pop() || savePath;
         setTabs((prev) =>
           prev.map((tab) =>
@@ -577,51 +639,74 @@ function App() {
           dockPanel.api.setTitle(fileName);
         }
 
-        addToRecentFiles(savePath);
+        addRecentFile(savePath);
 
         // Trigger render on save (only if OpenSCAD is available)
         if (renderOnSaveRef.current) {
           renderOnSaveRef.current();
         }
 
+        analytics.track('file saved', {
+          source: promptForPath ? 'save_as' : 'save',
+          had_existing_path: Boolean(currentTab.filePath),
+          format_on_save: currentSettings.editor.formatOnSave,
+          render_after_save: Boolean(renderOnSaveRef.current),
+        });
+
+        if (shouldNotifySaveSuccess) {
+          notifySuccess('File saved successfully', {
+            toastId: 'save-success',
+          });
+        }
+
         return true;
       } catch (err) {
-        console.error('[saveFile] Save failed:', err);
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        toast.error(`Failed to save file: ${errorMsg}`);
+        notifyError({
+          operation: 'save-file',
+          error: err,
+          fallbackMessage: 'Failed to save file',
+          toastId: 'save-file-error',
+          logLabel: '[saveFile] Save failed',
+        });
         return false;
       }
     },
-    [updateSource]
+    [analytics, updateSource]
   );
 
-  // Handle starting with AI prompt from welcome screen
-  const handleStartWithPrompt = useCallback(
-    (prompt: string) => {
+  const handleStartWithDraft = useCallback(
+    (draftOverride?: AiDraft) => {
+      if (draftOverride) {
+        setDraft(draftOverride);
+      }
       setShowWelcome(false);
-      // Submit prompt after a small delay to ensure UI is ready
-      setTimeout(() => {
-        submitPrompt(prompt);
-      }, 100);
+      void submitDraft(draftOverride);
     },
-    [submitPrompt]
+    [setDraft, submitDraft]
   );
 
   const handleStartManually = useCallback(() => {
     setShowWelcome(false);
   }, []);
 
-  const handleNuxSelect = useCallback((preset: 'default' | 'ai-first') => {
-    updateSetting('ui', { hasCompletedNux: true, defaultLayoutPreset: preset });
-    setShowNux(false);
+  const handleNuxSelect = useCallback(
+    (preset: 'default' | 'ai-first') => {
+      updateSetting('ui', { hasCompletedNux: true, defaultLayoutPreset: preset });
+      setShowNux(false);
+      analytics.track('workspace layout selected', {
+        preset,
+        is_first_run: true,
+      });
 
-    const api = getDockviewApi();
-    if (api) {
-      api.clear();
-      addPresetPanels(api, preset);
-      saveLayout();
-    }
-  }, []);
+      const api = getDockviewApi();
+      if (api) {
+        api.clear();
+        addPresetPanels(api, preset);
+        saveLayout();
+      }
+    },
+    [analytics]
+  );
 
   const handleOpenRecent = useCallback(
     async (path: string) => {
@@ -630,19 +715,29 @@ function App() {
         if (existingTab) {
           await switchTab(existingTab.id);
           setShowWelcome(false);
-          return;
+          analytics.track('file opened', {
+            source: 'recent',
+            has_disk_path: true,
+            reused_existing_tab: true,
+            replaced_welcome_tab: false,
+          });
+          return 'opened' as const;
         }
 
         // On web, recent files won't have real paths — this is a Tauri-only feature
         // but we keep the interface for compatibility
         const platform = getPlatform();
         if (!platform.capabilities.hasFileSystem) {
-          toast.error('Cannot open recent files in web mode');
-          return;
+          notifyError({
+            operation: 'open-recent-file',
+            fallbackMessage: 'Cannot open recent files in web mode',
+            toastId: 'open-recent-file-error',
+          });
+          return 'cancelled' as const;
         }
 
         const result = await platform.fileRead(path);
-        if (!result) return;
+        if (!result) return 'cancelled' as const;
 
         const firstTab = tabs[0];
         const shouldReplaceFirstTab =
@@ -665,21 +760,42 @@ function App() {
         }
 
         setShowWelcome(false);
-        if (result.path) addToRecentFiles(result.path);
+        if (result.path) addRecentFile(result.path);
+        analytics.track('file opened', {
+          source: 'recent',
+          has_disk_path: Boolean(result.path),
+          reused_existing_tab: false,
+          replaced_welcome_tab: shouldReplaceFirstTab,
+        });
 
-        if (manualRenderRef.current) {
+        if (renderWithTriggerRef.current) {
           setTimeout(() => {
-            if (manualRenderRef.current) {
-              manualRenderRef.current();
+            if (renderWithTriggerRef.current) {
+              renderWithTriggerRef.current('file_open');
             }
           }, 100);
         }
+        return 'opened' as const;
       } catch (err) {
-        console.error('Failed to open recent file:', err);
-        toast.error(`Failed to open file: ${err}`);
+        removeRecentFile(path);
+        const normalized = normalizeAppError(err, 'Failed to open file');
+        const isMissingFile =
+          normalized.message.toLowerCase().includes('no such file') ||
+          normalized.message.toLowerCase().includes('not found');
+
+        notifyError({
+          operation: 'open-recent-file',
+          error: err,
+          fallbackMessage: isMissingFile
+            ? 'File no longer exists. Removed from Recent Files.'
+            : 'Failed to open file',
+          toastId: 'open-recent-file-error',
+          logLabel: 'Failed to open recent file',
+        });
+        return 'removed' as const;
       }
     },
-    [tabs, showWelcome, switchTab, createNewTab, updateSource]
+    [analytics, tabs, showWelcome, switchTab, createNewTab, updateSource]
   );
 
   const handleOpenFile = useCallback(async () => {
@@ -694,6 +810,12 @@ function App() {
         if (existingTab) {
           await switchTab(existingTab.id);
           setShowWelcome(false);
+          analytics.track('file opened', {
+            source: 'open',
+            has_disk_path: true,
+            reused_existing_tab: true,
+            replaced_welcome_tab: false,
+          });
           return;
         }
       }
@@ -719,20 +841,31 @@ function App() {
       }
 
       setShowWelcome(false);
-      if (result.path) addToRecentFiles(result.path);
+      if (result.path) addRecentFile(result.path);
+      analytics.track('file opened', {
+        source: 'open',
+        has_disk_path: Boolean(result.path),
+        reused_existing_tab: false,
+        replaced_welcome_tab: shouldReplaceFirstTab,
+      });
 
-      if (manualRenderRef.current) {
+      if (renderWithTriggerRef.current) {
         setTimeout(() => {
-          if (manualRenderRef.current) {
-            manualRenderRef.current();
+          if (renderWithTriggerRef.current) {
+            renderWithTriggerRef.current('file_open');
           }
         }, 100);
       }
     } catch (err) {
-      console.error('Failed to open file:', err);
-      toast.error(`Failed to open file: ${err}`);
+      notifyError({
+        operation: 'open-file',
+        error: err,
+        fallbackMessage: 'Failed to open file',
+        toastId: 'open-file-error',
+        logLabel: 'Failed to open file',
+      });
     }
-  }, [tabs, showWelcome, switchTab, createNewTab, updateSource]);
+  }, [analytics, tabs, showWelcome, switchTab, createNewTab, updateSource]);
 
   // Helper function to check for unsaved changes before destructive operations
   // Returns: true if ok to proceed, false if user wants to cancel
@@ -794,6 +927,12 @@ function App() {
             if (existingTab) {
               await switchTab(existingTab.id);
               setShowWelcome(false);
+              analytics.track('file opened', {
+                source: 'menu_open',
+                has_disk_path: true,
+                reused_existing_tab: true,
+                replaced_welcome_tab: false,
+              });
               return;
             }
           }
@@ -801,18 +940,29 @@ function App() {
           createNewTab(result.path, result.content, result.name);
           setShowWelcome(false);
 
-          if (result.path) addToRecentFiles(result.path);
+          if (result.path) addRecentFile(result.path);
+          analytics.track('file opened', {
+            source: 'menu_open',
+            has_disk_path: Boolean(result.path),
+            reused_existing_tab: false,
+            replaced_welcome_tab: false,
+          });
 
-          if (manualRenderRef.current) {
+          if (renderWithTriggerRef.current) {
             setTimeout(() => {
-              if (manualRenderRef.current) {
-                manualRenderRef.current();
+              if (renderWithTriggerRef.current) {
+                renderWithTriggerRef.current('file_open');
               }
             }, 100);
           }
         } catch (err) {
-          console.error('Open failed:', err);
-          toast.error(`Failed to open file: ${err}`);
+          notifyError({
+            operation: 'open-file',
+            error: err,
+            fallbackMessage: 'Failed to open file',
+            toastId: 'open-file-error',
+            logLabel: 'Open failed',
+          });
         }
       })
     );
@@ -849,10 +999,18 @@ function App() {
           await getPlatform().fileExport(exportBytes, `export.${formatInfo.ext}`, [
             { name: formatInfo.label, extensions: [formatInfo.ext] },
           ]);
-          toast.success('Exported successfully');
+          analytics.track('file exported', {
+            format,
+          });
+          notifySuccess('Exported successfully', { toastId: 'export-success' });
         } catch (err) {
-          console.error('Export failed:', err);
-          toast.error(`Export failed: ${err}`);
+          notifyError({
+            operation: 'export-file',
+            error: err,
+            fallbackMessage: 'Export failed',
+            toastId: 'export-error',
+            logLabel: 'Export failed',
+          });
         }
       })
     );
@@ -861,7 +1019,7 @@ function App() {
       unlistenFns.forEach((fn) => fn());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [analytics, showWelcome, switchTab, createNewTab]);
 
   useEffect(() => {
     const platform = getPlatform();
@@ -902,7 +1060,7 @@ function App() {
 
   useEffect(() => {
     const unlisten = eventBus.on('history:restore', ({ code }) => {
-      updateSourceAndRenderRef.current(code);
+      updateSourceAndRenderRef.current(code, 'history_restore');
       setTabs((prev) =>
         prev.map((tab) =>
           tab.id === activeTabId
@@ -916,7 +1074,7 @@ function App() {
 
   useEffect(() => {
     const unlisten = eventBus.on('code-updated', ({ code }) => {
-      updateSourceAndRenderRef.current(code);
+      updateSourceAndRenderRef.current(code, 'code_update');
       setTabs((prev) =>
         prev.map((tab) =>
           tab.id === activeTabId
@@ -927,6 +1085,16 @@ function App() {
     });
     return unlisten;
   }, [activeTabId]);
+
+  const previousSettingsDialogRef = useRef(false);
+  useEffect(() => {
+    if (showSettingsDialog && !previousSettingsDialogRef.current) {
+      analytics.track('settings opened', {
+        section: settingsInitialTab ?? 'appearance',
+      });
+    }
+    previousSettingsDialogRef.current = showSettingsDialog;
+  }, [analytics, settingsInitialTab, showSettingsDialog]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -961,10 +1129,49 @@ function App() {
 
   useEffect(() => {
     if (aiError) {
-      toast.error(aiError, { duration: Infinity, dismissible: true });
+      notifyError({
+        operation: 'ai-stream',
+        error: aiError,
+        fallbackMessage: 'AI request failed',
+        toastId: 'ai-stream-error',
+      });
       clearAiError();
     }
   }, [aiError, clearAiError]);
+
+  useEffect(() => {
+    const handleWindowError = (event: ErrorEvent) => {
+      notifyError({
+        operation: 'unexpected-runtime-error',
+        error: event.error ?? event.message,
+        fallbackMessage: 'Something went wrong in the app',
+        toastId: 'unexpected-runtime-error',
+        logLabel: '[App] Unhandled window error',
+      });
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (isIgnorableRejection(event.reason)) {
+        return;
+      }
+
+      notifyError({
+        operation: 'unexpected-runtime-error',
+        error: event.reason,
+        fallbackMessage: 'An unexpected error interrupted the current action',
+        toastId: 'unexpected-runtime-error',
+        logLabel: '[App] Unhandled promise rejection',
+      });
+    };
+
+    window.addEventListener('error', handleWindowError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleWindowError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
 
   const onDockviewReady = useCallback((event: DockviewReadyEvent) => {
     const { api } = event;
@@ -1006,10 +1213,21 @@ function App() {
       aiError,
       isApplyingDiff,
       messages,
+      draft,
+      attachments,
+      draftErrors,
+      draftVisionBlockMessage,
+      draftVisionWarningMessage,
+      canSubmitDraft,
+      isProcessingAttachments,
       currentToolCalls,
       currentModel,
+      currentModelVisionSupport,
       availableProviders,
-      submitPrompt,
+      submitDraft,
+      setDraftText,
+      addDraftFiles,
+      removeDraftAttachment,
       cancelStream,
       acceptDiff,
       rejectDiff,
@@ -1047,10 +1265,21 @@ function App() {
       aiError,
       isApplyingDiff,
       messages,
+      draft,
+      attachments,
+      draftErrors,
+      draftVisionBlockMessage,
+      draftVisionWarningMessage,
+      canSubmitDraft,
+      isProcessingAttachments,
       currentToolCalls,
       currentModel,
+      currentModelVisionSupport,
       availableProviders,
-      submitPrompt,
+      submitDraft,
+      setDraftText,
+      addDraftFiles,
+      removeDraftAttachment,
       cancelStream,
       acceptDiff,
       rejectDiff,
@@ -1061,40 +1290,50 @@ function App() {
     ]
   );
 
-  // Show welcome screen if no file is open and welcome hasn't been dismissed
-  if (showWelcome) {
-    return (
-      <div
-        className="h-screen"
-        data-testid="welcome-container"
-        style={{ backgroundColor: 'var(--bg-primary)' }}
-      >
-        <WelcomeScreen
-          onStartWithPrompt={handleStartWithPrompt}
-          onStartManually={handleStartManually}
-          onOpenRecent={handleOpenRecent}
-          onOpenFile={handleOpenFile}
-          showRecentFiles={capabilities.hasFileSystem}
-          onOpenSettings={() => {
-            setSettingsInitialTab('ai');
-            setShowSettingsDialog(true);
-          }}
-        />
-        <SettingsDialog
-          isOpen={showSettingsDialog}
-          onClose={() => {
-            setShowSettingsDialog(false);
-            setSettingsInitialTab(undefined);
-            loadModelAndProviders();
-          }}
-          initialTab={settingsInitialTab}
-        />
-        <NuxLayoutPicker isOpen={showNux} onSelect={handleNuxSelect} />
-      </div>
-    );
-  }
-
-  return (
+  const content = showWelcome ? (
+    <div
+      className="h-screen"
+      data-testid="welcome-container"
+      style={{ backgroundColor: 'var(--bg-primary)' }}
+    >
+      <WelcomeScreen
+        draft={draft}
+        attachments={attachments}
+        draftErrors={draftErrors}
+        draftVisionBlockMessage={draftVisionBlockMessage}
+        draftVisionWarningMessage={draftVisionWarningMessage}
+        canSubmitDraft={canSubmitDraft}
+        isProcessingAttachments={isProcessingAttachments}
+        onDraftTextChange={setDraftText}
+        onDraftFilesSelected={(files) => {
+          void addDraftFiles(files);
+        }}
+        onDraftRemoveAttachment={removeDraftAttachment}
+        onStartWithDraft={handleStartWithDraft}
+        onStartManually={handleStartManually}
+        onOpenRecent={handleOpenRecent}
+        onOpenFile={handleOpenFile}
+        showRecentFiles={capabilities.hasFileSystem}
+        currentModel={currentModel}
+        availableProviders={availableProviders}
+        onModelChange={setCurrentModel}
+        onOpenSettings={() => {
+          setSettingsInitialTab('ai');
+          setShowSettingsDialog(true);
+        }}
+      />
+      <SettingsDialog
+        isOpen={showSettingsDialog}
+        onClose={() => {
+          setShowSettingsDialog(false);
+          setSettingsInitialTab(undefined);
+          loadModelAndProviders();
+        }}
+        initialTab={settingsInitialTab}
+      />
+      <NuxLayoutPicker isOpen={showNux} onSelect={handleNuxSelect} />
+    </div>
+  ) : (
     <div
       className="h-screen flex flex-col"
       data-testid="app-container"
@@ -1107,7 +1346,6 @@ function App() {
           borderBottom: '1px solid var(--border-subtle)',
         }}
       >
-        {/* Web menu bar (web only — no native menu) */}
         {!capabilities.hasNativeMenu && (
           <WebMenuBar
             onExport={() => setShowExportDialog(true)}
@@ -1117,7 +1355,6 @@ function App() {
           />
         )}
 
-        {/* Tab bar (multi-file / Tauri) or filename label (single-file / web) */}
         <div className="flex-1 min-w-0 overflow-hidden">
           {capabilities.multiFile ? (
             <TabBar
@@ -1210,23 +1447,18 @@ function App() {
             style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }}
           />
 
-          <button
+          <IconButton
             data-testid="settings-button"
-            type="button"
             onClick={() => setShowSettingsDialog(true)}
-            className="p-1 rounded-md transition-colors"
-            style={{
-              backgroundColor: 'transparent',
-              color: 'var(--text-secondary)',
-            }}
+            size="sm"
             title="Settings (⌘,)"
+            aria-label="Settings"
           >
             <TbSettings size={16} />
-          </button>
+          </IconButton>
         </div>
       </header>
 
-      {/* Main content with dockview */}
       <div className="flex-1 overflow-hidden">
         <WorkspaceProvider value={workspaceState}>
           <DockviewReact
@@ -1240,7 +1472,6 @@ function App() {
         </WorkspaceProvider>
       </div>
 
-      {/* Export dialog */}
       <ExportDialog
         isOpen={showExportDialog}
         onClose={() => setShowExportDialog(false)}
@@ -1248,7 +1479,6 @@ function App() {
         workingDir={workingDir}
       />
 
-      {/* Settings dialog */}
       <SettingsDialog
         isOpen={showSettingsDialog}
         onClose={() => {
@@ -1258,7 +1488,12 @@ function App() {
         }}
         initialTab={settingsInitialTab}
       />
+    </div>
+  );
 
+  return (
+    <>
+      {content}
       <Toaster
         richColors
         position="bottom-right"
@@ -1270,7 +1505,7 @@ function App() {
           },
         }}
       />
-    </div>
+    </>
   );
 }
 

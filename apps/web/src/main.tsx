@@ -1,9 +1,19 @@
 import ReactDOM from 'react-dom/client';
+import posthog from 'posthog-js';
+import { PostHogProvider } from '@posthog/react';
 import App from '@ui/App';
+import {
+  captureAppOpened,
+  captureBootstrapError,
+  initializePostHog,
+} from '@ui/analytics/bootstrap';
+import { shouldCaptureBootstrapAnalytics } from '@ui/analytics/bootstrapPolicy';
+import { AnalyticsRuntimeProvider } from '@ui/analytics/runtime';
 import { ErrorBoundary } from '@ui/components/ErrorBoundary';
 import { ThemeProvider } from '@ui/contexts/ThemeContext';
 import { initFormatter } from '@ui/utils/formatter';
 import { initializePlatform } from '@ui/platform';
+import { loadSettings } from '@ui/stores/settingsStore';
 import '@ui/index.css';
 
 declare global {
@@ -16,6 +26,13 @@ if (window.__UNSUPPORTED_BROWSER) {
   // eslint-disable-next-line no-console
   console.warn('[main] Browser unsupported — skipping app render');
 } else {
+  const analyticsEnabled = loadSettings().privacy.analyticsEnabled;
+  const posthogReady = initializePostHog(posthog, { analyticsEnabled });
+  const shouldCaptureBootstrapEvents = shouldCaptureBootstrapAnalytics(
+    posthogReady,
+    analyticsEnabled
+  );
+
   initFormatter().catch((error) => {
     console.error('[main] Failed to initialize formatter:', error);
   });
@@ -24,16 +41,34 @@ if (window.__UNSUPPORTED_BROWSER) {
 
   const renderApp = () =>
     root.render(
-      <ErrorBoundary>
+      <PostHogProvider client={posthog}>
         <ThemeProvider>
-          <App />
+          <AnalyticsRuntimeProvider>
+            <ErrorBoundary>
+              <App />
+            </ErrorBoundary>
+          </AnalyticsRuntimeProvider>
         </ThemeProvider>
-      </ErrorBoundary>
+      </PostHogProvider>
     );
 
   initializePlatform()
-    .then(renderApp)
+    .then((platform) => {
+      if (shouldCaptureBootstrapEvents) {
+        captureAppOpened(posthog, {
+          analyticsEnabled,
+          capabilities: platform.capabilities,
+        });
+      }
+      renderApp();
+    })
     .catch((error) => {
+      if (shouldCaptureBootstrapEvents) {
+        captureBootstrapError(posthog, error, {
+          analyticsEnabled,
+          operation: 'platform-init',
+        });
+      }
       console.error('[main] Failed to initialize platform:', error);
       renderApp();
     });

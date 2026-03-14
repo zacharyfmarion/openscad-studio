@@ -1,30 +1,123 @@
 import ReactDOM from 'react-dom/client';
+import posthog from 'posthog-js';
+import { PostHogProvider } from '@posthog/react';
 import App from './App';
+import { captureAppOpened, captureBootstrapError, initializePostHog } from './analytics/bootstrap';
+import { shouldCaptureBootstrapAnalytics } from './analytics/bootstrapPolicy';
+import { AnalyticsRuntimeProvider } from './analytics/runtime';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { loadSettings } from './stores/settingsStore';
 import { initFormatter } from './utils/formatter';
 import { initializePlatform } from './platform';
 import './index.css';
 
-// Initialize tree-sitter WASM as early as possible
-initFormatter().catch((error) => {
-  console.error('[main] Failed to initialize formatter:', error);
-});
-
-// Initialize platform bridge (Tauri or Web) before rendering
-initializePlatform()
-  .then(() => {
-    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+function renderApp() {
+  ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+    <PostHogProvider client={posthog}>
       <ThemeProvider>
-        <App />
+        <AnalyticsRuntimeProvider>
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
+        </AnalyticsRuntimeProvider>
       </ThemeProvider>
-    );
+    </PostHogProvider>
+  );
+}
+
+function renderBootstrapError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-primary, #002b36)',
+        color: 'var(--text-primary, #eee8d5)',
+        padding: '2rem',
+        fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '560px',
+          width: '100%',
+          padding: '2rem',
+          borderRadius: '1rem',
+          background: 'rgba(7, 54, 66, 0.75)',
+          border: '1px solid rgba(131, 148, 150, 0.35)',
+        }}
+      >
+        <h1 style={{ fontSize: '1.75rem', marginBottom: '0.75rem' }}>
+          OpenSCAD Studio could not start
+        </h1>
+        <p style={{ lineHeight: 1.6, marginBottom: '1rem', color: '#93a1a1' }}>
+          A required startup step failed, so the app cannot safely continue.
+        </p>
+        <pre
+          style={{
+            background: '#073642',
+            color: '#cb4b16',
+            padding: '0.75rem 1rem',
+            borderRadius: '0.5rem',
+            fontSize: '0.8125rem',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            marginBottom: '1.5rem',
+          }}
+        >
+          {message}
+        </pre>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          style={{
+            padding: '0.625rem 1.5rem',
+            background: '#268bd2',
+            color: '#002b36',
+            border: 'none',
+            borderRadius: '0.5rem',
+            fontSize: '0.9375rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Reload
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const analyticsEnabled = loadSettings().privacy.analyticsEnabled;
+const posthogReady = initializePostHog(posthog, { analyticsEnabled });
+const shouldCaptureBootstrapEvents = shouldCaptureBootstrapAnalytics(
+  posthogReady,
+  analyticsEnabled
+);
+
+Promise.all([initFormatter(), initializePlatform()])
+  .then(([, platform]) => {
+    if (shouldCaptureBootstrapEvents) {
+      captureAppOpened(posthog, {
+        analyticsEnabled,
+        capabilities: platform.capabilities,
+      });
+    }
+    renderApp();
   })
   .catch((error) => {
-    console.error('[main] Failed to initialize platform:', error);
-    // Render anyway — components may degrade gracefully
-    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-      <ThemeProvider>
-        <App />
-      </ThemeProvider>
-    );
+    if (shouldCaptureBootstrapEvents) {
+      captureBootstrapError(posthog, error, {
+        analyticsEnabled,
+        capabilities: undefined,
+        operation: 'startup',
+      });
+    }
+    console.error('[main] Failed to initialize application:', error);
+    renderBootstrapError(error);
   });

@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useAnalytics } from '../analytics/runtime';
 import { getPlatform, type ExportFormat } from '../platform';
 import { RenderService, type ExportFormat as WasmExportFormat } from '../services/renderService';
 import { Button, Select, Label } from './ui';
 import { TbX } from 'react-icons/tb';
+import { normalizeAppError, notifyError, notifySuccess } from '../utils/notifications';
 
 interface ExportDialogProps {
   isOpen: boolean;
@@ -21,6 +23,7 @@ const FORMAT_OPTIONS: { value: ExportFormat; label: string; ext: string }[] = [
 ];
 
 export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
+  const analytics = useAnalytics();
   const [format, setFormat] = useState<ExportFormat>('stl');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string>('');
@@ -44,10 +47,24 @@ export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
         { name: selectedFormat.label, extensions: [selectedFormat.ext] },
       ]);
 
+      analytics.track('file exported', {
+        format,
+      });
+
+      notifySuccess('Exported successfully', { toastId: 'export-success' });
+
       // Success - close dialog
       onClose();
     } catch (err) {
-      setError(typeof err === 'string' ? err : String(err));
+      const normalized = normalizeAppError(err, 'Export failed');
+      setError(normalized.message);
+      notifyError({
+        operation: 'export-file',
+        error: err,
+        fallbackMessage: 'Export failed',
+        toastId: 'export-error',
+        logLabel: '[ExportDialog] Export failed',
+      });
     } finally {
       setIsExporting(false);
     }

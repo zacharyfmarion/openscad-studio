@@ -4,6 +4,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Read a test fixture file
@@ -94,6 +97,12 @@ export function getAllTestCases(): Array<{ name: string; input: string; expected
 
   scan(fixturesRoot);
   return testCases;
+}
+
+export function getTestCaseByName(
+  name: string
+): { name: string; input: string; expected: string } | undefined {
+  return getAllTestCases().find((testCase) => testCase.name === name);
 }
 
 /**

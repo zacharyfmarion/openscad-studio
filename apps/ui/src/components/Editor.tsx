@@ -454,7 +454,7 @@ export function Editor({
   const theme = getTheme(settings.appearance.theme);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col ph-no-capture">
       <div className="flex-1 overflow-hidden">
         <MonacoEditor
           height="100%"

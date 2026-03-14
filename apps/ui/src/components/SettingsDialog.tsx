@@ -7,12 +7,14 @@ import {
 } from '../stores/settingsStore';
 import { getAvailableThemes, getTheme } from '../themes';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAnalytics } from '../analytics/runtime';
 import { Button, Input, Select, Label, Toggle } from './ui';
 import { Editor as MonacoEditor } from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
 import { registerVimConfigLanguage } from '../languages/vimConfigLanguage';
 import {
   TbPalette,
+  TbBox,
   TbCode,
   TbSparkles,
   TbX,
@@ -20,9 +22,9 @@ import {
   TbPlus,
   TbTrash,
   TbFolderOpen,
+  TbShield,
 } from 'react-icons/tb';
 import {
-  invalidateApiKeyStatus,
   storeApiKey as storeApiKeyToStorage,
   clearApiKey as clearApiKeyFromStorage,
   hasApiKeyForProvider,
@@ -30,6 +32,7 @@ import {
 } from '../stores/apiKeyStore';
 import { getPlatform } from '../platform';
 import { applyWorkspacePreset } from '../stores/layoutStore';
+import { notifyError, notifySuccess } from '../utils/notifications';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -50,7 +53,7 @@ function saveVimConfigIfChanged(localVimConfig: string, currentSettings: Setting
   }
 }
 
-export type SettingsSection = 'appearance' | 'editor' | 'ai' | 'libraries';
+export type SettingsSection = 'appearance' | 'viewer' | 'editor' | 'privacy' | 'ai' | 'libraries';
 type EditorSubTab = 'general' | 'vim';
 
 export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogProps) {
@@ -72,8 +75,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
   const [hasOpenAIKey, setHasOpenAIKey] = useState(false);
   const [isLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
+  const lastTrackedSectionRef = useRef<SettingsSection | null>(null);
+  const analytics = useAnalytics();
 
   const loadAISettings = useCallback(() => {
     const availableProviders = getAvailableProvidersFromStore();
@@ -96,8 +100,24 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
       loadAISettings();
       if (initialTab) setActiveSection(initialTab);
       getPlatform().getLibraryPaths().then(setAutoDiscoveredPaths);
+      lastTrackedSectionRef.current = null;
     }
   }, [isOpen, initialTab, loadAISettings]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      lastTrackedSectionRef.current = null;
+      return;
+    }
+
+    if (activeSection === 'ai' && lastTrackedSectionRef.current !== 'ai') {
+      analytics.track('ai settings opened', {
+        source_surface: initialTab === 'ai' ? 'unknown' : 'ai_panel',
+      });
+    }
+
+    lastTrackedSectionRef.current = activeSection;
+  }, [activeSection, analytics, initialTab, isOpen]);
 
   const handleAppearanceSettingChange = <K extends keyof Settings['appearance']>(
     key: K,
@@ -133,6 +153,21 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     saveSettings(updated);
   };
 
+  const handleViewerSettingChange = <K extends keyof Settings['viewer']>(
+    key: K,
+    value: Settings['viewer'][K]
+  ) => {
+    const updated = {
+      ...settings,
+      viewer: {
+        ...settings.viewer,
+        [key]: value,
+      },
+    };
+    setSettings(updated);
+    saveSettings(updated);
+  };
+
   const handleLibrarySettingChange = <K extends keyof Settings['library']>(
     key: K,
     value: Settings['library'][K]
@@ -148,12 +183,37 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     saveSettings(updated);
   };
 
+  const handlePrivacySettingChange = <K extends keyof Settings['privacy']>(
+    key: K,
+    value: Settings['privacy'][K]
+  ) => {
+    const updated = {
+      ...settings,
+      privacy: {
+        ...settings.privacy,
+        [key]: value,
+      },
+    };
+    setSettings(updated);
+    saveSettings(updated);
+  };
+
   const handleAddLibraryPath = async () => {
-    const path = await getPlatform().pickDirectory();
-    if (path) {
-      if (settings.library.customPaths.includes(path)) return;
-      const updatedPaths = [...settings.library.customPaths, path];
-      handleLibrarySettingChange('customPaths', updatedPaths);
+    try {
+      const path = await getPlatform().pickDirectory();
+      if (path) {
+        if (settings.library.customPaths.includes(path)) return;
+        const updatedPaths = [...settings.library.customPaths, path];
+        handleLibrarySettingChange('customPaths', updatedPaths);
+      }
+    } catch (err) {
+      notifyError({
+        operation: 'add-library-path',
+        error: err,
+        fallbackMessage: 'Failed to add library path',
+        toastId: 'add-library-path-error',
+        logLabel: '[SettingsDialog] Failed to add library path',
+      });
     }
   };
 
@@ -169,25 +229,33 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     }
 
     setError(null);
-    setSuccessMessage(null);
 
-    storeApiKeyToStorage(provider, apiKey);
-    invalidateApiKeyStatus();
-    setSuccessMessage(
-      `${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key saved successfully!`
-    );
+    try {
+      storeApiKeyToStorage(provider, apiKey);
+      analytics.track('api key saved', {
+        provider,
+      });
+      notifySuccess(`${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key saved`, {
+        toastId: `save-api-key-${provider}`,
+      });
 
-    if (provider === 'anthropic') {
-      setHasAnthropicKey(true);
-    } else {
-      setHasOpenAIKey(true);
+      if (provider === 'anthropic') {
+        setHasAnthropicKey(true);
+      } else {
+        setHasOpenAIKey(true);
+      }
+
+      setApiKey('••••••••••••••••••••••••••••••••••••••••••••');
+      setShowKey(false);
+    } catch (err) {
+      notifyError({
+        operation: 'save-api-key',
+        error: err,
+        fallbackMessage: 'Failed to save API key',
+        toastId: `save-api-key-error-${provider}`,
+        logLabel: '[SettingsDialog] Failed to save API key',
+      });
     }
-
-    setApiKey('••••••••••••••••••••••••••••••••••••••••••••');
-    setShowKey(false);
-    setTimeout(() => {
-      setSuccessMessage(null);
-    }, 3000);
   };
 
   const handleClear = async () => {
@@ -198,22 +266,32 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     if (!confirmed) return;
 
     setError(null);
-    setSuccessMessage(null);
 
-    clearApiKeyFromStorage(provider);
-    invalidateApiKeyStatus();
-    setSuccessMessage('API key cleared successfully');
+    try {
+      clearApiKeyFromStorage(provider);
+      analytics.track('api key cleared', {
+        provider,
+      });
+      notifySuccess('API key cleared', {
+        toastId: `clear-api-key-${provider}`,
+      });
 
-    if (provider === 'anthropic') {
-      setHasAnthropicKey(false);
-    } else {
-      setHasOpenAIKey(false);
+      if (provider === 'anthropic') {
+        setHasAnthropicKey(false);
+      } else {
+        setHasOpenAIKey(false);
+      }
+
+      setApiKey('');
+    } catch (err) {
+      notifyError({
+        operation: 'clear-api-key',
+        error: err,
+        fallbackMessage: 'Failed to clear API key',
+        toastId: `clear-api-key-error-${provider}`,
+        logLabel: '[SettingsDialog] Failed to clear API key',
+      });
     }
-
-    setApiKey('');
-    setTimeout(() => {
-      setSuccessMessage(null);
-    }, 3000);
   };
 
   const handleClose = () => {
@@ -228,7 +306,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
   const navItems: { key: SettingsSection; label: string; icon: React.ReactNode }[] = [
     { key: 'appearance', label: 'Appearance', icon: <TbPalette size={16} /> },
+    { key: 'viewer', label: 'Viewer', icon: <TbBox size={16} /> },
     { key: 'editor', label: 'Editor', icon: <TbCode size={16} /> },
+    { key: 'privacy', label: 'Privacy', icon: <TbShield size={16} /> },
     ...(isDesktop
       ? [{ key: 'libraries' as const, label: 'Libraries', icon: <TbBooks size={16} /> }]
       : []),
@@ -309,11 +389,15 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
             <h3 className="text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>
               {activeSection === 'appearance'
                 ? 'Appearance'
-                : activeSection === 'editor'
-                  ? 'Editor'
-                  : activeSection === 'libraries'
-                    ? 'Libraries'
-                    : 'AI Assistant'}
+                : activeSection === 'viewer'
+                  ? 'Viewer'
+                  : activeSection === 'editor'
+                    ? 'Editor'
+                    : activeSection === 'privacy'
+                      ? 'Privacy'
+                      : activeSection === 'libraries'
+                        ? 'Libraries'
+                        : 'AI Assistant'}
             </h3>
             <button
               type="button"
@@ -485,6 +569,58 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'viewer' && (
+              <div className="space-y-5">
+                <div
+                  className="rounded-lg"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                  }}
+                >
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderBottom: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-axes" className="mb-0">
+                        Show axes
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Show the X, Y, and Z reference axes in the 3D viewer
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-axes"
+                      checked={settings.viewer.showAxes}
+                      onChange={(event) =>
+                        handleViewerSettingChange('showAxes', event.target.checked)
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 p-4">
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-axis-labels" className="mb-0">
+                        Show axis labels
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Show numeric markers and X / Y / Z labels on the viewer axes
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-axis-labels"
+                      checked={settings.viewer.showAxisLabels}
+                      disabled={!settings.viewer.showAxes}
+                      onChange={(event) =>
+                        handleViewerSettingChange('showAxisLabels', event.target.checked)
+                      }
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -803,6 +939,129 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
               </div>
             )}
 
+            {activeSection === 'privacy' && (
+              <div className="space-y-5">
+                <div
+                  className="rounded-lg"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                  }}
+                >
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderBottom: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label className="mb-0">Share anonymous product analytics</Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Anonymous product journeys help us understand how the app is used. Session
+                        recording stays disabled.
+                      </p>
+                    </div>
+                    <Toggle
+                      checked={settings.privacy.analyticsEnabled}
+                      onChange={(event) => {
+                        const nextValue = event.target.checked;
+                        handlePrivacySettingChange('analyticsEnabled', nextValue);
+                        analytics.setAnalyticsEnabled(nextValue, {
+                          capturePreferenceChange: true,
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="grid gap-3 p-4 md:grid-cols-2">
+                    <div
+                      className="rounded-md p-3"
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-primary)',
+                      }}
+                    >
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        What we collect
+                      </p>
+                      <p
+                        className="text-xs mt-2 leading-5"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        OpenSCAD Studio uses a persistent anonymous identifier on this
+                        device/browser to understand product journeys over time. Product
+                        interactions may be autocaptured.
+                      </p>
+                    </div>
+                    <div
+                      className="rounded-md p-3"
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-primary)',
+                      }}
+                    >
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        What stays out
+                      </p>
+                      <p
+                        className="text-xs mt-2 leading-5"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        We do not intentionally send OpenSCAD code, AI prompt text, attachment
+                        contents, API keys, diagnostics text, stack traces, or absolute file paths.
+                      </p>
+                    </div>
+                    <div
+                      className="rounded-md p-3"
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-primary)',
+                      }}
+                    >
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        Turning it off
+                      </p>
+                      <p
+                        className="text-xs mt-2 leading-5"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        Turning this off stops future analytics capture on this device/browser
+                        immediately. It does not delete data already collected.
+                      </p>
+                    </div>
+                    <div
+                      className="rounded-md p-3"
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-primary)',
+                      }}
+                    >
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        Where it applies
+                      </p>
+                      <p
+                        className="text-xs mt-2 leading-5"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        This preference is stored locally and does not sync across devices or
+                        accounts. On the web it applies per browser/profile. On desktop it applies
+                        per installed app profile/webview storage.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeSection === 'libraries' && (
               <div className="space-y-6">
                 <div>
@@ -933,7 +1192,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
             )}
 
             {activeSection === 'ai' && (
-              <div className="space-y-5">
+              <div className="space-y-5 ph-no-capture">
                 <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                   Add your API keys to enable AI assistant features. Model selection is available in
                   the chat interface.
@@ -941,7 +1200,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
                 {/* Anthropic Section */}
                 <div
-                  className="rounded-lg p-4 space-y-3"
+                  className="rounded-lg p-4 space-y-3 ph-no-capture"
                   style={{
                     backgroundColor: 'var(--bg-primary)',
                     border: '1px solid var(--border-primary)',
@@ -962,8 +1221,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     </span>
                   </div>
                   <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    Required for Claude models. Your key is stored securely and never leaves your
-                    device.
+                    Required for Claude models. Your key is stored locally on this device/browser
+                    profile and used for direct requests to Anthropic from the app. It is not sent
+                    to our analytics.
                   </p>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
@@ -982,7 +1242,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           }
                         }}
                         placeholder="sk-ant-..."
-                        className="pr-20 font-mono text-sm"
+                        className="pr-20 font-mono text-sm ph-no-capture"
                         disabled={isLoading}
                       />
                       {provider === 'anthropic' && apiKey && !apiKey.startsWith('•') && (
@@ -1052,7 +1312,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
                 {/* OpenAI Section */}
                 <div
-                  className="rounded-lg p-4 space-y-3"
+                  className="rounded-lg p-4 space-y-3 ph-no-capture"
                   style={{
                     backgroundColor: 'var(--bg-primary)',
                     border: '1px solid var(--border-primary)',
@@ -1073,8 +1333,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     </span>
                   </div>
                   <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    Required for GPT models. Your key is stored securely and never leaves your
-                    device.
+                    Required for GPT models. Your key is stored locally on this device/browser
+                    profile and used for direct requests to OpenAI from the app. It is not sent to
+                    our analytics.
                   </p>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
@@ -1093,7 +1354,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           }
                         }}
                         placeholder="sk-..."
-                        className="pr-20 font-mono text-sm"
+                        className="pr-20 font-mono text-sm ph-no-capture"
                         disabled={isLoading}
                       />
                       {provider === 'openai' && apiKey && !apiKey.startsWith('•') && (
@@ -1171,19 +1432,6 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     }}
                   >
                     {error}
-                  </div>
-                )}
-
-                {successMessage && (
-                  <div
-                    className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm"
-                    style={{
-                      backgroundColor: 'rgba(133, 153, 0, 0.1)',
-                      border: '1px solid rgba(133, 153, 0, 0.3)',
-                      color: 'var(--color-success)',
-                    }}
-                  >
-                    {successMessage}
                   </div>
                 )}
               </div>

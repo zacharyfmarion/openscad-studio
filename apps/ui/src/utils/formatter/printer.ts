@@ -9,6 +9,8 @@ import type { FormatOptions } from './index';
 import { concat, hardline, indent, group, join } from './doc';
 import type { Doc } from './doc';
 
+const isDev = import.meta.env?.DEV ?? false;
+
 /**
  * Print a tree-sitter syntax tree as formatted code
  */
@@ -54,6 +56,7 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       'vector',
       'array',
       'range',
+      'let_expression',
       'list_comprehension',
       'for_clause',
       'comment',
@@ -97,9 +100,10 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       '%',
       '?',
       '!',
+      'let',
     ].includes(type)
   ) {
-    if (import.meta.env.DEV)
+    if (isDev)
       console.log(`[Formatter] Unknown node type: "${type}", text: "${text.substring(0, 50)}"`);
   }
 
@@ -157,6 +161,9 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
 
     case 'range':
       return printRange(node, options);
+
+    case 'let_expression':
+      return printLetExpression(node, options);
 
     case 'list_comprehension':
       return printListComprehension(node, options);
@@ -571,25 +578,97 @@ function printParenthesizedAssignments(
   node: TreeSitter.Node,
   options: Required<FormatOptions>
 ): Doc {
-  const parts: Doc[] = ['('];
+  const entries: TreeSitter.Node[] = [];
+  const valueNodes: TreeSitter.Node[] = [];
+  let firstEntryStartLine = -1;
+  let lastEntryStartLine = -1;
 
   for (const child of node.children) {
     if (!child) continue;
-    if (child.type === '(' || child.type === ')') {
+    if (child.type === '(' || child.type === ')' || child.type === ',') {
       continue;
     }
     if (child.type === 'whitespace' || child.type === '\n') {
       continue;
     }
-    if (child.type === '=') {
-      parts.push(' ', child.text, ' ');
-    } else {
-      parts.push(printNode(child, options));
+
+    if (firstEntryStartLine === -1) {
+      firstEntryStartLine = child.startPosition.row;
+    }
+    lastEntryStartLine = child.startPosition.row;
+
+    entries.push(child);
+    if (child.type !== 'comment') {
+      valueNodes.push(child);
     }
   }
 
-  parts.push(')');
-  return concat(parts);
+  if (valueNodes.length === 0) {
+    return '()';
+  }
+
+  const hasComments = entries.some((child) => child.type === 'comment');
+  const isLetAssignments = node.parent?.type === 'let_expression';
+  const isMultiline = isLetAssignments && (lastEntryStartLine > firstEntryStartLine || hasComments);
+
+  if (isMultiline) {
+    const parts: Doc[] = [];
+    let valueIndex = 0;
+
+    entries.forEach((child, index) => {
+      const prev = index > 0 ? entries[index - 1] : null;
+      const next = index < entries.length - 1 ? entries[index + 1] : null;
+
+      if (child.type === 'comment') {
+        const isInlineComment =
+          prev !== null &&
+          prev.type !== 'comment' &&
+          child.startPosition.row === prev.endPosition.row;
+
+        if (!isInlineComment && parts.length > 0) {
+          parts.push(hardline());
+        }
+
+        if (isInlineComment) {
+          parts.push('  ', child.text);
+        } else {
+          parts.push(child.text);
+        }
+
+        if (next) {
+          parts.push(hardline());
+        }
+        return;
+      }
+
+      parts.push(printNode(child, options));
+
+      if (valueIndex < valueNodes.length - 1) {
+        parts.push(',');
+      }
+      valueIndex++;
+
+      const nextIsInlineComment =
+        next !== null &&
+        next.type === 'comment' &&
+        next.startPosition.row === child.endPosition.row;
+
+      if (!nextIsInlineComment && next) {
+        parts.push(hardline());
+      }
+    });
+
+    return concat(['(', indent(concat([hardline(), ...parts])), hardline(), ')']);
+  }
+
+  return concat([
+    '(',
+    join(
+      ',',
+      valueNodes.map((child) => printNode(child, options))
+    ),
+    ')',
+  ]);
 }
 
 function printAssignment(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
@@ -770,9 +849,43 @@ function printArguments(node: TreeSitter.Node, options: Required<FormatOptions>)
   return concat(['(', join(', ', args), ')']);
 }
 
+function printLetExpression(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
+  let assignments: TreeSitter.Node | null = null;
+  let body: TreeSitter.Node | null = null;
+
+  for (const child of node.children) {
+    if (!child) continue;
+    if (child.type === 'whitespace' || child.type === '\n' || child.type === 'let') {
+      continue;
+    }
+    if (child.type === 'parenthesized_assignments') {
+      assignments = child;
+      continue;
+    }
+    body = child;
+  }
+
+  if (!assignments) {
+    return node.text;
+  }
+
+  const parts: Doc[] = ['let', printParenthesizedAssignments(assignments, options)];
+
+  if (body) {
+    const bodyStartsOnNewLine = body.startPosition.row > assignments.endPosition.row;
+    if (bodyStartsOnNewLine) {
+      parts.push(indent(concat([hardline(), printNode(body, options)])));
+    } else {
+      parts.push(printNode(body, options));
+    }
+  }
+
+  return concat(parts);
+}
+
 function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
-  const items: Doc[] = [];
-  const children: TreeSitter.Node[] = [];
+  const entries: TreeSitter.Node[] = [];
+  const valueNodes: TreeSitter.Node[] = [];
   let firstItemLine = -1;
   let lastItemLine = -1;
 
@@ -791,26 +904,63 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
     }
     lastItemLine = child.endPosition.row;
 
-    children.push(child);
-    items.push(printNode(child, options));
+    entries.push(child);
+    if (child.type !== 'comment') {
+      valueNodes.push(child);
+    }
   }
 
-  if (items.length === 0) {
+  if (valueNodes.length === 0) {
     return '[]';
   }
 
   // Check if array was originally multiline
-  const isMultiline = lastItemLine > firstItemLine;
+  const isMultiline =
+    lastItemLine > firstItemLine || entries.some((child) => child.type === 'comment');
 
-  if (isMultiline && items.length > 0) {
-    // Format as multiline with Prettier-style formatting
-    // Each item on its own line with comma, closing bracket unindented
+  if (isMultiline) {
     const parts: Doc[] = [];
+    let valueIndex = 0;
 
-    items.forEach((item, i) => {
-      parts.push(item);
-      if (i < items.length - 1) {
+    entries.forEach((child, index) => {
+      const prev = index > 0 ? entries[index - 1] : null;
+      const next = index < entries.length - 1 ? entries[index + 1] : null;
+
+      if (child.type === 'comment') {
+        const isInlineComment =
+          prev !== null &&
+          prev.type !== 'comment' &&
+          child.startPosition.row === prev.endPosition.row;
+
+        if (!isInlineComment && parts.length > 0) {
+          parts.push(hardline());
+        }
+
+        if (isInlineComment) {
+          parts.push('  ', child.text);
+        } else {
+          parts.push(child.text);
+        }
+
+        if (next) {
+          parts.push(hardline());
+        }
+        return;
+      }
+
+      parts.push(printNode(child, options));
+
+      if (valueIndex < valueNodes.length - 1) {
         parts.push(',');
+      }
+      valueIndex++;
+
+      const nextIsInlineComment =
+        next !== null &&
+        next.type === 'comment' &&
+        next.startPosition.row === child.endPosition.row;
+
+      if (!nextIsInlineComment && next) {
         parts.push(hardline());
       }
     });
@@ -819,7 +969,14 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
   }
 
   // Keep single-line arrays compact: [1, 2, 3] not [ 1, 2, 3 ]
-  return concat(['[', join(', ', items), ']']);
+  return concat([
+    '[',
+    join(
+      ', ',
+      valueNodes.map((child) => printNode(child, options))
+    ),
+    ']',
+  ]);
 }
 
 function printRange(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {

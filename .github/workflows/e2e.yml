@@ -10,6 +10,9 @@ jobs:
   e2e-web:
     name: E2E Tests (Web)
     runs-on: ubuntu-latest
+    env:
+      VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}
+      VITE_PUBLIC_POSTHOG_HOST: ${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}
     steps:
       - uses: actions/checkout@v4
 
@@ -52,6 +55,9 @@ jobs:
     runs-on: macos-latest
     # Only run on main branch pushes — desktop tests are expensive
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}
+      VITE_PUBLIC_POSTHOG_HOST: ${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}
     steps:
       - uses: actions/checkout@v4
 

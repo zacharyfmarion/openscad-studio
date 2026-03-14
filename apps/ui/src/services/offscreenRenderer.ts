@@ -1,5 +1,14 @@
 import * as THREE from 'three';
-import { STLLoader } from 'three-stdlib';
+import { RoomEnvironment, STLLoader } from 'three-stdlib';
+import { FALLBACK_PREVIEW_SCENE_STYLE, type PreviewSceneStyle } from './previewSceneConfig';
+import {
+  buildModelFrame,
+  derivePreviewAxisMetrics,
+  derivePreviewFramingMetrics,
+  derivePreviewGridMetrics,
+  getExpandedFitBox,
+} from './previewFraming';
+import { createPreviewAxesOverlay, disposePreviewAxesOverlay } from './previewAxes';
 
 export type PresetView = 'front' | 'back' | 'top' | 'bottom' | 'left' | 'right' | 'isometric';
 
@@ -9,6 +18,7 @@ export interface CaptureOptions {
   elevation?: number;
   width?: number;
   height?: number;
+  sceneStyle?: PreviewSceneStyle;
 }
 
 const PRESET_DIRECTIONS: Record<PresetView, [number, number, number]> = {
@@ -44,7 +54,8 @@ export async function captureOffscreen(
   stlBlobUrl: string,
   options: CaptureOptions = {}
 ): Promise<string> {
-  const { width = 800, height = 600 } = options;
+  const sceneStyle = options.sceneStyle ?? FALLBACK_PREVIEW_SCENE_STYLE;
+  const { width = sceneStyle.screenshot.width, height = sceneStyle.screenshot.height } = options;
 
   const geometry = await new Promise<THREE.BufferGeometry>((resolve, reject) => {
     const loader = new STLLoader();
@@ -63,15 +74,22 @@ export async function captureOffscreen(
   });
   renderer.setSize(width, height);
   renderer.setPixelRatio(1);
-  renderer.shadowMap.enabled = true;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled =
+    sceneStyle.contactShadows.enabledByDefault || sceneStyle.directionalLight.intensity > 0;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf0f0f0);
+  scene.background = new THREE.Color(sceneStyle.backgroundColor);
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  const environmentScene = RoomEnvironment();
+  const environmentTarget = pmremGenerator.fromScene(environmentScene, 0.04);
+  scene.environment = environmentTarget.texture;
 
   const material = new THREE.MeshStandardMaterial({
-    color: 0x6699cc,
-    metalness: 0.3,
-    roughness: 0.4,
+    color: sceneStyle.modelColor,
+    metalness: sceneStyle.material.metalness,
+    roughness: sceneStyle.material.roughness,
+    envMapIntensity: sceneStyle.material.envMapIntensity,
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.rotation.x = -Math.PI / 2;
@@ -79,19 +97,27 @@ export async function captureOffscreen(
   mesh.receiveShadow = true;
   scene.add(mesh);
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  const ambientLight = new THREE.AmbientLight(
+    sceneStyle.ambientLight.color,
+    sceneStyle.ambientLight.intensity
+  );
   scene.add(ambientLight);
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  directionalLight.position.set(10, 10, 5);
+  const directionalLight = new THREE.DirectionalLight(
+    sceneStyle.directionalLight.color,
+    sceneStyle.directionalLight.intensity
+  );
+  directionalLight.position.set(...sceneStyle.directionalLight.position);
   directionalLight.castShadow = true;
+  directionalLight.shadow.mapSize.set(...sceneStyle.directionalLight.shadowMapSize);
   scene.add(directionalLight);
 
-  const box = new THREE.Box3().setFromObject(mesh);
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z);
-  const distance = maxDim * 2.5;
+  const modelFrame = buildModelFrame(geometry, 'offscreen-capture');
+  const framing = derivePreviewFramingMetrics(modelFrame.box, sceneStyle);
+  const gridMetrics = derivePreviewGridMetrics(modelFrame);
+  const axisMetrics = derivePreviewAxisMetrics(modelFrame, gridMetrics);
+  const axesOverlay = createPreviewAxesOverlay(axisMetrics, sceneStyle, { showLabels: false });
+  scene.add(axesOverlay);
 
   let direction: [number, number, number];
   if (options.azimuth !== undefined || options.elevation !== undefined) {
@@ -101,17 +127,66 @@ export async function captureOffscreen(
     direction = PRESET_DIRECTIONS[preset] ?? PRESET_DIRECTIONS.isometric;
   }
 
-  const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, distance * 10);
-  camera.position.copy(computeCameraPosition(direction, center, distance));
-  camera.lookAt(center);
+  const camera = new THREE.PerspectiveCamera(
+    sceneStyle.camera.perspectiveFov,
+    width / height,
+    sceneStyle.camera.near,
+    framing.cameraFar
+  );
+  const fitSphere = getExpandedFitBox(modelFrame.box, sceneStyle).getBoundingSphere(
+    new THREE.Sphere()
+  );
+  camera.position.copy(
+    computeCameraPosition(
+      direction,
+      fitSphere.center,
+      getDistanceToFitSphere(camera, fitSphere.radius)
+    )
+  );
+  camera.lookAt(fitSphere.center);
 
   renderer.render(scene, camera);
   const dataUrl = canvas.toDataURL('image/png');
 
+  disposePreviewAxesOverlay(axesOverlay);
   geometry.dispose();
   material.dispose();
+  environmentTarget.dispose();
+  pmremGenerator.dispose();
+  environmentScene.traverse((child) => {
+    disposeObjectResources(
+      child as THREE.Object3D & {
+        geometry?: { dispose: () => void };
+        material?: { dispose: () => void } | Array<{ dispose: () => void }>;
+      }
+    );
+  });
   renderer.dispose();
   renderer.forceContextLoss();
 
   return dataUrl;
+}
+
+function getDistanceToFitSphere(camera: THREE.PerspectiveCamera, radius: number) {
+  const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+  const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
+  const limitingFov = Math.min(verticalFov, horizontalFov);
+
+  return radius / Math.sin(limitingFov / 2);
+}
+
+function disposeObjectResources(
+  object: THREE.Object3D & {
+    geometry?: { dispose: () => void };
+    material?: { dispose: () => void } | Array<{ dispose: () => void }>;
+  }
+) {
+  object.geometry?.dispose();
+
+  if (Array.isArray(object.material)) {
+    object.material.forEach((entry) => entry.dispose());
+    return;
+  }
+
+  object.material?.dispose();
 }

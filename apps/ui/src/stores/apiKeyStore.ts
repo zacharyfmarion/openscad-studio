@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { getPreferredDefaultModel } from '../utils/aiModels';
 
 // ============================================================================
 // Constants
@@ -11,6 +12,11 @@ const STORAGE_KEYS = {
 } as const;
 
 export type AiProvider = 'anthropic' | 'openai';
+
+interface ApiKeySnapshot {
+  availableProviders: AiProvider[];
+  hasAnyKey: boolean;
+}
 
 // ============================================================================
 // API Key Storage (localStorage-based)
@@ -47,7 +53,7 @@ export function getAvailableProviders(): AiProvider[] {
 // ============================================================================
 
 export function getStoredModel(): string {
-  return localStorage.getItem(STORAGE_KEYS.model) || 'claude-sonnet-4-5-20250929';
+  return localStorage.getItem(STORAGE_KEYS.model) || getPreferredDefaultModel(['anthropic']);
 }
 
 export function setStoredModel(model: string): void {
@@ -73,18 +79,23 @@ export function getProviderFromModel(modelId: string): AiProvider {
   return 'anthropic'; // Default
 }
 
+function createSnapshot(): ApiKeySnapshot {
+  const availableProviders = getAvailableProviders();
+  return {
+    availableProviders,
+    hasAnyKey: availableProviders.length > 0,
+  };
+}
+
 // ============================================================================
 // Reactive Store (useSyncExternalStore)
 // ============================================================================
 
-type ApiKeyStatus = boolean | null;
-
-let status: ApiKeyStatus = null;
+let snapshot = createSnapshot();
 const listeners: Set<() => void> = new Set();
 
 function notify() {
-  // Recompute status
-  status = hasApiKeyForProvider('anthropic') || hasApiKeyForProvider('openai');
+  snapshot = createSnapshot();
   for (const listener of listeners) {
     listener();
   }
@@ -95,17 +106,18 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-function getSnapshot(): ApiKeyStatus {
-  return status;
+function getSnapshot(): ApiKeySnapshot {
+  return snapshot;
 }
-
-// Initialize status
-status = hasApiKeyForProvider('anthropic') || hasApiKeyForProvider('openai');
 
 export function invalidateApiKeyStatus() {
   notify();
 }
 
-export function useHasApiKey(): ApiKeyStatus {
-  return useSyncExternalStore(subscribe, getSnapshot);
+export function useAvailableProviders(): AiProvider[] {
+  return useSyncExternalStore(subscribe, getSnapshot).availableProviders;
+}
+
+export function useHasApiKey(): boolean {
+  return useSyncExternalStore(subscribe, getSnapshot).hasAnyKey;
 }

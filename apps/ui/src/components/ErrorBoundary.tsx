@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { notifyError } from '../utils/notifications';
 
 interface Props {
   children: ReactNode;
@@ -14,6 +15,15 @@ export class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error) {
+    notifyError({
+      operation: 'app-crash',
+      error,
+      fallbackMessage: 'OpenSCAD Studio hit an unexpected error',
+      logLabel: '[ErrorBoundary] App crash',
+    });
   }
 
   render() {
@@ -158,6 +168,144 @@ export class InlineErrorBoundary extends Component<
             }}
           >
             Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
+interface PanelErrorBoundaryProps {
+  panelId: string;
+  panelName: string;
+  children: ReactNode;
+  onReset?: () => void | Promise<void>;
+}
+
+interface PanelErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+  resetCounter: number;
+  isResetting: boolean;
+  resetError: string | null;
+}
+
+export class PanelErrorBoundary extends Component<
+  PanelErrorBoundaryProps,
+  PanelErrorBoundaryState
+> {
+  state: PanelErrorBoundaryState = {
+    hasError: false,
+    error: null,
+    resetCounter: 0,
+    isResetting: false,
+    resetError: null,
+  };
+
+  static getDerivedStateFromError(error: Error): Partial<PanelErrorBoundaryState> {
+    return {
+      hasError: true,
+      error,
+      isResetting: false,
+      resetError: null,
+    };
+  }
+
+  componentDidCatch(error: Error) {
+    notifyError({
+      operation: `${this.props.panelName.toLowerCase()}-panel-crash`,
+      error,
+      fallbackMessage: `${this.props.panelName} crashed`,
+      toastId: `panel-crash:${this.props.panelId}`,
+      logLabel: `[PanelErrorBoundary] ${this.props.panelName} crashed`,
+    });
+  }
+
+  handleRetry = async () => {
+    this.setState({ isResetting: true, resetError: null });
+
+    try {
+      await this.props.onReset?.();
+      this.setState((prev) => ({
+        hasError: false,
+        error: null,
+        resetCounter: prev.resetCounter + 1,
+        isResetting: false,
+        resetError: null,
+      }));
+    } catch (error) {
+      this.setState({
+        isResetting: false,
+        resetError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  render() {
+    if (!this.state.hasError) {
+      return (
+        <div key={this.state.resetCounter} className="h-full">
+          {this.props.children}
+        </div>
+      );
+    }
+
+    return (
+      <div
+        data-testid={`panel-error-${this.props.panelId}`}
+        className="w-full h-full flex items-center justify-center px-6"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+      >
+        <div
+          className="max-w-md w-full rounded-lg border p-5 space-y-3"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            borderColor: 'var(--border-primary)',
+            color: 'var(--text-primary)',
+          }}
+        >
+          <div>
+            <div className="text-lg font-semibold">{this.props.panelName} crashed</div>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+              You can reload this panel without restarting the app.
+            </p>
+          </div>
+
+          {this.state.error && (
+            <div
+              className="rounded-md px-3 py-2 text-sm"
+              style={{
+                backgroundColor: 'rgba(220, 50, 47, 0.1)',
+                border: '1px solid rgba(220, 50, 47, 0.3)',
+                color: 'var(--color-error)',
+              }}
+            >
+              {this.state.error.message}
+            </div>
+          )}
+
+          {this.state.resetError && (
+            <div className="text-sm" style={{ color: 'var(--color-error)' }}>
+              Retry failed: {this.state.resetError}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              void this.handleRetry();
+            }}
+            disabled={this.state.isResetting}
+            className="px-4 py-2 rounded text-sm font-medium"
+            style={{
+              backgroundColor: 'var(--accent-primary)',
+              color: 'var(--text-inverse)',
+              border: 'none',
+              cursor: this.state.isResetting ? 'wait' : 'pointer',
+              opacity: this.state.isResetting ? 0.7 : 1,
+            }}
+          >
+            {this.state.isResetting ? 'Reloading...' : 'Reload Panel'}
           </button>
         </div>
       </div>

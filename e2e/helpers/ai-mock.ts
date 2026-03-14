@@ -1,116 +1,150 @@
-import { Page, Route } from '@playwright/test';
+import { Page } from '@playwright/test';
 
-// ---------------------------------------------------------------------------
-// AI API mocking for E2E tests
-// ---------------------------------------------------------------------------
-
-interface StreamEvent {
-  type: 'text' | 'tool-call' | 'tool-result' | 'error' | 'done';
-  content?: string;
-  toolName?: string;
-  toolInput?: Record<string, unknown>;
-  toolResult?: string;
+export interface StreamEvent {
+  type: string;
+  delayMs?: number;
+  [key: string]: unknown;
 }
 
-/**
- * Mock AI responses by intercepting Anthropic and OpenAI API calls.
- * Returns SSE streams matching the expected format.
- */
-export async function mockAiResponses(page: Page, responses: StreamEvent[]): Promise<void> {
-  // Intercept Anthropic API
-  await page.route('**/api.anthropic.com/**', async (route) => {
-    await fulfillWithSSE(route, responses);
-  });
-
-  // Intercept OpenAI API
-  await page.route('**/api.openai.com/**', async (route) => {
-    await fulfillWithSSE(route, responses);
-  });
-
-  // Also intercept any proxied / local AI API routes
-  await page.route('**/v1/messages', async (route) => {
-    await fulfillWithSSE(route, responses);
-  });
-  await page.route('**/v1/chat/completions', async (route) => {
-    await fulfillWithSSE(route, responses);
-  });
+declare global {
+  interface Window {
+    __OPENSCAD_STUDIO_AI_STREAM_MOCK__?: () => {
+      fullStream: AsyncIterable<Record<string, unknown>>;
+    };
+  }
 }
 
-/**
- * Mock a simple text-only AI response.
- */
-export async function mockSimpleAiResponse(page: Page, text: string): Promise<void> {
-  await mockAiResponses(page, [{ type: 'text', content: text }, { type: 'done' }]);
+function stripDelayMs(event: StreamEvent) {
+  const { delayMs: _delayMs, ...streamEvent } = event;
+  return streamEvent;
 }
 
-/**
- * Mock an AI response that includes a tool call.
- */
+export async function installAiStreamMock(page: Page, events: StreamEvent[]): Promise<void> {
+  await page.evaluate((mockEvents) => {
+    const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+    window.__OPENSCAD_STUDIO_AI_STREAM_MOCK__ = () => ({
+      fullStream: (async function* () {
+        for (const event of mockEvents) {
+          if (typeof event.delayMs === 'number' && event.delayMs > 0) {
+            await sleep(event.delayMs);
+          }
+
+          yield stripDelayMs(event);
+        }
+      })(),
+    });
+
+    function stripDelayMs(event: StreamEvent) {
+      const { delayMs: _delayMs, ...streamEvent } = event;
+      return streamEvent;
+    }
+  }, events);
+}
+
+export async function mockSimpleAiResponse(
+  page: Page,
+  text: string,
+  opts?: { chunkDelayMs?: number }
+): Promise<void> {
+  await installAiStreamMock(page, [
+    { type: 'start' },
+    { type: 'start-step' },
+    { type: 'text-start', id: 'text-1' },
+    {
+      type: 'text-delta',
+      id: 'text-1',
+      text,
+      delayMs: opts?.chunkDelayMs ?? 0,
+    },
+    { type: 'text-end', id: 'text-1' },
+    { type: 'finish-step' },
+    { type: 'finish' },
+  ]);
+}
+
 export async function mockAiWithToolCall(
   page: Page,
   opts: {
     thinkingText?: string;
+    toolCallId?: string;
     toolName: string;
     toolInput: Record<string, unknown>;
-    toolResult: string;
+    toolResult: unknown;
     finalText: string;
+    delayMs?: number;
   }
 ): Promise<void> {
-  await mockAiResponses(page, [
-    ...(opts.thinkingText ? [{ type: 'text' as const, content: opts.thinkingText }] : []),
+  const delayMs = opts.delayMs ?? 0;
+  const toolCallId = opts.toolCallId ?? 'tool-call-1';
+  const events: StreamEvent[] = [{ type: 'start' }];
+
+  if (opts.thinkingText) {
+    events.push(
+      { type: 'start-step' },
+      { type: 'text-start', id: 'text-1' },
+      { type: 'text-delta', id: 'text-1', text: opts.thinkingText, delayMs },
+      { type: 'finish-step' }
+    );
+  }
+
+  events.push(
+    { type: 'start-step' },
+    { type: 'tool-input-start', id: toolCallId, toolName: opts.toolName },
+    { type: 'tool-input-end', id: toolCallId },
     {
-      type: 'tool-call' as const,
+      type: 'tool-call',
+      toolCallId,
       toolName: opts.toolName,
-      toolInput: opts.toolInput,
+      input: opts.toolInput,
+      delayMs,
     },
-    { type: 'tool-result' as const, toolResult: opts.toolResult },
-    { type: 'text' as const, content: opts.finalText },
-    { type: 'done' as const },
-  ]);
+    {
+      type: 'tool-result',
+      toolCallId,
+      toolName: opts.toolName,
+      input: opts.toolInput,
+      output: opts.toolResult,
+      delayMs,
+    },
+    { type: 'finish-step' },
+    { type: 'start-step' },
+    { type: 'text-start', id: 'text-2' },
+    { type: 'text-delta', id: 'text-2', text: opts.finalText, delayMs },
+    { type: 'text-end', id: 'text-2' },
+    { type: 'finish-step' },
+    { type: 'finish' }
+  );
+
+  await installAiStreamMock(page, events);
 }
 
-/**
- * Mock an AI API error response.
- */
-export async function mockAiError(page: Page, errorMessage: string): Promise<void> {
-  await page.route('**/api.anthropic.com/**', async (route) => {
-    await route.fulfill({
-      status: 500,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: { message: errorMessage } }),
-    });
+export async function mockAiError(
+  page: Page,
+  errorMessage: string,
+  opts?: { partialText?: string; delayMs?: number }
+): Promise<void> {
+  const delayMs = opts?.delayMs ?? 0;
+  const events: StreamEvent[] = [{ type: 'start' }, { type: 'start-step' }];
+
+  if (opts?.partialText) {
+    events.push(
+      { type: 'text-start', id: 'text-1' },
+      { type: 'text-delta', id: 'text-1', text: opts.partialText, delayMs }
+    );
+  }
+
+  events.push({
+    type: 'error',
+    error: errorMessage,
+    delayMs,
   });
-  await page.route('**/api.openai.com/**', async (route) => {
-    await route.fulfill({
-      status: 500,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: { message: errorMessage } }),
-    });
-  });
+
+  await installAiStreamMock(page, events);
 }
 
-/**
- * Clear all AI route mocks.
- */
 export async function clearAiMocks(page: Page): Promise<void> {
-  await page.unrouteAll({ behavior: 'ignoreErrors' });
-}
-
-// ---------------------------------------------------------------------------
-
-async function fulfillWithSSE(route: Route, events: StreamEvent[]) {
-  const sseLines = events.map((event) => {
-    return `data: ${JSON.stringify(event)}\n\n`;
-  });
-  sseLines.push('data: [DONE]\n\n');
-
-  await route.fulfill({
-    status: 200,
-    headers: {
-      'content-type': 'text/event-stream',
-      'cache-control': 'no-cache',
-      connection: 'keep-alive',
-    },
-    body: sseLines.join(''),
+  await page.evaluate(() => {
+    delete window.__OPENSCAD_STUDIO_AI_STREAM_MOCK__;
   });
 }

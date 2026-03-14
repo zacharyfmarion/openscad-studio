@@ -10,6 +10,7 @@ let parser: TreeSitter.Parser | null = null;
 let language: TreeSitter.Language | null = null;
 let initPromise: Promise<void> | null = null;
 let parserReadyCallbacks: Array<() => void> = [];
+const isDev = import.meta.env?.DEV ?? false;
 
 /**
  * Initialize the parser (call once at startup)
@@ -54,7 +55,7 @@ export async function initParser(): Promise<void> {
       parser = new TreeSitter.Parser();
       parser.setLanguage(language);
 
-      if (import.meta.env.DEV) console.log('[OpenSCAD Formatter] Parser initialized successfully');
+      if (isDev) console.log('[OpenSCAD Formatter] Parser initialized successfully');
 
       // Notify all listeners that parser is ready
       for (const cb of parserReadyCallbacks) {

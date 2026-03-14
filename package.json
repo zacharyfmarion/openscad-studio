@@ -10,6 +10,7 @@
     "tauri:dev": "cd apps/ui && pnpm tauri dev",
     "tauri:build": "cd apps/ui && pnpm tauri build",
     "lint": "pnpm -r lint",
+    "test:formatter:ci": "cd apps/ui && pnpm test:formatter:ci",
     "type-check": "pnpm -r type-check",
     "format": "pnpm format:ts && pnpm format:rust",
     "format:ts": "prettier --write \"apps/**/*.{ts,tsx,js,jsx,json,css}\" \"packages/**/*.{ts,tsx,js,jsx,json}\"",

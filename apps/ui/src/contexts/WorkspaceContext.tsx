@@ -1,10 +1,11 @@
 import { createContext, useContext } from 'react';
+import type { ModelSelectionSurface } from '../analytics/runtime';
 import type { Diagnostic } from '../platform/historyService';
 import type { RenderKind } from '../hooks/useOpenScad';
-import type { Message, ToolCall } from '../hooks/useAiAgent';
-import type { AiMode, AiPromptPanelRef } from '../components/AiPromptPanel';
+import type { AiPromptPanelRef } from '../components/AiPromptPanel';
 import type { Settings } from '../stores/settingsStore';
 import type { Tab } from '../components/TabBar';
+import type { AiDraft, AttachmentStore, Message, ToolCall, VisionSupport } from '../types/aiChat';
 
 export interface WorkspaceState {
   // Editor
@@ -35,16 +36,27 @@ export interface WorkspaceState {
   aiError: string | null;
   isApplyingDiff: boolean;
   messages: Message[];
+  draft: AiDraft;
+  attachments: AttachmentStore;
+  draftErrors: string[];
+  draftVisionBlockMessage: string | null;
+  draftVisionWarningMessage: string | null;
+  canSubmitDraft: boolean;
+  isProcessingAttachments: boolean;
   currentToolCalls: ToolCall[];
   currentModel: string;
+  currentModelVisionSupport: VisionSupport;
   availableProviders: string[];
-  submitPrompt: (prompt: string, mode: AiMode) => void;
+  submitDraft: () => void;
+  setDraftText: (text: string) => void;
+  addDraftFiles: (files: File[], sourceSurface?: ModelSelectionSurface) => Promise<void>;
+  removeDraftAttachment: (attachmentId: string, sourceSurface?: ModelSelectionSurface) => void;
   cancelStream: () => void;
   acceptDiff: () => void;
   rejectDiff: () => void;
   clearAiError: () => void;
   newConversation: () => void;
-  setCurrentModel: (model: string) => void;
+  setCurrentModel: (model: string, sourceSurface?: ModelSelectionSurface) => void;
   handleRestoreCheckpoint: (checkpointId: string, truncatedMessages: Message[]) => void;
   aiPromptPanelRef: React.RefObject<AiPromptPanelRef | null>;
 

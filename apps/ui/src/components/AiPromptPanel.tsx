@@ -1,12 +1,23 @@
-import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { toast } from 'sonner';
-import type { Message, ToolCallMessage } from '../hooks/useAiAgent';
+import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from './ui';
 import { MarkdownMessage } from './MarkdownMessage';
 import { ModelSelector } from './ModelSelector';
+import { AiComposer, type AiComposerRef } from './AiComposer';
+import { useAnalytics, type ModelSelectionSurface } from '../analytics/runtime';
 import { useHistory } from '../hooks/useHistory';
 import { getPlatform } from '../platform';
 import { useHasApiKey } from '../stores/apiKeyStore';
+import { notifyError, notifySuccess } from '../utils/notifications';
+import type {
+  AiDraft,
+  AssistantMessage,
+  AttachmentStore,
+  Message,
+  ToolCall,
+  ToolCallMessage,
+  ToolCallState,
+} from '../types/aiChat';
+import { getUserMessageText } from '../types/aiChat';
 
 function getImageDataUrlFromResult(result: unknown): string | null {
   if (!result) return null;
@@ -28,19 +39,88 @@ function getImageDataUrlFromResult(result: unknown): string | null {
   return null;
 }
 
-export type AiMode = 'edit';
+function getAssistantStateLabel(message: AssistantMessage): string | null {
+  if (message.state === 'cancelled') return 'Cancelled';
+  if (message.state === 'error') return 'Stopped due to error';
+  return null;
+}
 
-interface AiPromptPanelProps {
-  onSubmit: (prompt: string, mode: AiMode) => void;
+function getToolStateMeta(state: ToolCallState) {
+  switch (state) {
+    case 'completed':
+      return {
+        color: 'var(--color-success)',
+        borderColor: 'var(--color-success)',
+        label: 'completed',
+        icon: <span style={{ color: 'var(--color-success)' }}>✓</span>,
+      };
+    case 'error':
+      return {
+        color: 'var(--color-error)',
+        borderColor: 'var(--color-error)',
+        label: 'error',
+        icon: <span style={{ color: 'var(--color-error)' }}>!</span>,
+      };
+    case 'denied':
+      return {
+        color: 'var(--color-warning)',
+        borderColor: 'var(--color-warning)',
+        label: 'denied',
+        icon: <span style={{ color: 'var(--color-warning)' }}>•</span>,
+      };
+    default:
+      return {
+        color: 'var(--color-warning)',
+        borderColor: 'var(--color-warning)',
+        label: 'running',
+        icon: (
+          <svg
+            className="animate-spin h-4 w-4"
+            style={{ color: 'var(--color-warning)' }}
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+        ),
+      };
+  }
+}
+
+export interface AiPromptPanelProps {
+  onSubmit: () => void;
+  onTextChange: (text: string) => void;
+  onFilesSelected: (files: File[]) => void;
+  onRemoveAttachment: (attachmentId: string) => void;
+  draft: AiDraft;
+  attachments: AttachmentStore;
+  draftErrors: string[];
+  draftVisionBlockMessage?: string | null;
+  draftVisionWarningMessage?: string | null;
+  canSubmitDraft: boolean;
+  isProcessingAttachments: boolean;
   isStreaming: boolean;
   streamingResponse: string | null;
   onCancel: () => void;
   messages?: Message[];
   onNewConversation?: () => void;
-  currentToolCalls?: import('../hooks/useAiAgent').ToolCall[];
+  currentToolCalls?: ToolCall[];
   currentModel?: string;
   availableProviders?: string[];
-  onModelChange?: (model: string) => void;
+  onModelChange?: (model: string, sourceSurface?: ModelSelectionSurface) => void;
   onRestoreCheckpoint?: (checkpointId: string, truncatedMessages: Message[]) => void;
   onOpenSettings?: () => void;
 }
@@ -53,13 +133,23 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
   (
     {
       onSubmit,
+      onTextChange,
+      onFilesSelected,
+      onRemoveAttachment,
+      draft,
+      attachments,
+      draftErrors,
+      draftVisionBlockMessage,
+      draftVisionWarningMessage,
+      canSubmitDraft,
+      isProcessingAttachments,
       isStreaming,
       streamingResponse,
       onCancel,
       messages = [],
       onNewConversation,
       currentToolCalls = [],
-      currentModel = 'claude-sonnet-4-5-20250929',
+      currentModel = 'claude-sonnet-4-5',
       availableProviders = [],
       onModelChange,
       onRestoreCheckpoint,
@@ -67,57 +157,44 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
     },
     ref
   ) => {
+    const analytics = useAnalytics();
     const hasApiKey = useHasApiKey();
-    const [prompt, setPrompt] = useState('');
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const responseRef = useRef<HTMLDivElement>(null);
+    const composerRef = useRef<AiComposerRef>(null);
     const { restoreToCheckpoint } = useHistory();
 
-    // Expose focusPrompt method to parent
     useImperativeHandle(ref, () => ({
       focusPrompt: () => {
-        textareaRef.current?.focus();
+        composerRef.current?.focus();
       },
     }));
 
-    // Auto-scroll to bottom when messages or streaming response changes
     useEffect(() => {
       if (responseRef.current) {
         responseRef.current.scrollTop = responseRef.current.scrollHeight;
       }
-    }, [messages, streamingResponse]);
+    }, [messages, streamingResponse, currentToolCalls]);
 
     useEffect(() => {
-      if (import.meta.env.DEV)
+      if (import.meta.env.DEV) {
         console.log('[AiPromptPanel] Messages updated. Count:', messages.length);
+      }
     }, [messages]);
 
-    const handleSubmit = () => {
-      if (!prompt.trim() || isStreaming) return;
-      onSubmit(prompt, 'edit');
-      setPrompt(''); // Clear input after submission
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      // Enter to submit (unless Shift is held for newline)
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSubmit();
-      }
-      // Escape to cancel
-      if (e.key === 'Escape' && isStreaming) {
-        e.preventDefault();
-        onCancel();
-      }
-    };
+    useEffect(() => {
+      analytics.track('ai panel opened', {
+        source_surface: 'ai_panel',
+        has_messages: messages.length > 0,
+      });
+      // Only fire once per panel mount.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleRestoreCheckpoint = async (checkpointId: string, messageId: string) => {
       try {
-        // Find this message and check if there are any messages AFTER this user turn
-        const messageIndex = messages.findIndex((m) => m.id === messageId);
+        const messageIndex = messages.findIndex((message) => message.id === messageId);
         const hasLaterMessages = messageIndex !== -1 && messageIndex < messages.length - 1;
 
-        // Only show warning if there are conversation turns after this one
         if (hasLaterMessages) {
           const shouldProceed = await getPlatform().confirm(
             'This will restore the code to before this turn and remove all subsequent conversation. Continue?',
@@ -132,27 +209,29 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
           if (!shouldProceed) return;
         }
 
-        // Restore the checkpoint
-        await restoreToCheckpoint(checkpointId);
+        const checkpoint = await restoreToCheckpoint(checkpointId);
+        if (!checkpoint) {
+          throw new Error('Checkpoint could not be restored.');
+        }
 
-        // Truncate messages - find the index of this message and remove it and everything after
-        // (Since we're restoring to BEFORE this user turn)
         if (messageIndex !== -1 && onRestoreCheckpoint) {
           const truncatedMessages = messages.slice(0, messageIndex);
           onRestoreCheckpoint(checkpointId, truncatedMessages);
         }
-      } catch (err) {
-        console.error('[AiPromptPanel] Failed to restore checkpoint:', err);
-        toast.error(`Failed to restore checkpoint: ${err}`);
+
+        notifySuccess('Restored checkpoint', {
+          toastId: 'restore-checkpoint-success',
+        });
+      } catch (error) {
+        notifyError({
+          operation: 'restore-checkpoint',
+          error,
+          fallbackMessage: 'Failed to restore checkpoint',
+          toastId: 'restore-checkpoint-error',
+          logLabel: '[AiPromptPanel] Failed to restore checkpoint',
+        });
       }
     };
-
-    // Auto-focus prompt when not streaming
-    useEffect(() => {
-      if (!isStreaming && textareaRef.current) {
-        textareaRef.current.focus();
-      }
-    }, [isStreaming]);
 
     if (!hasApiKey) {
       return (
@@ -183,29 +262,24 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
     }
 
     return (
-      <div className="h-full flex flex-col" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        {/* Compact Toolbar */}
-        <div
-          className="flex items-center justify-end px-3 py-1"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            borderBottom: '1px solid var(--border-primary)',
-          }}
-        >
-          {onNewConversation && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={onNewConversation}
-              title="Start new conversation"
-              disabled={isStreaming}
-            >
-              + New
-            </Button>
-          )}
-        </div>
+      <div
+        data-testid="ai-prompt-panel"
+        className="relative h-full flex flex-col ph-no-capture"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+      >
+        {onNewConversation && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onNewConversation}
+            title="Start new conversation"
+            disabled={isStreaming}
+            className="absolute top-3 right-3 z-10 shadow-sm"
+          >
+            + New
+          </Button>
+        )}
 
-        {/* Empty state spacer or Message history area */}
         {messages.length === 0 && !streamingResponse ? (
           <div
             className="flex-1 flex items-center justify-center px-4"
@@ -226,15 +300,19 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
         ) : (
           <div
             ref={responseRef}
-            className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
+            data-testid="ai-transcript"
+            className="flex-1 overflow-y-auto px-4 py-3 space-y-3 ph-no-capture"
             style={{
               backgroundColor: 'var(--bg-secondary)',
               borderBottom: '1px solid var(--border-primary)',
+              paddingTop: onNewConversation ? '3rem' : undefined,
             }}
           >
             {messages.map((message) => {
-              // User message
               if (message.type === 'user') {
+                const userText = getUserMessageText(message);
+                const imageParts = message.parts.filter((part) => part.type === 'image');
+
                 return (
                   <div key={message.id} className="space-y-1">
                     <div className="flex gap-2 justify-end">
@@ -248,12 +326,40 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                         <div className="text-xs mb-1" style={{ opacity: 0.8 }}>
                           You
                         </div>
-                        <div className="text-sm whitespace-pre-wrap font-mono">
-                          {message.content}
-                        </div>
+                        {userText ? (
+                          <div className="text-sm whitespace-pre-wrap font-mono">{userText}</div>
+                        ) : null}
+                        {imageParts.length > 0 && (
+                          <div className={`grid gap-2 ${userText ? 'mt-2' : ''}`}>
+                            {imageParts.map((part) => {
+                              const attachment = attachments[part.attachmentId];
+                              return (
+                                <div
+                                  key={part.attachmentId}
+                                  className="rounded border overflow-hidden"
+                                  style={{
+                                    backgroundColor: 'rgba(255,255,255,0.08)',
+                                    borderColor: 'rgba(255,255,255,0.2)',
+                                  }}
+                                >
+                                  {attachment?.previewUrl ? (
+                                    <img
+                                      src={attachment.previewUrl}
+                                      alt={part.filename}
+                                      className="max-w-full object-cover"
+                                      style={{ maxHeight: '220px', width: '100%' }}
+                                    />
+                                  ) : null}
+                                  <div className="px-2 py-1 text-xs" style={{ opacity: 0.85 }}>
+                                    {part.filename}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    {/* Restore checkpoint button (if AI made changes in response to this) */}
                     {message.checkpointId && (
                       <div className="flex justify-end">
                         <button
@@ -274,8 +380,8 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                 );
               }
 
-              // Assistant text message
               if (message.type === 'assistant') {
+                const stateLabel = getAssistantStateLabel(message);
                 return (
                   <div key={message.id} className="flex gap-2 justify-start">
                     <div
@@ -292,14 +398,19 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                       <div className="text-sm">
                         <MarkdownMessage content={message.content} />
                       </div>
+                      {stateLabel && (
+                        <div className="mt-2 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                          {stateLabel}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
               }
 
-              // Tool call message (permanent, after completion)
               if (message.type === 'tool-call') {
                 const toolMessage = message as ToolCallMessage;
+                const toolStateMeta = getToolStateMeta(toolMessage.state);
                 const imageDataUrl =
                   toolMessage.toolName === 'get_preview_screenshot'
                     ? getImageDataUrlFromResult(toolMessage.result)
@@ -311,53 +422,23 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                       className="rounded-lg px-3 py-2 border"
                       style={{
                         backgroundColor: 'var(--bg-primary)',
-                        borderColor: message.completed
-                          ? 'var(--color-success)'
-                          : 'var(--color-warning)',
+                        borderColor: toolStateMeta.borderColor,
                       }}
                     >
                       <div className="flex items-center gap-2 text-sm">
-                        {message.completed ? (
-                          <span style={{ color: 'var(--color-success)' }}>✓</span>
-                        ) : (
-                          <svg
-                            className="animate-spin h-4 w-4"
-                            style={{ color: 'var(--color-warning)' }}
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                        )}
-                        <span
-                          className="font-semibold"
-                          style={{
-                            color: message.completed
-                              ? 'var(--color-success)'
-                              : 'var(--color-warning)',
-                          }}
-                        >
+                        {toolStateMeta.icon}
+                        <span className="font-semibold" style={{ color: toolStateMeta.color }}>
                           {message.toolName}
                         </span>
-                        {message.completed && (
-                          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                            completed
-                          </span>
-                        )}
+                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                          {toolStateMeta.label}
+                        </span>
                       </div>
+                      {message.errorText && (
+                        <div className="mt-2 text-xs" style={{ color: 'var(--color-error)' }}>
+                          {message.errorText}
+                        </div>
+                      )}
                       {imageDataUrl && (
                         <div className="mt-2">
                           <img
@@ -368,9 +449,6 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                               maxHeight: '300px',
                               borderColor: 'var(--border-secondary)',
                             }}
-                            onError={(e) => {
-                              console.error('[AiPromptPanel] Failed to load image:', e);
-                            }}
                           />
                         </div>
                       )}
@@ -379,14 +457,14 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                 );
               }
 
-              // Tool result messages are no longer used
               return null;
             })}
-            {/* Current tool calls - shown even without text */}
+
             {currentToolCalls.length > 0 && (
               <div className="flex gap-2 justify-start">
                 <div className="space-y-2">
-                  {currentToolCalls.map((tool, idx) => {
+                  {currentToolCalls.map((tool) => {
+                    const toolStateMeta = getToolStateMeta(tool.state);
                     const imageDataUrl =
                       tool.name === 'get_preview_screenshot'
                         ? getImageDataUrlFromResult(tool.result)
@@ -394,55 +472,27 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
 
                     return (
                       <div
-                        key={idx}
+                        key={tool.toolCallId}
                         className="rounded-lg px-3 py-2 border"
                         style={{
                           backgroundColor: 'var(--bg-primary)',
-                          borderColor: tool.result
-                            ? 'var(--color-success)'
-                            : 'var(--color-warning)',
+                          borderColor: toolStateMeta.borderColor,
                         }}
                       >
                         <div className="flex items-center gap-2 text-sm">
-                          {tool.result ? (
-                            <span style={{ color: 'var(--color-success)' }}>✓</span>
-                          ) : (
-                            <svg
-                              className="animate-spin h-4 w-4"
-                              style={{ color: 'var(--color-warning)' }}
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              ></circle>
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                              ></path>
-                            </svg>
-                          )}
-                          <span
-                            className="font-semibold"
-                            style={{
-                              color: tool.result ? 'var(--color-success)' : 'var(--color-warning)',
-                            }}
-                          >
+                          {toolStateMeta.icon}
+                          <span className="font-semibold" style={{ color: toolStateMeta.color }}>
                             {tool.name}
                           </span>
-                          {tool.result ? (
-                            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                              completed
-                            </span>
-                          ) : null}
+                          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                            {toolStateMeta.label}
+                          </span>
                         </div>
+                        {tool.errorText && (
+                          <div className="mt-2 text-xs" style={{ color: 'var(--color-error)' }}>
+                            {tool.errorText}
+                          </div>
+                        )}
                         {imageDataUrl && (
                           <div className="mt-2">
                             <img
@@ -453,9 +503,6 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                                 maxHeight: '300px',
                                 borderColor: 'var(--border-secondary)',
                               }}
-                              onError={(e) => {
-                                console.error('[AiPromptPanel] Failed to load image:', e);
-                              }}
                             />
                           </div>
                         )}
@@ -465,7 +512,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                 </div>
               </div>
             )}
-            {/* Streaming text response */}
+
             {streamingResponse && (
               <div className="flex gap-2 justify-start">
                 <div
@@ -485,10 +532,10 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                 </div>
               </div>
             )}
-            {/* Thinking indicator - shown when streaming but no response or active tool calls */}
+
             {isStreaming &&
               !streamingResponse &&
-              currentToolCalls.filter((tc) => !tc.result).length === 0 && (
+              currentToolCalls.filter((toolCall) => toolCall.state === 'pending').length === 0 && (
                 <div className="flex gap-2 justify-start">
                   <div
                     className="rounded-lg px-3 py-2 border"
@@ -500,30 +547,17 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                   >
                     <div className="flex items-center gap-2">
                       <div className="flex gap-1">
-                        <div
-                          className="w-2 h-2 rounded-full animate-pulse"
-                          style={{
-                            backgroundColor: 'var(--accent-primary)',
-                            animationDelay: '0ms',
-                            animationDuration: '1.4s',
-                          }}
-                        />
-                        <div
-                          className="w-2 h-2 rounded-full animate-pulse"
-                          style={{
-                            backgroundColor: 'var(--accent-primary)',
-                            animationDelay: '200ms',
-                            animationDuration: '1.4s',
-                          }}
-                        />
-                        <div
-                          className="w-2 h-2 rounded-full animate-pulse"
-                          style={{
-                            backgroundColor: 'var(--accent-primary)',
-                            animationDelay: '400ms',
-                            animationDuration: '1.4s',
-                          }}
-                        />
+                        {[0, 1, 2].map((idx) => (
+                          <div
+                            key={idx}
+                            className="w-2 h-2 rounded-full animate-pulse"
+                            style={{
+                              backgroundColor: 'var(--accent-primary)',
+                              animationDelay: `${idx * 200}ms`,
+                              animationDuration: '1.4s',
+                            }}
+                          />
+                        ))}
                       </div>
                       <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
                         Thinking...
@@ -535,64 +569,42 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
           </div>
         )}
 
-        {/* Prompt input area */}
-        <div className="p-3 flex gap-2">
-          <textarea
-            ref={textareaRef}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Describe the changes you want to make..."
-            className="flex-1 rounded border px-3 py-2 resize-none focus:outline-none focus:ring-2 text-sm"
-            style={{
-              backgroundColor: 'var(--bg-elevated)',
-              color: 'var(--text-primary)',
-              borderColor: 'var(--border-primary)',
-            }}
-            rows={2}
+        <div className="p-2">
+          <AiComposer
+            ref={composerRef}
+            draft={draft}
+            attachments={attachments}
             disabled={isStreaming}
+            isProcessingAttachments={isProcessingAttachments}
+            canSubmit={canSubmitDraft}
+            blockedMessage={draftVisionBlockMessage}
+            warningMessage={draftVisionWarningMessage}
+            errors={draftErrors}
+            placeholder="Describe the changes you want to make..."
+            rows={1}
+            maxRows={4}
+            variant="panel"
+            submitLabel="Send"
+            submitTitle="Send (Enter). Shift+Enter adds a newline."
+            trailingControls={
+              <ModelSelector
+                currentModel={currentModel}
+                availableProviders={availableProviders}
+                onChange={(model) => onModelChange?.(model, 'ai_panel')}
+                disabled={isStreaming}
+                compact
+              />
+            }
+            onTextChange={onTextChange}
+            onFilesSelected={onFilesSelected}
+            onRemoveAttachment={onRemoveAttachment}
+            onSubmit={onSubmit}
+            onCancel={onCancel}
           />
-          {isStreaming ? (
-            <Button variant="danger" onClick={onCancel}>
-              Cancel
-            </Button>
-          ) : (
-            <Button
-              variant="primary"
-              onClick={handleSubmit}
-              disabled={!prompt.trim()}
-              title="Submit prompt (↵)"
-              style={{
-                opacity: !prompt.trim() ? 0.5 : 1,
-                cursor: !prompt.trim() ? 'not-allowed' : 'pointer',
-              }}
-            >
-              Send
-            </Button>
-          )}
-        </div>
-
-        {/* Help text and model selector */}
-        <div
-          className="flex items-center justify-between px-4 py-2 text-xs"
-          style={{ color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-primary)' }}
-        >
-          <div>
-            <span className="font-medium">↵</span> to submit •{' '}
-            <span className="font-medium">⇧↵</span> for newline •{' '}
-            <span className="font-medium">Esc</span> to cancel •{' '}
-            <span className="font-medium">⌘K</span> to focus prompt
-          </div>
-          <div className="flex items-center gap-2">
-            <ModelSelector
-              currentModel={currentModel}
-              availableProviders={availableProviders}
-              onChange={(model) => onModelChange?.(model)}
-              disabled={isStreaming}
-            />
-          </div>
         </div>
       </div>
     );
   }
 );
+
+AiPromptPanel.displayName = 'AiPromptPanel';

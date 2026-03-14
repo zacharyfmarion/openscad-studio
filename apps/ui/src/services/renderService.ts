@@ -4,6 +4,7 @@ import type {
   WorkerRenderResult,
   WorkerErrorResult,
 } from './openscad-worker';
+import { notifyError } from '../utils/notifications';
 
 // ============================================================================
 // Public types
@@ -195,7 +196,13 @@ export class RenderService {
     });
 
     worker.addEventListener('error', (event) => {
-      console.error('[RenderService] Worker error:', event);
+      notifyError({
+        operation: 'render-worker',
+        error: event.error ?? event.message,
+        fallbackMessage: 'The OpenSCAD render worker crashed',
+        toastId: 'render-runtime-error',
+        logLabel: '[RenderService] Worker error',
+      });
       // Reject all pending requests
       for (const [id, pending] of this.pending) {
         pending.reject(new Error(`Worker error: ${event.message}`));
