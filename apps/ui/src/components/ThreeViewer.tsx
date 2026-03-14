@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
   CameraControls,
   Grid,
@@ -21,6 +21,7 @@ import {
   boxFitsCameraView,
   boxUnderfillsCameraView,
   buildModelFrame,
+  derivePreviewAxisMetrics,
   derivePreviewFramingMetrics,
   derivePreviewGridMetrics,
   getExpandedFitBox,
@@ -29,6 +30,11 @@ import {
   type ModelFrame,
 } from '../services/previewFraming';
 import { getPreviewSceneStyle, type PreviewSceneStyle } from '../services/previewSceneConfig';
+import {
+  createPreviewAxesOverlay,
+  disposePreviewAxesOverlay,
+  type PreviewAxisLabelVisibility,
+} from '../services/previewAxes';
 import { TbBox, TbBoxModel, TbSun, TbFocus2, TbX } from 'react-icons/tb';
 
 interface ThreeViewerProps {
@@ -44,8 +50,15 @@ declare global {
       maxDim: number | null;
       orthographic: boolean;
       cameraFar: number | null;
+      cameraZoom: number | null;
       gridCellSize: number | null;
       gridSectionSize: number | null;
+      axisExtent: number | null;
+      axisMinorStep: number | null;
+      axisMajorStep: number | null;
+      axisLabelStep: number | null;
+      axesVisible: boolean;
+      axisLabelsVisible: boolean;
       cameraPosition: [number, number, number] | null;
       cameraTarget: [number, number, number] | null;
     };
@@ -133,6 +146,7 @@ function STLModel({
           color={sceneStyle.modelColor}
           metalness={sceneStyle.material.metalness}
           roughness={sceneStyle.material.roughness}
+          envMapIntensity={sceneStyle.material.envMapIntensity}
         />
       )}
     </mesh>
@@ -144,11 +158,15 @@ function ViewerCameraManager({
   modelFrame,
   orthographic,
   sceneStyle,
+  showAxes,
+  showAxisLabels,
 }: {
   cameraControlsRef: React.RefObject<CameraControlsType | null>;
   modelFrame: ModelFrame | null;
   orthographic: boolean;
   sceneStyle: PreviewSceneStyle;
+  showAxes: boolean;
+  showAxisLabels: boolean;
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -172,6 +190,7 @@ function ViewerCameraManager({
 
       currentFitsRef.current = frame ? boxFitsCameraView(camera, frame.box) : true;
       const gridMetrics = derivePreviewGridMetrics(frame);
+      const axisMetrics = derivePreviewAxisMetrics(frame, gridMetrics);
       const cameraControls = cameraControlsRef.current;
       const cameraPosition = cameraControls?.getPosition(new THREE.Vector3(), true) ?? null;
       const cameraTarget = cameraControls?.getTarget(new THREE.Vector3(), true) ?? null;
@@ -185,13 +204,23 @@ function ViewerCameraManager({
           camera instanceof THREE.PerspectiveCamera || camera instanceof THREE.OrthographicCamera
             ? camera.far
             : null,
+        cameraZoom:
+          camera instanceof THREE.PerspectiveCamera || camera instanceof THREE.OrthographicCamera
+            ? camera.zoom
+            : null,
         gridCellSize: gridMetrics.cellSize,
         gridSectionSize: gridMetrics.sectionSize,
+        axisExtent: axisMetrics.axisExtent,
+        axisMinorStep: axisMetrics.minorStep,
+        axisMajorStep: axisMetrics.majorStep,
+        axisLabelStep: axisMetrics.labelStep,
+        axesVisible: showAxes,
+        axisLabelsVisible: showAxes && showAxisLabels,
         cameraPosition: cameraPosition ? tupleFromVector(cameraPosition) : null,
         cameraTarget: cameraTarget ? tupleFromVector(cameraTarget) : null,
       };
     },
-    [camera, cameraControlsRef, orthographic]
+    [camera, cameraControlsRef, orthographic, showAxes, showAxisLabels]
   );
 
   const fitModelToView = useCallback(
@@ -354,15 +383,21 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
   const [showShadows, setShowShadows] = useState(true);
   const cameraControlsRef = useRef<CameraControlsType>(null);
   const gridMetrics = useMemo(() => derivePreviewGridMetrics(modelFrame), [modelFrame]);
+  const axisMetrics = useMemo(
+    () => derivePreviewAxisMetrics(modelFrame, gridMetrics),
+    [gridMetrics, modelFrame]
+  );
   const interactionConfig = useMemo(
-    () => createViewerInteractionConfig(shiftPanActive),
-    [shiftPanActive]
+    () => createViewerInteractionConfig(shiftPanActive, orthographic),
+    [orthographic, shiftPanActive]
   );
   const prefersTouchHint = useMemo(
     () => typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0,
     []
   );
   const showControlsHint = !settings.ui.hasDismissedViewerControlsHint;
+  const showAxes = settings.viewer.showAxes;
+  const showAxisLabels = settings.viewer.showAxisLabels;
 
   const fitCurrentModelToView = () => {
     const cameraControls = cameraControlsRef.current;
@@ -555,6 +590,8 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
           modelFrame={modelFrame}
           orthographic={orthographic}
           sceneStyle={sceneStyle}
+          showAxes={showAxes}
+          showAxisLabels={showAxisLabels}
         />
 
         <Environment preset={sceneStyle.environmentPreset} />
@@ -580,6 +617,14 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
           cellColor={sceneStyle.gridColor}
           sectionColor={sceneStyle.gridSectionColor}
         />
+
+        {showAxes && (
+          <PreviewAxesOverlay
+            axisMetrics={axisMetrics}
+            sceneStyle={sceneStyle}
+            showLabels={showAxisLabels}
+          />
+        )}
 
         {showShadows && sceneStyle.contactShadows.enabledByDefault && (
           <ContactShadows
@@ -624,8 +669,87 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
   );
 }
 
+function PreviewAxesOverlay({
+  axisMetrics,
+  sceneStyle,
+  showLabels,
+}: {
+  axisMetrics: ReturnType<typeof derivePreviewAxisMetrics>;
+  sceneStyle: PreviewSceneStyle;
+  showLabels: boolean;
+}) {
+  const overlay = useMemo(
+    () => createPreviewAxesOverlay(axisMetrics, sceneStyle, { showLabels }),
+    [axisMetrics, sceneStyle, showLabels]
+  );
+  const camera = useThree((state) => state.camera);
+  const labelVisibilityRef = useRef<string | null>(null);
+
+  useFrame(() => {
+    const labelVisibility = getAxisLabelVisibility(camera, showLabels);
+    const labelVisibilityKey = JSON.stringify(labelVisibility);
+    const setAxisLabelsVisibility = overlay.userData.setAxisLabelsVisibility as
+      | ((visibility: PreviewAxisLabelVisibility) => void)
+      | undefined;
+
+    if (!setAxisLabelsVisibility || labelVisibilityRef.current === labelVisibilityKey) {
+      return;
+    }
+
+    setAxisLabelsVisibility(labelVisibility);
+    labelVisibilityRef.current = labelVisibilityKey;
+  });
+
+  useEffect(() => {
+    labelVisibilityRef.current = null;
+    return () => {
+      disposePreviewAxesOverlay(overlay);
+    };
+  }, [overlay]);
+
+  return <primitive object={overlay} />;
+}
+
 function tupleFromVector(vector: THREE.Vector3): [number, number, number] {
   return [vector.x, vector.y, vector.z];
+}
+
+function getAxisLabelVisibility(
+  camera: THREE.Camera,
+  showLabels: boolean
+): PreviewAxisLabelVisibility {
+  if (!showLabels) {
+    return { x: false, y: false, z: false, origin: false };
+  }
+
+  const viewDirection = camera.getWorldDirection(new THREE.Vector3());
+  const axisAlignmentThreshold = 0.96;
+  const alignments = {
+    x: Math.abs(viewDirection.x),
+    y: Math.abs(viewDirection.z),
+    z: Math.abs(viewDirection.y),
+  } satisfies Record<'x' | 'y' | 'z', number>;
+
+  let hiddenAxis: keyof typeof alignments | null = null;
+  let strongestAlignment = 0;
+
+  for (const axis of Object.keys(alignments) as Array<keyof typeof alignments>) {
+    if (alignments[axis] > strongestAlignment) {
+      strongestAlignment = alignments[axis];
+      hiddenAxis = axis;
+    }
+  }
+
+  if (!hiddenAxis || strongestAlignment < axisAlignmentThreshold) {
+    return { x: true, y: true, z: true, origin: true };
+  }
+
+  return {
+    x: hiddenAxis !== 'x',
+    y: hiddenAxis !== 'y',
+    z: hiddenAxis !== 'z',
+    origin: true,
+  };
 }
 
 function fitCameraToModel({

@@ -71,4 +71,31 @@ describe('SettingsDialog privacy copy', () => {
     const toggle = screen.getByRole('checkbox');
     expect((toggle as HTMLInputElement).checked).toBe(false);
   });
+
+  it('shows viewer settings and disables axis labels when axes are hidden', async () => {
+    localStorage.setItem(
+      'openscad-studio-settings',
+      JSON.stringify({
+        viewer: {
+          showAxes: false,
+          showAxisLabels: false,
+        },
+      })
+    );
+
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="viewer" />
+      </ThemeProvider>
+    );
+
+    expect(await screen.findByText('Show axes')).toBeTruthy();
+
+    const axesToggle = screen.getByLabelText('Show axes') as HTMLInputElement;
+    const axisLabelsToggle = screen.getByLabelText('Show axis labels') as HTMLInputElement;
+
+    expect(axesToggle.checked).toBe(false);
+    expect(axisLabelsToggle.checked).toBe(false);
+    expect(axisLabelsToggle.disabled).toBe(true);
+  });
 });

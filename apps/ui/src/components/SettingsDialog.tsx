@@ -14,6 +14,7 @@ import type * as Monaco from 'monaco-editor';
 import { registerVimConfigLanguage } from '../languages/vimConfigLanguage';
 import {
   TbPalette,
+  TbBox,
   TbCode,
   TbSparkles,
   TbX,
@@ -52,7 +53,7 @@ function saveVimConfigIfChanged(localVimConfig: string, currentSettings: Setting
   }
 }
 
-export type SettingsSection = 'appearance' | 'editor' | 'privacy' | 'ai' | 'libraries';
+export type SettingsSection = 'appearance' | 'viewer' | 'editor' | 'privacy' | 'ai' | 'libraries';
 type EditorSubTab = 'general' | 'vim';
 
 export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogProps) {
@@ -145,6 +146,21 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
       ...settings,
       editor: {
         ...settings.editor,
+        [key]: value,
+      },
+    };
+    setSettings(updated);
+    saveSettings(updated);
+  };
+
+  const handleViewerSettingChange = <K extends keyof Settings['viewer']>(
+    key: K,
+    value: Settings['viewer'][K]
+  ) => {
+    const updated = {
+      ...settings,
+      viewer: {
+        ...settings.viewer,
         [key]: value,
       },
     };
@@ -290,6 +306,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
   const navItems: { key: SettingsSection; label: string; icon: React.ReactNode }[] = [
     { key: 'appearance', label: 'Appearance', icon: <TbPalette size={16} /> },
+    { key: 'viewer', label: 'Viewer', icon: <TbBox size={16} /> },
     { key: 'editor', label: 'Editor', icon: <TbCode size={16} /> },
     { key: 'privacy', label: 'Privacy', icon: <TbShield size={16} /> },
     ...(isDesktop
@@ -372,13 +389,15 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
             <h3 className="text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>
               {activeSection === 'appearance'
                 ? 'Appearance'
-                : activeSection === 'editor'
-                  ? 'Editor'
-                  : activeSection === 'privacy'
-                    ? 'Privacy'
-                    : activeSection === 'libraries'
-                      ? 'Libraries'
-                      : 'AI Assistant'}
+                : activeSection === 'viewer'
+                  ? 'Viewer'
+                  : activeSection === 'editor'
+                    ? 'Editor'
+                    : activeSection === 'privacy'
+                      ? 'Privacy'
+                      : activeSection === 'libraries'
+                        ? 'Libraries'
+                        : 'AI Assistant'}
             </h3>
             <button
               type="button"
@@ -550,6 +569,58 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'viewer' && (
+              <div className="space-y-5">
+                <div
+                  className="rounded-lg"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                  }}
+                >
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderBottom: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-axes" className="mb-0">
+                        Show axes
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Show the X, Y, and Z reference axes in the 3D viewer
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-axes"
+                      checked={settings.viewer.showAxes}
+                      onChange={(event) =>
+                        handleViewerSettingChange('showAxes', event.target.checked)
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 p-4">
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-axis-labels" className="mb-0">
+                        Show axis labels
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Show numeric markers and X / Y / Z labels on the viewer axes
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-axis-labels"
+                      checked={settings.viewer.showAxisLabels}
+                      disabled={!settings.viewer.showAxes}
+                      onChange={(event) =>
+                        handleViewerSettingChange('showAxisLabels', event.target.checked)
+                      }
+                    />
+                  </div>
                 </div>
               </div>
             )}

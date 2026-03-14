@@ -21,6 +21,11 @@ export interface UiSettings {
   hasDismissedViewerControlsHint: boolean;
 }
 
+export interface ViewerSettings {
+  showAxes: boolean;
+  showAxisLabels: boolean;
+}
+
 export interface LibrarySettings {
   customPaths: string[];
   autoDiscoverSystem: boolean;
@@ -34,6 +39,7 @@ export interface Settings {
   editor: EditorSettings;
   appearance: AppearanceSettings;
   ui: UiSettings;
+  viewer: ViewerSettings;
   library: LibrarySettings;
   privacy: PrivacySettings;
 }
@@ -82,6 +88,10 @@ const DEFAULT_SETTINGS: Settings = {
     defaultLayoutPreset: 'default',
     hasDismissedViewerControlsHint: false,
   },
+  viewer: {
+    showAxes: true,
+    showAxisLabels: true,
+  },
   library: {
     customPaths: [],
     autoDiscoverSystem: true,
@@ -116,6 +126,10 @@ export function loadSettings(): Settings {
         ui: {
           ...DEFAULT_SETTINGS.ui,
           ...(parsed.ui || {}),
+        },
+        viewer: {
+          ...DEFAULT_SETTINGS.viewer,
+          ...(parsed.viewer || {}),
         },
         library: {
           ...DEFAULT_SETTINGS.library,

@@ -9,6 +9,14 @@ export interface PreviewSceneStyle {
   material: {
     metalness: number;
     roughness: number;
+    envMapIntensity: number;
+  };
+  axis: {
+    xColor: string;
+    yColor: string;
+    zColor: string;
+    tickColor: string;
+    labelColor: string;
   };
   ambientLight: {
     color: string;
@@ -54,6 +62,14 @@ const SHARED_PREVIEW_SCENE_BASE: Omit<
   material: {
     metalness: 0.3,
     roughness: 0.4,
+    envMapIntensity: 0.9,
+  },
+  axis: {
+    xColor: '#5cc8ff',
+    yColor: '#ffd166',
+    zColor: '#ef476f',
+    tickColor: '#7aa6b3',
+    labelColor: '#d3edf0',
   },
   ambientLight: {
     color: '#ffffff',
@@ -106,5 +122,12 @@ export function getPreviewSceneStyle(theme: Theme): PreviewSceneStyle {
     gridColor: theme.colors.border.secondary,
     gridSectionColor: theme.colors.border.primary,
     modelColor: theme.colors.accent.secondary,
+    axis: {
+      xColor: theme.colors.accent.primary,
+      yColor: theme.colors.accent.secondary,
+      zColor: theme.colors.semantic.error,
+      tickColor: theme.colors.border.secondary,
+      labelColor: theme.colors.text.secondary,
+    },
   };
 }

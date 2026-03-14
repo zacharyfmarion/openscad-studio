@@ -1,7 +1,14 @@
 import * as THREE from 'three';
-import { STLLoader } from 'three-stdlib';
+import { RoomEnvironment, STLLoader } from 'three-stdlib';
 import { FALLBACK_PREVIEW_SCENE_STYLE, type PreviewSceneStyle } from './previewSceneConfig';
-import { buildModelFrame, derivePreviewFramingMetrics } from './previewFraming';
+import {
+  buildModelFrame,
+  derivePreviewAxisMetrics,
+  derivePreviewFramingMetrics,
+  derivePreviewGridMetrics,
+  getExpandedFitBox,
+} from './previewFraming';
+import { createPreviewAxesOverlay, disposePreviewAxesOverlay } from './previewAxes';
 
 export type PresetView = 'front' | 'back' | 'top' | 'bottom' | 'left' | 'right' | 'isometric';
 
@@ -67,16 +74,22 @@ export async function captureOffscreen(
   });
   renderer.setSize(width, height);
   renderer.setPixelRatio(1);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled =
     sceneStyle.contactShadows.enabledByDefault || sceneStyle.directionalLight.intensity > 0;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(sceneStyle.backgroundColor);
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  const environmentScene = RoomEnvironment();
+  const environmentTarget = pmremGenerator.fromScene(environmentScene, 0.04);
+  scene.environment = environmentTarget.texture;
 
   const material = new THREE.MeshStandardMaterial({
     color: sceneStyle.modelColor,
     metalness: sceneStyle.material.metalness,
     roughness: sceneStyle.material.roughness,
+    envMapIntensity: sceneStyle.material.envMapIntensity,
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.rotation.x = -Math.PI / 2;
@@ -101,6 +114,10 @@ export async function captureOffscreen(
 
   const modelFrame = buildModelFrame(geometry, 'offscreen-capture');
   const framing = derivePreviewFramingMetrics(modelFrame.box, sceneStyle);
+  const gridMetrics = derivePreviewGridMetrics(modelFrame);
+  const axisMetrics = derivePreviewAxisMetrics(modelFrame, gridMetrics);
+  const axesOverlay = createPreviewAxesOverlay(axisMetrics, sceneStyle, { showLabels: false });
+  scene.add(axesOverlay);
 
   let direction: [number, number, number];
   if (options.azimuth !== undefined || options.elevation !== undefined) {
@@ -116,16 +133,60 @@ export async function captureOffscreen(
     sceneStyle.camera.near,
     framing.cameraFar
   );
-  camera.position.copy(computeCameraPosition(direction, modelFrame.center, framing.fitDistance));
-  camera.lookAt(modelFrame.center);
+  const fitSphere = getExpandedFitBox(modelFrame.box, sceneStyle).getBoundingSphere(
+    new THREE.Sphere()
+  );
+  camera.position.copy(
+    computeCameraPosition(
+      direction,
+      fitSphere.center,
+      getDistanceToFitSphere(camera, fitSphere.radius)
+    )
+  );
+  camera.lookAt(fitSphere.center);
 
   renderer.render(scene, camera);
   const dataUrl = canvas.toDataURL('image/png');
 
+  disposePreviewAxesOverlay(axesOverlay);
   geometry.dispose();
   material.dispose();
+  environmentTarget.dispose();
+  pmremGenerator.dispose();
+  environmentScene.traverse((child) => {
+    disposeObjectResources(
+      child as THREE.Object3D & {
+        geometry?: { dispose: () => void };
+        material?: { dispose: () => void } | Array<{ dispose: () => void }>;
+      }
+    );
+  });
   renderer.dispose();
   renderer.forceContextLoss();
 
   return dataUrl;
+}
+
+function getDistanceToFitSphere(camera: THREE.PerspectiveCamera, radius: number) {
+  const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+  const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
+  const limitingFov = Math.min(verticalFov, horizontalFov);
+
+  return radius / Math.sin(limitingFov / 2);
+}
+
+function disposeObjectResources(
+  object: THREE.Object3D & {
+    geometry?: { dispose: () => void };
+    material?: { dispose: () => void } | Array<{ dispose: () => void }>;
+  }
+) {
+  object.geometry?.dispose();
+
+  if (Array.isArray(object.material)) {
+    object.material.forEach((entry) => entry.dispose());
+    return;
+  }
+
+  object.material?.dispose();
 }

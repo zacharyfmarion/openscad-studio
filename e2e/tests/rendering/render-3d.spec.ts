@@ -8,8 +8,15 @@ type PreviewState = {
   maxDim: number | null;
   orthographic: boolean;
   cameraFar: number | null;
+  cameraZoom: number | null;
   gridCellSize: number | null;
   gridSectionSize: number | null;
+  axisExtent: number | null;
+  axisMinorStep: number | null;
+  axisMajorStep: number | null;
+  axisLabelStep: number | null;
+  axesVisible: boolean;
+  axisLabelsVisible: boolean;
   cameraPosition: [number, number, number] | null;
   cameraTarget: [number, number, number] | null;
 };
@@ -221,6 +228,8 @@ test.describe('3D Rendering', () => {
     expect(initialState.cameraFar).toBeGreaterThanOrEqual(2000);
     expect(initialState.fitCount).toBeGreaterThan(0);
     expect(initialState.orthographic).toBe(false);
+    expect(initialState.axisExtent).toBeGreaterThanOrEqual(600);
+    expect(initialState.axisMajorStep).toBeGreaterThanOrEqual(100);
 
     await app.page.getByTestId('preview-toggle-orthographic').click();
     await app.page.waitForTimeout(1000);
@@ -229,6 +238,73 @@ test.describe('3D Rendering', () => {
 
     expect(orthographicState.orthographic).toBe(true);
     expect(orthographicState.fitCount).toBeGreaterThan(initialState.fitCount);
+  });
+
+  test('orthographic mode still zooms with the mouse wheel', async ({ app }) => {
+    await app.waitForRender();
+    await app.page.getByTestId('preview-toggle-orthographic').click();
+    await app.page.waitForTimeout(800);
+    await app.page.waitForFunction(() => {
+      const preview = (window as any).__TEST_PREVIEW__;
+      return preview?.orthographic && typeof preview?.cameraZoom === 'number';
+    });
+
+    const beforeZoom = (await app.page.evaluate(
+      () => (window as any).__TEST_PREVIEW__
+    )) as PreviewState;
+    const box = await app.previewCanvas3D.boundingBox();
+    expect(box).not.toBeNull();
+
+    if (box) {
+      await app.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await app.page.mouse.wheel(0, -500);
+      await app.page.waitForTimeout(800);
+    }
+
+    const afterZoom = (await app.page.evaluate(
+      () => (window as any).__TEST_PREVIEW__
+    )) as PreviewState;
+
+    expect(afterZoom.orthographic).toBe(true);
+    expect(afterZoom.cameraZoom).not.toBeNull();
+    expect(beforeZoom.cameraZoom).not.toBeNull();
+    expect(afterZoom.cameraZoom).toBeGreaterThan(beforeZoom.cameraZoom ?? 0);
+  });
+
+  test('viewer settings can hide the axes overlay', async ({ app }) => {
+    await app.waitForRender();
+    await app.openSettings();
+    await app.page.getByRole('button', { name: 'Viewer', exact: true }).click();
+    await app.page.getByLabel('Show axes').uncheck();
+    await app.closeDialog();
+    await app.page.waitForTimeout(500);
+    await app.page.waitForFunction(() => {
+      const preview = (window as any).__TEST_PREVIEW__;
+      return preview && preview.axesVisible === false;
+    });
+
+    const previewState = (await app.page.evaluate(() => (window as any).__TEST_PREVIEW__)) as PreviewState;
+
+    expect(previewState.axesVisible).toBe(false);
+    expect(previewState.axisLabelsVisible).toBe(false);
+  });
+
+  test('viewer settings can hide axis labels while keeping axes visible', async ({ app }) => {
+    await app.waitForRender();
+    await app.openSettings();
+    await app.page.getByRole('button', { name: 'Viewer', exact: true }).click();
+    await app.page.getByLabel('Show axis labels').uncheck();
+    await app.closeDialog();
+    await app.page.waitForTimeout(500);
+    await app.page.waitForFunction(() => {
+      const preview = (window as any).__TEST_PREVIEW__;
+      return preview && preview.axesVisible === true && preview.axisLabelsVisible === false;
+    });
+
+    const previewState = (await app.page.evaluate(() => (window as any).__TEST_PREVIEW__)) as PreviewState;
+
+    expect(previewState.axesVisible).toBe(true);
+    expect(previewState.axisLabelsVisible).toBe(false);
   });
 
   test('small model edits preserve the current panned framing when still visible', async ({ app }) => {
@@ -294,6 +370,8 @@ test.describe('3D Rendering', () => {
 
     expect(shorterState.maxDim).toBeLessThan(tallState.maxDim);
     expect(shorterState.fitCount).toBeGreaterThan(tallState.fitCount);
+    expect(shorterState.axisExtent).toBeLessThan(tallState.axisExtent);
+    expect(shorterState.axisMajorStep).toBeLessThanOrEqual(tallState.axisMajorStep);
   });
 
   test('empty code shows no preview or keeps last render', async ({ app }) => {

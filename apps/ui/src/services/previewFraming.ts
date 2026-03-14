@@ -39,6 +39,16 @@ export interface PreviewGridMetrics {
   sectionThickness: number;
 }
 
+export interface PreviewAxisMetrics {
+  axisExtent: number;
+  minorStep: number;
+  majorStep: number;
+  labelStep: number;
+  minorTickSize: number;
+  majorTickSize: number;
+  labelPrecision: number;
+}
+
 export interface ProjectedBoxBounds {
   minX: number;
   maxX: number;
@@ -52,6 +62,16 @@ const DEFAULT_GRID_METRICS: PreviewGridMetrics = {
   fadeDistance: 500,
   cellThickness: 0.6,
   sectionThickness: 1.2,
+};
+
+const DEFAULT_AXIS_METRICS: PreviewAxisMetrics = {
+  axisExtent: 300,
+  minorStep: DEFAULT_GRID_METRICS.cellSize,
+  majorStep: DEFAULT_GRID_METRICS.sectionSize,
+  labelStep: DEFAULT_GRID_METRICS.sectionSize,
+  minorTickSize: 2,
+  majorTickSize: 4,
+  labelPrecision: 0,
 };
 
 export function buildModelFrame(geometry: THREE.BufferGeometry, version: string): ModelFrame {
@@ -212,6 +232,30 @@ export function derivePreviewGridMetrics(modelFrame: ModelFrame | null): Preview
   };
 }
 
+export function derivePreviewAxisMetrics(
+  modelFrame: ModelFrame | null,
+  gridMetrics: PreviewGridMetrics
+): PreviewAxisMetrics {
+  const footprint = modelFrame ? Math.max(modelFrame.size.x, modelFrame.size.z, 1) : 1;
+  const axisExtent = roundUpToStep(
+    Math.max(footprint * 0.75, gridMetrics.fadeDistance * 0.35, gridMetrics.sectionSize * 6),
+    gridMetrics.sectionSize
+  );
+  const labelStepMultiplier = axisExtent / gridMetrics.sectionSize > 10 ? 2 : 1;
+  const labelStep = gridMetrics.sectionSize * labelStepMultiplier;
+
+  return {
+    axisExtent:
+      Number.isFinite(axisExtent) && axisExtent > 0 ? axisExtent : DEFAULT_AXIS_METRICS.axisExtent,
+    minorStep: gridMetrics.cellSize,
+    majorStep: gridMetrics.sectionSize,
+    labelStep,
+    minorTickSize: Math.max(gridMetrics.cellSize * 0.18, gridMetrics.sectionSize * 0.04),
+    majorTickSize: Math.max(gridMetrics.cellSize * 0.4, gridMetrics.sectionSize * 0.08),
+    labelPrecision: getStepPrecision(labelStep),
+  };
+}
+
 function getBoxCorners(box: THREE.Box3): THREE.Vector3[] {
   const { min, max } = box;
 
@@ -271,4 +315,20 @@ function niceGridStep(value: number): number {
   }
 
   return 10 * magnitude;
+}
+
+function roundUpToStep(value: number, step: number): number {
+  if (!Number.isFinite(value) || value <= 0 || !Number.isFinite(step) || step <= 0) {
+    return DEFAULT_AXIS_METRICS.axisExtent;
+  }
+
+  return Math.ceil(value / step) * step;
+}
+
+function getStepPrecision(step: number): number {
+  if (!Number.isFinite(step) || step <= 0 || step >= 1) {
+    return 0;
+  }
+
+  return Math.min(3, Math.ceil(-Math.log10(step)));
 }

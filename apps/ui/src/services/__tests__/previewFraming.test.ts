@@ -7,6 +7,7 @@ import {
   boxFitsCameraView,
   boxUnderfillsCameraView,
   buildModelFrame,
+  derivePreviewAxisMetrics,
   derivePreviewFramingMetrics,
   derivePreviewGridMetrics,
 } from '../previewFraming';
@@ -135,6 +136,42 @@ describe('previewFraming', () => {
     expect(grid.cellSize).toBe(2);
     expect(grid.sectionSize).toBe(10);
     expect(grid.fadeDistance).toBeGreaterThan(0);
+  });
+
+  it('derives dense axis ticks for small models', () => {
+    const modelFrame = {
+      box: new THREE.Box3(),
+      center: new THREE.Vector3(),
+      size: new THREE.Vector3(18, 18, 18),
+      maxDim: 18,
+      version: 'axis-small',
+    };
+
+    const grid = derivePreviewGridMetrics(modelFrame);
+    const axis = derivePreviewAxisMetrics(modelFrame, grid);
+
+    expect(axis.minorStep).toBe(2);
+    expect(axis.majorStep).toBe(10);
+    expect(axis.labelStep).toBe(10);
+    expect(axis.axisExtent).toBeGreaterThanOrEqual(60);
+  });
+
+  it('widens axis spacing and extent for large models', () => {
+    const modelFrame = {
+      box: new THREE.Box3(),
+      center: new THREE.Vector3(),
+      size: new THREE.Vector3(120, 200, 90),
+      maxDim: 200,
+      version: 'axis-large',
+    };
+
+    const grid = derivePreviewGridMetrics(modelFrame);
+    const axis = derivePreviewAxisMetrics(modelFrame, grid);
+
+    expect(axis.minorStep).toBe(10);
+    expect(axis.majorStep).toBe(50);
+    expect(axis.axisExtent).toBeGreaterThan(300);
+    expect(axis.labelStep).toBe(50);
   });
 
   it('treats large downscales as significant shrink events', () => {

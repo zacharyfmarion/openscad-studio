@@ -9,6 +9,13 @@ describe('viewerInteractionConfig', () => {
     expect(config.mouseButtons.wheel).toBe(VIEWER_CONTROL_ACTIONS.DOLLY);
   });
 
+  it('switches wheel and pinch interactions to zoom in orthographic mode', () => {
+    const config = createViewerInteractionConfig(false, true);
+
+    expect(config.mouseButtons.wheel).toBe(VIEWER_CONTROL_ACTIONS.ZOOM);
+    expect(config.touches.two).toBe(VIEWER_CONTROL_ACTIONS.TOUCH_ZOOM_TRUCK);
+  });
+
   it('switches left drag to pan when shift-pan is active', () => {
     const config = createViewerInteractionConfig(true);
 

@@ -25,7 +25,7 @@ export type RenderTrigger =
   | 'history_restore'
   | 'code_update';
 
-export type SettingsSection = 'appearance' | 'editor' | 'privacy' | 'ai' | 'libraries';
+export type SettingsSection = 'appearance' | 'viewer' | 'editor' | 'privacy' | 'ai' | 'libraries';
 export type ModelSelectionSurface = 'welcome' | 'ai_panel' | 'unknown';
 export type AnalyticsErrorDomain =
   | 'bootstrap'
