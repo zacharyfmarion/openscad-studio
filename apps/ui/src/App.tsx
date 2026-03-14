@@ -47,7 +47,7 @@ function generateUntitledName(): string {
   return `Untitled`;
 }
 
-const RELEASE_VERSION = '0.8.1';
+const RELEASE_VERSION = '0.9.0';
 const RELEASE_BASE = `https://github.com/zacharyfmarion/openscad-studio/releases/download/v${RELEASE_VERSION}`;
 
 type MacArch = 'aarch64' | 'x64';
