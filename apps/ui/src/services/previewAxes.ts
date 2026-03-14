@@ -250,6 +250,7 @@ function createLine(points: Array<[number, number, number]>, material: THREE.Lin
     points.map((point) => new THREE.Vector3(...point))
   );
   const line = new THREE.Line(geometry, material);
+  line.frustumCulled = false;
   line.renderOrder = 2;
   return line;
 }
@@ -258,6 +259,7 @@ function createLineSegments(segments: number[], material: THREE.LineBasicMateria
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(segments, 3));
   const lineSegments = new THREE.LineSegments(geometry, material);
+  lineSegments.frustumCulled = false;
   lineSegments.renderOrder = 2;
   return lineSegments;
 }
@@ -265,6 +267,7 @@ function createLineSegments(segments: number[], material: THREE.LineBasicMateria
 function createLineMaterial(color: string, opacity: number) {
   const material = new THREE.LineBasicMaterial({
     color,
+    depthTest: false,
     transparent: opacity < 1,
     opacity,
     depthWrite: false,
