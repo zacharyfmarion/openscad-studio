@@ -4,6 +4,8 @@ const SENSITIVE_KEY_PATTERN =
 const PATH_VALUE_PATTERN =
   /(^\/)|(^[A-Za-z]:\\)|([/\\][^/\\]+\.[a-z0-9]{1,8}$)|([/\\](users|home|documents|desktop|downloads|library|appdata)([/\\]|$))/i;
 
+const POSTHOG_INTERNAL_PROPERTY_KEYS = new Set(['token']);
+
 function sanitizeString(key: string, value: string): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
@@ -63,8 +65,17 @@ export function scrubAndFilterEvent(event: unknown): unknown {
   }
 
   const candidate = event as { properties?: Record<string, unknown> };
+  const sanitizedProperties = sanitizeAnalyticsProperties(candidate.properties);
+
+  for (const key of POSTHOG_INTERNAL_PROPERTY_KEYS) {
+    const value = candidate.properties?.[key];
+    if (typeof value === 'string' && value.trim()) {
+      sanitizedProperties[key] = value;
+    }
+  }
+
   return {
     ...candidate,
-    properties: sanitizeAnalyticsProperties(candidate.properties),
+    properties: sanitizedProperties,
   };
 }
