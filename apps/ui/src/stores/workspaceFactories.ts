@@ -1,9 +1,4 @@
-import type {
-  TabId,
-  TabRenderState,
-  WorkspaceStoreState,
-  WorkspaceTab,
-} from './workspaceTypes';
+import type { TabId, TabRenderState, WorkspaceStoreState, WorkspaceTab } from './workspaceTypes';
 
 export const DEFAULT_TAB_NAME = 'Untitled';
 export const DEFAULT_OPENSCAD_CODE = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';

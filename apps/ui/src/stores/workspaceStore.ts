@@ -1,6 +1,10 @@
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
-import { createEmptyRenderState, createInitialWorkspaceState, createWorkspaceTab } from './workspaceFactories';
+import {
+  createEmptyRenderState,
+  createInitialWorkspaceState,
+  createWorkspaceTab,
+} from './workspaceFactories';
 import type { WorkspaceStore, WorkspaceStoreState } from './workspaceTypes';
 
 function closeTabState(state: WorkspaceStoreState, id: string): WorkspaceStoreState {
@@ -44,7 +48,9 @@ function reorderByIds(state: WorkspaceStoreState, tabIdsInOrder: string[]) {
   return nextTabs;
 }
 
-export function createWorkspaceStore(initialState: WorkspaceStoreState = createInitialWorkspaceState()) {
+export function createWorkspaceStore(
+  initialState: WorkspaceStoreState = createInitialWorkspaceState()
+) {
   return createStore<WorkspaceStore>()((set, get) => ({
     ...initialState,
 
@@ -118,7 +124,11 @@ export function createWorkspaceStore(initialState: WorkspaceStoreState = createI
       const state = get();
       const firstTab = state.tabs[0];
       const shouldReplaceFirstTab =
-        state.showWelcome && state.tabs.length === 1 && firstTab && !firstTab.filePath && !firstTab.isDirty;
+        state.showWelcome &&
+        state.tabs.length === 1 &&
+        firstTab &&
+        !firstTab.filePath &&
+        !firstTab.isDirty;
 
       if (!shouldReplaceFirstTab) {
         return get().createTab({

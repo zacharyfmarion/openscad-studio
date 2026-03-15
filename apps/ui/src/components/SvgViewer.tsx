@@ -414,7 +414,13 @@ export function SvgViewer({ src }: SvgViewerProps) {
     const rect = containerRef.current.getBoundingClientRect();
     const nextScale = clampScale(viewport.scale * factor);
     setViewport(
-      zoomAroundClientPoint(viewport, nextScale, rect.left + rect.width / 2, rect.top + rect.height / 2, rect)
+      zoomAroundClientPoint(
+        viewport,
+        nextScale,
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2,
+        rect
+      )
     );
   };
 
@@ -550,7 +556,9 @@ export function SvgViewer({ src }: SvgViewerProps) {
     }
 
     const factor = Math.exp(-event.deltaY * 0.0015);
-    setViewport(zoomAroundClientPoint(viewport, viewport.scale * factor, event.clientX, event.clientY, rect));
+    setViewport(
+      zoomAroundClientPoint(viewport, viewport.scale * factor, event.clientX, event.clientY, rect)
+    );
   };
 
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -854,7 +862,11 @@ export function SvgViewer({ src }: SvgViewerProps) {
             overflow="hidden"
             style={{
               cursor:
-                viewMode === 'measure-distance' ? 'crosshair' : dragRef.current ? 'grabbing' : 'grab',
+                viewMode === 'measure-distance'
+                  ? 'crosshair'
+                  : dragRef.current
+                    ? 'grabbing'
+                    : 'grab',
             }}
             data-testid="preview-2d-scene"
           >
@@ -927,7 +939,9 @@ export function SvgViewer({ src }: SvgViewerProps) {
                         y1={measurement.line.y1}
                         x2={measurement.line.x2}
                         y2={measurement.line.y2}
-                        stroke={measurement.selected ? themeColors.measureSelected : themeColors.measure}
+                        stroke={
+                          measurement.selected ? themeColors.measureSelected : themeColors.measure
+                        }
                         strokeOpacity={measurement.selected ? 1 : 0.9}
                         strokeWidth={measurement.selected ? 2 : 1.5}
                         vectorEffect="non-scaling-stroke"
@@ -971,7 +985,9 @@ export function SvgViewer({ src }: SvgViewerProps) {
                           x={measurement.label.x}
                           y={measurement.label.y}
                           textAnchor={measurement.label.anchor ?? 'start'}
-                          fill={measurement.selected ? themeColors.measureSelected : themeColors.measure}
+                          fill={
+                            measurement.selected ? themeColors.measureSelected : themeColors.measure
+                          }
                           fontSize={12 / Math.max(viewport.scale, 0.0001)}
                           fontFamily="monospace"
                           dominantBaseline="middle"
@@ -1021,23 +1037,22 @@ export function SvgViewer({ src }: SvgViewerProps) {
                     />
                   ) : null}
 
-                  {[...overlayModel.boundsLabels]
-                    .map((label) => (
-                      <text
-                        key={label.key}
-                        x={label.x}
-                        y={label.y}
-                        textAnchor={label.anchor ?? 'start'}
-                        fill={themeColors.labelText}
-                        fontSize={10 / Math.max(viewport.scale, 0.0001)}
-                        fontFamily="monospace"
-                        paintOrder="stroke"
-                        stroke={themeColors.labelBackground}
-                        strokeWidth={2 / Math.max(viewport.scale, 0.0001)}
-                      >
-                        {label.text}
-                      </text>
-                    ))}
+                  {[...overlayModel.boundsLabels].map((label) => (
+                    <text
+                      key={label.key}
+                      x={label.x}
+                      y={label.y}
+                      textAnchor={label.anchor ?? 'start'}
+                      fill={themeColors.labelText}
+                      fontSize={10 / Math.max(viewport.scale, 0.0001)}
+                      fontFamily="monospace"
+                      paintOrder="stroke"
+                      stroke={themeColors.labelBackground}
+                      strokeWidth={2 / Math.max(viewport.scale, 0.0001)}
+                    >
+                      {label.text}
+                    </text>
+                  ))}
 
                   {overlayModel.draftMeasurementLabel ? (
                     <text
@@ -1126,7 +1141,8 @@ export function SvgViewer({ src }: SvgViewerProps) {
           }}
           data-testid="preview-2d-empty-banner"
         >
-          No visible 2D geometry. OpenSCAD WASM text rendering may be limited when fonts are unavailable.
+          No visible 2D geometry. OpenSCAD WASM text rendering may be limited when fonts are
+          unavailable.
         </div>
       ) : null}
 

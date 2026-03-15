@@ -84,7 +84,11 @@ function closestPointOnSegment(point: SvgPoint, start: SvgPoint, end: SvgPoint):
   };
 }
 
-function closestPointOnSegments(point: SvgPoint, points: SvgPoint[], closed: boolean): SvgPoint | null {
+function closestPointOnSegments(
+  point: SvgPoint,
+  points: SvgPoint[],
+  closed: boolean
+): SvgPoint | null {
   if (points.length === 0) {
     return null;
   }
@@ -126,7 +130,12 @@ function closestPointOnCircle(point: SvgPoint, center: SvgPoint, radius: number)
   };
 }
 
-function closestPointOnEllipse(point: SvgPoint, center: SvgPoint, rx: number, ry: number): SvgPoint {
+function closestPointOnEllipse(
+  point: SvgPoint,
+  center: SvgPoint,
+  rx: number,
+  ry: number
+): SvgPoint {
   let bestPoint = { x: center.x + rx, y: center.y };
   let bestDistance = Number.POSITIVE_INFINITY;
 
@@ -151,7 +160,10 @@ function closestPointOnPath(
   clientPoint: SvgPoint,
   viewportScale: number
 ): SvgPoint | null {
-  if (typeof element.getTotalLength !== 'function' || typeof element.getPointAtLength !== 'function') {
+  if (
+    typeof element.getTotalLength !== 'function' ||
+    typeof element.getPointAtLength !== 'function'
+  ) {
     return null;
   }
 

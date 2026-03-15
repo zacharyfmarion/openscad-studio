@@ -109,7 +109,9 @@ describe('SvgViewer', () => {
     fireEvent.pointerMove(root, { clientX: 200, clientY: 150 });
 
     expect((await screen.findByTestId('preview-2d-coordinate-readout')).textContent).toMatch(/x/i);
-    expect(screen.getByTestId('preview-2d-stage').querySelector('[data-preview-svg] svg')).toBeTruthy();
+    expect(
+      screen.getByTestId('preview-2d-stage').querySelector('[data-preview-svg] svg')
+    ).toBeTruthy();
   });
 
   it('starts off-origin SVG documents centered with a native SVG transform', async () => {
@@ -260,7 +262,9 @@ describe('SvgViewer', () => {
     expect((await screen.findByTestId('preview-2d-error-banner')).textContent).toMatch(
       /last successful 2d preview/i
     );
-    expect(screen.getByTestId('preview-2d-stage').querySelector('[data-preview-svg] svg')).toBeTruthy();
+    expect(
+      screen.getByTestId('preview-2d-stage').querySelector('[data-preview-svg] svg')
+    ).toBeTruthy();
   });
 
   it('renders distinct x and y axis colors inside the SVG overlay scene', async () => {

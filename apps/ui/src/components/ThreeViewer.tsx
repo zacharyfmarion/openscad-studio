@@ -381,9 +381,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
   const { theme } = useTheme();
   const [settings] = useSettings();
   const sceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
-  const animateInitialFrameRef = useRef(
-    viewerId ? !introAnimatedViewerIds.has(viewerId) : true
-  );
+  const animateInitialFrameRef = useRef(viewerId ? !introAnimatedViewerIds.has(viewerId) : true);
 
   const [modelFrame, setModelFrame] = useState<ModelFrame | null>(null);
   const [shiftPanActive, setShiftPanActive] = useState(false);

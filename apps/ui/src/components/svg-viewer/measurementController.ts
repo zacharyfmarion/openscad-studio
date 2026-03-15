@@ -82,10 +82,7 @@ export function createCommittedMeasurement(
   };
 }
 
-export function formatMeasurementReadout(measurement: {
-  start: SvgPoint;
-  end: SvgPoint;
-}) {
+export function formatMeasurementReadout(measurement: { start: SvgPoint; end: SvgPoint }) {
   const dx = measurement.end.x - measurement.start.x;
   const dy = measurement.end.y - measurement.start.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
@@ -93,10 +90,7 @@ export function formatMeasurementReadout(measurement: {
   return `Distance ${formatNumber(distance)} mm`;
 }
 
-export function getMeasurementMidpoint(measurement: {
-  start: SvgPoint;
-  end: SvgPoint;
-}) {
+export function getMeasurementMidpoint(measurement: { start: SvgPoint; end: SvgPoint }) {
   return midpoint(measurement.start, measurement.end);
 }
 

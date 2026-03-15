@@ -431,13 +431,19 @@ function App() {
     [activeTabId, closeTabLocal, tabs, updateSource]
   );
 
-  const updateTabContent = useCallback((id: string, content: string) => {
-    updateWorkspaceTabContent(id, content);
-  }, [updateWorkspaceTabContent]);
+  const updateTabContent = useCallback(
+    (id: string, content: string) => {
+      updateWorkspaceTabContent(id, content);
+    },
+    [updateWorkspaceTabContent]
+  );
 
-  const reorderTabs = useCallback((newTabs: WorkspaceDocumentTab[]) => {
-    reorderWorkspaceTabs(newTabs.map((tab) => tab.id));
-  }, [reorderWorkspaceTabs]);
+  const reorderTabs = useCallback(
+    (newTabs: WorkspaceDocumentTab[]) => {
+      reorderWorkspaceTabs(newTabs.map((tab) => tab.id));
+    },
+    [reorderWorkspaceTabs]
+  );
 
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
 
@@ -806,7 +812,16 @@ function App() {
         return 'removed' as const;
       }
     },
-    [analytics, createNewTab, hideWelcomeScreen, replaceWelcomeTab, showWelcome, switchTab, tabs, updateSource]
+    [
+      analytics,
+      createNewTab,
+      hideWelcomeScreen,
+      replaceWelcomeTab,
+      showWelcome,
+      switchTab,
+      tabs,
+      updateSource,
+    ]
   );
 
   const handleOpenFile = useCallback(async () => {
@@ -872,7 +887,16 @@ function App() {
         logLabel: 'Failed to open file',
       });
     }
-  }, [analytics, createNewTab, hideWelcomeScreen, replaceWelcomeTab, showWelcome, switchTab, tabs, updateSource]);
+  }, [
+    analytics,
+    createNewTab,
+    hideWelcomeScreen,
+    replaceWelcomeTab,
+    showWelcome,
+    switchTab,
+    tabs,
+    updateSource,
+  ]);
 
   // Helper function to check for unsaved changes before destructive operations
   // Returns: true if ok to proceed, false if user wants to cancel
