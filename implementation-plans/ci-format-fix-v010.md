@@ -27,5 +27,5 @@ Bring the `codex/zac-v0.10` branch back to a green `Format` check by applying th
 - [x] Inspect the failing `Format` workflow output
 - [x] Apply Prettier formatting to the reported files
 - [x] Re-run the CI-equivalent Prettier check locally
-- [ ] Commit the cleanup
-- [ ] Push the branch update
+- [x] Commit the cleanup
+- [x] Push the branch update
