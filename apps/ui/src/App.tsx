@@ -47,8 +47,12 @@ import { Toaster } from 'sonner';
 import type { AiDraft } from './types/aiChat';
 import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTypes';
 
-const RELEASE_VERSION = '0.9.0';
-const RELEASE_BASE = `https://github.com/zacharyfmarion/openscad-studio/releases/download/v${RELEASE_VERSION}`;
+const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
+
+const RELEASE_ASSETS: Record<MacArch, string> = {
+  aarch64: 'OpenSCAD.Studio_latest_aarch64.dmg',
+  x64: 'OpenSCAD.Studio_latest_x64.dmg',
+};
 
 type MacArch = 'aarch64' | 'x64';
 
@@ -130,8 +134,8 @@ function DownloadForMacLink() {
   const otherArch: MacArch = arch === 'aarch64' ? 'x64' : 'aarch64';
   const otherLabel = arch === 'aarch64' ? 'Intel' : 'Apple Silicon';
 
-  const dmgUrl = `${RELEASE_BASE}/OpenSCAD.Studio_${RELEASE_VERSION}_${arch}.dmg`;
-  const otherDmgUrl = `${RELEASE_BASE}/OpenSCAD.Studio_${RELEASE_VERSION}_${otherArch}.dmg`;
+  const dmgUrl = `${RELEASE_BASE}/${RELEASE_ASSETS[arch]}`;
+  const otherDmgUrl = `${RELEASE_BASE}/${RELEASE_ASSETS[otherArch]}`;
 
   return (
     <div className="relative shrink-0" ref={dropdownRef}>

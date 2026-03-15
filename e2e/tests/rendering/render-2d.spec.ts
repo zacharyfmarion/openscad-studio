@@ -127,6 +127,7 @@ test.describe('2D Rendering', () => {
 
     await app.page.getByTestId('preview-2d-toggle-measure').click();
     await expect(app.page.getByTestId('preview-2d-measure-help')).toBeVisible();
+    await root.hover({ position: { x: 200, y: 150 } });
     await expect(app.page.getByTestId('preview-2d-snap-indicator')).toBeVisible();
 
     await root.click({ position: { x: box!.width * 0.35, y: box!.height * 0.5 } });
@@ -141,12 +142,14 @@ test.describe('2D Rendering', () => {
     await root.hover({ position: { x: box!.width * 0.7, y: box!.height * 0.35 } });
     await root.click({ position: { x: box!.width * 0.7, y: box!.height * 0.35 } });
 
-    await expect(app.page.getByTestId('preview-2d-measurement-list-item').nth(1)).toBeVisible();
+    const measurementItems = app.page.getByTestId('preview-2d-measurement-list-item');
+    const countBeforeDelete = await measurementItems.count();
+    expect(countBeforeDelete).toBeGreaterThanOrEqual(2);
 
-    await root.click();
     await app.page.keyboard.press('Delete');
-    await expect(app.page.getByTestId('preview-2d-measurement-list-item').nth(1)).toBeHidden();
+    await expect(measurementItems).toHaveCount(countBeforeDelete - 1);
 
+    await app.page.keyboard.press('Escape');
     await app.page.keyboard.press('Escape');
     await expect(app.page.getByTestId('preview-2d-measure-help')).toBeHidden();
   });
