@@ -622,6 +622,154 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     />
                   </div>
                 </div>
+
+                <div
+                  className="rounded-lg"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                  }}
+                >
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderBottom: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                        2D viewer
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Configure overlays and interaction aids used by the SVG preview.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderTop: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-2d-grid" className="mb-0">
+                        Show 2D grid
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Show an adaptive grid in the SVG preview for layout and measurement.
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-2d-grid"
+                      checked={settings.viewer.show2DGrid}
+                      onChange={(event) =>
+                        handleViewerSettingChange('show2DGrid', event.target.checked)
+                      }
+                    />
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderTop: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-2d-axes" className="mb-0">
+                        Show 2D axes
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Show horizontal and vertical reference axes through the origin.
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-2d-axes"
+                      checked={settings.viewer.show2DAxes}
+                      onChange={(event) =>
+                        handleViewerSettingChange('show2DAxes', event.target.checked)
+                      }
+                    />
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderTop: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-2d-origin" className="mb-0">
+                        Show origin marker
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Show a highlighted marker at the SVG origin.
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-2d-origin"
+                      checked={settings.viewer.show2DOrigin}
+                      onChange={(event) =>
+                        handleViewerSettingChange('show2DOrigin', event.target.checked)
+                      }
+                    />
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderTop: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-2d-bounds" className="mb-0">
+                        Show drawing bounds
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Show the drawing extents with width and height labels.
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-2d-bounds"
+                      checked={settings.viewer.show2DBounds}
+                      onChange={(event) =>
+                        handleViewerSettingChange('show2DBounds', event.target.checked)
+                      }
+                    />
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderTop: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-2d-cursor-coords" className="mb-0">
+                        Show cursor coordinates
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Show live SVG coordinates for the current pointer location.
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-2d-cursor-coords"
+                      checked={settings.viewer.show2DCursorCoords}
+                      onChange={(event) =>
+                        handleViewerSettingChange('show2DCursorCoords', event.target.checked)
+                      }
+                    />
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderTop: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-enable-2d-grid-snap" className="mb-0">
+                        Snap measurement to grid
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Snap measurement points to the origin, bounds corners, and grid when close.
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-enable-2d-grid-snap"
+                      checked={settings.viewer.enable2DGridSnap}
+                      onChange={(event) =>
+                        handleViewerSettingChange('enable2DGridSnap', event.target.checked)
+                      }
+                    />
+                  </div>
+                </div>
               </div>
             )}
 

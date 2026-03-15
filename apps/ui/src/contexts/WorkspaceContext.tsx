@@ -4,7 +4,7 @@ import type { Diagnostic } from '../platform/historyService';
 import type { RenderKind } from '../hooks/useOpenScad';
 import type { AiPromptPanelRef } from '../components/AiPromptPanel';
 import type { Settings } from '../stores/settingsStore';
-import type { Tab } from '../components/TabBar';
+import type { WorkspaceTab } from '../stores/workspaceTypes';
 import type { AiDraft, AttachmentStore, Message, ToolCall, VisionSupport } from '../types/aiChat';
 
 export interface WorkspaceState {
@@ -16,12 +16,12 @@ export interface WorkspaceState {
   settings: Settings;
 
   // Tabs
-  tabs: Tab[];
+  tabs: WorkspaceTab[];
   activeTabId: string;
   onTabClick: (id: string) => void;
   onTabClose: (id: string) => void;
   onNewTab: () => void;
-  onReorderTabs: (tabs: Tab[]) => void;
+  onReorderTabs: (tabs: WorkspaceTab[]) => void;
 
   // Preview
   previewSrc: string;

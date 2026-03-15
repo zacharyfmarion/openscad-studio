@@ -17,21 +17,9 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToHorizontalAxis } from '@dnd-kit/modifiers';
 import { TbX, TbPlus } from 'react-icons/tb';
+import type { WorkspaceTab } from '../stores/workspaceTypes';
 
-export interface Tab {
-  id: string;
-  filePath: string | null;
-  name: string;
-  content: string;
-  savedContent: string;
-  isDirty: boolean;
-
-  // Cached render state
-  previewSrc?: string;
-  previewKind?: 'mesh' | 'png' | 'svg';
-  diagnostics?: unknown[];
-  dimensionMode?: '2d' | '3d';
-}
+export type Tab = WorkspaceTab;
 
 interface TabBarProps {
   tabs: Tab[];

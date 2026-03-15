@@ -13,13 +13,15 @@ interface Window {
       code: string,
       dimension?: '2d' | '3d',
       trigger?: import('./analytics/runtime').RenderTrigger
-    ) => Promise<void>;
-    manualRender: () => void;
+    ) => Promise<import('./hooks/useOpenScad').RenderSnapshot | null>;
+    manualRender: () => Promise<import('./hooks/useOpenScad').RenderSnapshot | null>;
     updateSourceAndRender: (
       source: string,
       trigger?: import('./analytics/runtime').RenderTrigger
-    ) => void;
-    renderWithTrigger: (trigger: import('./analytics/runtime').RenderTrigger) => void;
+    ) => Promise<import('./hooks/useOpenScad').RenderSnapshot | null>;
+    renderWithTrigger: (
+      trigger: import('./analytics/runtime').RenderTrigger
+    ) => Promise<import('./hooks/useOpenScad').RenderSnapshot | null>;
     dimensionMode: string;
     renderService: any;
     setTestAuxiliaryFiles: (files: Record<string, string>) => void;

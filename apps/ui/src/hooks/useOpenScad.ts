@@ -5,18 +5,44 @@ import { getPlatform } from '../platform';
 import type { LibrarySettings } from '../stores/settingsStore';
 import { resolveWorkingDirDeps } from '../utils/resolveWorkingDirDeps';
 import { notifyError } from '../utils/notifications';
+import { hasRenderableOutput } from './renderOutput';
 export type RenderKind = 'mesh' | 'svg';
+export interface RenderOwner {
+  tabId: string;
+  requestId: number;
+}
+
+export interface RenderSnapshot {
+  previewSrc: string;
+  previewKind: RenderKind;
+  diagnostics: Diagnostic[];
+  error: string;
+  dimensionMode: '2d' | '3d';
+}
 
 interface UseOpenScadOptions {
   workingDir?: string | null;
   autoRenderOnIdle?: boolean;
   autoRenderDelayMs?: number;
   library?: LibrarySettings;
+  createRenderOwner?: () => RenderOwner | null;
+  onRenderSettled?: (event: {
+    owner: RenderOwner | null;
+    code: string;
+    trigger: RenderTrigger;
+    snapshot: RenderSnapshot;
+  }) => void;
 }
 
 export function useOpenScad(options: UseOpenScadOptions = {}) {
   const analytics = useAnalytics();
-  const { autoRenderOnIdle = false, autoRenderDelayMs = 500, library } = options;
+  const {
+    autoRenderOnIdle = false,
+    autoRenderDelayMs = 500,
+    library,
+    createRenderOwner,
+    onRenderSettled,
+  } = options;
   const [source, setSource] = useState<string>(
     '// Type your OpenSCAD code here\ncube([10, 10, 10]);'
   );
@@ -130,13 +156,15 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     async (code: string, dimension: '2d' | '3d' = '3d', trigger: RenderTrigger = 'manual') => {
       if (!renderServiceRef.current) {
         setError('RenderService not available');
-        return;
+        return null;
       }
 
       const renderStartedAt = performance.now();
+      const owner = createRenderOwner?.() ?? null;
       let cacheHit = false;
       let resolvedDimension: '2d' | '3d' = dimension;
       let switchedDimension = false;
+      let settledSnapshot: RenderSnapshot | null = null;
 
       const trackRenderCompleted = (renderDiagnostics: Diagnostic[]) => {
         analytics.track('render completed', {
@@ -164,26 +192,30 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           backend: 'manifold',
           auxiliaryFiles: auxFiles,
         });
-        if (cached) {
+        // Only short-circuit on cached renders that actually contain displayable output.
+        // Empty 3D results for 2D code still need to flow through the dimension-fallback path.
+        if (cached && hasRenderableOutput(cached.output)) {
           cacheHit = true;
+          setDimensionMode(resolvedDimension);
           setDiagnostics(cached.diagnostics);
           setPreviewKind(cached.kind);
 
-          if (prevBlobUrlRef.current) {
-            URL.revokeObjectURL(prevBlobUrlRef.current);
-          }
-
-          if (cached.output.length > 0) {
-            const mimeType = cached.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
-            const blob = new Blob([cached.output], { type: mimeType });
-            const blobUrl = URL.createObjectURL(blob);
-            prevBlobUrlRef.current = blobUrl;
-            setPreviewSrc(blobUrl);
-          }
+          const mimeType = cached.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
+          const blob = new Blob([cached.output], { type: mimeType });
+          const blobUrl = URL.createObjectURL(blob);
+          prevBlobUrlRef.current = blobUrl;
+          setPreviewSrc(blobUrl);
+          settledSnapshot = {
+            previewSrc: blobUrl,
+            previewKind: cached.kind,
+            diagnostics: cached.diagnostics,
+            error: '',
+            dimensionMode: resolvedDimension,
+          };
 
           setIsRendering(false);
           trackRenderCompleted(cached.diagnostics);
-          return;
+          return settledSnapshot;
         }
 
         // Cache miss — wait for library files to finish loading
@@ -222,14 +254,11 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           auxiliaryFiles: Object.keys(renderAuxFiles).length > 0 ? renderAuxFiles : undefined,
         });
 
+        setDimensionMode(resolvedDimension);
         setDiagnostics(result.diagnostics);
         setPreviewKind(result.kind);
 
         // Revoke previous Blob URL to prevent memory leaks
-        if (prevBlobUrlRef.current) {
-          URL.revokeObjectURL(prevBlobUrlRef.current);
-        }
-
         if (result.output.length > 0) {
           // Create Blob URL from output bytes
           const mimeType = result.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
@@ -237,6 +266,13 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           const blobUrl = URL.createObjectURL(blob);
           prevBlobUrlRef.current = blobUrl;
           setPreviewSrc(blobUrl);
+          settledSnapshot = {
+            previewSrc: blobUrl,
+            previewKind: result.kind,
+            diagnostics: result.diagnostics,
+            error: '',
+            dimensionMode: resolvedDimension,
+          };
           trackRenderCompleted(result.diagnostics);
         } else {
           // No output — check for dimension mismatch and auto-retry with opposite mode.
@@ -282,18 +318,40 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
               const blobUrl = URL.createObjectURL(blob);
               prevBlobUrlRef.current = blobUrl;
               setPreviewSrc(blobUrl);
+              settledSnapshot = {
+                previewSrc: blobUrl,
+                previewKind: retryResult.kind,
+                diagnostics: retryResult.diagnostics,
+                error: '',
+                dimensionMode: resolvedDimension,
+              };
               trackRenderCompleted(retryResult.diagnostics);
             } else {
               // Neither dimension produced output
               setError('Render produced no output');
               setPreviewSrc('');
+              settledSnapshot = {
+                previewSrc: '',
+                previewKind: retryResult.kind,
+                diagnostics: retryResult.diagnostics,
+                error: 'Render produced no output',
+                dimensionMode: resolvedDimension,
+              };
               trackRenderCompleted(retryResult.diagnostics);
             }
           } else {
             // Has real errors (not dimension mismatch) — report them
             const errors = result.diagnostics.filter((d) => d.severity === 'error');
-            setError(errors.map((e) => e.message).join('\n'));
+            const errorMessage = errors.map((e) => e.message).join('\n');
+            setError(errorMessage);
             setPreviewSrc('');
+            settledSnapshot = {
+              previewSrc: '',
+              previewKind: result.kind,
+              diagnostics: result.diagnostics,
+              error: errorMessage,
+              dimensionMode: resolvedDimension,
+            };
             trackRenderCompleted(result.diagnostics);
           }
         }
@@ -301,6 +359,13 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         const errorMsg = typeof err === 'string' ? err : String(err);
         setError(errorMsg);
         setPreviewSrc('');
+        settledSnapshot = {
+          previewSrc: '',
+          previewKind: dimension === '2d' ? 'svg' : 'mesh',
+          diagnostics: [],
+          error: errorMsg,
+          dimensionMode: resolvedDimension,
+        };
         notifyError({
           operation: 'render-runtime',
           error: err,
@@ -310,9 +375,19 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         });
       } finally {
         setIsRendering(false);
+        if (settledSnapshot) {
+          onRenderSettled?.({
+            owner,
+            code,
+            trigger,
+            snapshot: settledSnapshot,
+          });
+        }
       }
+
+      return settledSnapshot;
     },
-    [analytics, mergeAndSetAuxFiles]
+    [analytics, createRenderOwner, mergeAndSetAuxFiles, onRenderSettled]
   );
 
   const updateSource = useCallback((newSource: string) => {
@@ -327,7 +402,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     (newSource: string, trigger: RenderTrigger = 'code_update') => {
       setSource(newSource);
       lastRenderedSourceRef.current = newSource;
-      void doRender(newSource, dimensionMode, trigger);
+      return doRender(newSource, dimensionMode, trigger);
     },
     [dimensionMode, doRender]
   );
@@ -358,19 +433,19 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   // Manual render function (stable callback)
   const manualRender = useCallback(() => {
     lastRenderedSourceRef.current = source;
-    void doRender(source, dimensionMode, 'manual');
+    return doRender(source, dimensionMode, 'manual');
   }, [source, dimensionMode, doRender]);
 
   // Render on save function (stable callback)
   const renderOnSave = useCallback(() => {
     lastRenderedSourceRef.current = source;
-    void doRender(source, dimensionMode, 'save');
+    return doRender(source, dimensionMode, 'save');
   }, [source, dimensionMode, doRender]);
 
   const renderWithTrigger = useCallback(
     (trigger: RenderTrigger) => {
       lastRenderedSourceRef.current = source;
-      void doRender(source, dimensionMode, trigger);
+      return doRender(source, dimensionMode, trigger);
     },
     [dimensionMode, doRender, source]
   );

@@ -20,6 +20,12 @@ describe('settingsStore', () => {
 
     expect(settings.viewer.showAxes).toBe(true);
     expect(settings.viewer.showAxisLabels).toBe(true);
+    expect(settings.viewer.show2DAxes).toBe(true);
+    expect(settings.viewer.show2DGrid).toBe(true);
+    expect(settings.viewer.show2DOrigin).toBe(true);
+    expect(settings.viewer.show2DBounds).toBe(false);
+    expect(settings.viewer.show2DCursorCoords).toBe(true);
+    expect(settings.viewer.enable2DGridSnap).toBe(true);
     expect(settings.privacy.analyticsEnabled).toBe(false);
     expect(settings.ui.hasCompletedNux).toBe(true);
   });

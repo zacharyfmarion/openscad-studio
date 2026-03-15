@@ -40,7 +40,10 @@ import { TbBox, TbBoxModel, TbSun, TbFocus2, TbX } from 'react-icons/tb';
 interface ThreeViewerProps {
   stlPath: string;
   isLoading?: boolean;
+  viewerId?: string;
 }
+
+const introAnimatedViewerIds = new Set<string>();
 
 declare global {
   interface Window {
@@ -160,6 +163,7 @@ function ViewerCameraManager({
   sceneStyle,
   showAxes,
   showAxisLabels,
+  animateInitialFrame,
 }: {
   cameraControlsRef: React.RefObject<CameraControlsType | null>;
   modelFrame: ModelFrame | null;
@@ -167,6 +171,7 @@ function ViewerCameraManager({
   sceneStyle: PreviewSceneStyle;
   showAxes: boolean;
   showAxisLabels: boolean;
+  animateInitialFrame: boolean;
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -357,8 +362,9 @@ function ViewerCameraManager({
       return;
     }
 
-    fitModelToView(modelFrame, true);
+    fitModelToView(modelFrame, isFirstFrame ? animateInitialFrame : true);
   }, [
+    animateInitialFrame,
     camera,
     cameraControlsRef,
     fitModelToView,
@@ -371,10 +377,13 @@ function ViewerCameraManager({
   return null;
 }
 
-export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
+export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) {
   const { theme } = useTheme();
   const [settings] = useSettings();
   const sceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
+  const animateInitialFrameRef = useRef(
+    viewerId ? !introAnimatedViewerIds.has(viewerId) : true
+  );
 
   const [modelFrame, setModelFrame] = useState<ModelFrame | null>(null);
   const [shiftPanActive, setShiftPanActive] = useState(false);
@@ -398,6 +407,14 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
   const showControlsHint = !settings.ui.hasDismissedViewerControlsHint;
   const showAxes = settings.viewer.showAxes;
   const showAxisLabels = settings.viewer.showAxisLabels;
+
+  useEffect(() => {
+    if (!viewerId) {
+      return;
+    }
+
+    introAnimatedViewerIds.add(viewerId);
+  }, [viewerId]);
 
   const fitCurrentModelToView = () => {
     const cameraControls = cameraControlsRef.current;
@@ -592,6 +609,7 @@ export function ThreeViewer({ stlPath, isLoading }: ThreeViewerProps) {
           sceneStyle={sceneStyle}
           showAxes={showAxes}
           showAxisLabels={showAxisLabels}
+          animateInitialFrame={animateInitialFrameRef.current}
         />
 
         <Environment preset={sceneStyle.environmentPreset} />

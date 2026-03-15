@@ -7,7 +7,7 @@ import type { AiPromptPanelRef } from './components/AiPromptPanel';
 import { SettingsDialog, type SettingsSection } from './components/SettingsDialog';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { NuxLayoutPicker } from './components/NuxLayoutPicker';
-import { TabBar, type Tab } from './components/TabBar';
+import { TabBar } from './components/TabBar';
 import { WebMenuBar } from './components/WebMenuBar';
 import { EditableFileName } from './components/EditableFileName';
 import { Button, IconButton } from './components/ui';
@@ -30,22 +30,22 @@ import { getPlatform, eventBus, type ExportFormat } from './platform';
 import { RenderService } from './services/renderService';
 import { getPreviewSceneStyle } from './services/previewSceneConfig';
 import { useSettings, loadSettings, updateSetting } from './stores/settingsStore';
+import {
+  selectActiveRender,
+  selectActiveTab,
+  selectActiveTabId,
+  selectShowWelcome,
+  selectTabs,
+  selectWorkingDirectory,
+} from './stores/workspaceSelectors';
+import { useWorkspaceStore, getWorkspaceState } from './stores/workspaceStore';
 import { formatOpenScadCode } from './utils/formatter';
 import { addRecentFile, removeRecentFile } from './utils/recentFiles';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { TbSettings, TbBox, TbRuler2, TbDownload } from 'react-icons/tb';
 import { Toaster } from 'sonner';
 import type { AiDraft } from './types/aiChat';
-
-// Helper to generate unique IDs for tabs
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 11);
-}
-
-// Helper to generate unique untitled names
-function generateUntitledName(): string {
-  return `Untitled`;
-}
+import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTypes';
 
 const RELEASE_VERSION = '0.9.0';
 const RELEASE_BASE = `https://github.com/zacharyfmarion/openscad-studio/releases/download/v${RELEASE_VERSION}`;
@@ -74,6 +74,14 @@ function isIgnorableRejection(reason: unknown): boolean {
     normalized.includes('aborterror') ||
     normalized.includes('aborted')
   );
+}
+
+function revokeBlobUrl(url: string | null | undefined) {
+  if (!url || !url.startsWith('blob:')) {
+    return;
+  }
+
+  URL.revokeObjectURL(url);
 }
 
 function DownloadForMacLink() {
@@ -178,28 +186,33 @@ function DownloadForMacLink() {
 }
 
 function App() {
-  // Tab state
-  const initialTab: Tab = {
-    id: generateId(),
-    filePath: null,
-    name: generateUntitledName(),
-    content: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
-    savedContent: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
-    isDirty: false,
-  };
-  const [tabs, setTabs] = useState<Tab[]>([initialTab]);
-  const [activeTabId, setActiveTabId] = useState<string>(initialTab.id);
-  const [showWelcome, setShowWelcome] = useState(true);
   const [showNux, setShowNux] = useState(() => !loadSettings().ui.hasCompletedNux);
+  const tabs = useWorkspaceStore(selectTabs);
+  const activeTabId = useWorkspaceStore(selectActiveTabId) ?? '';
+  const showWelcome = useWorkspaceStore(selectShowWelcome);
+  const activeTab = useWorkspaceStore(selectActiveTab) ?? tabs[0];
+  const activeRender = useWorkspaceStore(selectActiveRender) ?? activeTab?.render;
+  const workingDir = useWorkspaceStore(selectWorkingDirectory);
+  const createTab = useWorkspaceStore((state) => state.createTab);
+  const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
+  const updateWorkspaceTabContent = useWorkspaceStore((state) => state.updateTabContent);
+  const renameTab = useWorkspaceStore((state) => state.renameTab);
+  const markTabSaved = useWorkspaceStore((state) => state.markTabSaved);
+  const closeTabLocal = useWorkspaceStore((state) => state.closeTabLocal);
+  const replaceWelcomeTab = useWorkspaceStore((state) => state.replaceWelcomeTab);
+  const reorderWorkspaceTabs = useWorkspaceStore((state) => state.reorderTabs);
+  const beginTabRender = useWorkspaceStore((state) => state.beginTabRender);
+  const commitTabRenderResult = useWorkspaceStore((state) => state.commitTabRenderResult);
+  const commitTabRenderError = useWorkspaceStore((state) => state.commitTabRenderError);
+  const showWelcomeScreen = useWorkspaceStore((state) => state.showWelcomeScreen);
+  const hideWelcomeScreen = useWorkspaceStore((state) => state.hideWelcomeScreen);
 
-  // Computed active tab
-  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+  if (!activeTab) {
+    throw new Error('Workspace store must always provide an active tab');
+  }
 
-  // Get working directory from active tab's file path (for resolving relative imports)
-  const workingDir =
-    activeTab?.filePath && typeof activeTab.filePath === 'string'
-      ? activeTab.filePath.substring(0, activeTab.filePath.lastIndexOf('/'))
-      : null;
+  const activeTabRef = useRef<WorkspaceDocumentTab>(activeTab);
+  const tabsRef = useRef<WorkspaceDocumentTab[]>(tabs);
 
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
@@ -216,7 +229,6 @@ function App() {
     source,
     updateSource,
     updateSourceAndRender,
-    previewSrc,
     previewKind,
     diagnostics,
     isRendering,
@@ -232,7 +244,56 @@ function App() {
     autoRenderOnIdle: settings.editor.autoRenderOnIdle,
     autoRenderDelayMs: settings.editor.autoRenderDelayMs,
     library: settings.library,
+    createRenderOwner: () => {
+      const tabId = activeTabRef.current?.id;
+      if (!tabId) {
+        return null;
+      }
+
+      return {
+        tabId,
+        requestId: beginTabRender(tabId, {
+          preferredDimension: activeTabRef.current.render.dimensionMode,
+        }),
+      };
+    },
+    onRenderSettled: ({ owner, code, snapshot }) => {
+      if (!owner) {
+        return;
+      }
+
+      const currentTab = getWorkspaceState().tabs.find((tab) => tab.id === owner.tabId);
+      const previousPreviewSrc = currentTab?.render.previewSrc ?? '';
+
+      if (snapshot.error) {
+        commitTabRenderError(owner.tabId, {
+          requestId: owner.requestId,
+          error: snapshot.error,
+          diagnostics: snapshot.diagnostics,
+          lastRenderedContent: code,
+        });
+        return;
+      }
+
+      if (previousPreviewSrc && previousPreviewSrc !== snapshot.previewSrc) {
+        revokeBlobUrl(previousPreviewSrc);
+      }
+
+      commitTabRenderResult(owner.tabId, {
+        requestId: owner.requestId,
+        previewSrc: snapshot.previewSrc,
+        previewKind: snapshot.previewKind,
+        diagnostics: snapshot.diagnostics,
+        dimensionMode: snapshot.dimensionMode,
+        lastRenderedContent: code,
+      });
+    },
   });
+  const activePreviewSrc = activeRender?.previewSrc ?? '';
+  const activePreviewKind = activeRender?.previewKind ?? previewKind;
+  const activeDiagnostics = activeRender?.diagnostics ?? diagnostics;
+  const activeError = activeRender?.error ?? error;
+  const activeDimensionMode = activeRender?.dimensionMode ?? dimensionMode;
 
   const handleUndo = useCallback(async () => {
     const checkpoint = await undo();
@@ -291,26 +352,19 @@ function App() {
   // Tab management functions
   const createNewTab = useCallback(
     (filePath?: string | null, content?: string, name?: string): string => {
-      const newId = generateId();
       const defaultContent = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';
       const tabContent = content || defaultContent;
-      const tabName = name || generateUntitledName();
-      const newTab: Tab = {
-        id: newId,
+      const newId = createTab({
         filePath: filePath || null,
-        name: tabName,
+        name,
         content: tabContent,
-        savedContent: tabContent,
-        isDirty: false,
-      };
-      setTabs((prev) => [...prev, newTab]);
-      setActiveTabId(newId);
+      });
 
       updateSource(tabContent);
 
       return newId;
     },
-    [updateSource]
+    [createTab, updateSource]
   );
 
   const switchingRef = useRef(false);
@@ -320,15 +374,7 @@ function App() {
       if (id === activeTabId || switchingRef.current) return;
       switchingRef.current = true;
 
-      setTabs((prev) =>
-        prev.map((tab) =>
-          tab.id === activeTabId
-            ? { ...tab, previewSrc, previewKind, diagnostics, dimensionMode, content: source }
-            : tab
-        )
-      );
-
-      setActiveTabId(id);
+      setActiveTab(id);
       const newTab = tabs.find((t) => t.id === id);
       if (newTab) {
         updateSource(newTab.content);
@@ -336,7 +382,7 @@ function App() {
 
       switchingRef.current = false;
     },
-    [activeTabId, tabs, previewSrc, previewKind, diagnostics, dimensionMode, source, updateSource]
+    [activeTabId, setActiveTab, tabs, updateSource]
   );
 
   const closeTab = useCallback(
@@ -369,56 +415,33 @@ function App() {
         }
       }
 
-      const filtered = tabs.filter((t) => t.id !== id);
+      const wasActiveTab = id === activeTabId;
+      revokeBlobUrl(tab.render.previewSrc);
+      closeTabLocal(id);
 
-      if (filtered.length === 0) {
-        setShowWelcome(true);
-        const newId = generateId();
-        const tabName = generateUntitledName();
-        const newTab: Tab = {
-          id: newId,
-          filePath: null,
-          name: tabName,
-          content: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
-          savedContent: '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
-          isDirty: false,
-        };
-        setTabs([newTab]);
-        setActiveTabId(newId);
-        updateSource(newTab.content);
-        return;
-      }
-
-      if (id === activeTabId) {
-        const idx = tabs.findIndex((t) => t.id === id);
-        const newActiveTab = filtered[Math.max(0, idx - 1)];
-        setTabs(filtered);
-        setActiveTabId(newActiveTab.id);
-        updateSource(newActiveTab.content);
-      } else {
-        setTabs(filtered);
+      if (wasActiveTab) {
+        const nextActiveTab = getWorkspaceState().tabs.find(
+          (workspaceTab) => workspaceTab.id === getWorkspaceState().activeTabId
+        );
+        if (nextActiveTab) {
+          updateSource(nextActiveTab.content);
+        }
       }
     },
-    [tabs, activeTabId, updateSource]
+    [activeTabId, closeTabLocal, tabs, updateSource]
   );
 
   const updateTabContent = useCallback((id: string, content: string) => {
-    setTabs((prev) =>
-      prev.map((tab) =>
-        tab.id === id ? { ...tab, content, isDirty: content !== tab.savedContent } : tab
-      )
-    );
-  }, []);
+    updateWorkspaceTabContent(id, content);
+  }, [updateWorkspaceTabContent]);
 
-  const reorderTabs = useCallback((newTabs: Tab[]) => {
-    setTabs(newTabs);
-  }, []);
+  const reorderTabs = useCallback((newTabs: WorkspaceDocumentTab[]) => {
+    reorderWorkspaceTabs(newTabs.map((tab) => tab.id));
+  }, [reorderWorkspaceTabs]);
 
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
 
   // Use refs to avoid stale closures in event listeners
-  const activeTabRef = useRef<Tab>(activeTab);
-  const tabsRef = useRef<Tab[]>(tabs);
   const sourceRef = useRef<string>(source);
   const workingDirRef = useRef<string | null>(workingDir);
   const renderOnSaveRef = useRef(renderOnSave);
@@ -441,8 +464,8 @@ function App() {
   }, [source, updateSourceRef]);
 
   useEffect(() => {
-    updateStlBlobUrl(previewKind === 'mesh' && previewSrc ? previewSrc : null);
-  }, [previewSrc, previewKind, updateStlBlobUrl]);
+    updateStlBlobUrl(activePreviewKind === 'mesh' && activePreviewSrc ? activePreviewSrc : null);
+  }, [activePreviewKind, activePreviewSrc, updateStlBlobUrl]);
   useEffect(() => {
     updateCapturePreview(async () => {
       // Try to capture the Three.js WebGL canvas (3D preview)
@@ -620,19 +643,11 @@ function App() {
 
         const shouldNotifySaveSuccess = promptForPath || !currentTab.filePath;
         const fileName = savePath.split('/').pop() || savePath;
-        setTabs((prev) =>
-          prev.map((tab) =>
-            tab.id === currentTab.id
-              ? {
-                  ...tab,
-                  filePath: savePath,
-                  name: fileName,
-                  savedContent: currentSource,
-                  isDirty: false,
-                }
-              : tab
-          )
-        );
+        markTabSaved(currentTab.id, {
+          filePath: savePath,
+          name: fileName,
+          savedContent: currentSource,
+        });
 
         const dockPanel = getDockviewApi()?.getPanel(currentTab.id);
         if (dockPanel) {
@@ -671,7 +686,7 @@ function App() {
         return false;
       }
     },
-    [analytics, updateSource]
+    [analytics, markTabSaved, updateSource]
   );
 
   const handleStartWithDraft = useCallback(
@@ -679,15 +694,15 @@ function App() {
       if (draftOverride) {
         setDraft(draftOverride);
       }
-      setShowWelcome(false);
+      hideWelcomeScreen();
       void submitDraft(draftOverride);
     },
-    [setDraft, submitDraft]
+    [hideWelcomeScreen, setDraft, submitDraft]
   );
 
   const handleStartManually = useCallback(() => {
-    setShowWelcome(false);
-  }, []);
+    hideWelcomeScreen();
+  }, [hideWelcomeScreen]);
 
   const handleNuxSelect = useCallback(
     (preset: 'default' | 'ai-first') => {
@@ -714,7 +729,7 @@ function App() {
         const existingTab = tabs.find((t) => t.filePath === path);
         if (existingTab) {
           await switchTab(existingTab.id);
-          setShowWelcome(false);
+          hideWelcomeScreen();
           analytics.track('file opened', {
             source: 'recent',
             has_disk_path: true,
@@ -744,22 +759,18 @@ function App() {
           showWelcome && tabs.length === 1 && !firstTab.filePath && !firstTab.isDirty;
 
         if (shouldReplaceFirstTab) {
-          setTabs([
-            {
-              ...firstTab,
-              filePath: result.path,
-              name: result.name,
-              content: result.content,
-              savedContent: result.content,
-              isDirty: false,
-            },
-          ]);
+          revokeBlobUrl(firstTab.render.previewSrc);
+          replaceWelcomeTab({
+            filePath: result.path,
+            name: result.name,
+            content: result.content,
+          });
           updateSource(result.content);
         } else {
           createNewTab(result.path, result.content, result.name);
         }
 
-        setShowWelcome(false);
+        hideWelcomeScreen();
         if (result.path) addRecentFile(result.path);
         analytics.track('file opened', {
           source: 'recent',
@@ -795,7 +806,7 @@ function App() {
         return 'removed' as const;
       }
     },
-    [analytics, tabs, showWelcome, switchTab, createNewTab, updateSource]
+    [analytics, createNewTab, hideWelcomeScreen, replaceWelcomeTab, showWelcome, switchTab, tabs, updateSource]
   );
 
   const handleOpenFile = useCallback(async () => {
@@ -809,7 +820,7 @@ function App() {
         const existingTab = tabs.find((t) => t.filePath === result.path);
         if (existingTab) {
           await switchTab(existingTab.id);
-          setShowWelcome(false);
+          hideWelcomeScreen();
           analytics.track('file opened', {
             source: 'open',
             has_disk_path: true,
@@ -825,22 +836,18 @@ function App() {
         showWelcome && tabs.length === 1 && !firstTab.filePath && !firstTab.isDirty;
 
       if (shouldReplaceFirstTab) {
-        setTabs([
-          {
-            ...firstTab,
-            filePath: result.path,
-            name: result.name,
-            content: result.content,
-            savedContent: result.content,
-            isDirty: false,
-          },
-        ]);
+        revokeBlobUrl(firstTab.render.previewSrc);
+        replaceWelcomeTab({
+          filePath: result.path,
+          name: result.name,
+          content: result.content,
+        });
         updateSource(result.content);
       } else {
         createNewTab(result.path, result.content, result.name);
       }
 
-      setShowWelcome(false);
+      hideWelcomeScreen();
       if (result.path) addRecentFile(result.path);
       analytics.track('file opened', {
         source: 'open',
@@ -865,7 +872,7 @@ function App() {
         logLabel: 'Failed to open file',
       });
     }
-  }, [analytics, tabs, showWelcome, switchTab, createNewTab, updateSource]);
+  }, [analytics, createNewTab, hideWelcomeScreen, replaceWelcomeTab, showWelcome, switchTab, tabs, updateSource]);
 
   // Helper function to check for unsaved changes before destructive operations
   // Returns: true if ok to proceed, false if user wants to cancel
@@ -910,7 +917,7 @@ function App() {
         if (!canProceed) return;
 
         createNewTab();
-        setShowWelcome(true);
+        showWelcomeScreen();
       })
     );
 
@@ -926,7 +933,7 @@ function App() {
             const existingTab = tabsRef.current.find((t) => t.filePath === result.path);
             if (existingTab) {
               await switchTab(existingTab.id);
-              setShowWelcome(false);
+              hideWelcomeScreen();
               analytics.track('file opened', {
                 source: 'menu_open',
                 has_disk_path: true,
@@ -938,7 +945,7 @@ function App() {
           }
 
           createNewTab(result.path, result.content, result.name);
-          setShowWelcome(false);
+          hideWelcomeScreen();
 
           if (result.path) addRecentFile(result.path);
           analytics.track('file opened', {
@@ -1019,7 +1026,7 @@ function App() {
       unlistenFns.forEach((fn) => fn());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analytics, showWelcome, switchTab, createNewTab]);
+  }, [analytics, createNewTab, hideWelcomeScreen, showWelcome, showWelcomeScreen, switchTab]);
 
   useEffect(() => {
     const platform = getPlatform();
@@ -1061,30 +1068,18 @@ function App() {
   useEffect(() => {
     const unlisten = eventBus.on('history:restore', ({ code }) => {
       updateSourceAndRenderRef.current(code, 'history_restore');
-      setTabs((prev) =>
-        prev.map((tab) =>
-          tab.id === activeTabId
-            ? { ...tab, content: code, isDirty: code !== tab.savedContent }
-            : tab
-        )
-      );
+      updateWorkspaceTabContent(activeTabId, code);
     });
     return unlisten;
-  }, [activeTabId]);
+  }, [activeTabId, updateWorkspaceTabContent]);
 
   useEffect(() => {
     const unlisten = eventBus.on('code-updated', ({ code }) => {
       updateSourceAndRenderRef.current(code, 'code_update');
-      setTabs((prev) =>
-        prev.map((tab) =>
-          tab.id === activeTabId
-            ? { ...tab, content: code, isDirty: code !== tab.savedContent }
-            : tab
-        )
-      );
+      updateWorkspaceTabContent(activeTabId, code);
     });
     return unlisten;
-  }, [activeTabId]);
+  }, [activeTabId, updateWorkspaceTabContent]);
 
   const previousSettingsDialogRef = useRef(false);
   useEffect(() => {
@@ -1194,7 +1189,7 @@ function App() {
     () => ({
       source,
       updateSource,
-      diagnostics,
+      diagnostics: activeDiagnostics,
       onManualRender: manualRender,
       settings,
       tabs,
@@ -1203,10 +1198,10 @@ function App() {
       onTabClose: closeTab,
       onNewTab: () => createNewTab(),
       onReorderTabs: reorderTabs,
-      previewSrc,
-      previewKind,
+      previewSrc: activePreviewSrc,
+      previewKind: activePreviewKind,
       isRendering,
-      error,
+      error: activeError,
       isStreaming,
       streamingResponse,
       proposedDiff,
@@ -1246,7 +1241,7 @@ function App() {
     [
       source,
       updateSource,
-      diagnostics,
+      activeDiagnostics,
       manualRender,
       settings,
       tabs,
@@ -1255,10 +1250,10 @@ function App() {
       closeTab,
       createNewTab,
       reorderTabs,
-      previewSrc,
-      previewKind,
+      activePreviewSrc,
+      activePreviewKind,
       isRendering,
-      error,
+      activeError,
       isStreaming,
       streamingResponse,
       proposedDiff,
@@ -1370,9 +1365,7 @@ function App() {
               name={activeTab.name}
               isDirty={activeTab.isDirty}
               onRename={(newName) => {
-                setTabs((prev) =>
-                  prev.map((tab) => (tab.id === activeTabId ? { ...tab, name: newName } : tab))
-                );
+                renameTab(activeTabId, newName);
               }}
             />
           )}
@@ -1407,7 +1400,7 @@ function App() {
               borderColor: 'var(--border-secondary)',
             }}
           >
-            {dimensionMode === '2d' ? (
+            {activeDimensionMode === '2d' ? (
               <>
                 <TbRuler2 size={12} />
                 <span className="font-medium">2D</span>
