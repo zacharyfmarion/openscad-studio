@@ -149,6 +149,8 @@ When starting a non-trivial feature or change, create a Markdown plan file in `i
 
 As you work, mark off progress in the plan file using `- [x]` checkboxes. The plan file serves as a durable, human-readable record of what was done and what remains, and it persists across sessions in a way ephemeral agent state does not.
 
+Do not create an implementation plan for small maintenance-only tasks. Straightforward fixes such as formatting cleanup, lint cleanup, CI-only breakage fixes, typo/docs-only edits, or other narrow housekeeping changes should be done without adding a new file under `implementation-plans/`.
+
 ## Current Status
 
 This document is intentionally scoped to the architecture that exists today:
