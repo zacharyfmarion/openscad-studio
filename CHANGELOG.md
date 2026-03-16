@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-03-15
+
+### Added
+- Rebuilt the 2D SVG viewer with parsed document metrics, adaptive overlays, and persistent viewer settings.
+- Added geometry snapping, repeated measurements, millimeter distance labels, and 15 degree angle locking for 2D inspection work.
+
+### Changed
+- Improved 2D fit, zoom, and overlay behavior for more reliable fabrication-oriented previewing.
+- Polished related workspace state and settings behavior to better support the updated viewer workflow.
+
+### Fixed
+- Preserved the PostHog project token during event sanitization so anonymous analytics continue to send correctly.
+- Hardened release automation and targeted test flows for more reliable CI and publishing.
+
 ## [0.9.0] - 2026-03-13
 
 Added privacy-aware product analytics with clear opt-out controls and stronger protection for AI conversation content.
