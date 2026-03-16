@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Polished related workspace state and settings behavior to better support the updated viewer workflow.
 
 ### Fixed
-- Fixed PostHog event sanitization to avoid leaking sensitive AI conversation content.
+- Preserved the PostHog project token during event sanitization so anonymous analytics continue to send correctly.
 - Hardened release automation and targeted test flows for more reliable CI and publishing.
 
 ## [0.9.0] - 2026-03-13
