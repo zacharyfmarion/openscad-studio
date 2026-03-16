@@ -217,6 +217,10 @@ jobs:
             exit 1
           fi
 
+          DMG_NAME=$(basename "$DMG_PATH")
+          VERSIONED_PATH="$RUNNER_TEMP/$DMG_NAME"
+          cp "$DMG_PATH" "$VERSIONED_PATH"
+
           # Create stable latest-release filenames for the web app while
           # keeping the original versioned DMG for the GitHub release + Homebrew.
           STABLE_NAME="OpenSCAD.Studio_latest_${{ matrix.arch }}.dmg"
@@ -227,7 +231,7 @@ jobs:
           # so the hash matches the file Homebrew users download.
           SHA256=$(shasum -a 256 "$DMG_PATH" | cut -d ' ' -f 1)
 
-          echo "dmg_path=$DMG_PATH" >> "$GITHUB_OUTPUT"
+          echo "dmg_path=$VERSIONED_PATH" >> "$GITHUB_OUTPUT"
           echo "stable_path=$STABLE_PATH" >> "$GITHUB_OUTPUT"
           echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
 
