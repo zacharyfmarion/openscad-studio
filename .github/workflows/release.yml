@@ -106,10 +106,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # macOS ARM (Apple Silicon)
           - platform: 'macos-latest'
             args: '--target aarch64-apple-darwin'
             rust_target: 'aarch64-apple-darwin'
             arch: 'aarch64'
+          # macOS Intel
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
             rust_target: 'x86_64-apple-darwin'
@@ -153,6 +155,7 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
+          # Create a temporary keychain
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
           KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
 
@@ -160,6 +163,7 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
+          # Import certificate
           echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
           security import "$RUNNER_TEMP/certificate.p12" \
             -P "$APPLE_CERTIFICATE_PASSWORD" \
@@ -168,6 +172,7 @@ jobs:
             -f pkcs12 \
             -k "$KEYCHAIN_PATH"
 
+          # Set keychain as default and allow codesign to access it
           security list-keychain -d user -s "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -189,12 +194,14 @@ jobs:
           DMG_PATH=$(find apps/ui/src-tauri/target -name "*.dmg" -type f | head -1)
           echo "Notarizing: $DMG_PATH"
 
+          # Submit for notarization and wait for completion
           xcrun notarytool submit "$DMG_PATH" \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
             --wait
 
+          # Staple the notarization ticket to the DMG
           xcrun stapler staple "$DMG_PATH"
           echo "Notarization complete"
 
@@ -203,22 +210,24 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Find the DMG file
           DMG_PATH=$(find apps/ui/src-tauri/target -name "*.dmg" -type f | head -1)
           if [ -z "$DMG_PATH" ]; then
             echo "::error::No DMG found after build"
             exit 1
           fi
 
-          DMG_NAME=$(basename "$DMG_PATH")
+          # Create stable latest-release filenames for the web app while
+          # keeping the original versioned DMG for the GitHub release + Homebrew.
           STABLE_NAME="OpenSCAD.Studio_latest_${{ matrix.arch }}.dmg"
           STABLE_PATH="$RUNNER_TEMP/$STABLE_NAME"
           cp "$DMG_PATH" "$STABLE_PATH"
 
+          # Calculate SHA256 from the versioned DMG after notarization stapling,
+          # so the hash matches the file Homebrew users download.
           SHA256=$(shasum -a 256 "$DMG_PATH" | cut -d ' ' -f 1)
 
-          echo "dmg_name=$DMG_NAME" >> "$GITHUB_OUTPUT"
           echo "dmg_path=$DMG_PATH" >> "$GITHUB_OUTPUT"
-          echo "stable_name=$STABLE_NAME" >> "$GITHUB_OUTPUT"
           echo "stable_path=$STABLE_PATH" >> "$GITHUB_OUTPUT"
           echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
 
@@ -288,9 +297,11 @@ jobs:
           SHA256_ARM: ${{ steps.hashes.outputs.sha256_arm }}
           SHA256_INTEL: ${{ steps.hashes.outputs.sha256_intel }}
         run: |
+          # Clone the tap repo
           git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/zacharyfmarion/homebrew-openscad-studio.git tap
           cd tap
 
+          # Create the cask formula
           mkdir -p Casks
           cat > Casks/openscad-studio.rb << 'CASK_EOF'
           cask "openscad-studio" do
@@ -319,10 +330,12 @@ jobs:
           end
           CASK_EOF
 
+          # Replace placeholders with actual values
           sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" Casks/openscad-studio.rb
           sed -i "s/SHA256_ARM_PLACEHOLDER/${SHA256_ARM}/g" Casks/openscad-studio.rb
           sed -i "s/SHA256_INTEL_PLACEHOLDER/${SHA256_INTEL}/g" Casks/openscad-studio.rb
 
+          # Commit and push
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Casks/openscad-studio.rb
