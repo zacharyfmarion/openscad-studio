@@ -2,9 +2,9 @@
 
 This directory contains scripts to help with the release process.
 
-## release.sh
+## `release.sh`
 
-Comprehensive release automation script that handles the entire release process.
+`release.sh` now uses a protected-branch-friendly two-step flow.
 
 ### Prerequisites
 
@@ -15,44 +15,82 @@ Before running the release script, ensure you have:
    brew install gh
    gh auth login
    ```
-
-2. **jq** for JSON processing:
+2. **`jq`** for JSON processing:
    ```bash
    brew install jq
    ```
-
-3. **pnpm** for package management:
+3. **`pnpm`** for package management:
    ```bash
    npm install -g pnpm
    ```
-
-4. **Clean working directory**: Commit or stash all changes before running
-
-5. **Main branch**: It's recommended to run from the `main` branch
+4. **Rust toolchain** available so `Cargo.lock` can be refreshed:
+   ```bash
+   rustc --version
+   cargo --version
+   ```
+5. **Clean working directory** with no uncommitted or untracked files.
 
 ### Usage
 
+Prepare the release PR:
+
 ```bash
-./scripts/release.sh
+./scripts/release.sh prepare 0.10.0
 ```
 
-The script will:
+After that PR is merged to `main`, publish the release:
 
-1. **Check prerequisites**: Verify required tools and repository state
-2. **Version input**: Prompt for the new version number (e.g., `0.2.0`)
-3. **Release notes**: Prompt for release notes (supports multi-line, press Ctrl+D when done)
-4. **Update versions**: Automatically update:
+```bash
+./scripts/release.sh publish 0.10.0
+```
+
+For AI or other automation, `prepare` also supports non-interactive changelog input:
+
+```bash
+./scripts/release.sh prepare 0.10.0 --notes-file /tmp/release-notes.md --yes
+./scripts/release.sh prepare 0.10.0 --notes "### Added\n- Example" --yes
+cat /tmp/release-notes.md | ./scripts/release.sh prepare 0.10.0 --notes-stdin --yes
+```
+
+### `prepare`
+
+The `prepare` command will:
+
+1. Verify required tools and repository state.
+2. Fetch `origin/main`.
+3. Create `release/vX.Y.Z` from `origin/main`.
+4. Prompt for release notes.
+   Automation can provide release notes with `--notes-file`, `--notes`, or `--notes-stdin`.
+5. Update:
    - `package.json`
    - `apps/ui/package.json`
    - `apps/ui/src-tauri/Cargo.toml`
    - `apps/ui/src-tauri/Cargo.lock`
-5. **Update CHANGELOG.md**: Add new version entry with date and release notes
-6. **Commit and tag**: Create a commit for the version bump and tag it
-7. **Build**: Run production build (`pnpm tauri build`)
-8. **Create GitHub release**: Use GitHub CLI to create a release with:
-   - Release notes
-   - Git tag
-   - Build artifacts (DMG, AppImage, MSI, etc. based on platform)
+   - `apps/ui/src-tauri/tauri.conf.json`
+   - `apps/ui/src/constants/appInfo.ts`
+   - `CHANGELOG.md`
+6. Commit the bump as `chore: prepare release vX.Y.Z`.
+7. Push the release branch to `origin`.
+8. Open a PR to `main` with `gh pr create`.
+
+### `publish`
+
+The `publish` command will:
+
+1. Fetch `origin/main` and tags.
+2. Find the merged PR for `release/vX.Y.Z`.
+3. Resolve the PR merge commit.
+4. Verify that merged commit is reachable from `origin/main`.
+5. Verify the tagged commit contains matching release versions in all tracked version files.
+6. Verify `CHANGELOG.md` contains a non-empty `X.Y.Z` entry.
+7. Create and push only the annotated tag `vX.Y.Z`.
+
+Pushing that tag triggers GitHub Actions to:
+
+1. Validate the tagged commit.
+2. Build and notarize macOS DMGs.
+3. Create the GitHub Release using the matching `CHANGELOG.md` entry as the body.
+4. Update the Homebrew cask automatically.
 
 ### Example Release Notes Format
 
@@ -60,59 +98,58 @@ When prompted for release notes, you can use Markdown:
 
 ```markdown
 ### Added
+
 - Model selector in AI chat for switching models mid-conversation
 - Active tab indicator with colored accent
 
 ### Changed
+
 - Improved model routing logic
 - Redesigned settings dialog
 
 ### Fixed
+
 - Fixed tab close button with drag-to-reorder
 - Fixed model selection API routing issue
 ```
 
-### What Gets Uploaded
-
-The script automatically detects and uploads platform-specific artifacts:
-
-- **macOS**: `.dmg` and `.app.tar.gz` files
-- **Linux**: `.AppImage` and `.deb` files
-- **Windows**: `.msi` and `.exe` files
-
 ### Post-Release Checklist
 
-After the script completes:
+After `publish` completes and the workflow finishes:
 
-1. ✅ Verify the GitHub release page
-2. ✅ Download and test the artifacts
-3. ✅ Check CHANGELOG.md was updated correctly
-4. ✅ Announce the release (social media, blog, etc.)
+1. Verify the GitHub Release page.
+2. Download and test the DMG artifacts.
+3. Confirm the release notes match the `CHANGELOG.md` entry.
+4. Confirm the Homebrew cask update landed successfully.
 
 ### Troubleshooting
 
-**"GitHub CLI (gh) is required"**
-- Install with: `brew install gh`
-- Authenticate with: `gh auth login`
+**"`gh` is required"**
 
-**"Build failed"**
-- Check that all dependencies are installed
-- Run `pnpm install` to ensure packages are up to date
-- Check Rust toolchain is installed: `rustc --version`
+- Install with `brew install gh`
+- Authenticate with `gh auth login`
 
-**"No build artifacts found"**
-- The script continues but skips artifact upload
-- Artifacts may be in a non-standard location
-- Check `apps/ui/src-tauri/target/release/bundle/`
+**"You have uncommitted or untracked changes"**
 
-### Manual Release (if script fails)
+- Commit, stash, or clean the working tree before running `prepare` or `publish`
 
-If the automated script fails, you can manually:
+**"Expected exactly one merged PR"**
 
-1. Update version numbers in `package.json` and `Cargo.toml`
-2. Update `CHANGELOG.md`
-3. Commit: `git commit -m "chore: bump version to X.Y.Z"`
-4. Tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
-5. Push: `git push origin main --tags`
-6. Build: `pnpm tauri build`
-7. Create release on GitHub UI and upload artifacts manually
+- Make sure the `release/vX.Y.Z` PR exists and has been merged to `main`
+
+**"Tagged commit version mismatch"**
+
+- Verify the merged release PR updated all tracked version sources before running `publish`
+
+### Manual Fallback
+
+If you need to recover manually:
+
+1. Create a release branch from `main`
+2. Update the release version files and `CHANGELOG.md`
+3. Open and merge the release PR
+4. Create the annotated tag on the merged release commit:
+   ```bash
+   git tag -a vX.Y.Z <merge-commit-sha> -m "Release vX.Y.Z"
+   git push origin refs/tags/vX.Y.Z
+   ```

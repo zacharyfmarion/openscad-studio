@@ -299,8 +299,7 @@ export const test = base.extend<AppFixtures>({
   app: [
     async ({ page, isTauri }, use) => {
       // Navigate to app and wait for initial load
-      await page.goto('/');
-      await page.waitForLoadState('domcontentloaded');
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
       await page.evaluate(() => {
         (window as any).__PLAYWRIGHT__ = true;
       });

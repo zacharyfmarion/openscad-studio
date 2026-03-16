@@ -24,6 +24,12 @@ export interface UiSettings {
 export interface ViewerSettings {
   showAxes: boolean;
   showAxisLabels: boolean;
+  show2DAxes: boolean;
+  show2DGrid: boolean;
+  show2DOrigin: boolean;
+  show2DBounds: boolean;
+  show2DCursorCoords: boolean;
+  enable2DGridSnap: boolean;
 }
 
 export interface LibrarySettings {
@@ -91,6 +97,12 @@ const DEFAULT_SETTINGS: Settings = {
   viewer: {
     showAxes: true,
     showAxisLabels: true,
+    show2DAxes: true,
+    show2DGrid: true,
+    show2DOrigin: true,
+    show2DBounds: false,
+    show2DCursorCoords: true,
+    enable2DGridSnap: true,
   },
   library: {
     customPaths: [],

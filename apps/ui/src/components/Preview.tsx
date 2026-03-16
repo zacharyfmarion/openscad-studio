@@ -8,9 +8,10 @@ interface PreviewProps {
   kind: RenderKind;
   isRendering: boolean;
   error?: string;
+  viewerId?: string;
 }
 
-export function Preview({ src, kind, isRendering, error }: PreviewProps) {
+export function Preview({ src, kind, isRendering, error, viewerId }: PreviewProps) {
   if (import.meta.env.DEV) {
     console.log('[Preview] Render:', {
       src: src?.substring(0, 80),
@@ -57,13 +58,13 @@ export function Preview({ src, kind, isRendering, error }: PreviewProps) {
   if (kind === 'mesh') {
     return (
       <InlineErrorBoundary fallbackMessage="3D preview failed to render (WebGL error)">
-        <ThreeViewer stlPath={src} isLoading={isRendering} />
+        <ThreeViewer stlPath={src} isLoading={isRendering} viewerId={viewerId} />
       </InlineErrorBoundary>
     );
   }
 
   if (kind === 'svg') {
-    return <SvgViewer src={src} />;
+    return <SvgViewer key={src} src={src} />;
   }
 
   return (

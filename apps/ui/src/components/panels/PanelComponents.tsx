@@ -27,10 +27,16 @@ const EditorPanel: React.FC<IDockviewPanelProps> = () => {
 };
 
 const PreviewPanel: React.FC<IDockviewPanelProps> = () => {
-  const { previewSrc, previewKind, isRendering, error } = useWorkspace();
+  const { activeTabId, previewSrc, previewKind, isRendering, error } = useWorkspace();
   return (
     <PanelErrorBoundary panelId="preview" panelName="Preview">
-      <Preview src={previewSrc} kind={previewKind} isRendering={isRendering} error={error} />
+      <Preview
+        src={previewSrc}
+        kind={previewKind}
+        isRendering={isRendering}
+        error={error}
+        viewerId={activeTabId}
+      />
     </PanelErrorBoundary>
   );
 };

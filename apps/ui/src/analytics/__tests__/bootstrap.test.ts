@@ -42,6 +42,7 @@ describe('analytics bootstrap helpers', () => {
       scrubAndFilterEvent({
         event: 'ai request completed',
         properties: {
+          token: 'phc_test_project_key',
           source_component: 'ai-panel',
           attachment_name: 'photo.png',
           prompt_text: 'make this bigger',
@@ -52,6 +53,7 @@ describe('analytics bootstrap helpers', () => {
     ).toEqual({
       event: 'ai request completed',
       properties: {
+        token: 'phc_test_project_key',
         source_component: 'ai-panel',
         duration_ms: 3200,
       },

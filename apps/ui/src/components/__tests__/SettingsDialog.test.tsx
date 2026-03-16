@@ -79,6 +79,8 @@ describe('SettingsDialog privacy copy', () => {
         viewer: {
           showAxes: false,
           showAxisLabels: false,
+          show2DGrid: false,
+          show2DAxes: false,
         },
       })
     );
@@ -93,9 +95,13 @@ describe('SettingsDialog privacy copy', () => {
 
     const axesToggle = screen.getByLabelText('Show axes') as HTMLInputElement;
     const axisLabelsToggle = screen.getByLabelText('Show axis labels') as HTMLInputElement;
+    const gridToggle = screen.getByLabelText('Show 2D grid') as HTMLInputElement;
+    const twoDAxesToggle = screen.getByLabelText('Show 2D axes') as HTMLInputElement;
 
     expect(axesToggle.checked).toBe(false);
     expect(axisLabelsToggle.checked).toBe(false);
     expect(axisLabelsToggle.disabled).toBe(true);
+    expect(gridToggle.checked).toBe(false);
+    expect(twoDAxesToggle.checked).toBe(false);
   });
 });
