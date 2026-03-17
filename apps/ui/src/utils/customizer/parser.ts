@@ -6,8 +6,29 @@
  */
 
 import { parse } from '../formatter/parser';
-import type { CustomizerParam, CustomizerTab, ParameterType, DropdownOption } from './types';
+import type {
+  CustomizerParam,
+  CustomizerTab,
+  ParameterType,
+  DropdownOption,
+  ParameterProminence,
+  CustomizerParamSource,
+} from './types';
 import type * as TreeSitter from 'web-tree-sitter';
+
+interface StudioMetadata {
+  label?: string;
+  description?: string;
+  unit?: string;
+  group?: string;
+  prominence?: ParameterProminence;
+}
+
+const isDev =
+  typeof process !== 'undefined' &&
+  typeof process.env === 'object' &&
+  process.env !== null &&
+  process.env.NODE_ENV !== 'production';
 
 /**
  * Parse comment text to extract customizer configuration
@@ -30,10 +51,29 @@ function parseCommentConfig(comment: string): {
 
   const content = match[1].trim();
 
+  const booleanOptions = content
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (
+    booleanOptions.length === 2 &&
+    booleanOptions.every((option) => option === 'true' || option === 'false')
+  ) {
+    return { type: 'boolean' };
+  }
+
   // Check for labeled dropdown: "10:Small, 20:Medium"
   if (content.includes(':') && content.includes(',')) {
     const parts = content.split(',').map((s) => s.trim());
     if (parts.every((p) => p.includes(':'))) {
+      const labeledBooleanOptions = parts.map((part) => part.split(':')[0]?.trim().toLowerCase());
+      if (
+        labeledBooleanOptions.length === 2 &&
+        labeledBooleanOptions.every((option) => option === 'true' || option === 'false')
+      ) {
+        return { type: 'boolean' };
+      }
+
       const options = parts.map((part) => {
         const [val, label] = part.split(':').map((s) => s.trim());
         return {
@@ -88,6 +128,48 @@ function parseCommentConfig(comment: string): {
   }
 
   return null;
+}
+
+function parseStudioMetadata(commentText: string): StudioMetadata | null {
+  const match = commentText.match(/\/\/\s*@studio\s+(\{.*\})\s*$/);
+  if (!match) return null;
+
+  try {
+    const parsed = JSON.parse(match[1]) as Record<string, unknown>;
+    const metadata: StudioMetadata = {};
+
+    if (typeof parsed.label === 'string') metadata.label = parsed.label;
+    if (typeof parsed.description === 'string') metadata.description = parsed.description;
+    if (typeof parsed.unit === 'string') metadata.unit = parsed.unit;
+    if (typeof parsed.group === 'string') metadata.group = parsed.group;
+    if (
+      parsed.prominence === 'primary' ||
+      parsed.prominence === 'secondary' ||
+      parsed.prominence === 'advanced'
+    ) {
+      metadata.prominence = parsed.prominence;
+    }
+
+    return Object.keys(metadata).length > 0 ? metadata : null;
+  } catch (error) {
+    if (isDev) {
+      console.warn('[Customizer] Ignoring invalid @studio metadata:', error);
+    }
+    return null;
+  }
+}
+
+function isValidSliderConfig(
+  value: string | number | boolean | number[],
+  config: { min?: number; max?: number; step?: number }
+): value is number {
+  if (typeof value !== 'number') return false;
+  if (config.min === undefined || config.max === undefined) return false;
+  if (!Number.isFinite(config.min) || !Number.isFinite(config.max)) return false;
+  if (config.min >= config.max) return false;
+  if (config.step !== undefined && (!Number.isFinite(config.step) || config.step <= 0)) return false;
+  if (value < config.min || value > config.max) return false;
+  return true;
 }
 
 /**
@@ -207,6 +289,7 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
 
   const params: CustomizerParam[] = [];
   let currentTab = 'Parameters'; // Default tab name
+  let pendingStudioMetadata: StudioMetadata | null = null;
 
   try {
     // Walk the root node
@@ -231,6 +314,12 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
       // Look for tab/group comments: /* [Tab Name] */
       if (child.type === 'comment') {
         const commentText = sourceCode.substring(child.startIndex, child.endIndex);
+        const studioMetadata = parseStudioMetadata(commentText);
+        if (studioMetadata !== null) {
+          pendingStudioMetadata = studioMetadata;
+          continue;
+        }
+
         const tabMatch = commentText.match(/\/\*\s*\[([^\]]+)\]\s*\*\//);
         if (tabMatch) {
           const tabName = tabMatch[1].trim();
@@ -241,14 +330,21 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
             // Skip subsequent params until next tab
             currentTab = '__hidden__';
           }
+          pendingStudioMetadata = null;
           continue;
         }
+
+        // Ignore unrelated comments without clearing pending metadata.
+        continue;
       }
 
       // Look for assignments: variable = value;
       if (child.type === 'assignment') {
         // Skip if in hidden tab
-        if (currentTab === '__hidden__') continue;
+        if (currentTab === '__hidden__') {
+          pendingStudioMetadata = null;
+          continue;
+        }
 
         // Find identifier and value
         let identifier: TreeSitter.Node | null = null;
@@ -294,14 +390,54 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
 
         // Add range/options from comment if present
         if (commentConfig) {
-          if (commentConfig.min !== undefined) param.min = commentConfig.min;
-          if (commentConfig.max !== undefined) param.max = commentConfig.max;
-          if (commentConfig.step !== undefined) param.step = commentConfig.step;
-          if (commentConfig.options) param.options = commentConfig.options;
+          if (commentConfig.type === 'slider') {
+            if (isValidSliderConfig(value, commentConfig)) {
+              param.type = 'slider';
+              param.min = commentConfig.min;
+              param.max = commentConfig.max;
+              if (commentConfig.step !== undefined) param.step = commentConfig.step;
+            } else {
+              param.type = inferredType;
+            }
+          } else if (commentConfig.type === 'boolean' && typeof value === 'boolean') {
+            param.type = 'boolean';
+          } else if (
+            commentConfig.type === 'dropdown' &&
+            (typeof value === 'string' || typeof value === 'number')
+          ) {
+            param.type = 'dropdown';
+            if (commentConfig.options) param.options = commentConfig.options;
+          }
+        }
+
+        if (pendingStudioMetadata) {
+          if (pendingStudioMetadata.label) param.label = pendingStudioMetadata.label;
+          if (pendingStudioMetadata.description) {
+            param.description = pendingStudioMetadata.description;
+          }
+          if (pendingStudioMetadata.unit) param.unit = pendingStudioMetadata.unit;
+          if (pendingStudioMetadata.group) param.group = pendingStudioMetadata.group;
+          if (pendingStudioMetadata.prominence) {
+            param.prominence = pendingStudioMetadata.prominence;
+          }
+        }
+
+        const source: CustomizerParamSource | undefined = pendingStudioMetadata
+          ? 'hybrid'
+          : commentConfig
+            ? 'standard'
+            : undefined;
+        if (source) {
+          param.source = source;
         }
 
         params.push(param);
+        pendingStudioMetadata = null;
+        continue;
       }
+
+      // Any non-comment, non-assignment top-level node breaks metadata association.
+      pendingStudioMetadata = null;
     }
 
     cursor.delete();

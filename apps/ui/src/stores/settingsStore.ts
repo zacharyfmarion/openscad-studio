@@ -17,13 +17,18 @@ export interface AppearanceSettings {
 export interface UiSettings {
   customizerWidth: number;
   hasCompletedNux: boolean;
-  defaultLayoutPreset: 'default' | 'ai-first';
+  defaultLayoutPreset: 'default' | 'ai-first' | 'customizer-first';
   hasDismissedViewerControlsHint: boolean;
 }
 
 export interface ViewerSettings {
   showAxes: boolean;
   showAxisLabels: boolean;
+  show3DGrid: boolean;
+  showShadows: boolean;
+  showViewcube: boolean;
+  measurementSnapEnabled: boolean;
+  showSelectionInfo: boolean;
   show2DAxes: boolean;
   show2DGrid: boolean;
   show2DOrigin: boolean;
@@ -97,6 +102,11 @@ const DEFAULT_SETTINGS: Settings = {
   viewer: {
     showAxes: true,
     showAxisLabels: true,
+    show3DGrid: true,
+    showShadows: true,
+    showViewcube: true,
+    measurementSnapEnabled: true,
+    showSelectionInfo: true,
     show2DAxes: true,
     show2DGrid: true,
     show2DOrigin: true,

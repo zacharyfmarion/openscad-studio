@@ -426,10 +426,11 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
                     Choose which panel arrangement to use as your default workspace
                   </p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {[
                       { preset: 'default' as const, label: 'Editor First' },
                       { preset: 'ai-first' as const, label: 'AI First' },
+                      { preset: 'customizer-first' as const, label: 'Customizer First' },
                     ].map(({ preset, label }) => {
                       const isActive = settings.ui.defaultLayoutPreset === preset;
                       return (
@@ -635,6 +636,111 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       disabled={!settings.viewer.showAxes}
                       onChange={(event) =>
                         handleViewerSettingChange('showAxisLabels', event.target.checked)
+                      }
+                    />
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderTop: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-3d-grid" className="mb-0">
+                        Show 3D grid
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Show the floor reference grid in the 3D viewer.
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-3d-grid"
+                      checked={settings.viewer.show3DGrid}
+                      onChange={(event) =>
+                        handleViewerSettingChange('show3DGrid', event.target.checked)
+                      }
+                    />
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderTop: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-shadows" className="mb-0">
+                        Show shadows
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Keep contact shadows enabled in the 3D viewer.
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-shadows"
+                      checked={settings.viewer.showShadows}
+                      onChange={(event) =>
+                        handleViewerSettingChange('showShadows', event.target.checked)
+                      }
+                    />
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderTop: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-viewcube" className="mb-0">
+                        Show viewcube
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Show the orientation cube in the bottom-left corner of the 3D viewer.
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-viewcube"
+                      checked={settings.viewer.showViewcube}
+                      onChange={(event) =>
+                        handleViewerSettingChange('showViewcube', event.target.checked)
+                      }
+                    />
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderTop: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-measurement-snap-enabled" className="mb-0">
+                        Snap 3D measurements
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Snap picks to nearby vertices and edge midpoints when measuring.
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-measurement-snap-enabled"
+                      checked={settings.viewer.measurementSnapEnabled}
+                      onChange={(event) =>
+                        handleViewerSettingChange('measurementSnapEnabled', event.target.checked)
+                      }
+                    />
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderTop: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <Label htmlFor="viewer-show-selection-info" className="mb-0">
+                        Show inspection HUD
+                      </Label>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Show picked point, bounds, and tool status while inspecting 3D geometry.
+                      </p>
+                    </div>
+                    <Toggle
+                      id="viewer-show-selection-info"
+                      checked={settings.viewer.showSelectionInfo}
+                      onChange={(event) =>
+                        handleViewerSettingChange('showSelectionInfo', event.target.checked)
                       }
                     />
                   </div>

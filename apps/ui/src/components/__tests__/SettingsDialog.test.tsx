@@ -79,6 +79,11 @@ describe('SettingsDialog privacy copy', () => {
         viewer: {
           showAxes: false,
           showAxisLabels: false,
+          show3DGrid: false,
+          showShadows: false,
+          showViewcube: false,
+          measurementSnapEnabled: false,
+          showSelectionInfo: false,
           show2DGrid: false,
           show2DAxes: false,
         },
@@ -95,13 +100,34 @@ describe('SettingsDialog privacy copy', () => {
 
     const axesToggle = screen.getByLabelText('Show axes') as HTMLInputElement;
     const axisLabelsToggle = screen.getByLabelText('Show axis labels') as HTMLInputElement;
+    const threeDGridToggle = screen.getByLabelText('Show 3D grid') as HTMLInputElement;
+    const shadowsToggle = screen.getByLabelText('Show shadows') as HTMLInputElement;
+    const viewcubeToggle = screen.getByLabelText('Show viewcube') as HTMLInputElement;
+    const snapToggle = screen.getByLabelText('Snap 3D measurements') as HTMLInputElement;
+    const inspectionHudToggle = screen.getByLabelText('Show inspection HUD') as HTMLInputElement;
     const gridToggle = screen.getByLabelText('Show 2D grid') as HTMLInputElement;
     const twoDAxesToggle = screen.getByLabelText('Show 2D axes') as HTMLInputElement;
 
     expect(axesToggle.checked).toBe(false);
     expect(axisLabelsToggle.checked).toBe(false);
     expect(axisLabelsToggle.disabled).toBe(true);
+    expect(threeDGridToggle.checked).toBe(false);
+    expect(shadowsToggle.checked).toBe(false);
+    expect(viewcubeToggle.checked).toBe(false);
+    expect(snapToggle.checked).toBe(false);
+    expect(inspectionHudToggle.checked).toBe(false);
     expect(gridToggle.checked).toBe(false);
     expect(twoDAxesToggle.checked).toBe(false);
+  });
+
+  it('offers Customizer First as a default layout option', async () => {
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="appearance" />
+      </ThemeProvider>
+    );
+
+    expect(await screen.findByText('Default Layout')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Customizer First' })).toBeTruthy();
   });
 });

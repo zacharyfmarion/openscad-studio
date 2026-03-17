@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import type { IconType } from 'react-icons';
-import { TbSparkles, TbCode } from 'react-icons/tb';
+import { TbSparkles, TbCode, TbAdjustmentsHorizontal } from 'react-icons/tb';
 import { Button } from './ui';
+import type { WorkspacePreset } from '../stores/layoutStore';
 
 interface NuxLayoutPickerProps {
   isOpen: boolean;
-  onSelect: (preset: 'default' | 'ai-first') => void;
+  onSelect: (preset: Extract<WorkspacePreset, 'default' | 'ai-first' | 'customizer-first'>) => void;
 }
-
-type LayoutPreset = 'default' | 'ai-first';
+type LayoutPreset = Extract<WorkspacePreset, 'default' | 'ai-first' | 'customizer-first'>;
 
 function RadioIndicator({ selected }: { selected: boolean }) {
   return (
@@ -40,7 +40,7 @@ function RadioIndicator({ selected }: { selected: boolean }) {
 }
 
 export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
-  const [selected, setSelected] = useState<LayoutPreset>('ai-first');
+  const [selected, setSelected] = useState<LayoutPreset>('customizer-first');
 
   if (!isOpen) return null;
 
@@ -50,6 +50,12 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
     description: string;
     Icon: IconType;
   }[] = [
+    {
+      preset: 'customizer-first',
+      title: 'Customizer First',
+      Icon: TbAdjustmentsHorizontal,
+      description: 'Preview and tweak dimensions fast',
+    },
     {
       preset: 'ai-first',
       title: 'AI First',
@@ -86,7 +92,7 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
           </p>
         </div>
 
-        <div className="px-8 py-6 flex gap-4">
+        <div className="px-8 py-6 grid gap-4 md:grid-cols-3">
           {cards.map(({ preset, title, description, Icon }) => {
             const isSelected = selected === preset;
             return (

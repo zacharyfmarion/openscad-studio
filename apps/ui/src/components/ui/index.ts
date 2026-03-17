@@ -15,3 +15,6 @@ export type { LabelProps } from './Label';
 
 export { Toggle } from './Toggle';
 export type { ToggleProps } from './Toggle';
+
+export { SegmentedControl } from './SegmentedControl';
+export { RangeSlider } from './RangeSlider';

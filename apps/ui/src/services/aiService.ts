@@ -87,6 +87,21 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
 - \`if (condition) { ... }\`
 - Variables: \`x = 10;\`
 - Functions: \`function name(params) = expression;\`
+
+### Customizer-Friendly Output:
+- When creating or refactoring a design for end-user customization, expose user-facing parameters as top-level literal assignments before modules/functions.
+- For numeric user-facing parameters, prefer OpenSCAD customizer ranges:
+  - \`width = 60; // [40:120]\`
+  - \`wall = 2.4; // [1.2:0.2:4]\`
+- For enumerated options, prefer dropdown syntax:
+  - \`lid_style = "snap"; // [snap, friction, screw]\`
+- Group related controls with customizer tabs when helpful:
+  - \`/* [Dimensions] */\`
+  - \`/* [Options] */\`
+- Add optional OpenSCAD Studio presentation metadata immediately above important user-facing parameters:
+  - \`// @studio {"label":"Width","description":"Overall outer width","unit":"mm","group":"Body","prominence":"primary"}\`
+- Use \`@studio\` metadata only for user-facing controls, not derived/internal variables.
+- Prefer realistic 3D-printing-safe defaults, ranges, and steps.
 `;
 
 export function createModel(provider: AiProvider, apiKey: string, modelId: string) {

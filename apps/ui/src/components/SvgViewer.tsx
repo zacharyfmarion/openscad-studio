@@ -3,6 +3,8 @@ import { TbFocus2, TbZoomIn, TbZoomOut } from 'react-icons/tb';
 import { useTheme } from '../contexts/ThemeContext';
 import { getPreviewSceneStyle } from '../services/previewSceneConfig';
 import { IconButton } from './ui/IconButton';
+import { MeasurementsTray } from './viewer-measurements/MeasurementsTray';
+import type { MeasurementListItemData } from './viewer-measurements/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
 import { buildOverlayModel } from './svg-viewer/overlayModel';
 import {
@@ -729,6 +731,20 @@ export function SvgViewer({ src }: SvgViewerProps) {
   const draftPreview = getDraftMeasurementPreview(draftMeasurement);
   const measureSummary = draftPreview?.readout ?? null;
   const canInteract = !!loadedDocument && documentState.status !== 'loading';
+  const measurementItems = useMemo<MeasurementListItemData[]>(
+    () =>
+      measurements.map((measurement) => {
+        const midpoint = getMeasurementMidpoint(measurement);
+        return {
+          id: measurement.id,
+          title: measurement.id.slice(-6),
+          summary: `Distance ${measurement.distance.toFixed(2)} mm`,
+          detail: `midpoint ${formatCoordinate(midpoint)}`,
+          selected: measurement.id === selectedMeasurementId,
+        };
+      }),
+    [measurements, selectedMeasurementId]
+  );
   const measurementHelpCopy =
     viewMode === 'measure-distance'
       ? draftMeasurement.status === 'placing-end' && draftMeasurement.start
@@ -1201,94 +1217,23 @@ export function SvgViewer({ src }: SvgViewerProps) {
         </div>
       ) : null}
 
-      {loadedDocument && measurements.length > 0 ? (
-        <div
-          className="absolute left-3 bottom-3 z-20 w-72 rounded-lg"
-          style={{
-            backgroundColor: themeColors.bannerBackground,
-            border: '1px solid var(--border-primary)',
-            color: 'var(--text-secondary)',
+      {loadedDocument ? (
+        <MeasurementsTray
+          items={measurementItems}
+          containerTestId="preview-2d-measurements-tray"
+          clearAllTestId="preview-2d-clear-measurements"
+          itemTestId="preview-2d-measurement-list-item"
+          deleteTestId="preview-2d-delete-measurement"
+          onClearAll={clearAllMeasurements}
+          onSelect={selectMeasurement}
+          onDelete={(id) => {
+            setMeasurements((existing) => existing.filter((item) => item.id !== id));
+            if (selectedMeasurementId === id) {
+              setSelectedMeasurementId(null);
+            }
+            setLiveMessage('Measurement deleted');
           }}
-          data-testid="preview-2d-measurements-tray"
-          onClick={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          <div
-            className="flex items-center justify-between px-3 py-2"
-            style={{ borderBottom: '1px solid var(--border-primary)' }}
-          >
-            <span className="text-xs font-medium">Measurements</span>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                clearAllMeasurements();
-              }}
-              className="text-xs"
-              style={{ color: 'var(--text-tertiary)' }}
-              data-testid="preview-2d-clear-measurements"
-            >
-              Clear all
-            </button>
-          </div>
-          <div className="max-h-48 overflow-auto p-2 space-y-2">
-            {measurements.map((measurement) => {
-              const midpoint = getMeasurementMidpoint(measurement);
-              const selected = measurement.id === selectedMeasurementId;
-              return (
-                <div
-                  key={measurement.id}
-                  className="rounded-md p-2"
-                  style={{
-                    backgroundColor: selected ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
-                    border: `1px solid ${selected ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="w-full text-left"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      selectMeasurement(measurement.id);
-                    }}
-                    data-testid="preview-2d-measurement-list-item"
-                    aria-pressed={selected}
-                  >
-                    <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-                      {measurement.id.slice(-6)}
-                    </div>
-                    <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                      Distance {measurement.distance.toFixed(2)} mm
-                    </div>
-                    <div className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                      midpoint {formatCoordinate(midpoint)}
-                    </div>
-                  </button>
-                  <div className="mt-2 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setMeasurements((existing) =>
-                          existing.filter((item) => item.id !== measurement.id)
-                        );
-                        if (selected) {
-                          setSelectedMeasurementId(null);
-                        }
-                        setLiveMessage('Measurement deleted');
-                      }}
-                      className="text-xs"
-                      style={{ color: 'var(--text-tertiary)' }}
-                      data-testid="preview-2d-delete-measurement"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        />
       ) : null}
     </div>
   );

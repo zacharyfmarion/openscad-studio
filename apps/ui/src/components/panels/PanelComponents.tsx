@@ -101,11 +101,36 @@ const DiffViewerPanel: React.FC<IDockviewPanelProps> = () => {
 };
 
 const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
-  const { source, updateSource } = useWorkspace();
+  const {
+    source,
+    updateSource,
+    previewKind,
+    previewSrc,
+    isRendering,
+    error,
+    diagnostics,
+    settings,
+    renderReady,
+    onOpenCustomizerAiRefine,
+    onOpenEditorPanel,
+    onOpenExportDialog,
+  } = useWorkspace();
   return (
     <PanelErrorBoundary panelId="customizer" panelName="Customizer">
       <div className="h-full" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-        <CustomizerPanel code={source} onChange={updateSource} />
+        <CustomizerPanel
+          code={source}
+          onChange={updateSource}
+          isCustomizerFirstMode={settings.ui.defaultLayoutPreset === 'customizer-first'}
+          previewKind={previewKind}
+          previewAvailable={Boolean(previewSrc)}
+          isRendering={isRendering}
+          hasRenderErrors={Boolean(error) || diagnostics.some((entry) => entry.severity === 'error')}
+          renderReady={renderReady}
+          onRefineWithAi={onOpenCustomizerAiRefine}
+          onEditCode={onOpenEditorPanel}
+          onDownloadStl={onOpenExportDialog}
+        />
       </div>
     </PanelErrorBoundary>
   );

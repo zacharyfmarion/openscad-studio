@@ -1,22 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
+  Billboard,
   CameraControls,
-  Grid,
-  GizmoHelper,
-  GizmoViewcube,
-  OrthographicCamera,
-  PerspectiveCamera,
   ContactShadows,
   Environment,
+  GizmoHelper,
+  GizmoViewcube,
+  Grid,
+  Html,
+  Line,
+  OrthographicCamera,
+  PerspectiveCamera,
   Wireframe as DreiWireframe,
 } from '@react-three/drei';
 import type { CameraControls as CameraControlsType } from '@react-three/drei';
 import { STLLoader } from 'three-stdlib';
 import * as THREE from 'three';
 import { useTheme } from '../contexts/ThemeContext';
-import { updateSetting, useSettings } from '../stores/settingsStore';
-import { createViewerInteractionConfig } from './viewerInteractionConfig';
+import { getPreviewSceneStyle, type PreviewSceneStyle } from '../services/previewSceneConfig';
 import {
   boxFitsCameraView,
   boxUnderfillsCameraView,
@@ -29,13 +31,45 @@ import {
   SIGNIFICANT_SHRINK_RATIO,
   type ModelFrame,
 } from '../services/previewFraming';
-import { getPreviewSceneStyle, type PreviewSceneStyle } from '../services/previewSceneConfig';
 import {
   createPreviewAxesOverlay,
   disposePreviewAxesOverlay,
   type PreviewAxisLabelVisibility,
 } from '../services/previewAxes';
-import { TbBox, TbBoxModel, TbSun, TbFocus2, TbX } from 'react-icons/tb';
+import { createViewerInteractionConfig } from './viewerInteractionConfig';
+import { ViewerToolPalette } from './three-viewer/ViewerToolPalette';
+import { ViewerContextBar } from './three-viewer/ViewerContextBar';
+import {
+  createMeasurementRecord3D,
+  formatMeasurementSummary3D,
+  getMeasurementMidpoint3D,
+  resolveMeasurementPick3D,
+} from './three-viewer/measurementController3d';
+import { ViewerMaterialManager } from './three-viewer/materialManager';
+import {
+  createSelectionStateFromRaycast,
+  raycastLoadedModel,
+  type RaycastResult,
+} from './three-viewer/selectionController';
+import {
+  clampSectionOffset,
+  createClippingPlane,
+  createDefaultSectionPlaneState,
+  getSectionAxisBounds,
+  getSectionPlaneVisualTransform,
+} from './three-viewer/sectionPlaneController';
+import type {
+  InteractionMode,
+  LoadedPreviewModel,
+  MeasurementDraft3D,
+  MeasurementRecord3D,
+  SectionAxis,
+  SectionPlaneState,
+  SelectionState,
+} from './three-viewer/types';
+import { TbBox, TbBoxModel, TbFocus2, TbSun, TbX } from 'react-icons/tb';
+import type { ToolContextPanelProps } from './three-viewer/types';
+import { updateSetting, useSettings } from '../stores/settingsStore';
 
 interface ThreeViewerProps {
   stlPath: string;
@@ -44,6 +78,21 @@ interface ThreeViewerProps {
 }
 
 const introAnimatedViewerIds = new Set<string>();
+
+const EMPTY_SELECTION: SelectionState = {
+  objectUuid: null,
+  point: null,
+  normal: null,
+  bounds: null,
+};
+
+const INITIAL_DRAFT: MeasurementDraft3D = {
+  status: 'idle',
+  start: null,
+  current: null,
+  snapKind: null,
+  axisLock: null,
+};
 
 declare global {
   interface Window {
@@ -64,8 +113,27 @@ declare global {
       axisLabelsVisible: boolean;
       cameraPosition: [number, number, number] | null;
       cameraTarget: [number, number, number] | null;
+      interactionMode: InteractionMode;
+      selectionActive: boolean;
+      measurementCount: number;
+      sectionEnabled: boolean;
+      sectionAxis: SectionAxis | null;
+      sectionOffset: number | null;
     };
   }
+}
+
+function formatVector3(vector: THREE.Vector3 | null) {
+  if (!vector) {
+    return 'n/a';
+  }
+
+  const formatValue = (value: number) =>
+    (Math.abs(value) >= 100 ? value.toFixed(1) : value.toFixed(2))
+      .replace(/\.00$/, '')
+      .replace(/(\.\d)0$/, '$1');
+
+  return `x ${formatValue(vector.x)}  y ${formatValue(vector.y)}  z ${formatValue(vector.z)}`;
 }
 
 function STLModel({
@@ -73,13 +141,17 @@ function STLModel({
   wireframe,
   sceneStyle,
   onModelFrameChange,
+  onModelChange,
 }: {
   url: string;
   wireframe: boolean;
   sceneStyle: PreviewSceneStyle;
   onModelFrameChange: (frame: ModelFrame | null) => void;
+  onModelChange: (model: LoadedPreviewModel | null) => void;
 }) {
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
 
   useEffect(() => {
     const loader = new STLLoader();
@@ -95,8 +167,6 @@ function STLModel({
           return;
         }
 
-        const modelFrame = buildModelFrame(loadedGeometry, url);
-        onModelFrameChange(modelFrame);
         setGeometry((previousGeometry) => {
           previousGeometry?.dispose();
           return loadedGeometry;
@@ -106,6 +176,7 @@ function STLModel({
       (error) => {
         if (!cancelled) {
           onModelFrameChange(null);
+          onModelChange(null);
           console.error('Error loading STL:', error);
         }
       }
@@ -114,46 +185,439 @@ function STLModel({
     return () => {
       cancelled = true;
     };
-  }, [onModelFrameChange, url]);
+  }, [onModelChange, onModelFrameChange, url]);
 
   useEffect(() => {
     return () => {
       geometry?.dispose();
+      onModelChange(null);
+      onModelFrameChange(null);
     };
-  }, [geometry]);
+  }, [geometry, onModelChange, onModelFrameChange]);
+
+  useEffect(() => {
+    if (!geometry || !meshRef.current || !groupRef.current) {
+      return;
+    }
+
+    const modelFrame = buildModelFrame(geometry, url);
+    onModelFrameChange(modelFrame);
+    onModelChange({
+      root: groupRef.current,
+      meshes: [meshRef.current],
+      bounds: modelFrame.box.clone(),
+      size: modelFrame.size.clone(),
+      center: modelFrame.center.clone(),
+      diagonal: modelFrame.size.length(),
+      version: modelFrame.version,
+    });
+  }, [geometry, onModelChange, onModelFrameChange, url]);
 
   if (!geometry) {
     return null;
   }
 
   return (
-    <mesh geometry={geometry} castShadow receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
-      {wireframe ? (
-        <>
-          <meshBasicMaterial
+    <group ref={groupRef} name="modelContainer">
+      <mesh ref={meshRef} geometry={geometry} castShadow receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+        {wireframe ? (
+          <>
+            <meshBasicMaterial
+              color={sceneStyle.modelColor}
+              transparent
+              opacity={0.2}
+              side={THREE.DoubleSide}
+            />
+            <DreiWireframe
+              geometry={geometry}
+              stroke={sceneStyle.modelColor}
+              thickness={0.05}
+              fillOpacity={0}
+              strokeOpacity={0.9}
+            />
+          </>
+        ) : (
+          <meshStandardMaterial
             color={sceneStyle.modelColor}
-            transparent
-            opacity={0.2}
-            side={THREE.DoubleSide}
+            metalness={sceneStyle.material.metalness}
+            roughness={sceneStyle.material.roughness}
+            envMapIntensity={sceneStyle.material.envMapIntensity}
           />
-          <DreiWireframe
-            geometry={geometry}
-            stroke={sceneStyle.modelColor}
-            thickness={0.05}
-            fillOpacity={0}
-            strokeOpacity={0.9}
-          />
-        </>
-      ) : (
-        <meshStandardMaterial
-          color={sceneStyle.modelColor}
-          metalness={sceneStyle.material.metalness}
-          roughness={sceneStyle.material.roughness}
-          envMapIntensity={sceneStyle.material.envMapIntensity}
-        />
-      )}
+        )}
+      </mesh>
+    </group>
+  );
+}
+
+function SelectionBoundsOverlay({
+  bounds,
+  color,
+  opacity = 0.9,
+}: {
+  bounds: THREE.Box3;
+  color: string;
+  opacity?: number;
+}) {
+  const { center, size } = useMemo(() => {
+    const safeSize = bounds.getSize(new THREE.Vector3());
+    return {
+      center: bounds.getCenter(new THREE.Vector3()),
+      size: new THREE.Vector3(
+        Math.max(safeSize.x, 0.001),
+        Math.max(safeSize.y, 0.001),
+        Math.max(safeSize.z, 0.001)
+      ),
+    };
+  }, [bounds]);
+
+  return (
+    <mesh position={center.toArray()} renderOrder={25}>
+      <boxGeometry args={[size.x, size.y, size.z]} />
+      <meshBasicMaterial color={color} wireframe transparent opacity={opacity} depthTest={false} />
     </mesh>
   );
+}
+
+function MeasurementOverlay3D({
+  measurements,
+  draft,
+  selectedMeasurementId,
+  model,
+  accentColor,
+  accentHoverColor,
+}: {
+  measurements: MeasurementRecord3D[];
+  draft: MeasurementDraft3D;
+  selectedMeasurementId: string | null;
+  model: LoadedPreviewModel | null;
+  accentColor: string;
+  accentHoverColor: string;
+}) {
+  const markerRadius = Math.max((model?.diagonal ?? 10) * 0.008, 0.15);
+  const snapRingInner = markerRadius * 2.2;
+  const snapRingOuter = markerRadius * 3.0;
+
+  return (
+    <group name="overlayContainer">
+      {measurements.map((measurement) => {
+        const selected = measurement.id === selectedMeasurementId;
+        const color = selected ? accentHoverColor : accentColor;
+        const midpoint = getMeasurementMidpoint3D(measurement);
+        return (
+          <group key={measurement.id}>
+            <Line
+              points={[measurement.start.toArray(), measurement.end.toArray()]}
+              color={color}
+              lineWidth={selected ? 2.5 : 1.5}
+            />
+            {[measurement.start, measurement.end].map((point, index) => (
+              <mesh key={`${measurement.id}-${index}`} position={point.toArray()} renderOrder={30}>
+                <sphereGeometry args={[markerRadius, 12, 12]} />
+                <meshBasicMaterial color={color} depthTest={false} />
+              </mesh>
+            ))}
+            <Html position={midpoint.toArray()} center distanceFactor={12}>
+              <div
+                style={{
+                  padding: '3px 7px',
+                  borderRadius: '5px',
+                  border: '1px solid var(--border-primary)',
+                  background: 'var(--bg-elevated)',
+                  color: 'var(--text-primary)',
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {formatMeasurementSummary3D(measurement)}
+              </div>
+            </Html>
+          </group>
+        );
+      })}
+
+      {draft.status === 'placing-end' && draft.start && draft.current ? (
+        <group>
+          <Line
+            points={[draft.start.toArray(), draft.current.toArray()]}
+            color={accentColor}
+            lineWidth={1.5}
+            dashed
+            dashSize={markerRadius * 3}
+            gapSize={markerRadius * 2}
+          />
+          {[draft.start, draft.current].map((point, index) => (
+            <mesh key={`draft-${index}`} position={point.toArray()} renderOrder={30}>
+              <sphereGeometry args={[markerRadius, 12, 12]} />
+              <meshBasicMaterial color={accentColor} depthTest={false} />
+            </mesh>
+          ))}
+          <Html position={getMeasurementMidpoint3D({ start: draft.start, end: draft.current }).toArray()} center distanceFactor={12}>
+            <div
+              style={{
+                padding: '3px 7px',
+                borderRadius: '5px',
+                border: '1px solid var(--border-primary)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-primary)',
+                fontSize: '11px',
+                fontWeight: 500,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {formatMeasurementSummary3D(createMeasurementRecord3D(draft.start, draft.current, 0))}
+            </div>
+          </Html>
+        </group>
+      ) : null}
+
+      {(draft.status === 'placing-start' || draft.status === 'placing-end') && draft.current ? (
+        <Billboard position={draft.current.toArray()} renderOrder={35}>
+          <mesh>
+            <ringGeometry args={[snapRingInner, snapRingOuter, 32]} />
+            <meshBasicMaterial color={accentColor} depthTest={false} transparent opacity={0.85} />
+          </mesh>
+        </Billboard>
+      ) : null}
+    </group>
+  );
+}
+
+function BBoxOverlay({
+  bounds,
+}: {
+  bounds: THREE.Box3;
+}) {
+  const center = bounds.getCenter(new THREE.Vector3());
+  const size = bounds.getSize(new THREE.Vector3());
+
+  return (
+    <group name="bboxOverlay">
+      <SelectionBoundsOverlay bounds={bounds} color="#a855f7" opacity={0.8} />
+      <Html position={[center.x + size.x / 2, center.y, center.z]} center distanceFactor={14}>
+        <LabelBadge text={`X ${size.x.toFixed(2)}`} />
+      </Html>
+      <Html position={[center.x, center.y + size.y / 2, center.z]} center distanceFactor={14}>
+        <LabelBadge text={`Y ${size.y.toFixed(2)}`} />
+      </Html>
+      <Html position={[center.x, center.y, center.z + size.z / 2]} center distanceFactor={14}>
+        <LabelBadge text={`Z ${size.z.toFixed(2)}`} />
+      </Html>
+    </group>
+  );
+}
+
+function LabelBadge({ text }: { text: string }) {
+  return (
+    <div
+      style={{
+        padding: '4px 8px',
+        borderRadius: '6px',
+        border: '1px solid var(--border-primary)',
+        background: 'var(--bg-elevated)',
+        color: 'var(--text-primary)',
+        fontSize: '11px',
+        fontWeight: 500,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {text}
+    </div>
+  );
+}
+
+function SectionPlaneOverlay({
+  bounds,
+  state,
+}: {
+  bounds: THREE.Box3;
+  state: SectionPlaneState;
+}) {
+  const visual = useMemo(() => getSectionPlaneVisualTransform(bounds, state), [bounds, state]);
+
+  return (
+    <group name="sectionPlaneHelper">
+      <mesh
+        position={visual.position.toArray()}
+        quaternion={visual.quaternion}
+        renderOrder={22}
+      >
+        <planeGeometry args={[visual.size, visual.size]} />
+        <meshBasicMaterial
+          color="#f59e0b"
+          transparent
+          opacity={0.14}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+      <Html position={visual.position.toArray()} center distanceFactor={12}>
+        <LabelBadge text={`Section ${state.axis.toUpperCase()}`} />
+      </Html>
+    </group>
+  );
+}
+
+function ViewerInteractionController({
+  mode,
+  model,
+  snapEnabled,
+  draft,
+  onHoverChange,
+  onSelectionChange,
+  onDraftChange,
+  onCommitMeasurement,
+}: {
+  mode: InteractionMode;
+  model: LoadedPreviewModel | null;
+  snapEnabled: boolean;
+  draft: MeasurementDraft3D;
+  onHoverChange: (selection: SelectionState) => void;
+  onSelectionChange: (selection: SelectionState) => void;
+  onDraftChange: (draft: MeasurementDraft3D) => void;
+  onCommitMeasurement: (measurement: MeasurementRecord3D) => void;
+}) {
+  const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
+
+  useEffect(() => {
+    const dom = gl.domElement;
+    const raycaster = new THREE.Raycaster();
+    let pointerDown: { x: number; y: number } | null = null;
+
+    const resolveRaycast = (event: PointerEvent): RaycastResult | null => {
+      const rect = dom.getBoundingClientRect();
+      return raycastLoadedModel({
+        clientX: event.clientX,
+        clientY: event.clientY,
+        rect,
+        camera,
+        model,
+        raycaster,
+      });
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (mode === 'orbit' || mode === 'measure-bbox') {
+        onHoverChange(createSelectionStateFromRaycast(model, resolveRaycast(event)));
+        return;
+      }
+
+      if (mode !== 'measure-distance') {
+        return;
+      }
+
+      const rect = dom.getBoundingClientRect();
+      const hit = resolveRaycast(event);
+      if (!hit) {
+        return;
+      }
+
+      const resolved = resolveMeasurementPick3D({
+        intersection: hit.intersection,
+        camera,
+        rect,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        snapEnabled,
+        lockAxis: draft.status === 'placing-end' && event.shiftKey,
+        start: draft.start,
+        preferredAxis: draft.axisLock,
+      });
+
+      onDraftChange({
+        ...draft,
+        current: resolved.point.clone(),
+        snapKind: resolved.snapKind,
+        axisLock: draft.status === 'placing-end' ? resolved.axisLock : null,
+      });
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      pointerDown = { x: event.clientX, y: event.clientY };
+    };
+
+    const handlePointerLeave = () => {
+      onHoverChange(EMPTY_SELECTION);
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (!pointerDown) {
+        return;
+      }
+
+      const moved = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y) > 4;
+      pointerDown = null;
+
+      if (moved) {
+        return;
+      }
+
+      const hit = resolveRaycast(event);
+      if (!hit) {
+        if (mode === 'orbit') {
+          onSelectionChange(EMPTY_SELECTION);
+        }
+        return;
+      }
+
+      if (mode === 'orbit' || mode === 'measure-bbox') {
+        onSelectionChange(createSelectionStateFromRaycast(model, hit));
+        return;
+      }
+
+      if (mode !== 'measure-distance') {
+        return;
+      }
+
+      const rect = dom.getBoundingClientRect();
+      const resolved = resolveMeasurementPick3D({
+        intersection: hit.intersection,
+        camera,
+        rect,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        snapEnabled,
+        lockAxis: event.shiftKey,
+        start: draft.start,
+        preferredAxis: draft.axisLock,
+      });
+
+      if (draft.status !== 'placing-end' || !draft.start) {
+        onDraftChange({
+          status: 'placing-end',
+          start: resolved.point.clone(),
+          current: resolved.point.clone(),
+          snapKind: resolved.snapKind,
+          axisLock: null,
+        });
+        return;
+      }
+
+      onCommitMeasurement(createMeasurementRecord3D(draft.start, resolved.point));
+      onDraftChange({
+        status: 'placing-start',
+        start: null,
+        current: null,
+        snapKind: resolved.snapKind,
+        axisLock: null,
+      });
+    };
+
+    dom.addEventListener('pointermove', handlePointerMove);
+    dom.addEventListener('pointerdown', handlePointerDown);
+    dom.addEventListener('pointerup', handlePointerUp);
+    dom.addEventListener('pointerleave', handlePointerLeave);
+
+    return () => {
+      dom.removeEventListener('pointermove', handlePointerMove);
+      dom.removeEventListener('pointerdown', handlePointerDown);
+      dom.removeEventListener('pointerup', handlePointerUp);
+      dom.removeEventListener('pointerleave', handlePointerLeave);
+    };
+  }, [camera, draft, gl.domElement, mode, model, onCommitMeasurement, onDraftChange, onHoverChange, onSelectionChange, snapEnabled]);
+
+  return null;
 }
 
 function ViewerCameraManager({
@@ -164,6 +628,10 @@ function ViewerCameraManager({
   showAxes,
   showAxisLabels,
   animateInitialFrame,
+  interactionMode,
+  selectionActive,
+  measurementCount,
+  sectionState,
 }: {
   cameraControlsRef: React.RefObject<CameraControlsType | null>;
   modelFrame: ModelFrame | null;
@@ -172,6 +640,10 @@ function ViewerCameraManager({
   showAxes: boolean;
   showAxisLabels: boolean;
   animateInitialFrame: boolean;
+  interactionMode: InteractionMode;
+  selectionActive: boolean;
+  measurementCount: number;
+  sectionState: SectionPlaneState | null;
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -223,9 +695,25 @@ function ViewerCameraManager({
         axisLabelsVisible: showAxes && showAxisLabels,
         cameraPosition: cameraPosition ? tupleFromVector(cameraPosition) : null,
         cameraTarget: cameraTarget ? tupleFromVector(cameraTarget) : null,
+        interactionMode,
+        selectionActive,
+        measurementCount,
+        sectionEnabled: sectionState?.enabled ?? false,
+        sectionAxis: sectionState?.axis ?? null,
+        sectionOffset: sectionState?.enabled ? sectionState.offset : null,
       };
     },
-    [camera, cameraControlsRef, orthographic, showAxes, showAxisLabels]
+    [
+      camera,
+      cameraControlsRef,
+      interactionMode,
+      measurementCount,
+      orthographic,
+      sectionState,
+      selectionActive,
+      showAxes,
+      showAxisLabels,
+    ]
   );
 
   const fitModelToView = useCallback(
@@ -382,13 +870,24 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
   const [settings] = useSettings();
   const sceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
   const animateInitialFrameRef = useRef(viewerId ? !introAnimatedViewerIds.has(viewerId) : true);
+  const materialManagerRef = useRef(new ViewerMaterialManager());
+  const rootRef = useRef<HTMLDivElement>(null);
+  const cameraControlsRef = useRef<CameraControlsType>(null);
 
   const [modelFrame, setModelFrame] = useState<ModelFrame | null>(null);
-  const [shiftPanActive, setShiftPanActive] = useState(false);
+  const [loadedModel, setLoadedModel] = useState<LoadedPreviewModel | null>(null);
   const [orthographic, setOrthographic] = useState(false);
   const [wireframe, setWireframe] = useState(false);
-  const [showShadows, setShowShadows] = useState(true);
-  const cameraControlsRef = useRef<CameraControlsType>(null);
+  const [interactionMode, setInteractionMode] = useState<InteractionMode>('orbit');
+  const [selection, setSelection] = useState<SelectionState>(EMPTY_SELECTION);
+  const [hoverSelection, setHoverSelection] = useState<SelectionState>(EMPTY_SELECTION);
+  const [draftMeasurement, setDraftMeasurement] = useState<MeasurementDraft3D>(INITIAL_DRAFT);
+  const [measurements, setMeasurements] = useState<MeasurementRecord3D[]>([]);
+  const [selectedMeasurementId, setSelectedMeasurementId] = useState<string | null>(null);
+  const [sectionState, setSectionState] = useState<SectionPlaneState | null>(null);
+  const [shiftPanActive, setShiftPanActive] = useState(false);
+  const [liveMessage, setLiveMessage] = useState('');
+
   const gridMetrics = useMemo(() => derivePreviewGridMetrics(modelFrame), [modelFrame]);
   const axisMetrics = useMemo(
     () => derivePreviewAxisMetrics(modelFrame, gridMetrics),
@@ -405,6 +904,20 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
   const showControlsHint = !settings.ui.hasDismissedViewerControlsHint;
   const showAxes = settings.viewer.showAxes;
   const showAxisLabels = settings.viewer.showAxisLabels;
+  const showGrid = settings.viewer.show3DGrid;
+  const showShadows = settings.viewer.showShadows;
+  const showViewcube = settings.viewer.showViewcube;
+  const snapEnabled = settings.viewer.measurementSnapEnabled;
+  const showSelectionInfo = settings.viewer.showSelectionInfo;
+
+  const sectionPlane = useMemo(
+    () =>
+      loadedModel && sectionState?.enabled ? createClippingPlane(loadedModel.bounds, sectionState) : null,
+    [loadedModel, sectionState]
+  );
+  const cameraControlsEnabled = true;
+
+  const activeBounds = selection.bounds ?? loadedModel?.bounds ?? null;
 
   useEffect(() => {
     if (!viewerId) {
@@ -413,6 +926,57 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
 
     introAnimatedViewerIds.add(viewerId);
   }, [viewerId]);
+
+  useEffect(() => {
+    if (!loadedModel) {
+      setSelection(EMPTY_SELECTION);
+      setHoverSelection(EMPTY_SELECTION);
+      setMeasurements([]);
+      setSelectedMeasurementId(null);
+      setDraftMeasurement(INITIAL_DRAFT);
+      setSectionState(null);
+      return;
+    }
+
+    setSelection(EMPTY_SELECTION);
+    setHoverSelection(EMPTY_SELECTION);
+    setMeasurements([]);
+    setSelectedMeasurementId(null);
+    setDraftMeasurement((current) => ({
+      ...INITIAL_DRAFT,
+      status: current.status === 'idle' ? 'idle' : 'placing-start',
+    }));
+    setSectionState(createDefaultSectionPlaneState(loadedModel.bounds));
+  }, [loadedModel]);
+
+  useEffect(() => {
+    if (!sectionState || !loadedModel) {
+      return;
+    }
+
+    if (interactionMode !== 'section-plane' && sectionState.enabled) {
+      setSectionState({ ...sectionState, enabled: false });
+      return;
+    }
+
+    if (interactionMode === 'section-plane' && !sectionState.enabled) {
+      setSectionState({ ...sectionState, enabled: true });
+    }
+  }, [interactionMode, loadedModel, sectionState]);
+
+  useEffect(() => {
+    const manager = materialManagerRef.current;
+    const root = loadedModel?.root ?? null;
+
+    manager.apply(root, {
+      clippingPlane: sectionPlane,
+      selected: !!selection.objectUuid,
+    });
+
+    return () => {
+      manager.restore(root);
+    };
+  }, [loadedModel?.root, sectionPlane, selection.objectUuid, wireframe]);
 
   const fitCurrentModelToView = () => {
     const cameraControls = cameraControlsRef.current;
@@ -430,43 +994,221 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
     });
   };
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Shift') {
-        setShiftPanActive(true);
-      }
-    };
+  const removeSelectedMeasurement = () => {
+    if (!selectedMeasurementId) {
+      return;
+    }
 
-    const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.key === 'Shift') {
-        setShiftPanActive(false);
-      }
-    };
+    setMeasurements((existing) =>
+      existing.filter((measurement) => measurement.id !== selectedMeasurementId)
+    );
+    setSelectedMeasurementId(null);
+    setLiveMessage('Measurement deleted');
+  };
 
-    const handleBlur = () => {
+  const clearAllMeasurements = () => {
+    setMeasurements([]);
+    setSelectedMeasurementId(null);
+    setLiveMessage('Measurements cleared');
+  };
+
+  const updateSectionAxis = (axis: SectionAxis) => {
+    if (!loadedModel || !sectionState) {
+      return;
+    }
+
+    const bounds = getSectionAxisBounds(loadedModel.bounds, axis);
+    setSectionState({
+      enabled: true,
+      axis,
+      inverted: false,
+      offset: (bounds.min + bounds.max) / 2,
+    });
+  };
+
+  const handleModeChange = useCallback(
+    (next: InteractionMode) => {
+      setInteractionMode((prev) => {
+        if (prev === next) {
+          setDraftMeasurement(INITIAL_DRAFT);
+          return 'orbit';
+        }
+        if (next === 'measure-distance') {
+          setDraftMeasurement({ ...INITIAL_DRAFT, status: 'placing-start' });
+        } else {
+          setDraftMeasurement(INITIAL_DRAFT);
+        }
+        return next;
+      });
+    },
+    []
+  );
+
+  const contextPanelProps = useMemo<ToolContextPanelProps>(
+    () => ({
+      loadedModel,
+      measurements,
+      selectedMeasurementId,
+      sectionState,
+      draftMeasurement,
+      selection,
+      onSectionStateChange: setSectionState,
+      onSectionReset: () => {
+        if (loadedModel) {
+          setSectionState(createDefaultSectionPlaneState(loadedModel.bounds));
+        }
+      },
+      onMeasurementSelect: setSelectedMeasurementId,
+      onMeasurementDelete: (id) => {
+        setMeasurements((existing) => existing.filter((m) => m.id !== id));
+        if (selectedMeasurementId === id) {
+          setSelectedMeasurementId(null);
+        }
+        setLiveMessage('Measurement deleted');
+      },
+      onMeasurementsClear: clearAllMeasurements,
+    }),
+    [
+      loadedModel,
+      measurements,
+      selectedMeasurementId,
+      sectionState,
+      draftMeasurement,
+      selection,
+      clearAllMeasurements,
+    ]
+  );
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Shift') {
+      setShiftPanActive(true);
+    }
+
+    switch (event.key) {
+      case 'm':
+      case 'M':
+        event.preventDefault();
+        handleModeChange('measure-distance');
+        break;
+      case 'b':
+      case 'B':
+        event.preventDefault();
+        handleModeChange('measure-bbox');
+        break;
+      case 's':
+      case 'S':
+        event.preventDefault();
+        handleModeChange('section-plane');
+        break;
+      case 'Delete':
+      case 'Backspace':
+        if (selectedMeasurementId) {
+          event.preventDefault();
+          removeSelectedMeasurement();
+        }
+        break;
+      case 'Escape':
+        event.preventDefault();
+        if (interactionMode === 'measure-distance' && draftMeasurement.status === 'placing-end') {
+          setDraftMeasurement({ ...INITIAL_DRAFT, status: 'placing-start' });
+        } else {
+          handleModeChange('orbit');
+        }
+        break;
+      case 'ArrowLeft':
+      case 'ArrowDown':
+        if (interactionMode === 'section-plane' && sectionState && loadedModel) {
+          event.preventDefault();
+          setSectionState({
+            ...sectionState,
+            offset: clampSectionOffset(
+              loadedModel.bounds,
+              sectionState.axis,
+              sectionState.offset - loadedModel.diagonal * 0.02
+            ),
+          });
+        }
+        break;
+      case 'ArrowRight':
+      case 'ArrowUp':
+        if (interactionMode === 'section-plane' && sectionState && loadedModel) {
+          event.preventDefault();
+          setSectionState({
+            ...sectionState,
+            offset: clampSectionOffset(
+              loadedModel.bounds,
+              sectionState.axis,
+              sectionState.offset + loadedModel.diagonal * 0.02
+            ),
+          });
+        }
+        break;
+      case 'x':
+      case 'X':
+        if (interactionMode === 'section-plane') {
+          event.preventDefault();
+          updateSectionAxis('x');
+        }
+        break;
+      case 'y':
+      case 'Y':
+        if (interactionMode === 'section-plane') {
+          event.preventDefault();
+          updateSectionAxis('y');
+        }
+        break;
+      case 'z':
+      case 'Z':
+        if (interactionMode === 'section-plane') {
+          event.preventDefault();
+          updateSectionAxis('z');
+        }
+        break;
+      case 'r':
+      case 'R':
+        if (interactionMode === 'section-plane' && loadedModel) {
+          event.preventDefault();
+          setSectionState(createDefaultSectionPlaneState(loadedModel.bounds));
+          setInteractionMode('section-plane');
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleKeyUp = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Shift') {
       setShiftPanActive(false);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('blur', handleBlur);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('blur', handleBlur);
-    };
-  }, []);
+      if (
+        interactionMode === 'measure-distance' &&
+        draftMeasurement.status === 'placing-end' &&
+        draftMeasurement.start &&
+        draftMeasurement.current
+      ) {
+        setDraftMeasurement((current) => ({ ...current, axisLock: null }));
+      }
+    }
+  };
 
   const dismissControlsHint = () => {
     updateSetting('ui', { hasDismissedViewerControlsHint: true });
   };
 
+  const selectionSource = selection.objectUuid ? selection : hoverSelection;
+
   return (
     <div
-      className="w-full h-full relative"
+      ref={rootRef}
+      className="flex flex-col w-full h-full outline-none"
       style={{ backgroundColor: sceneStyle.backgroundColor }}
       onContextMenu={(event) => event.preventDefault()}
+      onPointerDownCapture={() => rootRef.current?.focus()}
+      onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
+      onBlur={() => setShiftPanActive(false)}
+      tabIndex={0}
+      data-testid="preview-3d-root"
     >
       {isLoading && (
         <div
@@ -489,7 +1231,19 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
         </div>
       )}
 
-      <div className="absolute top-2 right-2 z-10 flex gap-2">
+      <div className="flex flex-row flex-1 min-h-0">
+        <ViewerToolPalette
+          mode={interactionMode}
+          onModeChange={handleModeChange}
+          loadedModel={loadedModel}
+        />
+        <div className="relative flex-1 min-w-0">
+
+      <div
+        className="absolute top-2 right-2 z-10 flex gap-2"
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
         <button
           onClick={fitCurrentModelToView}
           className="p-2 rounded transition-colors flex items-center justify-center"
@@ -532,7 +1286,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
         </button>
 
         <button
-          onClick={() => setShowShadows(!showShadows)}
+          onClick={() => updateSetting('viewer', { showShadows: !showShadows })}
           className="p-2 rounded transition-colors flex items-center justify-center"
           style={{
             backgroundColor: showShadows ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
@@ -545,9 +1299,39 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
         </button>
       </div>
 
+      <div aria-live="polite" className="sr-only">
+        {liveMessage}
+      </div>
+
+      {showSelectionInfo && interactionMode === 'orbit' && selectionSource.point ? (
+        <div
+          className="absolute right-3 bottom-3 z-20 w-72 rounded-lg p-3 space-y-2"
+          style={{
+            backgroundColor: 'var(--bg-elevated)',
+            border: '1px solid var(--border-primary)',
+            color: 'var(--text-secondary)',
+          }}
+          data-testid="preview-3d-inspector-hud"
+        >
+          <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+            Inspector
+          </div>
+          <div className="text-[11px]">
+            <div>
+              <span style={{ color: 'var(--text-tertiary)' }}>Point:</span>{' '}
+              {formatVector3(selectionSource.point)}
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-tertiary)' }}>Normal:</span>{' '}
+              {formatVector3(selectionSource.normal)}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {showControlsHint && (
         <div
-          className="absolute bottom-3 right-3 z-10 rounded text-xs pr-8"
+          className="absolute bottom-3 right-3 z-30 rounded text-xs pr-8"
           style={{
             backgroundColor: 'rgba(0, 0, 0, 0.32)',
             border: '1px solid var(--border-secondary)',
@@ -573,13 +1357,18 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
           >
             <TbX size={14} />
           </button>
-          {prefersTouchHint ? interactionConfig.touchHint : interactionConfig.desktopHint}
+          {prefersTouchHint
+            ? `${interactionConfig.touchHint} Use M, B, and S when the viewer is focused to switch inspection tools.`
+            : `${interactionConfig.desktopHint} Use M, B, and S when the viewer is focused to switch inspection tools.`}
         </div>
       )}
 
       <Canvas
         shadows
         gl={{ preserveDrawingBuffer: true }}
+        onCreated={({ gl }) => {
+          gl.localClippingEnabled = true;
+        }}
         style={{ width: '100%', height: '100%', background: sceneStyle.backgroundColor }}
       >
         {orthographic ? (
@@ -608,6 +1397,10 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
           showAxes={showAxes}
           showAxisLabels={showAxisLabels}
           animateInitialFrame={animateInitialFrameRef.current}
+          interactionMode={interactionMode}
+          selectionActive={!!selection.objectUuid}
+          measurementCount={measurements.length}
+          sectionState={sectionState}
         />
 
         <Environment preset={sceneStyle.environmentPreset} />
@@ -623,45 +1416,87 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
           shadow-mapSize={sceneStyle.directionalLight.shadowMapSize}
         />
 
-        <Grid
-          infiniteGrid
-          cellSize={gridMetrics.cellSize}
-          sectionSize={gridMetrics.sectionSize}
-          fadeDistance={gridMetrics.fadeDistance}
-          cellThickness={gridMetrics.cellThickness}
-          sectionThickness={gridMetrics.sectionThickness}
-          cellColor={sceneStyle.gridColor}
-          sectionColor={sceneStyle.gridSectionColor}
-        />
+        <group name="helpersContainer">
+          {showGrid ? (
+            <Grid
+              infiniteGrid
+              cellSize={gridMetrics.cellSize}
+              sectionSize={gridMetrics.sectionSize}
+              fadeDistance={gridMetrics.fadeDistance}
+              cellThickness={gridMetrics.cellThickness}
+              sectionThickness={gridMetrics.sectionThickness}
+              cellColor={sceneStyle.gridColor}
+              sectionColor={sceneStyle.gridSectionColor}
+            />
+          ) : null}
 
-        {showAxes && (
-          <PreviewAxesOverlay
-            axisMetrics={axisMetrics}
-            sceneStyle={sceneStyle}
-            showLabels={showAxisLabels}
-          />
-        )}
+          {showAxes && (
+            <PreviewAxesOverlay
+              axisMetrics={axisMetrics}
+              sceneStyle={sceneStyle}
+              showLabels={showAxisLabels}
+            />
+          )}
 
-        {showShadows && sceneStyle.contactShadows.enabledByDefault && (
-          <ContactShadows
-            position={[0, 0, 0]}
-            opacity={sceneStyle.contactShadows.opacity}
-            scale={sceneStyle.contactShadows.scale}
-            blur={sceneStyle.contactShadows.blur}
-            far={sceneStyle.contactShadows.far}
-          />
-        )}
+          {showShadows && sceneStyle.contactShadows.enabledByDefault && (
+            <ContactShadows
+              position={[0, 0, 0]}
+              opacity={sceneStyle.contactShadows.opacity}
+              scale={sceneStyle.contactShadows.scale}
+              blur={sceneStyle.contactShadows.blur}
+              far={sceneStyle.contactShadows.far}
+            />
+          )}
+        </group>
 
         <STLModel
           url={stlPath}
           wireframe={wireframe}
           sceneStyle={sceneStyle}
           onModelFrameChange={setModelFrame}
+          onModelChange={setLoadedModel}
+        />
+
+        {selection.bounds ? <SelectionBoundsOverlay bounds={selection.bounds} color="#3b82f6" /> : null}
+        {interactionMode === 'measure-bbox' && activeBounds ? <BBoxOverlay bounds={activeBounds} /> : null}
+        {measurements.length > 0 || draftMeasurement.status !== 'idle' ? (
+          <MeasurementOverlay3D
+            measurements={measurements}
+            draft={draftMeasurement}
+            selectedMeasurementId={selectedMeasurementId}
+            model={loadedModel}
+            accentColor={theme.colors.accent.primary}
+            accentHoverColor={theme.colors.accent.hover}
+          />
+        ) : null}
+        {interactionMode === 'section-plane' && loadedModel && sectionState?.enabled ? (
+          <SectionPlaneOverlay bounds={loadedModel.bounds} state={sectionState} />
+        ) : null}
+
+        <ViewerInteractionController
+          mode={interactionMode}
+          model={loadedModel}
+          snapEnabled={snapEnabled}
+          draft={draftMeasurement}
+          onHoverChange={setHoverSelection}
+          onSelectionChange={(next) => {
+            setSelection(next);
+            if (next.objectUuid) {
+              setLiveMessage('Selection updated');
+            }
+          }}
+          onDraftChange={setDraftMeasurement}
+          onCommitMeasurement={(measurement) => {
+            setMeasurements((existing) => [measurement, ...existing]);
+            setSelectedMeasurementId(measurement.id);
+            setLiveMessage('Measurement added');
+          }}
         />
 
         <CameraControls
           ref={cameraControlsRef}
           makeDefault
+          enabled={cameraControlsEnabled}
           minDistance={0.05}
           maxDistance={sceneStyle.camera.baseMaxDistance}
           mouseButtons={interactionConfig.mouseButtons}
@@ -671,16 +1506,22 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
           truckSpeed={1}
         />
 
-        <GizmoHelper alignment="bottom-left" margin={[80, 80]}>
-          <GizmoViewcube
-            font="16px Inter, sans-serif"
-            opacity={1}
-            faces={['Front', 'Back', 'Top', 'Bottom', 'Left', 'Right']}
-            textColor={sceneStyle.backgroundColor}
-            color={sceneStyle.modelColor}
-          />
-        </GizmoHelper>
+        {showViewcube ? (
+          <GizmoHelper alignment="bottom-left" margin={[80, 80]}>
+            <GizmoViewcube
+              font="16px Inter, sans-serif"
+              opacity={1}
+              faces={['Front', 'Back', 'Top', 'Bottom', 'Left', 'Right']}
+              textColor={sceneStyle.backgroundColor}
+              color={sceneStyle.modelColor}
+            />
+          </GizmoHelper>
+        ) : null}
       </Canvas>
+        </div>
+      </div>
+
+      <ViewerContextBar mode={interactionMode} {...contextPanelProps} />
     </div>
   );
 }
@@ -708,12 +1549,15 @@ function PreviewAxesOverlay({
       | ((visibility: PreviewAxisLabelVisibility) => void)
       | undefined;
 
-    if (!setAxisLabelsVisibility || labelVisibilityRef.current === labelVisibilityKey) {
-      return;
+    if (setAxisLabelsVisibility && labelVisibilityRef.current !== labelVisibilityKey) {
+      setAxisLabelsVisibility(labelVisibility);
+      labelVisibilityRef.current = labelVisibilityKey;
     }
 
-    setAxisLabelsVisibility(labelVisibility);
-    labelVisibilityRef.current = labelVisibilityKey;
+    const updateLabelScales = overlay.userData.updateLabelScales as
+      | ((camera: THREE.Camera) => void)
+      | undefined;
+    updateLabelScales?.(camera);
   });
 
   useEffect(() => {

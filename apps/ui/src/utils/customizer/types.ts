@@ -10,6 +10,9 @@ export type ParameterType =
   | 'string' // Text input
   | 'vector'; // Array of numbers
 
+export type ParameterProminence = 'primary' | 'secondary' | 'advanced';
+export type CustomizerParamSource = 'standard' | 'hybrid';
+
 export interface DropdownOption {
   value: string | number;
   label: string;
@@ -31,7 +34,12 @@ export interface CustomizerParam {
   // Metadata
   line: number; // Line number in source code
   tab?: string; // Tab name (from /* [Tab Name] */ comments)
-  group?: string; // Group name (optional future feature)
+  group?: string; // Group name for UI presentation
+  label?: string; // Friendly display label
+  description?: string; // Optional helper text
+  unit?: string; // Optional display unit
+  prominence?: ParameterProminence; // Primary/secondary/advanced emphasis
+  source?: CustomizerParamSource; // Metadata source used for this parameter
 
   // Raw text for replacement
   rawValue: string; // Original value as string (e.g., "10", "true", "[1,2,3]")

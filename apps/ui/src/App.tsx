@@ -22,6 +22,8 @@ import {
   addPresetPanels,
   saveLayout,
   clearSavedLayout,
+  MOBILE_LAYOUT_MEDIA_QUERY,
+  openPanel,
 } from './stores/layoutStore';
 import { useOpenScad } from './hooks/useOpenScad';
 import { useAiAgent } from './hooks/useAiAgent';
@@ -715,7 +717,7 @@ function App() {
   }, [hideWelcomeScreen]);
 
   const handleNuxSelect = useCallback(
-    (preset: 'default' | 'ai-first') => {
+    (preset: 'default' | 'ai-first' | 'customizer-first') => {
       updateSetting('ui', { hasCompletedNux: true, defaultLayoutPreset: preset });
       setShowNux(false);
       analytics.track('workspace layout selected', {
@@ -732,6 +734,36 @@ function App() {
     },
     [analytics]
   );
+
+  const handleOpenCustomizerAiRefine = useCallback(
+    (suggestion: string) => {
+      const currentDraft = draft;
+      const nextText = currentDraft.text.trim()
+        ? currentDraft.text.includes(suggestion)
+          ? currentDraft.text
+          : `${currentDraft.text.trim()}\n\n${suggestion}`
+        : suggestion;
+
+      setDraft({
+        ...currentDraft,
+        text: nextText,
+      });
+
+      openPanel('ai-chat', 'ai-chat', 'AI');
+      window.setTimeout(() => {
+        aiPromptPanelRef.current?.focusPrompt();
+      }, 0);
+    },
+    [draft, setDraft]
+  );
+
+  const handleOpenEditorPanel = useCallback(() => {
+    openPanel('editor', 'editor', 'Editor');
+  }, []);
+
+  const handleOpenExportDialog = useCallback(() => {
+    setShowExportDialog(true);
+  }, []);
 
   const handleOpenRecent = useCallback(
     async (path: string) => {
@@ -1202,7 +1234,11 @@ function App() {
 
     clearSavedLayout();
     const savedPreset = loadSettings().ui.defaultLayoutPreset;
-    addPresetPanels(api, savedPreset);
+    const layoutMode =
+      typeof window !== 'undefined' && window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY).matches
+        ? 'mobile'
+        : 'desktop';
+    addPresetPanels(api, savedPreset, layoutMode);
 
     let timer: ReturnType<typeof setTimeout> | null = null;
     api.onDidLayoutChange(() => {
@@ -1230,6 +1266,7 @@ function App() {
       previewKind: activePreviewKind,
       isRendering,
       error: activeError,
+      renderReady: ready,
       isStreaming,
       streamingResponse,
       proposedDiff,
@@ -1265,6 +1302,9 @@ function App() {
         setSettingsInitialTab('ai');
         setShowSettingsDialog(true);
       },
+      onOpenCustomizerAiRefine: handleOpenCustomizerAiRefine,
+      onOpenEditorPanel: handleOpenEditorPanel,
+      onOpenExportDialog: handleOpenExportDialog,
     }),
     [
       source,
@@ -1282,6 +1322,7 @@ function App() {
       activePreviewKind,
       isRendering,
       activeError,
+      ready,
       isStreaming,
       streamingResponse,
       proposedDiff,
@@ -1310,6 +1351,9 @@ function App() {
       newConversation,
       setCurrentModel,
       handleRestoreCheckpoint,
+      handleOpenCustomizerAiRefine,
+      handleOpenEditorPanel,
+      handleOpenExportDialog,
     ]
   );
 
