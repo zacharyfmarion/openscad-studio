@@ -10,9 +10,11 @@ interface ViewerToolPaletteProps {
 export function ViewerToolPalette({ mode, onModeChange, loadedModel }: ViewerToolPaletteProps) {
   return (
     <div
-      className="flex flex-col shrink-0"
+      className="flex flex-col shrink-0 items-center"
       style={{
-        width: '40px',
+        width: '44px',
+        padding: '6px 0',
+        gap: '2px',
         borderRight: '1px solid var(--border-primary)',
       }}
       data-testid="preview-tool-palette"
@@ -35,21 +37,22 @@ export function ViewerToolPalette({ mode, onModeChange, loadedModel }: ViewerToo
             onClick={() => onModeChange(tool.id)}
             data-testid={`preview-toggle-${tool.id === 'orbit' ? 'orbit' : tool.id === 'measure-distance' ? 'measure' : tool.id === 'measure-bbox' ? 'bbox' : 'section'}`}
             style={{
-              width: '40px',
-              height: '40px',
+              width: '32px',
+              height: '32px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: isActive ? 'var(--bg-secondary)' : 'transparent',
-              color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
-              opacity: isDisabled ? 0.4 : 1,
-              border: 'none',
-              borderBottom: '1px solid var(--border-primary)',
+              backgroundColor: isActive ? 'var(--bg-tertiary, var(--bg-elevated))' : 'transparent',
+              color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+              opacity: isDisabled ? 0.35 : 1,
+              border: isActive ? '1px solid var(--border-primary)' : '1px solid transparent',
+              borderRadius: '8px',
               cursor: isDisabled ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.15s, color 0.15s',
+              transition: 'background-color 0.15s, color 0.15s, border-color 0.15s',
+              flexShrink: 0,
             }}
           >
-            <Icon size={18} />
+            <Icon size={17} />
           </button>
         );
       })}

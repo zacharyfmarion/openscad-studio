@@ -10,6 +10,12 @@ import { DiffViewer } from '../DiffViewer';
 import { CustomizerPanel } from '../CustomizerPanel';
 import { PanelErrorBoundary } from '../ErrorBoundary';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { useWorkspaceStore } from '../../stores/workspaceStore';
+import { selectActiveTab } from '../../stores/workspaceSelectors';
+import { RenderService } from '../../services/renderService';
+import { getPlatform } from '../../platform';
+import { notifyError } from '../../utils/notifications';
+import { useAnalytics } from '../../analytics/runtime';
 
 const EditorPanel: React.FC<IDockviewPanelProps> = () => {
   const { source, updateSource, diagnostics, onManualRender, settings } = useWorkspace();
@@ -113,8 +119,35 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
     renderReady,
     onOpenCustomizerAiRefine,
     onOpenEditorPanel,
-    onOpenExportDialog,
   } = useWorkspace();
+
+  const activeTab = useWorkspaceStore(selectActiveTab);
+  const analytics = useAnalytics();
+  const [isDownloadingStl, setIsDownloadingStl] = useState(false);
+
+  const handleDownloadStl = useCallback(async () => {
+    if (isDownloadingStl) return;
+    const code = activeTab?.content ?? source;
+    setIsDownloadingStl(true);
+    try {
+      const exportBytes = await RenderService.getInstance().exportModel(code, 'stl');
+      await getPlatform().fileExport(exportBytes, 'export.stl', [
+        { name: 'STL Files', extensions: ['stl'] },
+      ]);
+      analytics.track('file exported', { format: 'stl' });
+    } catch (err) {
+      notifyError({
+        operation: 'export-file',
+        error: err,
+        fallbackMessage: 'STL export failed',
+        toastId: 'export-error',
+        logLabel: 'STL export failed',
+      });
+    } finally {
+      setIsDownloadingStl(false);
+    }
+  }, [isDownloadingStl, activeTab, source, analytics]);
+
   return (
     <PanelErrorBoundary panelId="customizer" panelName="Customizer">
       <div className="h-full" style={{ backgroundColor: 'var(--bg-secondary)' }}>
@@ -129,7 +162,8 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
           renderReady={renderReady}
           onRefineWithAi={onOpenCustomizerAiRefine}
           onEditCode={onOpenEditorPanel}
-          onDownloadStl={onOpenExportDialog}
+          onDownloadStl={handleDownloadStl}
+          isDownloadingStl={isDownloadingStl}
         />
       </div>
     </PanelErrorBoundary>

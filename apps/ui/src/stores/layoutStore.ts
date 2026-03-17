@@ -155,38 +155,36 @@ export function addPresetPanels(
     }
     case 'customizer-first': {
       api.addPanel({ id: 'preview', component: 'preview', title: 'Preview', initialWidth: 900 });
+      api.addPanel({
+        id: 'customizer',
+        component: 'customizer',
+        title: 'Customizer',
+        position: { referencePanel: 'preview', direction: 'right' },
+        initialWidth: 420,
+      });
+      // Add AI/Editor/Console as tabs in the preview group (left side), after the
+      // split is established so dockview places them in the correct group.
       const previewPanel = api.getPanel('preview');
       if (previewPanel) {
-        api.addPanel({
-          id: 'customizer',
-          component: 'customizer',
-          title: 'Customizer',
-          position: { referencePanel: 'preview', direction: 'right' },
-          initialWidth: 420,
-        });
-      }
-
-      const customizerPanel = api.getPanel('customizer');
-      if (customizerPanel) {
         api.addPanel({
           id: 'ai-chat',
           component: 'ai-chat',
           title: 'AI',
-          position: { referenceGroup: customizerPanel.group.id },
+          position: { referenceGroup: previewPanel.group.id },
           inactive: true,
         });
         api.addPanel({
           id: 'editor',
           component: 'editor',
           title: 'Editor',
-          position: { referenceGroup: customizerPanel.group.id },
+          position: { referenceGroup: previewPanel.group.id },
           inactive: true,
         });
         api.addPanel({
           id: 'console',
           component: 'console',
           title: 'Console',
-          position: { referenceGroup: customizerPanel.group.id },
+          position: { referenceGroup: previewPanel.group.id },
           inactive: true,
         });
       }

@@ -131,6 +131,7 @@ export function createPreviewAxesOverlay(
   }
 
   if (showLabels) {
+    // X-axis tick labels (Three.js X = OpenSCAD X, no sign change)
     for (
       let value = -axisMetrics.axisExtent;
       value <= axisMetrics.axisExtent + axisMetrics.labelStep * 0.5;
@@ -139,7 +140,6 @@ export function createPreviewAxesOverlay(
       if (Math.abs(value) < axisMetrics.labelStep * 0.25) {
         continue;
       }
-
       group.add(
         createLabelSprite(
           formatAxisLabel(value, axisMetrics.labelPrecision),
@@ -151,9 +151,20 @@ export function createPreviewAxesOverlay(
           allLabelSprites
         )
       );
+    }
+
+    // Y-axis tick labels (Three.js Z = OpenSCAD −Y, so negate for display)
+    for (
+      let value = -axisMetrics.axisExtent;
+      value <= axisMetrics.axisExtent + axisMetrics.labelStep * 0.5;
+      value += axisMetrics.labelStep
+    ) {
+      if (Math.abs(value) < axisMetrics.labelStep * 0.25) {
+        continue;
+      }
       group.add(
         createLabelSprite(
-          formatAxisLabel(value, axisMetrics.labelPrecision),
+          formatAxisLabel(-value, axisMetrics.labelPrecision),
           [axisMetrics.majorTickSize * 1.8, AXIS_ELEVATION, value],
           axisMetrics.majorTickSize * 1.2,
           sceneStyle,
@@ -162,6 +173,17 @@ export function createPreviewAxesOverlay(
           allLabelSprites
         )
       );
+    }
+
+    // Z-axis tick labels (Three.js Y = OpenSCAD Z, no sign change)
+    for (
+      let value = -axisMetrics.axisExtent;
+      value <= axisMetrics.axisExtent + axisMetrics.labelStep * 0.5;
+      value += axisMetrics.labelStep
+    ) {
+      if (Math.abs(value) < axisMetrics.labelStep * 0.25) {
+        continue;
+      }
       group.add(
         createLabelSprite(
           formatAxisLabel(value, axisMetrics.labelPrecision),
@@ -198,10 +220,11 @@ export function createPreviewAxesOverlay(
         sceneStyle.axis.xColor
       )
     );
+    // Y label at Three.js −Z (= OpenSCAD +Y direction)
     group.add(
       createLabelSprite(
         'Y',
-        [0, AXIS_ELEVATION, axisMetrics.axisExtent + axisMetrics.majorTickSize * 1.8],
+        [0, AXIS_ELEVATION, -(axisMetrics.axisExtent + axisMetrics.majorTickSize * 1.8)],
         axisMetrics.majorTickSize * 1.5,
         sceneStyle,
         disposables,

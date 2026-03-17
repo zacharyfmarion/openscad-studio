@@ -36,6 +36,7 @@ import {
   disposePreviewAxesOverlay,
   type PreviewAxisLabelVisibility,
 } from '../services/previewAxes';
+import { threeToOpenScadDelta } from '../services/coordinateTransform';
 import { createViewerInteractionConfig } from './viewerInteractionConfig';
 import { ViewerToolPalette } from './three-viewer/ViewerToolPalette';
 import { ViewerContextBar } from './three-viewer/ViewerContextBar';
@@ -140,12 +141,14 @@ function STLModel({
   url,
   wireframe,
   sceneStyle,
+  sectionPlane,
   onModelFrameChange,
   onModelChange,
 }: {
   url: string;
   wireframe: boolean;
   sceneStyle: PreviewSceneStyle;
+  sectionPlane: THREE.Plane | null;
   onModelFrameChange: (frame: ModelFrame | null) => void;
   onModelChange: (model: LoadedPreviewModel | null) => void;
 }) {
@@ -221,21 +224,29 @@ function STLModel({
     <group ref={groupRef} name="modelContainer">
       <mesh ref={meshRef} geometry={geometry} castShadow receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
         {wireframe ? (
-          <>
+          sectionPlane ? (
             <meshBasicMaterial
+              wireframe
               color={sceneStyle.modelColor}
-              transparent
-              opacity={0.2}
-              side={THREE.DoubleSide}
+              clippingPlanes={[sectionPlane]}
             />
-            <DreiWireframe
-              geometry={geometry}
-              stroke={sceneStyle.modelColor}
-              thickness={0.05}
-              fillOpacity={0}
-              strokeOpacity={0.9}
-            />
-          </>
+          ) : (
+            <>
+              <meshBasicMaterial
+                color={sceneStyle.modelColor}
+                transparent
+                opacity={0.2}
+                side={THREE.DoubleSide}
+              />
+              <DreiWireframe
+                geometry={geometry}
+                stroke={sceneStyle.modelColor}
+                thickness={0.05}
+                fillOpacity={0}
+                strokeOpacity={0.9}
+              />
+            </>
+          )
         ) : (
           <meshStandardMaterial
             color={sceneStyle.modelColor}
@@ -398,10 +409,10 @@ function BBoxOverlay({
         <LabelBadge text={`X ${size.x.toFixed(2)}`} />
       </Html>
       <Html position={[center.x, center.y + size.y / 2, center.z]} center distanceFactor={14}>
-        <LabelBadge text={`Y ${size.y.toFixed(2)}`} />
+        <LabelBadge text={`Z ${size.y.toFixed(2)}`} />
       </Html>
       <Html position={[center.x, center.y, center.z + size.z / 2]} center distanceFactor={14}>
-        <LabelBadge text={`Z ${size.z.toFixed(2)}`} />
+        <LabelBadge text={`Y ${size.z.toFixed(2)}`} />
       </Html>
     </group>
   );
@@ -429,9 +440,11 @@ function LabelBadge({ text }: { text: string }) {
 function SectionPlaneOverlay({
   bounds,
   state,
+  color,
 }: {
   bounds: THREE.Box3;
   state: SectionPlaneState;
+  color: string;
 }) {
   const visual = useMemo(() => getSectionPlaneVisualTransform(bounds, state), [bounds, state]);
 
@@ -444,7 +457,7 @@ function SectionPlaneOverlay({
       >
         <planeGeometry args={[visual.size, visual.size]} />
         <meshBasicMaterial
-          color="#f59e0b"
+          color={color}
           transparent
           opacity={0.14}
           side={THREE.DoubleSide}
@@ -452,7 +465,7 @@ function SectionPlaneOverlay({
         />
       </mesh>
       <Html position={visual.position.toArray()} center distanceFactor={12}>
-        <LabelBadge text={`Section ${state.axis.toUpperCase()}`} />
+        <LabelBadge text={`Section ${{ x: 'X', y: 'Z', z: 'Y' }[state.axis] ?? state.axis.toUpperCase()}`} />
       </Html>
     </group>
   );
@@ -976,7 +989,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
     return () => {
       manager.restore(root);
     };
-  }, [loadedModel?.root, sectionPlane, selection.objectUuid, wireframe]);
+  }, [loadedModel?.root, sectionPlane, selection.objectUuid]);
 
   const fitCurrentModelToView = () => {
     const cameraControls = cameraControlsRef.current;
@@ -1246,10 +1259,10 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
       >
         <button
           onClick={fitCurrentModelToView}
-          className="p-2 rounded transition-colors flex items-center justify-center"
+          className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
           style={{
             backgroundColor: 'var(--bg-elevated)',
-            border: '1px solid var(--border-secondary)',
+            border: '1px solid var(--border-primary)',
             color: 'var(--text-secondary)',
           }}
           title="Fit to View"
@@ -1260,11 +1273,11 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
 
         <button
           onClick={() => setOrthographic(!orthographic)}
-          className="p-2 rounded transition-colors flex items-center justify-center"
+          className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
           style={{
             backgroundColor: orthographic ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-            border: '1px solid var(--border-secondary)',
-            color: orthographic ? 'var(--text-inverse)' : 'var(--text-secondary)',
+            border: `1px solid ${orthographic ? 'var(--border-primary)' : 'var(--border-primary)'}`,
+            color: orthographic ? 'var(--text-primary)' : 'var(--text-secondary)',
           }}
           title="Orthographic Projection"
           data-testid="preview-toggle-orthographic"
@@ -1274,11 +1287,11 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
 
         <button
           onClick={() => setWireframe(!wireframe)}
-          className="p-2 rounded transition-colors flex items-center justify-center"
+          className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
           style={{
             backgroundColor: wireframe ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-            border: '1px solid var(--border-secondary)',
-            color: wireframe ? 'var(--text-inverse)' : 'var(--text-secondary)',
+            border: '1px solid var(--border-primary)',
+            color: wireframe ? 'var(--text-primary)' : 'var(--text-secondary)',
           }}
           title="Wireframe Mode"
         >
@@ -1287,11 +1300,11 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
 
         <button
           onClick={() => updateSetting('viewer', { showShadows: !showShadows })}
-          className="p-2 rounded transition-colors flex items-center justify-center"
+          className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
           style={{
             backgroundColor: showShadows ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-            border: '1px solid var(--border-secondary)',
-            color: showShadows ? 'var(--text-inverse)' : 'var(--text-secondary)',
+            border: '1px solid var(--border-primary)',
+            color: showShadows ? 'var(--text-primary)' : 'var(--text-secondary)',
           }}
           title="Toggle Shadows"
         >
@@ -1319,11 +1332,11 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
           <div className="text-[11px]">
             <div>
               <span style={{ color: 'var(--text-tertiary)' }}>Point:</span>{' '}
-              {formatVector3(selectionSource.point)}
+              {formatVector3(selectionSource.point ? threeToOpenScadDelta(selectionSource.point) : null)}
             </div>
             <div>
               <span style={{ color: 'var(--text-tertiary)' }}>Normal:</span>{' '}
-              {formatVector3(selectionSource.normal)}
+              {formatVector3(selectionSource.normal ? threeToOpenScadDelta(selectionSource.normal) : null)}
             </div>
           </div>
         </div>
@@ -1453,6 +1466,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
           url={stlPath}
           wireframe={wireframe}
           sceneStyle={sceneStyle}
+          sectionPlane={sectionPlane}
           onModelFrameChange={setModelFrame}
           onModelChange={setLoadedModel}
         />
@@ -1470,7 +1484,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
           />
         ) : null}
         {interactionMode === 'section-plane' && loadedModel && sectionState?.enabled ? (
-          <SectionPlaneOverlay bounds={loadedModel.bounds} state={sectionState} />
+          <SectionPlaneOverlay bounds={loadedModel.bounds} state={sectionState} color={sceneStyle.axis.xColor} />
         ) : null}
 
         <ViewerInteractionController

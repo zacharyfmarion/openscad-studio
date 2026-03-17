@@ -81,7 +81,7 @@ export const solarizedDark: Theme = {
       inverse: '#fdf6e3', // base3
     },
     border: {
-      primary: '#073642', // base02
+      primary: '#1a4f5e',
       secondary: '#586e75', // base01
       focus: '#268bd2', // blue
     },

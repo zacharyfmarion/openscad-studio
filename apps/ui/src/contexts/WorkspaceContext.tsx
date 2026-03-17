@@ -64,7 +64,7 @@ export interface WorkspaceState {
   onAcceptDiff: () => void;
   onRejectDiff: () => void;
   onOpenAiSettings: () => void;
-  onOpenCustomizerAiRefine: (suggestion: string) => void;
+  onOpenCustomizerAiRefine: () => void;
   onOpenEditorPanel: () => void;
   onOpenExportDialog: () => void;
 }

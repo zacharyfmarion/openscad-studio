@@ -1,4 +1,4 @@
-import { SegmentedControl, RangeSlider } from '../../ui';
+import { Button, SegmentedControl, RangeSlider } from '../../ui';
 import {
   clampSectionOffset,
   getSectionAxisBounds,
@@ -7,8 +7,8 @@ import type { SectionAxis, ToolContextPanelProps } from '../types';
 
 const AXIS_OPTIONS: { value: SectionAxis; label: string; title: string }[] = [
   { value: 'x', label: 'X', title: 'Slice left/right (perpendicular to X axis)' },
-  { value: 'y', label: 'Y', title: 'Slice horizontally (perpendicular to Y axis)' },
-  { value: 'z', label: 'Z', title: 'Slice front/back (perpendicular to Z axis)' },
+  { value: 'y', label: 'Z', title: 'Slice top/bottom (perpendicular to Z axis)' },
+  { value: 'z', label: 'Y', title: 'Slice front/back (perpendicular to Y axis)' },
 ];
 
 export function SectionPlanePanel({
@@ -49,18 +49,19 @@ export function SectionPlanePanel({
         aria-label="Section plane axis"
       />
 
-      <button
+      <Button
         type="button"
+        size="sm"
+        variant="secondary"
         onClick={() => onSectionStateChange({ ...sectionState, inverted: !sectionState.inverted })}
-        className="px-2.5 py-1 text-xs font-medium rounded transition-colors shrink-0"
+        className="shrink-0"
         style={{
-          border: '1px solid var(--border-secondary)',
-          backgroundColor: sectionState.inverted ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+          backgroundColor: sectionState.inverted ? 'var(--bg-tertiary)' : undefined,
           color: sectionState.inverted ? 'var(--accent-primary)' : 'var(--text-secondary)',
         }}
       >
         Flip
-      </button>
+      </Button>
 
       <RangeSlider
         min={axisBounds.min}
@@ -78,15 +79,16 @@ export function SectionPlanePanel({
         className="flex-1"
       />
 
-      <button
+      <Button
         type="button"
+        size="sm"
+        variant="ghost"
         onClick={onSectionReset}
-        className="text-xs shrink-0"
-        style={{ color: 'var(--text-secondary)' }}
+        className="shrink-0"
         data-testid="preview-3d-section-reset"
       >
         Reset
-      </button>
+      </Button>
 
       <span className="text-[11px] shrink-0" style={{ color: 'var(--text-tertiary)' }}>
         ← → to nudge · R to reset

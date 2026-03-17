@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { threeToOpenScadSize } from '../../../services/coordinateTransform';
 import type { ToolContextPanelProps } from '../types';
 
 function fmtDim(v: number) {
@@ -7,7 +8,7 @@ function fmtDim(v: number) {
 
 export function BBoxPanel({ selection, loadedModel }: ToolContextPanelProps) {
   const bounds = selection.bounds ?? loadedModel?.bounds ?? null;
-  const size = bounds ? bounds.getSize(new THREE.Vector3()) : null;
+  const size = bounds ? threeToOpenScadSize(bounds.getSize(new THREE.Vector3())) : null;
 
   return (
     <div className="flex flex-row items-center gap-4 px-3 w-full">

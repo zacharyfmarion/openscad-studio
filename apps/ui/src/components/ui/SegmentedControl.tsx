@@ -21,7 +21,7 @@ export function SegmentedControl<T extends string>({
     <div
       role="group"
       aria-label={ariaLabel}
-      className="flex rounded overflow-hidden"
+      className="flex h-8 rounded-lg overflow-hidden"
       style={{ border: '1px solid var(--border-secondary)' }}
     >
       {options.map((option, i) => {
@@ -33,7 +33,7 @@ export function SegmentedControl<T extends string>({
             title={option.title ?? option.label}
             aria-pressed={active}
             onClick={() => onChange(option.value)}
-            className="px-2.5 py-1 text-xs font-medium transition-colors"
+            className="h-full px-2.5 text-xs font-medium transition-colors"
             style={{
               backgroundColor: active ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
               color: active ? 'var(--accent-primary)' : 'var(--text-secondary)',

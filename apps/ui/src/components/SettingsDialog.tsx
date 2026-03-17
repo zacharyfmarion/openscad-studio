@@ -8,7 +8,7 @@ import {
 import { getAvailableThemes, getTheme } from '../themes';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAnalytics } from '../analytics/runtime';
-import { Button, Input, Select, Label, Toggle } from './ui';
+import { Button, IconButton, Input, Select, Label, Toggle } from './ui';
 import { Editor as MonacoEditor } from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
 import { registerVimConfigLanguage } from '../languages/vimConfigLanguage';
@@ -23,6 +23,7 @@ import {
   TbTrash,
   TbFolderOpen,
   TbShield,
+  TbRefresh,
 } from 'react-icons/tb';
 import {
   storeApiKey as storeApiKeyToStorage,
@@ -322,7 +323,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
       onClick={handleClose}
     >
       <div
-        className="rounded-xl shadow-2xl w-full max-w-3xl mx-4 flex h-[600px] overflow-hidden"
+        className="rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex h-[600px] overflow-hidden"
         style={{
           backgroundColor: 'var(--bg-secondary)',
           border: '1px solid var(--border-primary)',
@@ -399,22 +400,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         ? 'Libraries'
                         : 'AI Assistant'}
             </h3>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="flex items-center justify-center w-7 h-7 rounded-md transition-all duration-150"
-              style={{ color: 'var(--text-tertiary)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
-                e.currentTarget.style.color = 'var(--text-primary)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = 'var(--text-tertiary)';
-              }}
-            >
+            <IconButton size="sm" onClick={handleClose} title="Close settings">
               <TbX size={16} />
-            </button>
+            </IconButton>
           </div>
 
           {/* Content */}
@@ -446,7 +434,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                             saveSettings(updated);
                             applyWorkspacePreset(preset);
                           }}
-                          className="rounded-md p-3 text-left transition-all duration-150"
+                          className="rounded-lg p-3 text-left transition-all duration-150"
                           style={{
                             backgroundColor: 'var(--bg-primary)',
                             border: isActive
@@ -481,6 +469,20 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       );
                     })}
                   </div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      Restore the current workspace to its default panel arrangement
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => applyWorkspacePreset(settings.ui.defaultLayoutPreset)}
+                      className="ml-4 shrink-0 inline-flex items-center gap-1.5 text-xs"
+                    >
+                      <TbRefresh size={14} />
+                      Reset layout
+                    </Button>
+                  </div>
                 </div>
 
                 <div>
@@ -505,7 +507,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                               key={t.id}
                               type="button"
                               onClick={() => handleAppearanceSettingChange('theme', t.id)}
-                              className="flex flex-col rounded-md p-2.5 text-left transition-all duration-150"
+                              className="flex flex-col rounded-lg p-2.5 text-left transition-all duration-150"
                               style={{
                                 backgroundColor: 'var(--bg-primary)',
                                 border: isSelected
@@ -577,7 +579,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
             {activeSection === 'viewer' && (
               <div className="space-y-5">
                 <div
-                  className="rounded-lg"
+                  className="rounded-xl"
                   style={{
                     backgroundColor: 'var(--bg-primary)',
                     border: '1px solid var(--border-primary)',
@@ -747,7 +749,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                 </div>
 
                 <div
-                  className="rounded-lg"
+                  className="rounded-xl"
                   style={{
                     backgroundColor: 'var(--bg-primary)',
                     border: '1px solid var(--border-primary)',
@@ -909,7 +911,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   <button
                     type="button"
                     onClick={() => setEditorSubTab('general')}
-                    className="px-4 py-1.5 text-sm rounded-md transition-all duration-150"
+                    className="h-7 px-4 text-sm rounded-lg transition-all duration-150"
                     style={{
                       backgroundColor:
                         editorSubTab === 'general' ? 'var(--accent-primary)' : 'transparent',
@@ -925,7 +927,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   <button
                     type="button"
                     onClick={() => setEditorSubTab('vim')}
-                    className="px-4 py-1.5 text-sm rounded-md transition-all duration-150"
+                    className="h-7 px-4 text-sm rounded-lg transition-all duration-150"
                     style={{
                       backgroundColor:
                         editorSubTab === 'vim' ? 'var(--accent-primary)' : 'transparent',
@@ -941,7 +943,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                 {/* General Settings */}
                 {editorSubTab === 'general' && (
                   <div
-                    className="rounded-lg"
+                    className="rounded-xl"
                     style={{
                       backgroundColor: 'var(--bg-primary)',
                       border: '1px solid var(--border-primary)',
@@ -1040,7 +1042,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   <div className="space-y-4">
                     {/* Vim Mode Toggle */}
                     <div
-                      className="flex items-center justify-between p-4 rounded-lg"
+                      className="flex items-center justify-between p-4 rounded-xl"
                       style={{
                         backgroundColor: 'var(--bg-primary)',
                         border: '1px solid var(--border-primary)',
@@ -1061,7 +1063,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     {/* Vim Configuration Editor */}
                     {settings.editor.vimMode && (
                       <div
-                        className="rounded-lg p-4 space-y-3"
+                        className="rounded-xl p-4 space-y-3"
                         style={{
                           backgroundColor: 'var(--bg-primary)',
                           border: '1px solid var(--border-primary)',
@@ -1069,23 +1071,18 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       >
                         <div className="flex items-center justify-between">
                           <Label className="mb-0">Vim Configuration</Label>
-                          <button
+                          <Button
                             type="button"
+                            size="sm"
+                            variant="ghost"
                             onClick={() => setLocalVimConfig(getDefaultVimConfig())}
-                            className="text-xs px-2.5 py-1 rounded-md transition-all duration-150"
                             style={{
                               color: 'var(--accent-primary)',
                               border: '1px solid var(--border-primary)',
                             }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
                           >
                             Reset to Defaults
-                          </button>
+                          </Button>
                         </div>
                         <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                           Customize vim keybindings using vim-style commands. Lines starting with #
@@ -1095,7 +1092,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           style={{
                             height: '260px',
                             border: '1px solid var(--border-primary)',
-                            borderRadius: '6px',
+                            borderRadius: 'var(--radius-md)',
                             overflow: 'hidden',
                           }}
                         >
@@ -1176,32 +1173,18 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                               map kj &lt;Esc&gt; insert
                             </code>
                           </p>
-                          <button
+                          <Button
                             type="button"
+                            size="sm"
+                            variant={localVimConfig !== settings.editor.vimConfig ? 'primary' : 'ghost'}
                             onClick={() => {
                               handleEditorSettingChange('vimConfig', localVimConfig);
                             }}
                             disabled={localVimConfig === settings.editor.vimConfig}
-                            className="text-sm px-4 py-1.5 rounded-md transition-all duration-150 shrink-0 ml-3"
-                            style={{
-                              backgroundColor:
-                                localVimConfig !== settings.editor.vimConfig
-                                  ? 'var(--accent-primary)'
-                                  : 'transparent',
-                              color:
-                                localVimConfig !== settings.editor.vimConfig
-                                  ? 'white'
-                                  : 'var(--text-tertiary)',
-                              border: '1px solid var(--border-primary)',
-                              opacity: localVimConfig !== settings.editor.vimConfig ? 1 : 0.5,
-                              cursor:
-                                localVimConfig !== settings.editor.vimConfig
-                                  ? 'pointer'
-                                  : 'not-allowed',
-                            }}
+                            className="shrink-0 ml-3"
                           >
                             Apply
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -1213,7 +1196,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
             {activeSection === 'privacy' && (
               <div className="space-y-5">
                 <div
-                  className="rounded-lg"
+                  className="rounded-xl"
                   style={{
                     backgroundColor: 'var(--bg-primary)',
                     border: '1px solid var(--border-primary)',
@@ -1243,7 +1226,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   </div>
                   <div className="grid gap-3 p-4 md:grid-cols-2">
                     <div
-                      className="rounded-md p-3"
+                      className="rounded-lg p-3"
                       style={{
                         backgroundColor: 'var(--bg-secondary)',
                         border: '1px solid var(--border-primary)',
@@ -1265,7 +1248,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       </p>
                     </div>
                     <div
-                      className="rounded-md p-3"
+                      className="rounded-lg p-3"
                       style={{
                         backgroundColor: 'var(--bg-secondary)',
                         border: '1px solid var(--border-primary)',
@@ -1286,7 +1269,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       </p>
                     </div>
                     <div
-                      className="rounded-md p-3"
+                      className="rounded-lg p-3"
                       style={{
                         backgroundColor: 'var(--bg-secondary)',
                         border: '1px solid var(--border-primary)',
@@ -1307,7 +1290,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       </p>
                     </div>
                     <div
-                      className="rounded-md p-3"
+                      className="rounded-lg p-3"
                       style={{
                         backgroundColor: 'var(--bg-secondary)',
                         border: '1px solid var(--border-primary)',
@@ -1367,7 +1350,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         autoDiscoveredPaths.map((path) => (
                           <div
                             key={path}
-                            className="flex items-center gap-2 text-sm p-2 rounded-md"
+                            className="flex items-center gap-2 text-sm p-2 rounded-lg"
                             style={{
                               backgroundColor: 'var(--bg-primary)',
                               border: '1px solid var(--border-primary)',
@@ -1396,23 +1379,19 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     >
                       Custom Paths
                     </p>
-                    <button
+                    <Button
                       type="button"
+                      size="sm"
+                      variant="ghost"
                       onClick={handleAddLibraryPath}
-                      className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-md transition-all duration-150"
+                      className="flex items-center gap-1"
                       style={{
                         color: 'var(--accent-primary)',
                         border: '1px solid var(--border-primary)',
                       }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
                     >
                       <TbPlus size={14} /> Add Path
-                    </button>
+                    </Button>
                   </div>
 
                   <div className="space-y-2">
@@ -1428,14 +1407,14 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       </div>
                     ) : (
                       settings.library.customPaths.map((path) => (
-                        <div
-                          key={path}
-                          className="flex items-center justify-between gap-2 p-2 rounded-md group"
-                          style={{
-                            backgroundColor: 'var(--bg-primary)',
-                            border: '1px solid var(--border-primary)',
-                          }}
-                        >
+                          <div
+                            key={path}
+                            className="flex items-center justify-between gap-2 p-2 rounded-lg group"
+                            style={{
+                              backgroundColor: 'var(--bg-primary)',
+                              border: '1px solid var(--border-primary)',
+                            }}
+                          >
                           <div className="flex items-center gap-2 min-w-0">
                             <TbFolderOpen size={16} style={{ color: 'var(--text-tertiary)' }} />
                             <span
@@ -1445,15 +1424,15 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                               {path}
                             </span>
                           </div>
-                          <button
-                            type="button"
+                          <IconButton
+                            size="sm"
                             onClick={() => handleRemoveLibraryPath(path)}
-                            className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--bg-tertiary)]"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
                             style={{ color: 'var(--text-tertiary)' }}
                             title="Remove path"
                           >
                             <TbTrash size={14} />
-                          </button>
+                          </IconButton>
                         </div>
                       ))
                     )}
@@ -1471,7 +1450,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
                 {/* Anthropic Section */}
                 <div
-                  className="rounded-lg p-4 space-y-3 ph-no-capture"
+                  className="rounded-xl p-4 space-y-3 ph-no-capture"
                   style={{
                     backgroundColor: 'var(--bg-primary)',
                     border: '1px solid var(--border-primary)',
@@ -1520,15 +1499,16 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         <button
                           type="button"
                           onClick={() => setShowKey(!showKey)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded transition-colors"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded-lg transition-colors"
                           style={{ color: 'var(--text-secondary)' }}
                         >
                           {showKey ? 'Hide' : 'Show'}
                         </button>
                       )}
                     </div>
-                    <button
+                    <IconButton
                       type="button"
+                      size="md"
                       onClick={() => {
                         setProvider('anthropic');
                         if (hasAnthropicKey) {
@@ -1536,16 +1516,14 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         }
                       }}
                       disabled={isLoading || !hasAnthropicKey}
-                      className="flex items-center justify-center w-9 h-9 rounded-md transition-all duration-150 shrink-0"
+                      className="shrink-0"
                       style={{
-                        backgroundColor: 'transparent',
                         border: '1px solid var(--border-primary)',
                         color:
                           hasAnthropicKey && !isLoading
                             ? 'var(--color-error)'
                             : 'var(--text-tertiary)',
                         opacity: hasAnthropicKey && !isLoading ? 1 : 0.4,
-                        cursor: hasAnthropicKey && !isLoading ? 'pointer' : 'not-allowed',
                       }}
                       title={hasAnthropicKey ? 'Remove API key' : 'No API key to remove'}
                     >
@@ -1565,7 +1543,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           strokeLinejoin="round"
                         />
                       </svg>
-                    </button>
+                    </IconButton>
                   </div>
                   <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                     Don't have a key?{' '}
@@ -1583,7 +1561,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
                 {/* OpenAI Section */}
                 <div
-                  className="rounded-lg p-4 space-y-3 ph-no-capture"
+                  className="rounded-xl p-4 space-y-3 ph-no-capture"
                   style={{
                     backgroundColor: 'var(--bg-primary)',
                     border: '1px solid var(--border-primary)',
@@ -1632,15 +1610,16 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         <button
                           type="button"
                           onClick={() => setShowKey(!showKey)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded transition-colors"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded-lg transition-colors"
                           style={{ color: 'var(--text-secondary)' }}
                         >
                           {showKey ? 'Hide' : 'Show'}
                         </button>
                       )}
                     </div>
-                    <button
+                    <IconButton
                       type="button"
+                      size="md"
                       onClick={() => {
                         setProvider('openai');
                         if (hasOpenAIKey) {
@@ -1648,16 +1627,14 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         }
                       }}
                       disabled={isLoading || !hasOpenAIKey}
-                      className="flex items-center justify-center w-9 h-9 rounded-md transition-all duration-150 shrink-0"
+                      className="shrink-0"
                       style={{
-                        backgroundColor: 'transparent',
                         border: '1px solid var(--border-primary)',
                         color:
                           hasOpenAIKey && !isLoading
                             ? 'var(--color-error)'
                             : 'var(--text-tertiary)',
                         opacity: hasOpenAIKey && !isLoading ? 1 : 0.4,
-                        cursor: hasOpenAIKey && !isLoading ? 'pointer' : 'not-allowed',
                       }}
                       title={hasOpenAIKey ? 'Remove API key' : 'No API key to remove'}
                     >
@@ -1677,7 +1654,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           strokeLinejoin="round"
                         />
                       </svg>
-                    </button>
+                    </IconButton>
                   </div>
                   <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                     Don't have a key?{' '}

@@ -24,9 +24,10 @@ interface CustomizerPanelProps {
   isRendering?: boolean;
   hasRenderErrors?: boolean;
   renderReady?: boolean;
-  onRefineWithAi?: (suggestion: string) => void;
+  onRefineWithAi?: () => void;
   onEditCode?: () => void;
   onDownloadStl?: () => void;
+  isDownloadingStl?: boolean;
 }
 
 interface GroupedParams {
@@ -41,10 +42,6 @@ const PROMINENCE_ORDER: Record<ParameterProminence, number> = {
   advanced: 2,
 };
 
-const NO_PARAMS_SUGGESTION =
-  'Make this model customizable with top-level parameters, slider ranges, and user-friendly labels.';
-const IMPROVE_PARAMS_SUGGESTION =
-  'Improve this customizer by adding better ranges, labels, groups, and print-safe defaults.';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -136,10 +133,9 @@ function LoadingState() {
       {[0, 1, 2].map((block) => (
         <div
           key={block}
-          className="rounded-xl border p-4 space-y-3 animate-pulse"
+          className="rounded-xl p-4 space-y-3 animate-pulse"
           style={{
             backgroundColor: 'var(--bg-secondary)',
-            borderColor: 'var(--border-primary)',
           }}
         >
           <div
@@ -172,6 +168,7 @@ export function CustomizerPanel({
   onRefineWithAi,
   onEditCode,
   onDownloadStl,
+  isDownloadingStl = false,
 }: CustomizerPanelProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const defaultsRef = useRef<Map<string, string>>(new Map());
@@ -343,9 +340,6 @@ export function CustomizerPanel({
     previewKind,
   });
 
-  const refineSuggestion =
-    totalParams === 0 || richMetadataCount === 0 ? NO_PARAMS_SUGGESTION : IMPROVE_PARAMS_SUGGESTION;
-
   if (!parserReady) {
     return (
       <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -357,81 +351,54 @@ export function CustomizerPanel({
   if (tabs.length === 0) {
     return (
       <div
-        className="h-full overflow-y-auto p-4"
+        className="h-full flex flex-col items-center justify-center p-6 gap-5"
         style={{ backgroundColor: 'var(--bg-primary)' }}
         data-testid="customizer-empty-state"
       >
-        <div
-          className="rounded-2xl border p-5"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            borderColor: 'var(--border-primary)',
-          }}
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-xl"
-              style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--accent-primary)' }}
-            >
-              <TbAdjustmentsHorizontal size={18} />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                This model is not customizable yet
-              </h2>
-              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                Ask the AI to expose top-level parameters with slider ranges and friendly labels.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              type="button"
-              variant="primary"
-              onClick={() => onRefineWithAi?.(NO_PARAMS_SUGGESTION)}
-              className="inline-flex items-center gap-1.5 text-xs"
-              data-testid="customizer-refine-button"
-            >
-              <TbSparkles size={14} />
-              Refine with AI
-            </Button>
-            {onEditCode && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={onEditCode}
-                className="inline-flex items-center gap-1.5 text-xs"
-              >
-                <TbCode size={14} />
-                Edit Code
-              </Button>
-            )}
-          </div>
-
+        <div className="flex flex-col items-center gap-3 text-center max-w-[220px]">
           <div
-            className="mt-4 rounded-xl border p-3"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl"
             style={{
-              backgroundColor: 'var(--bg-primary)',
-              borderColor: 'var(--border-secondary)',
+              backgroundColor: 'var(--bg-secondary)',
+              color: 'var(--accent-primary)',
             }}
           >
-            <p className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>
-              Manual syntax example
+            <TbAdjustmentsHorizontal size={22} />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-sm font-semibold leading-snug" style={{ color: 'var(--text-primary)' }}>
+              No parameters yet
+            </h2>
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              Ask the AI to add customizer parameters with sliders and labels.
             </p>
-            <pre
-              className="text-xs whitespace-pre-wrap"
-              style={{
-                color: 'var(--text-secondary)',
-                fontSize: '11px',
-              }}
-            >
-              {`/* [Dimensions] */
-// @studio {"label":"Width","unit":"mm"}
-width = 60; // [40:1:120]`}
-            </pre>
           </div>
         </div>
+
+        <div className="flex flex-col gap-2 w-full max-w-[200px]">
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => onRefineWithAi?.()}
+            className="inline-flex items-center justify-center gap-1.5 text-xs w-full"
+            data-testid="customizer-refine-button"
+          >
+            <TbSparkles size={13} />
+            Refine with AI
+          </Button>
+          {onEditCode && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onEditCode}
+              className="inline-flex items-center justify-center gap-1.5 text-xs w-full"
+            >
+              <TbCode size={13} />
+              Edit Code
+            </Button>
+          )}
+        </div>
+
       </div>
     );
   }
@@ -439,90 +406,129 @@ width = 60; // [40:1:120]`}
   return (
     <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div
-        className="sticky top-0 z-10 border-b px-3 py-2.5 backdrop-blur"
+        className="sticky top-0 z-10 border-b backdrop-blur"
         style={{
           backgroundColor: 'color-mix(in srgb, var(--bg-primary) 92%, transparent)',
           borderColor: 'var(--border-primary)',
         }}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
+        {isCustomizerFirstMode ? (
+          <div className="px-4 py-2 space-y-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              <h2 className="text-sm font-semibold flex-shrink-0" style={{ color: 'var(--text-primary)' }}>
                 Customize
               </h2>
+              {advancedParamCount > 0 && (
+                <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  <Toggle
+                    checked={showAdvanced}
+                    onChange={(event) => setShowAdvanced(event.target.checked)}
+                    aria-label="Show advanced controls"
+                  />
+                  <span>Advanced</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 ml-auto">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onRefineWithAi?.()}
+                  className="inline-flex items-center gap-1"
+                  data-testid="customizer-refine-button"
+                >
+                  <TbSparkles size={12} />
+                  Refine
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={onDownloadStl}
+                  disabled={Boolean(downloadDisabledReason) || isDownloadingStl}
+                  className="inline-flex items-center gap-1"
+                  data-testid="customizer-download-button"
+                >
+                  {isDownloadingStl ? (
+                    <svg
+                      className="animate-spin"
+                      style={{ width: 12, height: 12 }}
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                  ) : (
+                    <TbDownload size={12} />
+                  )}
+                  Download STL
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleResetDefaults}
+                  disabled={!hasChanges}
+                  className="inline-flex items-center gap-1"
+                >
+                  <TbRefresh size={12} />
+                  Reset
+                </Button>
+              </div>
+            </div>
+            {downloadDisabledReason && (
+              <p
+                className="text-xs"
+                style={{
+                  color: hasRenderErrors ? 'var(--color-error)' : 'var(--text-tertiary)',
+                }}
+                data-testid="customizer-download-hint"
+              >
+                {downloadDisabledReason}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="px-3 py-1.5 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Customize
+            </h2>
+            <div className="flex items-center gap-2">
+              {advancedParamCount > 0 && (
+                <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  <Toggle
+                    checked={showAdvanced}
+                    onChange={(event) => setShowAdvanced(event.target.checked)}
+                    aria-label="Show advanced controls"
+                  />
+                  <span>Advanced</span>
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleResetDefaults}
+                disabled={!hasChanges}
+                className="inline-flex items-center gap-1.5 text-xs"
+              >
+                <TbRefresh size={14} />
+                Reset to defaults
+              </Button>
             </div>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleResetDefaults}
-            disabled={!hasChanges}
-            className="inline-flex items-center gap-1.5 text-xs"
-          >
-            <TbRefresh size={14} />
-            Reset all
-          </Button>
-        </div>
-
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {advancedParamCount > 0 && (
-            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-              <Toggle
-                checked={showAdvanced}
-                onChange={(event) => setShowAdvanced(event.target.checked)}
-                aria-label="Show advanced controls"
-              />
-              <span>Advanced</span>
-            </div>
-          )}
-
-          {isCustomizerFirstMode && (
-            <div className="ml-auto flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="primary"
-                onClick={onDownloadStl}
-                disabled={Boolean(downloadDisabledReason)}
-                className="inline-flex items-center gap-1.5 text-xs"
-                data-testid="customizer-download-button"
-              >
-                <TbDownload size={14} />
-                Download STL
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => onRefineWithAi?.(refineSuggestion)}
-                className="inline-flex items-center gap-1.5 text-xs"
-                data-testid="customizer-refine-button"
-              >
-                <TbSparkles size={14} />
-                Refine with AI
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={onEditCode}
-                className="inline-flex items-center gap-1.5 text-xs"
-              >
-                <TbCode size={14} />
-                Edit Code
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {isCustomizerFirstMode && downloadDisabledReason && (
-          <p
-            className="mt-2 text-xs"
-            style={{
-              color: hasRenderErrors ? 'var(--color-error)' : 'var(--text-tertiary)',
-            }}
-            data-testid="customizer-download-hint"
-          >
-            {downloadDisabledReason}
-          </p>
         )}
       </div>
 
@@ -571,10 +577,9 @@ width = 60; // [40:1:120]`}
                 return (
                   <div
                     key={`${tab.name}-${group.id}`}
-                    className="rounded-xl border p-3"
+                    className="rounded-xl p-3"
                     style={{
                       backgroundColor: 'var(--bg-secondary)',
-                      borderColor: 'var(--border-primary)',
                     }}
                   >
                     {group.name && !isRedundantGroupName(tab.name, group.name) && (

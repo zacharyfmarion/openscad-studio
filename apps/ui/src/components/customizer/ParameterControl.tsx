@@ -50,7 +50,7 @@ function ControlShell({
       className="rounded-xl border p-2.5"
       style={{
         backgroundColor: 'var(--bg-primary)',
-        borderColor: isDirty ? 'var(--accent-primary)' : 'var(--border-secondary)',
+        borderColor: isDirty ? 'var(--accent-primary)' : 'var(--border-primary)',
         boxShadow: isDirty ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent-primary) 35%, transparent)' : undefined,
       }}
       data-testid={`customizer-control-${param.name}`}
@@ -118,13 +118,15 @@ function ControlShell({
 function ValueWithUnit({
   value,
   unit,
+  className,
 }: {
   value: React.ReactNode;
   unit?: string;
+  className?: string;
 }) {
   return (
     <div
-      className="flex items-center overflow-hidden rounded-lg border"
+      className={`flex items-center overflow-hidden rounded-lg border${className ? ` ${className}` : ''}`}
       style={{
         backgroundColor: 'var(--bg-elevated)',
         borderColor: 'var(--border-primary)',
@@ -239,7 +241,7 @@ function SliderControl({ param, onChange, isDirty, onReset }: ParameterControlPr
 
   const inlineValueInput = (
     <div
-      className="flex items-center rounded border overflow-hidden"
+      className="flex items-center rounded-lg border overflow-hidden"
       style={{ borderColor: 'var(--border-primary)', backgroundColor: 'var(--bg-elevated)' }}
     >
       <input
@@ -257,7 +259,7 @@ function SliderControl({ param, onChange, isDirty, onReset }: ParameterControlPr
         min={min}
         max={max}
         step={step}
-        className="bg-transparent text-sm text-right outline-none"
+        className="customizer-number-input bg-transparent text-sm text-right outline-none"
         style={{ color: 'var(--text-primary)', width: '52px', padding: '2px 6px' }}
       />
       {param.unit && (
@@ -348,6 +350,7 @@ function NumberControl({ param, onChange, isDirty, onReset }: ParameterControlPr
     <ControlShell param={param} isDirty={isDirty} onReset={onReset}>
       <ValueWithUnit
         unit={param.unit}
+        className="w-36"
         value={
           <input
             type="number"
@@ -361,7 +364,7 @@ function NumberControl({ param, onChange, isDirty, onReset }: ParameterControlPr
                 event.currentTarget.blur();
               }
             }}
-            className="w-full bg-transparent px-3 py-2 text-sm outline-none"
+            className="customizer-number-input w-full bg-transparent px-3 py-2 text-sm outline-none"
             style={{ color: 'var(--text-primary)' }}
           />
         }
@@ -466,7 +469,7 @@ function VectorControl({ param, onChange, isDirty, onReset }: ParameterControlPr
                         event.currentTarget.blur();
                       }
                     }}
-                    className="w-full bg-transparent px-3 py-2 text-sm outline-none"
+                    className="customizer-number-input w-full bg-transparent px-3 py-2 text-sm outline-none"
                     style={{ color: 'var(--text-primary)' }}
                   />
                 }

@@ -735,27 +735,12 @@ function App() {
     [analytics]
   );
 
-  const handleOpenCustomizerAiRefine = useCallback(
-    (suggestion: string) => {
-      const currentDraft = draft;
-      const nextText = currentDraft.text.trim()
-        ? currentDraft.text.includes(suggestion)
-          ? currentDraft.text
-          : `${currentDraft.text.trim()}\n\n${suggestion}`
-        : suggestion;
-
-      setDraft({
-        ...currentDraft,
-        text: nextText,
-      });
-
-      openPanel('ai-chat', 'ai-chat', 'AI');
-      window.setTimeout(() => {
-        aiPromptPanelRef.current?.focusPrompt();
-      }, 0);
-    },
-    [draft, setDraft]
-  );
+  const handleOpenCustomizerAiRefine = useCallback(() => {
+    openPanel('ai-chat', 'ai-chat', 'AI');
+    window.setTimeout(() => {
+      aiPromptPanelRef.current?.focusPrompt();
+    }, 0);
+  }, []);
 
   const handleOpenEditorPanel = useCallback(() => {
     openPanel('editor', 'editor', 'Editor');
