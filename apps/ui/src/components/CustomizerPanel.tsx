@@ -5,31 +5,166 @@
  * and updates the source code when values change.
  */
 
-import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { useMemo, useCallback, useState, useEffect } from 'react';
+import type { RenderKind } from '../hooks/useOpenScad';
 import { parseCustomizerParams } from '../utils/customizer/parser';
 import { isParserReady, onParserReady } from '../utils/formatter/parser';
-import type { CustomizerParam } from '../utils/customizer/types';
+import type { CustomizerParam, ParameterProminence } from '../utils/customizer/types';
 import { ParameterControl } from './customizer/ParameterControl';
-import { TbChevronDown, TbChevronRight, TbRefresh } from 'react-icons/tb';
+import { Button, Text, Toggle } from './ui';
+import { TbAdjustmentsHorizontal, TbRefresh, TbSparkles, TbCode, TbDownload } from 'react-icons/tb';
 import { eventBus } from '../platform';
 
 interface CustomizerPanelProps {
   code: string;
+  baselineCode: string;
   onChange: (newCode: string) => void;
+  isCustomizerFirstMode?: boolean;
+  previewKind?: RenderKind;
+  previewAvailable?: boolean;
+  isRendering?: boolean;
+  hasRenderErrors?: boolean;
+  renderReady?: boolean;
+  onRefineWithAi?: () => void;
+  onEditCode?: () => void;
+  onDownloadStl?: () => void;
+  isDownloadingStl?: boolean;
+  onDownloadSvg?: () => void;
+  isDownloadingSvg?: boolean;
 }
 
-export function CustomizerPanel({ code, onChange }: CustomizerPanelProps) {
-  const [collapsedTabs, setCollapsedTabs] = useState<Set<string>>(new Set());
-  const defaultsRef = useRef<Map<string, string> | null>(null);
+interface GroupedParams {
+  id: string;
+  name: string | null;
+  params: CustomizerParam[];
+}
+
+const PROMINENCE_ORDER: Record<ParameterProminence, number> = {
+  primary: 0,
+  secondary: 1,
+  advanced: 2,
+};
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getParamKey(param: CustomizerParam): string {
+  return `${param.line}:${param.name}`;
+}
+
+function replaceParamValue(code: string, param: CustomizerParam, nextValue: string): string {
+  const assignmentPattern = new RegExp(
+    `^(\\s*${escapeRegExp(param.name)}\\s*=\\s*)([^;]+)(;.*)$`,
+    'gm'
+  );
+  return code.replace(assignmentPattern, (_, prefix, __, suffix) => {
+    return prefix + nextValue + suffix;
+  });
+}
+
+function groupParams(params: CustomizerParam[], showAdvanced: boolean): GroupedParams[] {
+  const groups = new Map<string, GroupedParams>();
+
+  for (const param of params) {
+    if (param.prominence === 'advanced' && !showAdvanced) {
+      continue;
+    }
+
+    const key = param.group?.trim() || '__default__';
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.params.push(param);
+      continue;
+    }
+
+    groups.set(key, {
+      id: key,
+      name: key === '__default__' ? null : key,
+      params: [param],
+    });
+  }
+
+  return Array.from(groups.values()).map((group) => ({
+    ...group,
+    params: [...group.params].sort((a, b) => {
+      const aPriority = PROMINENCE_ORDER[a.prominence ?? 'secondary'];
+      const bPriority = PROMINENCE_ORDER[b.prominence ?? 'secondary'];
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      return a.line - b.line;
+    }),
+  }));
+}
+
+function isRedundantGroupName(tabName: string, groupName: string | null): boolean {
+  if (!groupName) return true;
+  return groupName.trim().toLowerCase() === tabName.trim().toLowerCase();
+}
+
+function getDownloadDisabledReason({
+  renderReady,
+  isRendering,
+  previewAvailable,
+  hasRenderErrors,
+}: {
+  renderReady: boolean;
+  isRendering: boolean;
+  previewAvailable: boolean;
+  hasRenderErrors: boolean;
+}): string | null {
+  if (!renderReady) return 'Renderer is still starting up.';
+  if (isRendering) return 'Rendering...';
+  if (hasRenderErrors) return 'Fix the current render errors before downloading.';
+  if (!previewAvailable) return 'Render the model to enable download.';
+  return null;
+}
+
+function LoadingState() {
+  return (
+    <div className="p-4 space-y-3" aria-label="Loading customizer">
+      {[0, 1, 2].map((block) => (
+        <div
+          key={block}
+          className="rounded-xl p-4 space-y-3 animate-pulse"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+          }}
+        >
+          <div className="h-3 w-24 rounded" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+          <div className="h-10 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+          <div className="h-2 w-32 rounded" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function CustomizerPanel({
+  code,
+  baselineCode,
+  onChange,
+  isCustomizerFirstMode = false,
+  previewKind,
+  previewAvailable = false,
+  isRendering = false,
+  hasRenderErrors = false,
+  renderReady = false,
+  onRefineWithAi,
+  onEditCode,
+  onDownloadStl,
+  isDownloadingStl = false,
+  onDownloadSvg,
+  isDownloadingSvg = false,
+}: CustomizerPanelProps) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [parserReady, setParserReady] = useState(isParserReady);
 
-  // Listen for parser initialization
   useEffect(() => {
     if (parserReady) return;
     return onParserReady(() => setParserReady(true));
   }, [parserReady]);
 
-  // Parse parameters from code (re-runs when code changes OR parser becomes ready)
   const tabs = useMemo(() => {
     if (!parserReady) return [];
     try {
@@ -40,58 +175,92 @@ export function CustomizerPanel({ code, onChange }: CustomizerPanelProps) {
     }
   }, [code, parserReady]);
 
-  // Capture default values on first successful parse
-  if (defaultsRef.current === null && tabs.length > 0) {
-    const defaults = new Map<string, string>();
-    for (const tab of tabs) {
-      for (const param of tab.params) {
-        defaults.set(param.name, param.rawValue);
-      }
+  // Parse baseline parameters for dirty comparison and reset values.
+  // This is purely derived from baselineCode — no refs or effects needed.
+  const baselineParams = useMemo(() => {
+    if (!parserReady) return new Map<string, string>();
+    try {
+      return new Map(
+        parseCustomizerParams(baselineCode)
+          .flatMap((tab) => tab.params)
+          .map((p) => [getParamKey(p), p.rawValue])
+      );
+    } catch {
+      return new Map<string, string>();
     }
-    defaultsRef.current = defaults;
-  }
+  }, [baselineCode, parserReady]);
 
-  // Check if any parameter has been modified from its default
+  const advancedParamCount = useMemo(
+    () =>
+      tabs.reduce(
+        (count, tab) =>
+          count + tab.params.filter((param) => param.prominence === 'advanced').length,
+        0
+      ),
+    [tabs]
+  );
+  const groupedTabs = useMemo(
+    () =>
+      tabs
+        .map((tab) => ({
+          ...tab,
+          groups: groupParams(tab.params, showAdvanced),
+        }))
+        .filter((tab) => tab.groups.length > 0),
+    [showAdvanced, tabs]
+  );
+  const showTabHeaders =
+    groupedTabs.length > 1 || groupedTabs.some((tab) => tab.name !== 'Parameters');
+
   const hasChanges = useMemo(() => {
-    if (!defaultsRef.current) return false;
+    if (!baselineParams.size) return false;
     for (const tab of tabs) {
       for (const param of tab.params) {
-        const defaultValue = defaultsRef.current.get(param.name);
-        if (defaultValue !== undefined && param.rawValue !== defaultValue) {
+        const baseline = baselineParams.get(getParamKey(param));
+        if (baseline !== undefined && param.rawValue !== baseline) {
           return true;
         }
       }
     }
     return false;
-  }, [tabs]);
+  }, [tabs, baselineParams]);
 
-  // Reset all parameters to their default values
   const handleResetDefaults = useCallback(() => {
-    if (!defaultsRef.current) return;
+    if (!baselineParams.size) return;
 
     let newCode = code;
     for (const tab of tabs) {
       for (const param of tab.params) {
-        const defaultValue = defaultsRef.current.get(param.name);
-        if (defaultValue !== undefined && param.rawValue !== defaultValue) {
-          const assignmentPattern = new RegExp(`^(\\s*${param.name}\\s*=\\s*)([^;]+)(;.*)$`, 'gm');
-          newCode = newCode.replace(assignmentPattern, (_, prefix, __, suffix) => {
-            return prefix + defaultValue + suffix;
-          });
-        }
+        const baseline = baselineParams.get(getParamKey(param));
+        if (baseline === undefined || param.rawValue === baseline) continue;
+        newCode = replaceParamValue(newCode, param, baseline);
       }
     }
 
     if (newCode !== code) {
       onChange(newCode);
-      eventBus.emit('code-updated', { code: newCode });
+      eventBus.emit('code-updated', { code: newCode, source: 'customizer' });
     }
-  }, [code, tabs, onChange]);
+  }, [code, onChange, tabs, baselineParams]);
 
-  // Handle parameter value change
+  const handleResetParameter = useCallback(
+    (param: CustomizerParam) => {
+      const baseline = baselineParams.get(getParamKey(param));
+      if (baseline === undefined || param.rawValue === baseline) {
+        return;
+      }
+
+      const newCode = replaceParamValue(code, param, baseline);
+      if (newCode !== code) {
+        onChange(newCode);
+        eventBus.emit('code-updated', { code: newCode, source: 'customizer' });
+      }
+    },
+    [code, onChange, baselineParams]
+  );
+
   const handleParameterChange = useCallback(
-    async (param: CustomizerParam, newValue: string | number | boolean | number[]) => {
-      // Format the new value as OpenSCAD code
+    (param: CustomizerParam, newValue: string | number | boolean | number[]) => {
       let formattedValue: string;
 
       if (typeof newValue === 'boolean') {
@@ -99,7 +268,6 @@ export function CustomizerPanel({ code, onChange }: CustomizerPanelProps) {
       } else if (Array.isArray(newValue)) {
         formattedValue = `[${newValue.join(', ')}]`;
       } else if (typeof newValue === 'string') {
-        // Check if it was originally a string literal
         if (param.rawValue.startsWith('"') || param.rawValue.startsWith("'")) {
           formattedValue = `"${newValue}"`;
         } else {
@@ -109,24 +277,11 @@ export function CustomizerPanel({ code, onChange }: CustomizerPanelProps) {
         formattedValue = String(newValue);
       }
 
-      // Find the assignment in the code and replace the value
-      // Pattern: variableName = oldValue;
-      let newCode = code;
-
-      // Find the line with this parameter assignment
-      // We'll use a more robust approach: find by variable name and replace the value
-      const assignmentPattern = new RegExp(`^(\\s*${param.name}\\s*=\\s*)([^;]+)(;.*)$`, 'gm');
-
-      newCode = code.replace(assignmentPattern, (_, prefix, __, suffix) => {
-        // Preserve trailing comment if exists
-        return prefix + formattedValue + suffix;
-      });
+      const newCode = replaceParamValue(code, param, formattedValue);
 
       if (newCode !== code) {
         onChange(newCode);
-        eventBus.emit('code-updated', { code: newCode });
-        if (import.meta.env.DEV)
-          console.log('[Customizer] Triggered render after parameter change:', param.name);
+        eventBus.emit('code-updated', { code: newCode, source: 'customizer' });
       } else {
         console.warn('[Customizer] Failed to update parameter:', param.name);
       }
@@ -134,107 +289,320 @@ export function CustomizerPanel({ code, onChange }: CustomizerPanelProps) {
     [code, onChange]
   );
 
-  const toggleTab = useCallback((tabName: string) => {
-    setCollapsedTabs((prev) => {
-      const next = new Set(prev);
-      if (next.has(tabName)) {
-        next.delete(tabName);
-      } else {
-        next.add(tabName);
-      }
-      return next;
-    });
-  }, []);
+  const downloadDisabledReason = getDownloadDisabledReason({
+    renderReady,
+    isRendering,
+    previewAvailable,
+    hasRenderErrors,
+  });
 
-  // If no parameters found, show helpful message
+  if (!parserReady) {
+    return (
+      <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <LoadingState />
+      </div>
+    );
+  }
+
   if (tabs.length === 0) {
     return (
       <div
-        className="h-full flex items-center justify-center p-3"
-        style={{ backgroundColor: 'var(--bg-secondary)' }}
+        className="h-full flex flex-col items-center justify-center p-6 gap-5"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+        data-testid="customizer-empty-state"
       >
-        <div className="text-center">
-          <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
-            No parameters found
-          </p>
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            Add customizer comments:
-          </p>
-          <pre
-            className="mt-2 text-left text-xs p-2 rounded"
+        <div className="flex flex-col items-center gap-3 text-center max-w-[220px]">
+          <div
+            className="flex h-11 w-11 items-center justify-center rounded-2xl"
             style={{
-              backgroundColor: 'var(--bg-tertiary)',
-              color: 'var(--text-secondary)',
-              fontSize: '10px',
+              backgroundColor: 'var(--bg-secondary)',
+              color: 'var(--accent-primary)',
             }}
           >
-            {`width = 10; // [0:100]`}
-          </pre>
+            <TbAdjustmentsHorizontal size={22} />
+          </div>
+          <div className="space-y-1.5">
+            <Text variant="section-heading" as="h2" className="leading-snug">
+              No parameters yet
+            </Text>
+            <Text variant="caption" className="leading-relaxed">
+              Ask the AI to add customizer parameters with sliders and labels.
+            </Text>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 w-full max-w-[200px]">
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => onRefineWithAi?.()}
+            className="inline-flex items-center justify-center gap-1.5 text-xs w-full"
+            data-testid="customizer-refine-button"
+          >
+            <TbSparkles size={13} />
+            Refine with AI
+          </Button>
+          {onEditCode && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onEditCode}
+              className="inline-flex items-center justify-center gap-1.5 text-xs w-full"
+            >
+              <TbCode size={13} />
+              Edit Code
+            </Button>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-      <div className="p-3">
-        <div className="flex justify-end mb-2">
-          <button
-            type="button"
-            onClick={handleResetDefaults}
-            disabled={!hasChanges}
-            className="flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors"
-            style={{
-              backgroundColor: hasChanges ? 'var(--bg-tertiary)' : 'transparent',
-              color: hasChanges ? 'var(--text-secondary)' : 'var(--text-tertiary)',
-              cursor: hasChanges ? 'pointer' : 'default',
-              opacity: hasChanges ? 1 : 0.5,
-            }}
-            title="Reset all parameters to default values"
-          >
-            <TbRefresh size={12} />
-            Reset
-          </button>
-        </div>
-        {tabs.map((tab) => {
-          const isCollapsed = collapsedTabs.has(tab.name);
-
-          return (
-            <div key={tab.name} className="mb-3">
-              {/* Tab header - more compact */}
-              <button
-                onClick={() => toggleTab(tab.name)}
-                className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded transition-colors mb-1.5"
-                style={{
-                  backgroundColor: 'var(--bg-tertiary)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                {isCollapsed ? <TbChevronRight size={14} /> : <TbChevronDown size={14} />}
-                <span className="font-medium text-xs">{tab.name}</span>
-                <span
-                  className="text-xs ml-auto"
-                  style={{ color: 'var(--text-secondary)', fontSize: '10px' }}
+    <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div
+        className="sticky top-0 z-10 border-b border-l backdrop-blur"
+        style={{
+          backgroundColor: 'color-mix(in srgb, var(--bg-primary) 92%, transparent)',
+          borderColor: 'var(--border-primary)',
+        }}
+      >
+        {isCustomizerFirstMode ? (
+          <div className="px-4 py-2 space-y-1">
+            <div className="flex items-center gap-2">
+              <Text variant="section-heading" as="h2" className="flex-shrink-0">
+                Customize
+              </Text>
+              {advancedParamCount > 0 && (
+                <div
+                  className="flex items-center gap-1.5 text-xs"
+                  style={{ color: 'var(--text-secondary)' }}
                 >
-                  {tab.params.length}
-                </span>
-              </button>
-
-              {/* Tab content */}
-              {!isCollapsed && (
-                <div className="px-1 space-y-0.5">
-                  {tab.params.map((param) => (
-                    <ParameterControl
-                      key={`${param.name}-${param.line}`}
-                      param={param}
-                      onChange={(newValue) => handleParameterChange(param, newValue)}
-                    />
-                  ))}
+                  <Toggle
+                    checked={showAdvanced}
+                    onChange={(event) => setShowAdvanced(event.target.checked)}
+                    aria-label="Show advanced controls"
+                  />
+                  <span>Advanced</span>
                 </div>
               )}
+              <div className="flex items-center gap-1.5 ml-auto">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onRefineWithAi?.()}
+                  className="inline-flex items-center gap-1"
+                  data-testid="customizer-refine-button"
+                >
+                  <TbSparkles size={12} />
+                  Refine
+                </Button>
+                {previewKind === 'svg' ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={onDownloadSvg}
+                    disabled={Boolean(downloadDisabledReason) || isDownloadingSvg}
+                    className="inline-flex items-center gap-1"
+                    data-testid="customizer-download-button"
+                  >
+                    {isDownloadingSvg ? (
+                      <svg
+                        className="animate-spin"
+                        style={{ width: 12, height: 12 }}
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                    ) : (
+                      <TbDownload size={12} />
+                    )}
+                    Download SVG
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={onDownloadStl}
+                    disabled={Boolean(downloadDisabledReason) || isDownloadingStl}
+                    className="inline-flex items-center gap-1"
+                    data-testid="customizer-download-button"
+                  >
+                    {isDownloadingStl ? (
+                      <svg
+                        className="animate-spin"
+                        style={{ width: 12, height: 12 }}
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                    ) : (
+                      <TbDownload size={12} />
+                    )}
+                    Download STL
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleResetDefaults}
+                  disabled={!hasChanges}
+                  className="inline-flex items-center gap-1"
+                >
+                  <TbRefresh size={12} />
+                  Reset
+                </Button>
+              </div>
             </div>
-          );
-        })}
+            {downloadDisabledReason && (
+              <Text
+                variant="caption"
+                color={hasRenderErrors ? 'error' : 'tertiary'}
+                data-testid="customizer-download-hint"
+              >
+                {downloadDisabledReason}
+              </Text>
+            )}
+          </div>
+        ) : (
+          <div className="px-3 py-1.5 flex items-center justify-between gap-3">
+            <Text variant="section-heading" as="h2">
+              Customize
+            </Text>
+            <div className="flex items-center gap-2">
+              {advancedParamCount > 0 && (
+                <div
+                  className="flex items-center gap-2 text-xs"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <Toggle
+                    checked={showAdvanced}
+                    onChange={(event) => setShowAdvanced(event.target.checked)}
+                    aria-label="Show advanced controls"
+                  />
+                  <span>Advanced</span>
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleResetDefaults}
+                disabled={!hasChanges}
+                className="inline-flex items-center gap-1.5 text-xs"
+              >
+                <TbRefresh size={14} />
+                Reset to defaults
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="p-3 space-y-3">
+        {groupedTabs.map((tab) => (
+          <section key={tab.name} className="space-y-3">
+            {showTabHeaders && (
+              <div className="flex items-center justify-between">
+                <div>
+                  <Text variant="overline">{tab.name}</Text>
+                </div>
+              </div>
+            )}
+
+            {tab.groups.map((group) =>
+              (() => {
+                const shouldFlattenGroup =
+                  tab.groups.length === 1 && isRedundantGroupName(tab.name, group.name);
+
+                if (shouldFlattenGroup) {
+                  return (
+                    <div key={`${tab.name}-${group.id}`} className="space-y-2">
+                      {group.params.map((param) => {
+                        const baseline = baselineParams.get(getParamKey(param));
+                        const isDirty = baseline !== undefined && param.rawValue !== baseline;
+
+                        return (
+                          <ParameterControl
+                            key={`${param.name}-${param.line}`}
+                            param={param}
+                            onChange={(newValue) => handleParameterChange(param, newValue)}
+                            isDirty={isDirty}
+                            onReset={isDirty ? () => handleResetParameter(param) : undefined}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={`${tab.name}-${group.id}`}
+                    className="rounded-xl p-3"
+                    style={{
+                      backgroundColor: 'var(--bg-secondary)',
+                    }}
+                  >
+                    {group.name && !isRedundantGroupName(tab.name, group.name) && (
+                      <div className="mb-2">
+                        <Text variant="overline" weight="medium" className="tracking-[0.08em]">
+                          {group.name}
+                        </Text>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      {group.params.map((param) => {
+                        const baseline = baselineParams.get(getParamKey(param));
+                        const isDirty = baseline !== undefined && param.rawValue !== baseline;
+
+                        return (
+                          <ParameterControl
+                            key={`${param.name}-${param.line}`}
+                            param={param}
+                            onChange={(newValue) => handleParameterChange(param, newValue)}
+                            isDirty={isDirty}
+                            onReset={isDirty ? () => handleResetParameter(param) : undefined}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()
+            )}
+          </section>
+        ))}
       </div>
     </div>
   );

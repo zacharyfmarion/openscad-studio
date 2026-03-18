@@ -28,6 +28,7 @@ export interface WorkspaceState {
   previewKind: RenderKind;
   isRendering: boolean;
   error: string | undefined;
+  renderReady: boolean;
 
   // AI
   isStreaming: boolean;
@@ -63,6 +64,9 @@ export interface WorkspaceState {
   onAcceptDiff: () => void;
   onRejectDiff: () => void;
   onOpenAiSettings: () => void;
+  onOpenCustomizerAiRefine: () => void;
+  onOpenEditorPanel: () => void;
+  onOpenExportDialog: () => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceState | null>(null);

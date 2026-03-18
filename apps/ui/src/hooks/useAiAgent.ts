@@ -50,6 +50,7 @@ import {
   type PreviewSceneStyle,
 } from '../services/previewSceneConfig';
 import { getRelativeProjectPath, normalizeProjectRelativePath } from '../utils/projectFilePaths';
+import { updateSetting, loadSettings, type MeasurementUnit } from '../stores/settingsStore';
 
 const EMPTY_DRAFT: AiDraft = {
   text: '',
@@ -180,6 +181,7 @@ export function useAiAgent() {
   const currentFilePathRef = useRef<string | null>(null);
   const auxiliaryFilesRef = useRef<Record<string, string>>({});
   const previewSceneStyleRef = useRef<PreviewSceneStyle>(FALLBACK_PREVIEW_SCENE_STYLE);
+  const measurementUnitRef = useRef<MeasurementUnit>(loadSettings().viewer.measurementUnit);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeTurnRef = useRef<ActiveTurnState | null>(null);
   const committedMessagesRef = useRef<Message[]>(state.messages);
@@ -256,6 +258,11 @@ export function useAiAgent() {
         }
 
         return platform.readTextFile(`${workingDir}/${normalizedPath}`);
+      },
+      getMeasurementUnit: () => measurementUnitRef.current,
+      setMeasurementUnit: (unit: MeasurementUnit) => {
+        measurementUnitRef.current = unit;
+        updateSetting('viewer', { measurementUnit: unit });
       },
     }),
     []
@@ -657,9 +664,18 @@ export function useAiAgent() {
         const model = createModel(provider, apiKey, currentState.currentModel);
         const modelMessages = messagesToModelMessages(updatedMessages, currentState.attachments);
 
+        const measurementUnit = callbacks.getMeasurementUnit();
+        const unitLabels: Record<MeasurementUnit, string> = {
+          mm: 'millimeters',
+          cm: 'centimeters',
+          in: 'inches',
+          units: 'dimensionless',
+        };
+        const dynamicSystem = `${SYSTEM_PROMPT}\n\nCurrent measurement unit: ${measurementUnit} (${unitLabels[measurementUnit]}) — all displayed dimensions use this unit`;
+
         const result = await startAiStream({
           model,
-          system: SYSTEM_PROMPT,
+          system: dynamicSystem,
           messages: modelMessages,
           tools,
           stopWhen: stepCountIs(MAX_AGENT_STEPS),

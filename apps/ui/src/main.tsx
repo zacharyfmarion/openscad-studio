@@ -72,6 +72,7 @@ function renderBootstrapError(error: unknown) {
         >
           {message}
         </pre>
+        {/* eslint-disable-next-line no-restricted-syntax -- bootstrap error screen runs before React context is mounted; <Button> depends on theme context which has not been initialized at this point */}
         <button
           type="button"
           onClick={() => window.location.reload()}
@@ -80,7 +81,7 @@ function renderBootstrapError(error: unknown) {
             background: '#268bd2',
             color: '#002b36',
             border: 'none',
-            borderRadius: '0.5rem',
+            borderRadius: 'var(--radius-md, 8px)',
             fontSize: '0.9375rem',
             fontWeight: 600,
             cursor: 'pointer',

@@ -8,19 +8,12 @@ import type {
 } from './types';
 import { findClosestGeometrySnapTarget } from './geometrySnap';
 import { svgToClientPoint } from './viewportMath';
+import type { MeasurementUnit } from '../../stores/settingsStore';
+import { formatWithUnit } from '../../utils/measurementUnits';
 
 const SNAP_THRESHOLD_PX = 12;
 const SNAP_PRIORITY_DISTANCE_LEEWAY_PX = 4;
 const ANGLE_LOCK_INCREMENT_DEGREES = 15;
-
-function formatNumber(value: number): string {
-  if (!Number.isFinite(value)) {
-    return '0';
-  }
-
-  const rounded = Math.abs(value) >= 100 ? value.toFixed(1) : value.toFixed(2);
-  return rounded.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
-}
 
 function midpoint(a: SvgPoint, b: SvgPoint): SvgPoint {
   return {
@@ -82,12 +75,15 @@ export function createCommittedMeasurement(
   };
 }
 
-export function formatMeasurementReadout(measurement: { start: SvgPoint; end: SvgPoint }) {
+export function formatMeasurementReadout(
+  measurement: { start: SvgPoint; end: SvgPoint },
+  unit: MeasurementUnit = 'mm'
+) {
   const dx = measurement.end.x - measurement.start.x;
   const dy = measurement.end.y - measurement.start.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
 
-  return `Distance ${formatNumber(distance)} mm`;
+  return `Distance ${formatWithUnit(distance, unit)}`;
 }
 
 export function getMeasurementMidpoint(measurement: { start: SvgPoint; end: SvgPoint }) {
@@ -289,7 +285,7 @@ export function resolveMeasurementPlacement(args: {
   };
 }
 
-export function getDraftMeasurementPreview(draft: MeasurementDraft) {
+export function getDraftMeasurementPreview(draft: MeasurementDraft, unit: MeasurementUnit = 'mm') {
   if (draft.status !== 'placing-end' || !draft.start || !draft.current) {
     return null;
   }
@@ -298,10 +294,7 @@ export function getDraftMeasurementPreview(draft: MeasurementDraft) {
     start: draft.start,
     end: draft.current,
     midpoint: midpoint(draft.start, draft.current),
-    readout: formatMeasurementReadout({
-      start: draft.start,
-      end: draft.current,
-    }),
+    readout: formatMeasurementReadout({ start: draft.start, end: draft.current }, unit),
   };
 }
 

@@ -1,6 +1,7 @@
 import { ThreeViewer } from './ThreeViewer';
 import { SvgViewer } from './SvgViewer';
 import { InlineErrorBoundary } from './ErrorBoundary';
+import { Text } from './ui';
 import type { RenderKind } from '../hooks/useOpenScad';
 
 interface PreviewProps {
@@ -36,8 +37,12 @@ export function Preview({ src, kind, isRendering, error, viewerId }: PreviewProp
             borderColor: 'var(--color-error)',
           }}
         >
-          <p className="font-semibold">Render Error</p>
-          <p className="text-sm mt-1 whitespace-pre-wrap">{error}</p>
+          <Text variant="body" weight="semibold" color="error">
+            Render Error
+          </Text>
+          <Text variant="body" color="error" className="mt-1 whitespace-pre-wrap">
+            {error}
+          </Text>
         </div>
       </div>
     );
@@ -50,7 +55,9 @@ export function Preview({ src, kind, isRendering, error, viewerId }: PreviewProp
         className="w-full h-full flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
-        <p style={{ color: 'var(--text-tertiary)' }}>No preview available</p>
+        <Text variant="body" color="tertiary">
+          No preview available
+        </Text>
       </div>
     );
   }
@@ -72,7 +79,9 @@ export function Preview({ src, kind, isRendering, error, viewerId }: PreviewProp
       className="w-full h-full flex items-center justify-center"
       style={{ backgroundColor: 'var(--bg-primary)' }}
     >
-      <p style={{ color: 'var(--color-error)' }}>Unexpected render format: {kind}</p>
+      <Text variant="body" color="error">
+        Unexpected render format: {kind}
+      </Text>
     </div>
   );
 }

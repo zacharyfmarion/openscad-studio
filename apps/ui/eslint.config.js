@@ -19,5 +19,63 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
+  },
+  {
+    // Ban raw heading and paragraph JSX outside of exempted components.
+    // Use <Text> from components/ui instead.
+    files: ['**/*.tsx'],
+    ignores: [
+      'src/components/ui/Text.tsx',
+      'src/components/MarkdownMessage.tsx',
+      'src/components/ErrorBoundary.tsx',
+      'src/components/DiffViewer.tsx',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'JSXOpeningElement[name.name="h1"]',
+          message: 'Use <Text variant="page-heading"> from components/ui instead of a raw <h1>.',
+        },
+        {
+          selector: 'JSXOpeningElement[name.name="h2"]',
+          message:
+            'Use <Text variant="panel-title"> or <Text variant="section-heading"> from components/ui instead of a raw <h2>.',
+        },
+        {
+          selector: 'JSXOpeningElement[name.name="h3"]',
+          message: 'Use <Text variant="section-heading"> from components/ui instead of a raw <h3>.',
+        },
+        {
+          selector: 'JSXOpeningElement[name.name="h4"]',
+          message: 'Use <Text variant="section-heading"> from components/ui instead of a raw <h4>.',
+        },
+        {
+          selector: 'JSXOpeningElement[name.name="p"]',
+          message:
+            'Use <Text variant="body"> or <Text variant="caption"> from components/ui instead of a raw <p>.',
+        },
+      ],
+    },
+  },
+  {
+    // Ban raw <button> JSX outside of UI primitive components.
+    // Use <Button> or <IconButton> from components/ui instead.
+    files: ['**/*.tsx'],
+    ignores: [
+      'src/components/ui/Button.tsx',
+      'src/components/ui/IconButton.tsx',
+      'src/components/ui/SegmentedControl.tsx',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'JSXOpeningElement[name.name="button"]',
+          message:
+            'Use <Button> or <IconButton> from components/ui instead of a raw <button> element.',
+        },
+      ],
+    },
   }
 );

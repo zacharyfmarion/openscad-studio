@@ -22,6 +22,8 @@ import {
   addPresetPanels,
   saveLayout,
   clearSavedLayout,
+  MOBILE_LAYOUT_MEDIA_QUERY,
+  openPanel,
 } from './stores/layoutStore';
 import { useOpenScad } from './hooks/useOpenScad';
 import { useAiAgent } from './hooks/useAiAgent';
@@ -142,17 +144,18 @@ function DownloadForMacLink() {
       <div className="flex items-center">
         <a
           href={dmgUrl}
-          className="flex items-center gap-1 text-xs px-2 py-1 rounded-l transition-colors"
+          className="flex items-center gap-1 text-xs px-2 py-1 rounded-l-lg transition-colors"
           style={{ color: 'var(--text-secondary)' }}
           title={`Download for macOS (${label})`}
         >
           <TbDownload size={13} />
           <span>Download for Mac</span>
         </a>
+        {/* eslint-disable-next-line no-restricted-syntax -- right half of a split-button (rounded-r-lg only); fusing with the <a> download link means this can't be a standalone <Button> without breaking the split-button layout */}
         <button
           type="button"
           onClick={() => setShowDropdown((v) => !v)}
-          className="text-xs px-1 py-1 rounded-r transition-colors"
+          className="text-xs px-1 py-1 rounded-r-lg transition-colors"
           style={{ color: 'var(--text-tertiary)' }}
           title="Other architectures"
         >
@@ -161,7 +164,7 @@ function DownloadForMacLink() {
       </div>
       {showDropdown && (
         <div
-          className="absolute right-0 top-full mt-1 rounded-md shadow-lg border text-xs z-50 min-w-[160px]"
+          className="absolute right-0 top-full mt-1 rounded-lg shadow-lg border text-xs z-50 min-w-[160px]"
           style={{
             backgroundColor: 'var(--bg-elevated)',
             borderColor: 'var(--border-secondary)',
@@ -200,6 +203,7 @@ function App() {
   const createTab = useWorkspaceStore((state) => state.createTab);
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
   const updateWorkspaceTabContent = useWorkspaceStore((state) => state.updateTabContent);
+  const setTabCustomizerBase = useWorkspaceStore((state) => state.setTabCustomizerBase);
   const renameTab = useWorkspaceStore((state) => state.renameTab);
   const markTabSaved = useWorkspaceStore((state) => state.markTabSaved);
   const closeTabLocal = useWorkspaceStore((state) => state.closeTabLocal);
@@ -301,13 +305,21 @@ function App() {
 
   const handleUndo = useCallback(async () => {
     const checkpoint = await undo();
-    if (checkpoint) updateSource(checkpoint.code);
-  }, [undo, updateSource]);
+    if (checkpoint) {
+      updateSource(checkpoint.code);
+      updateWorkspaceTabContent(activeTabId, checkpoint.code);
+      setTabCustomizerBase(activeTabId, checkpoint.code);
+    }
+  }, [activeTabId, setTabCustomizerBase, undo, updateSource, updateWorkspaceTabContent]);
 
   const handleRedo = useCallback(async () => {
     const checkpoint = await redo();
-    if (checkpoint) updateSource(checkpoint.code);
-  }, [redo, updateSource]);
+    if (checkpoint) {
+      updateSource(checkpoint.code);
+      updateWorkspaceTabContent(activeTabId, checkpoint.code);
+      setTabCustomizerBase(activeTabId, checkpoint.code);
+    }
+  }, [activeTabId, redo, setTabCustomizerBase, updateSource, updateWorkspaceTabContent]);
 
   const aiPromptPanelRef = useRef<AiPromptPanelRef>(null);
   const analytics = useAnalytics();
@@ -440,6 +452,14 @@ function App() {
       updateWorkspaceTabContent(id, content);
     },
     [updateWorkspaceTabContent]
+  );
+
+  const updateTabContentAndCustomizerBase = useCallback(
+    (id: string, content: string) => {
+      updateWorkspaceTabContent(id, content);
+      setTabCustomizerBase(id, content);
+    },
+    [setTabCustomizerBase, updateWorkspaceTabContent]
   );
 
   const reorderTabs = useCallback(
@@ -630,7 +650,10 @@ function App() {
               indentSize: currentSettings.editor.indentSize,
               useTabs: currentSettings.editor.useTabs,
             });
-            updateSource(currentSource);
+            if (currentSource !== sourceRef.current) {
+              updateSource(currentSource);
+              updateTabContentAndCustomizerBase(currentTab.id, currentSource);
+            }
           } catch (err) {
             console.error('[saveFile] Failed to format code:', err);
           }
@@ -696,7 +719,7 @@ function App() {
         return false;
       }
     },
-    [analytics, markTabSaved, updateSource]
+    [analytics, markTabSaved, updateSource, updateTabContentAndCustomizerBase]
   );
 
   const handleStartWithDraft = useCallback(
@@ -715,7 +738,7 @@ function App() {
   }, [hideWelcomeScreen]);
 
   const handleNuxSelect = useCallback(
-    (preset: 'default' | 'ai-first') => {
+    (preset: 'default' | 'ai-first' | 'customizer-first') => {
       updateSetting('ui', { hasCompletedNux: true, defaultLayoutPreset: preset });
       setShowNux(false);
       analytics.track('workspace layout selected', {
@@ -732,6 +755,21 @@ function App() {
     },
     [analytics]
   );
+
+  const handleOpenCustomizerAiRefine = useCallback(() => {
+    openPanel('ai-chat', 'ai-chat', 'AI');
+    window.setTimeout(() => {
+      aiPromptPanelRef.current?.focusPrompt();
+    }, 0);
+  }, []);
+
+  const handleOpenEditorPanel = useCallback(() => {
+    openPanel('editor', 'editor', 'Editor');
+  }, []);
+
+  const handleOpenExportDialog = useCallback(() => {
+    setShowExportDialog(true);
+  }, []);
 
   const handleOpenRecent = useCallback(
     async (path: string) => {
@@ -1096,18 +1134,21 @@ function App() {
   useEffect(() => {
     const unlisten = eventBus.on('history:restore', ({ code }) => {
       updateSourceAndRenderRef.current(code, 'history_restore');
-      updateWorkspaceTabContent(activeTabId, code);
+      updateTabContentAndCustomizerBase(activeTabId, code);
     });
     return unlisten;
-  }, [activeTabId, updateWorkspaceTabContent]);
+  }, [activeTabId, updateTabContentAndCustomizerBase]);
 
   useEffect(() => {
-    const unlisten = eventBus.on('code-updated', ({ code }) => {
+    const unlisten = eventBus.on('code-updated', ({ code, source: eventSource }) => {
       updateSourceAndRenderRef.current(code, 'code_update');
       updateWorkspaceTabContent(activeTabId, code);
+      if (eventSource !== 'customizer') {
+        setTabCustomizerBase(activeTabId, code);
+      }
     });
     return unlisten;
-  }, [activeTabId, updateWorkspaceTabContent]);
+  }, [activeTabId, setTabCustomizerBase, updateWorkspaceTabContent]);
 
   const previousSettingsDialogRef = useRef(false);
   useEffect(() => {
@@ -1202,7 +1243,11 @@ function App() {
 
     clearSavedLayout();
     const savedPreset = loadSettings().ui.defaultLayoutPreset;
-    addPresetPanels(api, savedPreset);
+    const layoutMode =
+      typeof window !== 'undefined' && window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY).matches
+        ? 'mobile'
+        : 'desktop';
+    addPresetPanels(api, savedPreset, layoutMode);
 
     let timer: ReturnType<typeof setTimeout> | null = null;
     api.onDidLayoutChange(() => {
@@ -1230,6 +1275,7 @@ function App() {
       previewKind: activePreviewKind,
       isRendering,
       error: activeError,
+      renderReady: ready,
       isStreaming,
       streamingResponse,
       proposedDiff,
@@ -1265,6 +1311,9 @@ function App() {
         setSettingsInitialTab('ai');
         setShowSettingsDialog(true);
       },
+      onOpenCustomizerAiRefine: handleOpenCustomizerAiRefine,
+      onOpenEditorPanel: handleOpenEditorPanel,
+      onOpenExportDialog: handleOpenExportDialog,
     }),
     [
       source,
@@ -1282,6 +1331,7 @@ function App() {
       activePreviewKind,
       isRendering,
       activeError,
+      ready,
       isStreaming,
       streamingResponse,
       proposedDiff,
@@ -1310,6 +1360,9 @@ function App() {
       newConversation,
       setCurrentModel,
       handleRestoreCheckpoint,
+      handleOpenCustomizerAiRefine,
+      handleOpenEditorPanel,
+      handleOpenExportDialog,
     ]
   );
 

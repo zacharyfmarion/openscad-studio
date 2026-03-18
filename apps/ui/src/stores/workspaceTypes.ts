@@ -21,6 +21,7 @@ export interface WorkspaceTab {
   filePath: string | null;
   name: string;
   content: string;
+  customizerBaseContent: string;
   savedContent: string;
   isDirty: boolean;
   render: TabRenderState;
@@ -41,6 +42,7 @@ export interface WorkspaceStoreActions {
   }) => TabId;
   setActiveTab: (id: TabId) => void;
   updateTabContent: (id: TabId, content: string) => void;
+  setTabCustomizerBase: (id: TabId, content: string) => void;
   renameTab: (id: TabId, name: string) => void;
   markTabSaved: (
     id: TabId,

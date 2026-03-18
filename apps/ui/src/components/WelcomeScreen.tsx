@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import type { ModelSelectionSurface } from '../analytics/runtime';
-import { Button } from './ui';
+import { Button, Text } from './ui';
 import { AiComposer } from './AiComposer';
 import { ModelSelector } from './ModelSelector';
+import { TbFileText } from 'react-icons/tb';
 import { getPlatform } from '../platform';
 import { useHasApiKey } from '../stores/apiKeyStore';
 import type { AiDraft, AttachmentStore } from '../types/aiChat';
@@ -130,12 +131,9 @@ export function WelcomeScreen({
       style={{ backgroundColor: 'var(--bg-primary)' }}
     >
       <div className="w-full max-w-3xl space-y-8">
-        <h1
-          className="text-4xl font-bold text-center mb-8"
-          style={{ color: 'var(--text-primary)' }}
-        >
+        <Text variant="page-heading" className="text-center mb-8">
           What do you want to create?
-        </h1>
+        </Text>
 
         {hasApiKey ? (
           <div data-testid="welcome-ai-entry" className="space-y-6 ph-no-capture">
@@ -166,30 +164,24 @@ export function WelcomeScreen({
               onSubmit={onStartWithDraft}
             />
             <div className="space-y-3">
-              <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+              <Text variant="section-heading" weight="medium" color="secondary">
                 Try an example:
-              </h3>
+              </Text>
               <div className="flex flex-wrap gap-2">
                 {EXAMPLE_PROMPTS.map((example) => (
-                  <button
+                  <Button
                     key={example}
+                    size="sm"
+                    variant="secondary"
                     onClick={() => {
                       if (!hasApiKey) return;
                       onStartWithDraft({ text: example, attachmentIds: [] });
                     }}
                     disabled={!hasApiKey}
-                    className="px-3 py-1.5 rounded-lg text-sm transition-colors border"
-                    style={{
-                      backgroundColor: 'var(--bg-secondary)',
-                      color: hasApiKey ? 'var(--text-secondary)' : 'var(--text-tertiary)',
-                      borderColor: 'var(--border-secondary)',
-                      opacity: hasApiKey ? 1 : 0.5,
-                      cursor: hasApiKey ? 'pointer' : 'not-allowed',
-                    }}
                     title={!hasApiKey ? 'Configure an API key in Settings to use AI' : example}
                   >
                     {example}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -202,10 +194,10 @@ export function WelcomeScreen({
               border: '1px solid var(--border-secondary)',
             }}
           >
-            <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
+            <Text variant="body" className="mb-2">
               Set up an API key to use the AI assistant
-            </p>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            </Text>
+            <Text variant="caption" color="tertiary">
               <a
                 href="#"
                 onClick={(event) => {
@@ -218,16 +210,17 @@ export function WelcomeScreen({
                 Open Settings
               </a>{' '}
               to configure (⌘,)
-            </p>
+            </Text>
           </div>
         ) : null}
 
         {showRecentFiles && recentFilesReady && recentFiles.length > 0 && (
-          <div className="space-y-3 pt-4">
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+          <div className="space-y-3 -mt-2">
+            <Text variant="section-heading" weight="medium" color="secondary">
               Recent files:
-            </h3>
+            </Text>
             <div className="space-y-2">
+              {/* eslint-disable no-restricted-syntax -- recent file rows are card-like list items with internal layout (icon + text + chevron); <Button> doesn't support full-width card layouts with multiple child columns */}
               {recentFiles.map((file) => (
                 <button
                   key={file.path}
@@ -241,7 +234,13 @@ export function WelcomeScreen({
                   }}
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="text-lg">📄</div>
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{ color: 'var(--text-tertiary)' }}
+                      aria-hidden="true"
+                    >
+                      <TbFileText size={22} />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {file.name}
@@ -269,11 +268,12 @@ export function WelcomeScreen({
                   </svg>
                 </button>
               ))}
+              {/* eslint-enable no-restricted-syntax */}
             </div>
           </div>
         )}
 
-        <div className="flex justify-center gap-4 pt-4">
+        <div className="flex justify-center gap-4">
           {onOpenFile && (
             <Button variant="secondary" onClick={onOpenFile} className="text-sm">
               Open File

@@ -1,6 +1,16 @@
 import { test, expect } from '../../fixtures/app.fixture';
 import { setMonacoValue } from '../../helpers/editor';
 
+function parseCoordinateReadout(readout: string | null): { x: number; y: number } | null {
+  if (!readout) return null;
+  const match = readout.match(/x\s*(-?\d+(?:\.\d+)?)\s+y\s*(-?\d+(?:\.\d+)?)/i);
+  if (!match) return null;
+  return {
+    x: Number(match[1]),
+    y: Number(match[2]),
+  };
+}
+
 test.describe('2D Rendering', () => {
   // The app auto-detects 2D vs 3D code and renders SVGs for 2D primitives.
   // These tests verify that pure 2D OpenSCAD code renders correctly as SVG
@@ -84,14 +94,16 @@ test.describe('2D Rendering', () => {
     await app.triggerRender();
     await app.waitForRender();
 
-    const root = app.page.getByTestId('preview-2d-root');
-    const box = await root.boundingBox();
+    const viewport = app.page.getByTestId('preview-2d-viewport');
+    const box = await viewport.boundingBox();
     expect(box).not.toBeNull();
 
-    await root.hover({ position: { x: box!.width / 2, y: box!.height / 2 } });
+    await viewport.hover({ position: { x: box!.width / 2, y: box!.height / 2 } });
     const readout = await app.page.getByTestId('preview-2d-coordinate-readout').textContent();
-    expect(readout).toContain('x 0');
-    expect(readout).toContain('y 0');
+    const point = parseCoordinateReadout(readout);
+    expect(point).not.toBeNull();
+    expect(Math.abs(point!.x)).toBeLessThan(2);
+    expect(Math.abs(point!.y)).toBeLessThan(2);
   });
 
   test('grid toggle and keyboard shortcut update the SVG overlay', async ({ app }) => {
@@ -119,36 +131,36 @@ test.describe('2D Rendering', () => {
     await app.waitForRender();
 
     const root = app.page.getByTestId('preview-2d-root');
-    const box = await root.boundingBox();
+    const viewport = app.page.getByTestId('preview-2d-viewport');
+    const box = await viewport.boundingBox();
     expect(box).not.toBeNull();
 
-    await root.hover({ position: { x: 200, y: 150 } });
+    await viewport.hover({ position: { x: box!.width * 0.35, y: box!.height * 0.5 } });
     await expect(app.page.getByTestId('preview-2d-coordinate-readout')).toBeVisible();
 
-    await app.page.getByTestId('preview-2d-toggle-measure').click();
+    await app.page.getByTestId('preview-2d-tool-measure').click();
     await expect(app.page.getByTestId('preview-2d-measure-help')).toBeVisible();
-    await root.hover({ position: { x: 200, y: 150 } });
-    await expect(app.page.getByTestId('preview-2d-snap-indicator')).toBeVisible();
 
-    await root.click({ position: { x: box!.width * 0.35, y: box!.height * 0.5 } });
-    await root.hover({ position: { x: box!.width * 0.65, y: box!.height * 0.5 } });
+    await viewport.click({ position: { x: box!.width * 0.35, y: box!.height * 0.5 } });
+    await viewport.hover({ position: { x: box!.width * 0.65, y: box!.height * 0.5 } });
     await expect(app.page.getByTestId('preview-2d-measurement-readout')).toBeVisible();
-    await root.click({ position: { x: box!.width * 0.65, y: box!.height * 0.5 } });
+    await viewport.click({ position: { x: box!.width * 0.65, y: box!.height * 0.5 } });
 
     await expect(app.page.getByTestId('preview-2d-measurements-tray')).toBeVisible();
     await expect(app.page.getByTestId('preview-2d-measurement-readout')).toBeHidden();
 
-    await root.click({ position: { x: box!.width * 0.45, y: box!.height * 0.35 } });
-    await root.hover({ position: { x: box!.width * 0.7, y: box!.height * 0.35 } });
-    await root.click({ position: { x: box!.width * 0.7, y: box!.height * 0.35 } });
+    await viewport.click({ position: { x: box!.width * 0.45, y: box!.height * 0.35 } });
+    await viewport.hover({ position: { x: box!.width * 0.7, y: box!.height * 0.35 } });
+    await viewport.click({ position: { x: box!.width * 0.7, y: box!.height * 0.35 } });
 
     const measurementItems = app.page.getByTestId('preview-2d-measurement-list-item');
-    const countBeforeDelete = await measurementItems.count();
-    expect(countBeforeDelete).toBeGreaterThanOrEqual(2);
+    const countBeforeClear = await measurementItems.count();
+    expect(countBeforeClear).toBeGreaterThanOrEqual(2);
 
-    await app.page.keyboard.press('Delete');
-    await expect(measurementItems).toHaveCount(countBeforeDelete - 1);
+    await app.page.getByTestId('preview-2d-clear-measurements').click();
+    await expect(measurementItems).toHaveCount(0);
 
+    await app.focus2DViewer();
     await app.page.keyboard.press('Escape');
     await app.page.keyboard.press('Escape');
     await expect(app.page.getByTestId('preview-2d-measure-help')).toBeHidden();

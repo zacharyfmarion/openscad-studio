@@ -249,6 +249,7 @@ export const AiComposer = forwardRef<AiComposerRef, AiComposerProps>(
                           : 'var(--border-secondary)',
                   }}
                 >
+                  {/* eslint-disable-next-line no-restricted-syntax -- absolute overlay X button on an image thumbnail (h-5 w-5 rounded-full); neither <Button> nor <IconButton> supports this 20px pill-dismiss size without className fights */}
                   <button
                     type="button"
                     onClick={() =>

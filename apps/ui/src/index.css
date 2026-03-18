@@ -4,6 +4,12 @@
 
 /* Theme CSS Variables - Default (Solarized Dark) */
 :root {
+  /* Radius scale */
+  --radius-md: 8px; /* interactive controls: buttons, inputs, selects */
+  --radius-lg: 12px; /* cards & panels */
+  --radius-xl: 16px; /* dialogs & prominent empty states */
+  --radius-full: 9999px; /* pills: toggles, badges */
+
   --bg-primary: #002b36;
   --bg-secondary: #073642;
   --bg-tertiary: #586e75;
@@ -69,6 +75,16 @@
   background-color: var(--accent-primary);
   transition: background-color 0.15s ease;
   transition-delay: 0.2s;
+}
+
+/* Hide native spinner arrows on number inputs in the customizer */
+.customizer-number-input::-webkit-inner-spin-button,
+.customizer-number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.customizer-number-input {
+  -moz-appearance: textfield;
 }
 
 @layer base {

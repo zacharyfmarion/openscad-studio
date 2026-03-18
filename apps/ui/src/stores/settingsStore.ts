@@ -17,19 +17,27 @@ export interface AppearanceSettings {
 export interface UiSettings {
   customizerWidth: number;
   hasCompletedNux: boolean;
-  defaultLayoutPreset: 'default' | 'ai-first';
+  defaultLayoutPreset: 'default' | 'ai-first' | 'customizer-first';
   hasDismissedViewerControlsHint: boolean;
 }
+
+export type MeasurementUnit = 'mm' | 'cm' | 'in' | 'units';
 
 export interface ViewerSettings {
   showAxes: boolean;
   showAxisLabels: boolean;
+  show3DGrid: boolean;
+  showShadows: boolean;
+  showViewcube: boolean;
+  measurementSnapEnabled: boolean;
+  showSelectionInfo: boolean;
   show2DAxes: boolean;
   show2DGrid: boolean;
   show2DOrigin: boolean;
   show2DBounds: boolean;
   show2DCursorCoords: boolean;
   enable2DGridSnap: boolean;
+  measurementUnit: MeasurementUnit;
 }
 
 export interface LibrarySettings {
@@ -97,12 +105,18 @@ const DEFAULT_SETTINGS: Settings = {
   viewer: {
     showAxes: true,
     showAxisLabels: true,
+    show3DGrid: true,
+    showShadows: true,
+    showViewcube: true,
+    measurementSnapEnabled: true,
+    showSelectionInfo: true,
     show2DAxes: true,
     show2DGrid: true,
     show2DOrigin: true,
     show2DBounds: false,
     show2DCursorCoords: true,
     enable2DGridSnap: true,
+    measurementUnit: 'mm',
   },
   library: {
     customPaths: [],

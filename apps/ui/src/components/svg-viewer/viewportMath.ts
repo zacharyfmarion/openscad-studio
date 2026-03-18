@@ -50,13 +50,16 @@ export function fitViewportToBounds(
   });
 }
 
+// 96 CSS pixels per inch, 25.4 mm per inch → 1mm = 96/25.4 CSS px
+const MM_TO_CSS_PX = 96 / 25.4;
+
 export function actualSizeViewport(
   bounds: SvgBounds,
   containerWidth: number,
   containerHeight: number,
   source: SvgViewportState['interactionSource'] = 'toolbar'
 ): SvgViewportState {
-  const scale = 1;
+  const scale = MM_TO_CSS_PX;
   const centerX = bounds.minX + bounds.width / 2;
   const centerY = bounds.minY + bounds.height / 2;
 

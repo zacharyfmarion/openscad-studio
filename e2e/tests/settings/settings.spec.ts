@@ -73,7 +73,7 @@ test('settings dialog closes on escape', async ({ app }) => {
   await expect(settingsHeading).toBeVisible();
   await app.page.keyboard.press('Escape');
   if (await settingsHeading.isVisible().catch(() => false)) {
-    await app.page.getByRole('button', { name: /close|cancel/i }).click();
+    await app.page.getByTestId('settings-close-button').click();
   }
   await expect(settingsHeading).toBeHidden();
 });

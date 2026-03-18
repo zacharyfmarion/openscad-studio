@@ -5,6 +5,9 @@ import type { PreviewSceneStyle } from './previewSceneConfig';
 const AXIS_ELEVATION = 0.02;
 const AXIS_LINE_EXTENT_MULTIPLIER = 20;
 const MIN_AXIS_LINE_EXTENT = 10_000;
+// Target label height as a fraction of the visible viewport height (keeps labels
+// roughly constant in screen-space regardless of zoom level).
+const LABEL_SCREEN_FRACTION = 0.018;
 type Disposable = { dispose: () => void };
 type AxisLabelKey = 'x' | 'y' | 'z' | 'origin';
 
@@ -26,6 +29,10 @@ export function createPreviewAxesOverlay(
     z: [],
     origin: [],
   };
+  // All sprites with their creation-time height and aspect, used for distance-based scaling.
+  const allLabelSprites: Array<{ sprite: THREE.Sprite; aspect: number; baseHeight: number }> = [];
+  // Reference height used when computing the scale factor (tick label size).
+  const referenceHeight = axisMetrics.majorTickSize * 1.2;
   const lineExtent = Math.max(
     axisMetrics.axisExtent * AXIS_LINE_EXTENT_MULTIPLIER,
     MIN_AXIS_LINE_EXTENT
@@ -124,6 +131,7 @@ export function createPreviewAxesOverlay(
   }
 
   if (showLabels) {
+    // X-axis tick labels (Three.js X = OpenSCAD X, no sign change)
     for (
       let value = -axisMetrics.axisExtent;
       value <= axisMetrics.axisExtent + axisMetrics.labelStep * 0.5;
@@ -132,7 +140,6 @@ export function createPreviewAxesOverlay(
       if (Math.abs(value) < axisMetrics.labelStep * 0.25) {
         continue;
       }
-
       group.add(
         createLabelSprite(
           formatAxisLabel(value, axisMetrics.labelPrecision),
@@ -140,19 +147,43 @@ export function createPreviewAxesOverlay(
           axisMetrics.majorTickSize * 1.2,
           sceneStyle,
           disposables,
-          labelSprites.x
+          labelSprites.x,
+          allLabelSprites
         )
       );
+    }
+
+    // Y-axis tick labels (Three.js Z = OpenSCAD −Y, so negate for display)
+    for (
+      let value = -axisMetrics.axisExtent;
+      value <= axisMetrics.axisExtent + axisMetrics.labelStep * 0.5;
+      value += axisMetrics.labelStep
+    ) {
+      if (Math.abs(value) < axisMetrics.labelStep * 0.25) {
+        continue;
+      }
       group.add(
         createLabelSprite(
-          formatAxisLabel(value, axisMetrics.labelPrecision),
+          formatAxisLabel(-value, axisMetrics.labelPrecision),
           [axisMetrics.majorTickSize * 1.8, AXIS_ELEVATION, value],
           axisMetrics.majorTickSize * 1.2,
           sceneStyle,
           disposables,
-          labelSprites.y
+          labelSprites.y,
+          allLabelSprites
         )
       );
+    }
+
+    // Z-axis tick labels (Three.js Y = OpenSCAD Z, no sign change)
+    for (
+      let value = -axisMetrics.axisExtent;
+      value <= axisMetrics.axisExtent + axisMetrics.labelStep * 0.5;
+      value += axisMetrics.labelStep
+    ) {
+      if (Math.abs(value) < axisMetrics.labelStep * 0.25) {
+        continue;
+      }
       group.add(
         createLabelSprite(
           formatAxisLabel(value, axisMetrics.labelPrecision),
@@ -160,7 +191,8 @@ export function createPreviewAxesOverlay(
           axisMetrics.majorTickSize * 1.2,
           sceneStyle,
           disposables,
-          labelSprites.z
+          labelSprites.z,
+          allLabelSprites
         )
       );
     }
@@ -172,7 +204,8 @@ export function createPreviewAxesOverlay(
         axisMetrics.majorTickSize * 1.1,
         sceneStyle,
         disposables,
-        labelSprites.origin
+        labelSprites.origin,
+        allLabelSprites
       )
     );
     group.add(
@@ -183,17 +216,20 @@ export function createPreviewAxesOverlay(
         sceneStyle,
         disposables,
         labelSprites.x,
+        allLabelSprites,
         sceneStyle.axis.xColor
       )
     );
+    // Y label at Three.js −Z (= OpenSCAD +Y direction)
     group.add(
       createLabelSprite(
         'Y',
-        [0, AXIS_ELEVATION, axisMetrics.axisExtent + axisMetrics.majorTickSize * 1.8],
+        [0, AXIS_ELEVATION, -(axisMetrics.axisExtent + axisMetrics.majorTickSize * 1.8)],
         axisMetrics.majorTickSize * 1.5,
         sceneStyle,
         disposables,
         labelSprites.y,
+        allLabelSprites,
         sceneStyle.axis.yColor
       )
     );
@@ -205,6 +241,7 @@ export function createPreviewAxesOverlay(
         sceneStyle,
         disposables,
         labelSprites.z,
+        allLabelSprites,
         sceneStyle.axis.zColor
       )
     );
@@ -217,6 +254,27 @@ export function createPreviewAxesOverlay(
       for (const sprite of sprites) {
         sprite.visible = visibility[axis];
       }
+    }
+  };
+
+  group.userData.updateLabelScales = (camera: THREE.Camera) => {
+    let targetHeight: number;
+
+    if (camera instanceof THREE.PerspectiveCamera) {
+      const dist = camera.position.length();
+      const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      targetHeight = LABEL_SCREEN_FRACTION * 2 * dist * tanHalfFov;
+    } else {
+      const oc = camera as THREE.OrthographicCamera;
+      const visibleWorldHeight = (oc.top - oc.bottom) / oc.zoom;
+      targetHeight = LABEL_SCREEN_FRACTION * visibleWorldHeight;
+    }
+
+    const scaleFactor = targetHeight / referenceHeight;
+
+    for (const { sprite, aspect, baseHeight } of allLabelSprites) {
+      const h = baseHeight * scaleFactor;
+      sprite.scale.set(h * aspect, h, 1);
     }
   };
 
@@ -283,6 +341,7 @@ function createLabelSprite(
   sceneStyle: PreviewSceneStyle,
   disposables: Disposable[],
   labelSprites: THREE.Sprite[],
+  allSprites: Array<{ sprite: THREE.Sprite; aspect: number; baseHeight: number }>,
   color = sceneStyle.axis.labelColor
 ) {
   const { texture, aspect } = createLabelTexture(text, color, sceneStyle.backgroundColor);
@@ -300,6 +359,7 @@ function createLabelSprite(
 
   disposables.push(texture);
   labelSprites.push(sprite);
+  allSprites.push({ sprite, aspect, baseHeight: worldHeight });
 
   return sprite;
 }

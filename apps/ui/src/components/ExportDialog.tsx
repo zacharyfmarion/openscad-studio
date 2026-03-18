@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAnalytics } from '../analytics/runtime';
 import { getPlatform, type ExportFormat } from '../platform';
 import { RenderService, type ExportFormat as WasmExportFormat } from '../services/renderService';
-import { Button, Select, Label } from './ui';
+import { Button, IconButton, Select, Label, Text } from './ui';
 import { TbX } from 'react-icons/tb';
 import { normalizeAppError, notifyError, notifySuccess } from '../utils/notifications';
 
@@ -90,25 +90,12 @@ export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
           className="flex items-center justify-between px-6 py-4 shrink-0"
           style={{ borderBottom: '1px solid var(--border-primary)' }}
         >
-          <h3 className="text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>
+          <Text variant="section-heading" weight="medium" color="tertiary">
             Export Model
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center justify-center w-7 h-7 rounded-md transition-all duration-150"
-            style={{ color: 'var(--text-tertiary)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = 'var(--text-tertiary)';
-            }}
-          >
+          </Text>
+          <IconButton size="sm" onClick={onClose} title="Close">
             <TbX size={16} />
-          </button>
+          </IconButton>
         </div>
 
         <div className="px-6 py-5 space-y-4">

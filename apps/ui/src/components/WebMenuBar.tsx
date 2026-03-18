@@ -62,6 +62,7 @@ function MenuDropdown({
           );
         }
         return (
+          // eslint-disable-next-line no-restricted-syntax -- WebMenuBar uses CSS-class-based styling (web-menubar__item) defined in its own stylesheet; migrating to <Button> would break those styles
           <button
             key={item.id}
             type="button"
@@ -156,6 +157,7 @@ export function WebMenuBar({ onExport, onSettings, onUndo, onRedo }: WebMenuBarP
       <div className="web-menubar__menus">
         {menuDef.map((menu, i) => (
           <div key={menu.label} className="web-menubar__menu-wrapper">
+            {/* eslint-disable-next-line no-restricted-syntax -- web-menubar__trigger is a CSS-class-based menu trigger with active class toggling; migrating to <Button> would conflict with the menubar stylesheet */}
             <button
               type="button"
               className={`web-menubar__trigger ${openMenu === i ? 'web-menubar__trigger--active' : ''}`}

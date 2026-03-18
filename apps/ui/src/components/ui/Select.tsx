@@ -13,7 +13,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ className = '', disabled, size = 'md', children, style, ...props }, ref) => {
     // Base styles for VSCode-like appearance
     const baseStyles = `
-      w-full rounded appearance-none bg-no-repeat
+      w-full rounded-lg appearance-none bg-no-repeat
       focus:outline-none focus:ring-1
       transition-all duration-100 ease-in-out
     `

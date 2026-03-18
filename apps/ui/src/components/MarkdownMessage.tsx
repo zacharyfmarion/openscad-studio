@@ -19,7 +19,7 @@ export function MarkdownMessage({ content }: MarkdownMessageProps) {
             return (
               <code
                 style={{
-                  backgroundColor: 'var(--bg-tertiary)',
+                  backgroundColor: 'var(--bg-secondary)',
                   padding: '0.15em 0.4em',
                   borderRadius: '4px',
                   fontSize: '0.85em',
@@ -40,7 +40,7 @@ export function MarkdownMessage({ content }: MarkdownMessageProps) {
               PreTag="div"
               style={{}}
               customStyle={{
-                backgroundColor: 'var(--bg-tertiary)',
+                backgroundColor: 'var(--bg-secondary)',
                 padding: '14px 16px',
                 borderRadius: '8px',
                 fontSize: '0.84em',
@@ -252,7 +252,7 @@ export function MarkdownMessage({ content }: MarkdownMessageProps) {
           return (
             <thead
               style={{
-                backgroundColor: 'var(--bg-tertiary)',
+                backgroundColor: 'var(--bg-secondary)',
               }}
             >
               {children}

@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import type { IconType } from 'react-icons';
-import { TbSparkles, TbCode } from 'react-icons/tb';
-import { Button } from './ui';
+import { TbSparkles, TbCode, TbAdjustmentsHorizontal } from 'react-icons/tb';
+import { Button, Text } from './ui';
+import type { WorkspacePreset } from '../stores/layoutStore';
 
 interface NuxLayoutPickerProps {
   isOpen: boolean;
-  onSelect: (preset: 'default' | 'ai-first') => void;
+  onSelect: (preset: Extract<WorkspacePreset, 'default' | 'ai-first' | 'customizer-first'>) => void;
 }
-
-type LayoutPreset = 'default' | 'ai-first';
+type LayoutPreset = Extract<WorkspacePreset, 'default' | 'ai-first' | 'customizer-first'>;
 
 function RadioIndicator({ selected }: { selected: boolean }) {
   return (
@@ -40,7 +40,7 @@ function RadioIndicator({ selected }: { selected: boolean }) {
 }
 
 export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
-  const [selected, setSelected] = useState<LayoutPreset>('ai-first');
+  const [selected, setSelected] = useState<LayoutPreset>('customizer-first');
 
   if (!isOpen) return null;
 
@@ -50,6 +50,12 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
     description: string;
     Icon: IconType;
   }[] = [
+    {
+      preset: 'customizer-first',
+      title: 'Customizer First',
+      Icon: TbAdjustmentsHorizontal,
+      description: 'Preview and tweak dimensions fast',
+    },
     {
       preset: 'ai-first',
       title: 'AI First',
@@ -78,15 +84,16 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
         }}
       >
         <div className="px-8 pt-8 pb-2 text-center">
-          <h2 className="text-xl font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+          <Text variant="panel-title" className="mb-1 text-xl">
             Choose your workspace layout
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+          </Text>
+          <Text variant="body" color="tertiary">
             You can change this anytime in Settings
-          </p>
+          </Text>
         </div>
 
-        <div className="px-8 py-6 flex gap-4">
+        <div className="px-8 py-6 grid gap-4 md:grid-cols-3">
+          {/* eslint-disable no-restricted-syntax -- large card-buttons with imperative onMouseEnter/Leave hover-lift (translateY + boxShadow); <Button> doesn't support these style mutations */}
           {cards.map(({ preset, title, description, Icon }) => {
             const isSelected = selected === preset;
             return (
@@ -147,6 +154,7 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
               </button>
             );
           })}
+          {/* eslint-enable no-restricted-syntax */}
         </div>
 
         <div

@@ -10,6 +10,12 @@ import { DiffViewer } from '../DiffViewer';
 import { CustomizerPanel } from '../CustomizerPanel';
 import { PanelErrorBoundary } from '../ErrorBoundary';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { useWorkspaceStore } from '../../stores/workspaceStore';
+import { selectActiveTab } from '../../stores/workspaceSelectors';
+import { RenderService } from '../../services/renderService';
+import { getPlatform } from '../../platform';
+import { notifyError } from '../../utils/notifications';
+import { useAnalytics } from '../../analytics/runtime';
 
 const EditorPanel: React.FC<IDockviewPanelProps> = () => {
   const { source, updateSource, diagnostics, onManualRender, settings } = useWorkspace();
@@ -101,11 +107,93 @@ const DiffViewerPanel: React.FC<IDockviewPanelProps> = () => {
 };
 
 const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
-  const { source, updateSource } = useWorkspace();
+  const {
+    source,
+    updateSource,
+    previewKind,
+    previewSrc,
+    isRendering,
+    error,
+    diagnostics,
+    settings,
+    renderReady,
+    onOpenCustomizerAiRefine,
+    onOpenEditorPanel,
+  } = useWorkspace();
+
+  const activeTab = useWorkspaceStore(selectActiveTab);
+  const analytics = useAnalytics();
+  const [isDownloadingStl, setIsDownloadingStl] = useState(false);
+  const [isDownloadingSvg, setIsDownloadingSvg] = useState(false);
+
+  const handleDownloadStl = useCallback(async () => {
+    if (isDownloadingStl) return;
+    const code = activeTab?.content ?? source;
+    setIsDownloadingStl(true);
+    try {
+      const exportBytes = await RenderService.getInstance().exportModel(code, 'stl');
+      await getPlatform().fileExport(exportBytes, 'export.stl', [
+        { name: 'STL Files', extensions: ['stl'] },
+      ]);
+      analytics.track('file exported', { format: 'stl' });
+    } catch (err) {
+      notifyError({
+        operation: 'export-file',
+        error: err,
+        fallbackMessage: 'STL export failed',
+        toastId: 'export-error',
+        logLabel: 'STL export failed',
+      });
+    } finally {
+      setIsDownloadingStl(false);
+    }
+  }, [isDownloadingStl, activeTab, source, analytics]);
+
+  const handleDownloadSvg = useCallback(async () => {
+    if (isDownloadingSvg) return;
+    const code = activeTab?.content ?? source;
+    setIsDownloadingSvg(true);
+    try {
+      const exportBytes = await RenderService.getInstance().exportModel(code, 'svg');
+      await getPlatform().fileExport(exportBytes, 'export.svg', [
+        { name: 'SVG Files', extensions: ['svg'] },
+      ]);
+      analytics.track('file exported', { format: 'svg' });
+    } catch (err) {
+      notifyError({
+        operation: 'export-file',
+        error: err,
+        fallbackMessage: 'SVG export failed',
+        toastId: 'export-error',
+        logLabel: 'SVG export failed',
+      });
+    } finally {
+      setIsDownloadingSvg(false);
+    }
+  }, [isDownloadingSvg, activeTab, source, analytics]);
+
   return (
     <PanelErrorBoundary panelId="customizer" panelName="Customizer">
       <div className="h-full" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-        <CustomizerPanel code={source} onChange={updateSource} />
+        <CustomizerPanel
+          code={source}
+          baselineCode={activeTab?.customizerBaseContent ?? source}
+          onChange={updateSource}
+          isCustomizerFirstMode={settings.ui.defaultLayoutPreset === 'customizer-first'}
+          previewKind={previewKind}
+          previewAvailable={Boolean(previewSrc)}
+          isRendering={isRendering}
+          hasRenderErrors={
+            Boolean(error) || diagnostics.some((entry) => entry.severity === 'error')
+          }
+          renderReady={renderReady}
+          onRefineWithAi={onOpenCustomizerAiRefine}
+          onEditCode={onOpenEditorPanel}
+          onDownloadStl={handleDownloadStl}
+          isDownloadingStl={isDownloadingStl}
+          onDownloadSvg={handleDownloadSvg}
+          isDownloadingSvg={isDownloadingSvg}
+        />
       </div>
     </PanelErrorBoundary>
   );
@@ -194,6 +282,7 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
         cursor: 'pointer',
       }}
     >
+      {/* eslint-disable-next-line no-restricted-syntax -- panel-type icon trigger is a 14px icon button embedded in a dockview tab header (height: 100%); <IconButton>'s h-7 or h-8 sizes are larger than the tab strip allows */}
       <button
         type="button"
         onClick={(e) => {
@@ -235,12 +324,13 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
             zIndex: 1000,
             background: 'var(--bg-secondary)',
             border: '1px solid var(--border-primary)',
-            borderRadius: '4px',
+            borderRadius: 'var(--radius-md)',
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
             minWidth: '160px',
             padding: '4px 0',
           }}
         >
+          {/* eslint-disable no-restricted-syntax -- panel-type menu items use imperative inline style overrides on hover and match the dockview dropdown container's raw styling; migrating to <Button> would fight the dropdown's compact padding */}
           {PANEL_TYPES.map((type) => (
             <button
               key={type.id}
@@ -289,6 +379,7 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
               <span>{type.label}</span>
             </button>
           ))}
+          {/* eslint-enable no-restricted-syntax */}
         </div>
       )}
     </div>

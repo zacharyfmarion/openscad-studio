@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useModels } from '../hooks/useModels';
-import { Select } from './ui';
+import { IconButton, Select } from './ui';
 import { notifyError } from '../utils/notifications';
 
 interface ModelSelectorProps {
@@ -145,21 +145,12 @@ export function ModelSelector({
         selectControl
       )}
       {!compact && (
-        <button
+        <IconButton
+          size="sm"
           onClick={() => refreshModels()}
           disabled={isLoading}
           title={fromCache ? 'Refresh models (currently cached)' : 'Refresh models'}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: isLoading ? 'wait' : 'pointer',
-            padding: '2px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: isLoading ? 0.5 : 0.7,
-            color: 'var(--text-tertiary)',
-          }}
+          style={{ opacity: isLoading ? 0.5 : 0.7, cursor: isLoading ? 'wait' : 'pointer' }}
         >
           <svg
             width="12"
@@ -179,7 +170,7 @@ export function ModelSelector({
             <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
             <path d="M16 21h5v-5" />
           </svg>
-        </button>
+        </IconButton>
       )}
       <style>{`
         @keyframes spin {
