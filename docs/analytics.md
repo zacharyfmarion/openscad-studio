@@ -30,6 +30,13 @@ The app uses PostHog with:
   - `file opened`
   - `file saved`
   - `file exported`
+  - `viewer tool selected`
+  - `measurement committed`
+  - `measurements cleared`
+  - `section plane toggled`
+  - `viewer preference changed`
+  - `customizer rendered`
+  - `customizer action clicked`
   - `render completed`
   - `ai request submitted`
   - `ai request completed`
@@ -59,8 +66,12 @@ The app is designed not to send the following to product analytics:
 - AI prompt text
 - AI conversation transcripts
 - AI attachment contents or filenames
+- customizer parameter names or values
+- raw customizer metadata JSON
 - API keys
 - diagnostics text
+- geometry data, coordinates, or measured dimension values
+- object names
 - raw stack traces
 - absolute file paths
 - session recordings or replay data
@@ -76,6 +87,7 @@ Several overlapping safeguards are in place:
 - The welcome-screen AI entry area is excluded from autocapture with `ph-no-capture`.
 - The editor, diagnostics panel, and API key settings are also excluded from autocapture.
 - API-key-related custom events only include the provider name, never the key itself.
+- Viewer and customizer events only include enums, booleans, counts, and bounded buckets.
 
 ## Consent and Storage
 

@@ -1,10 +1,11 @@
-import { type ComponentType, useEffect, useMemo, useRef, useState } from 'react';
+import { type ComponentType, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TbFocus2, TbGrid3X3, TbPointer, TbRuler, TbX, TbZoomIn, TbZoomOut } from 'react-icons/tb';
 import { useTheme } from '../contexts/ThemeContext';
 import { getPreviewSceneStyle } from '../services/previewSceneConfig';
 import { Button, IconButton, Text } from './ui';
 import type { MeasurementListItemData } from './viewer-measurements/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
+import { useAnalytics, type ViewerTool } from '../analytics/runtime';
 import { buildOverlayModel } from './svg-viewer/overlayModel';
 import {
   createCommittedMeasurement,
@@ -38,6 +39,7 @@ interface SvgViewerProps {
 }
 
 type DocumentStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
+type ViewerToolInputMethod = 'toolbar' | 'shortcut';
 
 interface DocumentState {
   status: DocumentStatus;
@@ -90,6 +92,10 @@ const SVG_2D_TOOLS: {
   { id: 'pan', label: 'Pan', icon: TbPointer, shortcut: 'Esc' },
   { id: 'measure-distance', label: 'Measure', icon: TbRuler, shortcut: 'M' },
 ];
+
+function getViewerTool(mode: ViewMode): ViewerTool {
+  return mode === 'measure-distance' ? 'measure_distance' : 'pan';
+}
 
 function Svg2DToolPalette({
   mode,
@@ -367,6 +373,7 @@ function StatusCard({
 
 export function SvgViewer({ src }: SvgViewerProps) {
   const { theme } = useTheme();
+  const analytics = useAnalytics();
   const [settings] = useSettings();
   const [documentState, setDocumentState] = useState<DocumentState>(INITIAL_DOCUMENT_STATE);
   const [loadedDocument, setLoadedDocument] = useState<ParsedSvgDocument | null>(null);
@@ -379,6 +386,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
   const [selectedMeasurementId, setSelectedMeasurementId] = useState<string | null>(null);
   const [liveMessage, setLiveMessage] = useState('');
   const [cursorPoint, setCursorPoint] = useState<SvgPoint | null>(null);
+  const viewModeRef = useRef<ViewMode>('pan');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const lastPointerClientRef = useRef<SvgPoint | null>(null);
   const suppressClickRef = useRef(false);
@@ -391,6 +399,10 @@ export function SvgViewer({ src }: SvgViewerProps) {
     moved: boolean;
   } | null>(null);
   const sceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
+
+  useEffect(() => {
+    viewModeRef.current = viewMode;
+  }, [viewMode]);
 
   const themeColors = useMemo(
     () => ({
@@ -647,13 +659,32 @@ export function SvgViewer({ src }: SvgViewerProps) {
     updateSetting('viewer', { show2DGrid: !settings.viewer.show2DGrid });
   };
 
-  const toggleMeasurementMode = () => {
-    setViewMode((current) => {
-      const nextMode = current === 'measure-distance' ? 'pan' : 'measure-distance';
+  const handleViewModeChange = useCallback(
+    (nextMode: ViewMode, inputMethod: ViewerToolInputMethod) => {
+      const previousMode = viewModeRef.current;
+      if (previousMode === nextMode) {
+        return;
+      }
+
+      setViewMode(nextMode);
       resetDraftMeasurement(nextMode === 'measure-distance' ? 'placing-start' : 'idle');
-      return nextMode;
-    });
-  };
+      analytics.track('viewer tool selected', {
+        viewer_kind: '2d',
+        tool: getViewerTool(nextMode),
+        input_method: inputMethod,
+        measurement_unit: settings.viewer.measurementUnit,
+      });
+    },
+    [analytics, settings.viewer.measurementUnit]
+  );
+
+  const toggleMeasurementMode = useCallback(
+    (inputMethod: ViewerToolInputMethod) => {
+      const nextMode = viewModeRef.current === 'measure-distance' ? 'pan' : 'measure-distance';
+      handleViewModeChange(nextMode, inputMethod);
+    },
+    [handleViewModeChange]
+  );
 
   const updateCursorAndDraftFromEvent = (clientX: number, clientY: number, shiftKey = false) => {
     if (!containerRef.current || !loadedDocument) {
@@ -837,6 +868,12 @@ export function SvgViewer({ src }: SvgViewerProps) {
       setMeasurements((existing) => [measurement, ...existing]);
       setSelectedMeasurementId(measurement.id);
       setLiveMessage('Measurement added');
+      analytics.track('measurement committed', {
+        viewer_kind: '2d',
+        measurement_kind: 'distance',
+        measurement_count: measurements.length + 1,
+        measurement_unit: settings.viewer.measurementUnit,
+      });
 
       return {
         status: 'placing-start',
@@ -860,6 +897,12 @@ export function SvgViewer({ src }: SvgViewerProps) {
   };
 
   const clearAllMeasurements = () => {
+    if (measurements.length > 0) {
+      analytics.track('measurements cleared', {
+        viewer_kind: '2d',
+        cleared_count: measurements.length,
+      });
+    }
     setMeasurements([]);
     setSelectedMeasurementId(null);
     setLiveMessage('Measurements cleared');
@@ -900,7 +943,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
       case 'm':
       case 'M':
         event.preventDefault();
-        toggleMeasurementMode();
+        toggleMeasurementMode('shortcut');
         break;
       case 'Delete':
       case 'Backspace':
@@ -915,8 +958,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
           if (isDraftMeasurementActive(draftMeasurement)) {
             resetDraftMeasurement('placing-start');
           } else {
-            setViewMode('pan');
-            resetDraftMeasurement();
+            handleViewModeChange('pan', 'shortcut');
           }
         }
         break;
@@ -966,7 +1008,11 @@ export function SvgViewer({ src }: SvgViewerProps) {
   return (
     <div className="flex flex-col h-full w-full" data-testid="preview-2d-root">
       <div className="flex flex-row flex-1 min-h-0">
-        <Svg2DToolPalette mode={viewMode} onModeChange={setViewMode} canInteract={canInteract} />
+        <Svg2DToolPalette
+          mode={viewMode}
+          onModeChange={(mode) => handleViewModeChange(mode, 'toolbar')}
+          canInteract={canInteract}
+        />
         <div
           ref={containerRef}
           className="relative flex-1 min-w-0 outline-none"

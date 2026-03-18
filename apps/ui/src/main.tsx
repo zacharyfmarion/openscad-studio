@@ -1,3 +1,4 @@
+import './sentry';
 import ReactDOM from 'react-dom/client';
 import posthog from 'posthog-js';
 import { PostHogProvider } from '@posthog/react';
@@ -7,6 +8,7 @@ import { shouldCaptureBootstrapAnalytics } from './analytics/bootstrapPolicy';
 import { AnalyticsRuntimeProvider } from './analytics/runtime';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { captureSentryException } from './sentry';
 import { loadSettings } from './stores/settingsStore';
 import { initFormatter } from './utils/formatter';
 import { initializePlatform } from './platform';
@@ -112,6 +114,8 @@ Promise.all([initFormatter(), initializePlatform()])
     renderApp();
   })
   .catch((error) => {
+    captureSentryException(error, { tags: { phase: 'startup' } });
+
     if (shouldCaptureBootstrapEvents) {
       captureBootstrapError(posthog, error, {
         analyticsEnabled,

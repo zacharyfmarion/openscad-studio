@@ -1,11 +1,13 @@
 /** @jest-environment jsdom */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { SettingsDialog } from '../SettingsDialog';
 import { ThemeProvider } from '../../contexts/ThemeContext';
 
 const mockGetPlatform = jest.fn();
+const mockTrack = jest.fn();
+const mockApplyWorkspacePreset = jest.fn();
 let platformMock: {
   getLibraryPaths: ReturnType<typeof jest.fn>;
   capabilities: { hasFileSystem: boolean };
@@ -19,9 +21,22 @@ jest.mock('@monaco-editor/react', () => ({
   Editor: () => null,
 }));
 
+jest.mock('../../analytics/runtime', () => ({
+  useAnalytics: () => ({
+    track: (...args: unknown[]) => mockTrack(...args),
+    trackError: jest.fn(),
+    setAnalyticsEnabled: jest.fn(),
+  }),
+}));
+
+jest.mock('../../stores/layoutStore', () => ({
+  applyWorkspacePreset: (...args: unknown[]) => mockApplyWorkspacePreset(...args),
+}));
+
 describe('SettingsDialog privacy copy', () => {
   beforeEach(() => {
     localStorage.clear();
+    jest.clearAllMocks();
     platformMock = {
       getLibraryPaths: jest.fn(async () => []),
       capabilities: { hasFileSystem: true },
@@ -129,5 +144,62 @@ describe('SettingsDialog privacy copy', () => {
 
     expect(await screen.findByText('Default Layout')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Customizer First' })).toBeTruthy();
+  });
+
+  it('tracks layout selection sources and viewer preference changes', async () => {
+    const { unmount } = render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="appearance" />
+      </ThemeProvider>
+    );
+
+    await screen.findByText('Default Layout');
+    fireEvent.click(screen.getByRole('button', { name: 'Customizer First' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset layout' }));
+
+    expect(mockTrack).toHaveBeenCalledWith(
+      'workspace layout selected',
+      expect.objectContaining({
+        preset: 'customizer-first',
+        source: 'settings',
+        is_first_run: false,
+      })
+    );
+    expect(mockTrack).toHaveBeenCalledWith(
+      'workspace layout selected',
+      expect.objectContaining({
+        preset: 'customizer-first',
+        source: 'layout_reset',
+        is_first_run: false,
+      })
+    );
+    expect(mockApplyWorkspacePreset).toHaveBeenCalledWith('customizer-first');
+    unmount();
+
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="viewer" />
+      </ThemeProvider>
+    );
+
+    await screen.findByText('Show axes');
+    fireEvent.click(screen.getByLabelText('Snap 3D measurements'));
+    fireEvent.click(screen.getByRole('button', { name: 'Project' }));
+    fireEvent.change(screen.getByLabelText('Measurement Unit'), { target: { value: 'in' } });
+
+    expect(mockTrack).toHaveBeenCalledWith(
+      'viewer preference changed',
+      expect.objectContaining({
+        setting: 'measurement_unit',
+        value: 'in',
+      })
+    );
+    expect(mockTrack).toHaveBeenCalledWith(
+      'viewer preference changed',
+      expect.objectContaining({
+        setting: 'measurement_snap_enabled',
+        enabled: false,
+      })
+    );
   });
 });

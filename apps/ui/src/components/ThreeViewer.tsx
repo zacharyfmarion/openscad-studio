@@ -71,6 +71,7 @@ import type {
 import { TbBox, TbBoxModel, TbFocus2, TbSun, TbX } from 'react-icons/tb';
 import type { ToolContextPanelProps } from './three-viewer/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
+import { useAnalytics, type ViewerTool } from '../analytics/runtime';
 import { Text } from './ui';
 
 interface ThreeViewerProps {
@@ -78,6 +79,8 @@ interface ThreeViewerProps {
   isLoading?: boolean;
   viewerId?: string;
 }
+
+type ViewerToolInputMethod = 'toolbar' | 'shortcut';
 
 const introAnimatedViewerIds = new Set<string>();
 
@@ -95,6 +98,20 @@ const INITIAL_DRAFT: MeasurementDraft3D = {
   snapKind: null,
   axisLock: null,
 };
+
+function getViewerTool(mode: InteractionMode): ViewerTool {
+  switch (mode) {
+    case 'measure-distance':
+      return 'measure_distance';
+    case 'measure-bbox':
+      return 'measure_bbox';
+    case 'section-plane':
+      return 'section_plane';
+    case 'orbit':
+    default:
+      return 'orbit';
+  }
+}
 
 declare global {
   interface Window {
@@ -937,12 +954,16 @@ function ViewerCameraManager({
 
 export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) {
   const { theme } = useTheme();
+  const analytics = useAnalytics();
   const [settings] = useSettings();
   const sceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
   const animateInitialFrameRef = useRef(viewerId ? !introAnimatedViewerIds.has(viewerId) : true);
   const materialManagerRef = useRef(new ViewerMaterialManager());
   const rootRef = useRef<HTMLDivElement>(null);
   const cameraControlsRef = useRef<CameraControlsType>(null);
+  const interactionModeRef = useRef<InteractionMode>('orbit');
+  const previousSectionEnabledRef = useRef<boolean | null>(null);
+  const lastBBoxMeasurementKeyRef = useRef<string | null>(null);
 
   const [modelFrame, setModelFrame] = useState<ModelFrame | null>(null);
   const [loadedModel, setLoadedModel] = useState<LoadedPreviewModel | null>(null);
@@ -992,6 +1013,10 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
   const activeBounds = selection.bounds ?? loadedModel?.bounds ?? null;
 
   useEffect(() => {
+    interactionModeRef.current = interactionMode;
+  }, [interactionMode]);
+
+  useEffect(() => {
     if (!viewerId) {
       return;
     }
@@ -1023,6 +1048,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
 
   useEffect(() => {
     if (!sectionState || !loadedModel) {
+      previousSectionEnabledRef.current = null;
       return;
     }
 
@@ -1035,6 +1061,27 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
       setSectionState({ ...sectionState, enabled: true });
     }
   }, [interactionMode, loadedModel, sectionState]);
+
+  useEffect(() => {
+    if (!sectionState) {
+      previousSectionEnabledRef.current = null;
+      return;
+    }
+
+    if (previousSectionEnabledRef.current === null) {
+      previousSectionEnabledRef.current = sectionState.enabled;
+      return;
+    }
+
+    if (previousSectionEnabledRef.current !== sectionState.enabled) {
+      analytics.track('section plane toggled', {
+        enabled: sectionState.enabled,
+        axis: sectionState.axis,
+        measurement_unit: settings.viewer.measurementUnit,
+      });
+      previousSectionEnabledRef.current = sectionState.enabled;
+    }
+  }, [analytics, sectionState, settings.viewer.measurementUnit]);
 
   useEffect(() => {
     const manager = materialManagerRef.current;
@@ -1079,10 +1126,16 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
   };
 
   const clearAllMeasurements = useCallback(() => {
+    if (measurements.length > 0) {
+      analytics.track('measurements cleared', {
+        viewer_kind: '3d',
+        cleared_count: measurements.length,
+      });
+    }
     setMeasurements([]);
     setSelectedMeasurementId(null);
     setLiveMessage('Measurements cleared');
-  }, []);
+  }, [analytics, measurements.length]);
 
   const updateSectionAxis = (axis: SectionAxis) => {
     if (!loadedModel || !sectionState) {
@@ -1098,20 +1151,62 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
     });
   };
 
-  const handleModeChange = useCallback((next: InteractionMode) => {
-    setInteractionMode((prev) => {
-      if (prev === next) {
+  const handleModeChange = useCallback(
+    (next: InteractionMode, inputMethod: ViewerToolInputMethod) => {
+      const previousMode = interactionModeRef.current;
+      const resolvedMode = previousMode === next ? 'orbit' : next;
+
+      if (resolvedMode === previousMode) {
         setDraftMeasurement(INITIAL_DRAFT);
-        return 'orbit';
+        return;
       }
-      if (next === 'measure-distance') {
+
+      setInteractionMode(resolvedMode);
+      if (resolvedMode === 'measure-distance') {
         setDraftMeasurement({ ...INITIAL_DRAFT, status: 'placing-start' });
       } else {
         setDraftMeasurement(INITIAL_DRAFT);
       }
-      return next;
+
+      analytics.track('viewer tool selected', {
+        viewer_kind: '3d',
+        tool: getViewerTool(resolvedMode),
+        input_method: inputMethod,
+        measurement_unit: settings.viewer.measurementUnit,
+      });
+    },
+    [analytics, settings.viewer.measurementUnit]
+  );
+
+  useEffect(() => {
+    if (interactionMode !== 'measure-bbox' || !activeBounds) {
+      lastBBoxMeasurementKeyRef.current = null;
+      return;
+    }
+
+    const bboxScope = selection.bounds ? 'selection' : 'full_model';
+    const bboxKey = `${loadedModel?.version ?? 'none'}:${selection.objectUuid ?? 'full-model'}:${bboxScope}`;
+
+    if (lastBBoxMeasurementKeyRef.current === bboxKey) {
+      return;
+    }
+
+    lastBBoxMeasurementKeyRef.current = bboxKey;
+    analytics.track('measurement committed', {
+      viewer_kind: '3d',
+      measurement_kind: 'bbox',
+      measurement_unit: settings.viewer.measurementUnit,
+      bbox_scope: bboxScope,
     });
-  }, []);
+  }, [
+    activeBounds,
+    analytics,
+    interactionMode,
+    loadedModel?.version,
+    selection.bounds,
+    selection.objectUuid,
+    settings.viewer.measurementUnit,
+  ]);
 
   const contextPanelProps = useMemo<ToolContextPanelProps>(
     () => ({
@@ -1157,17 +1252,17 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
       case 'm':
       case 'M':
         event.preventDefault();
-        handleModeChange('measure-distance');
+        handleModeChange('measure-distance', 'shortcut');
         break;
       case 'b':
       case 'B':
         event.preventDefault();
-        handleModeChange('measure-bbox');
+        handleModeChange('measure-bbox', 'shortcut');
         break;
       case 's':
       case 'S':
         event.preventDefault();
-        handleModeChange('section-plane');
+        handleModeChange('section-plane', 'shortcut');
         break;
       case 'Delete':
       case 'Backspace':
@@ -1181,7 +1276,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
         if (interactionMode === 'measure-distance' && draftMeasurement.status === 'placing-end') {
           setDraftMeasurement({ ...INITIAL_DRAFT, status: 'placing-start' });
         } else {
-          handleModeChange('orbit');
+          handleModeChange('orbit', 'shortcut');
         }
         break;
       case 'ArrowLeft':
@@ -1303,7 +1398,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
       <div className="flex flex-row flex-1 min-h-0">
         <ViewerToolPalette
           mode={interactionMode}
-          onModeChange={handleModeChange}
+          onModeChange={(mode) => handleModeChange(mode, 'toolbar')}
           loadedModel={loadedModel}
         />
         <div className="relative flex-1 min-w-0">
@@ -1575,6 +1670,13 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
                 setMeasurements((existing) => [measurement, ...existing]);
                 setSelectedMeasurementId(measurement.id);
                 setLiveMessage('Measurement added');
+                analytics.track('measurement committed', {
+                  viewer_kind: '3d',
+                  measurement_kind: 'distance',
+                  measurement_count: measurements.length + 1,
+                  measurement_unit: settings.viewer.measurementUnit,
+                  snap_enabled: snapEnabled,
+                });
               }}
             />
 
