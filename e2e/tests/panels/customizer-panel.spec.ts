@@ -36,9 +36,8 @@ test.describe('Customizer Panel', () => {
     await setMonacoValue(app.page, 'cube(10);');
     await app.triggerRender();
     await app.waitForRender();
-    await expect(app.page.getByText('This model is not customizable yet')).toBeVisible({
-      timeout: 5000,
-    });
+    await expect(app.page.getByTestId('customizer-empty-state')).toBeVisible({ timeout: 5000 });
+    await expect(app.page.getByText('No parameters yet')).toBeVisible({ timeout: 5000 });
   });
 
   test('detects customizer parameters', async ({ app }) => {
@@ -95,13 +94,19 @@ test.describe('Customizer Panel', () => {
     await app.triggerRender();
     await app.waitForRender();
 
-    await expect(app.page.getByText('Width')).toBeVisible({ timeout: 10_000 });
-    await expect(app.page.getByText('Overall width')).toBeVisible({ timeout: 5_000 });
-    await expect(app.page.getByText('Body')).toBeVisible({ timeout: 5_000 });
-    await expect(app.page.getByText('Tolerance')).toHaveCount(0);
+    const widthControl = app.page.getByTestId('customizer-control-width');
+    await expect(widthControl).toBeVisible({ timeout: 10_000 });
+    await expect(widthControl.getByText('Width', { exact: true })).toBeVisible({ timeout: 5_000 });
+    await expect(widthControl.getByText('Overall width', { exact: true })).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(app.page.getByText('Body', { exact: true })).toBeVisible({ timeout: 5_000 });
+    await expect(app.page.getByTestId('customizer-control-tolerance')).toHaveCount(0);
 
     await app.page.getByLabel('Show advanced controls').click();
-    await expect(app.page.getByText('Tolerance')).toBeVisible({ timeout: 5_000 });
+    await expect(app.page.getByTestId('customizer-control-tolerance')).toBeVisible({
+      timeout: 5_000,
+    });
   });
 
   test('shows the refinement CTA when no parameters are available', async ({ app }) => {
@@ -110,16 +115,15 @@ test.describe('Customizer Panel', () => {
     await app.triggerRender();
     await app.waitForRender();
 
-    await expect(app.page.getByText('This model is not customizable yet')).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(app.page.getByTestId('customizer-empty-state')).toBeVisible({ timeout: 10_000 });
+    await expect(app.page.getByText('No parameters yet')).toBeVisible({ timeout: 5_000 });
     await expect(app.page.getByTestId('customizer-refine-button')).toBeVisible({ timeout: 5_000 });
   });
 
   test('supports the customizer-first layout actions', async ({ app }) => {
     await useCustomizerFirstLayout(app);
 
-    await expect(app.page.getByTestId('customizer-download-button')).toBeVisible({ timeout: 10_000 });
+    await expect(app.page.getByTestId('customizer-empty-state')).toBeVisible({ timeout: 10_000 });
     await expect(app.page.getByTestId('customizer-refine-button')).toBeVisible({ timeout: 5_000 });
     await expect(app.page.getByRole('button', { name: /Edit Code/i })).toBeVisible({
       timeout: 5_000,
@@ -128,8 +132,19 @@ test.describe('Customizer Panel', () => {
     await app.page.getByRole('button', { name: /Edit Code/i }).click();
     await expect(app.page.locator('.monaco-editor').first()).toBeVisible({ timeout: 10_000 });
 
+    const paramCode = [
+      'width = 10; // [5:50]',
+      'height = 20; // [5:100]',
+      'cube([width, height, 5]);',
+    ].join('\n');
+
+    await setMonacoValue(app.page, paramCode);
+    await app.triggerRender();
+    await app.waitForRender();
+
     await app.page.locator('.dv-tab').filter({ hasText: 'Customizer' }).click();
     await app.page.waitForTimeout(300);
+    await expect(app.page.getByTestId('customizer-download-button')).toBeVisible({ timeout: 10_000 });
     await app.page.getByTestId('customizer-refine-button').click();
     await expect(app.page.getByText('Add an API key to get started')).toBeVisible({
       timeout: 10_000,
@@ -150,6 +165,8 @@ test.describe('Customizer Panel', () => {
     await app.triggerRender();
     await app.waitForRender();
 
-    await expect(app.page.getByText('Width')).toBeVisible({ timeout: 10_000 });
+    await expect(app.page.getByTestId('customizer-control-width')).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });

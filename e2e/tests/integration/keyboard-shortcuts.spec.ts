@@ -152,7 +152,7 @@ test.describe('Keyboard shortcuts', () => {
       .isVisible()
       .catch(() => false);
     if (stillOpen) {
-      await app.page.getByRole('button', { name: /close/i }).click();
+      await app.page.getByRole('button', { name: 'Close settings', exact: true }).click();
     }
 
     // Settings should be closed
