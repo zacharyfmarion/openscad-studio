@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-03-18
+
+### Added
+- 3D viewer inspection tools including measurement, bounding-box, and section-plane controls
+- New measurement tray, viewer context bar, and tool palette support across the viewer workflow
+
+### Changed
+- Improved 2D and 3D viewer UI parity and supporting layout polish
+- Refined customizer behavior, parsing, and parameter controls for a smoother editing flow
+
+### Fixed
+- Release asset upload paths in the release workflow
+
 ## [0.10.0] - 2026-03-15
 
 ### Added
