@@ -171,25 +171,19 @@ export function WelcomeScreen({
               </h3>
               <div className="flex flex-wrap gap-2">
                 {EXAMPLE_PROMPTS.map((example) => (
-                  <button
+                  <Button
                     key={example}
+                    size="sm"
+                    variant="secondary"
                     onClick={() => {
                       if (!hasApiKey) return;
                       onStartWithDraft({ text: example, attachmentIds: [] });
                     }}
                     disabled={!hasApiKey}
-                    className="px-3 py-1.5 rounded-lg text-sm transition-colors border"
-                    style={{
-                      backgroundColor: 'var(--bg-secondary)',
-                      color: hasApiKey ? 'var(--text-secondary)' : 'var(--text-tertiary)',
-                      borderColor: 'var(--border-secondary)',
-                      opacity: hasApiKey ? 1 : 0.5,
-                      cursor: hasApiKey ? 'pointer' : 'not-allowed',
-                    }}
                     title={!hasApiKey ? 'Configure an API key in Settings to use AI' : example}
                   >
                     {example}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -228,6 +222,7 @@ export function WelcomeScreen({
               Recent files:
             </h3>
             <div className="space-y-2">
+              {/* eslint-disable no-restricted-syntax -- recent file rows are card-like list items with internal layout (icon + text + chevron); <Button> doesn't support full-width card layouts with multiple child columns */}
               {recentFiles.map((file) => (
                 <button
                   key={file.path}
@@ -269,6 +264,7 @@ export function WelcomeScreen({
                   </svg>
                 </button>
               ))}
+              {/* eslint-enable no-restricted-syntax */}
             </div>
           </div>
         )}

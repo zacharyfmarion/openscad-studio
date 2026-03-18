@@ -47,7 +47,7 @@ export function EditableFileName({ name, isDirty, onRename }: EditableFileNamePr
         style={{
           color: 'var(--text-primary)',
           border: '1px solid var(--accent-primary)',
-          borderRadius: '4px',
+          borderRadius: 'var(--radius-md)',
           minWidth: '80px',
           maxWidth: '300px',
         }}
@@ -57,10 +57,11 @@ export function EditableFileName({ name, isDirty, onRename }: EditableFileNamePr
   }
 
   return (
+    // eslint-disable-next-line no-restricted-syntax -- the file name acts as an inline-editable text field with cursor:text; wrapping in <Button> would fight the truncate layout and text-cursor styling
     <button
       type="button"
       onClick={() => setEditing(true)}
-      className="px-3 py-1 text-sm truncate rounded transition-colors"
+      className="px-3 py-1 text-sm truncate rounded-lg transition-colors"
       style={{ color: 'var(--text-secondary)', cursor: 'text' }}
       onMouseEnter={(e) => {
         e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';

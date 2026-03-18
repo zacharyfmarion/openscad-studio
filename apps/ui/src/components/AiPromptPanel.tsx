@@ -243,19 +243,13 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
             <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
               Add an API key to get started
             </p>
-            <button
+            <Button
               type="button"
+              variant="primary"
               onClick={() => onOpenSettings?.()}
-              className="text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-              style={{
-                backgroundColor: 'var(--accent-primary)',
-                color: 'var(--text-inverse)',
-                cursor: 'pointer',
-                border: 'none',
-              }}
             >
               Open Settings
-            </button>
+            </Button>
           </div>
         </div>
       );
@@ -362,18 +356,14 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                     </div>
                     {message.checkpointId && (
                       <div className="flex justify-end">
-                        <button
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={() => handleRestoreCheckpoint(message.checkpointId!, message.id)}
-                          className="text-xs px-2 py-1 rounded transition-colors hover:bg-opacity-10"
-                          style={{
-                            color: 'var(--text-tertiary)',
-                            backgroundColor: 'transparent',
-                            border: '1px solid var(--border-secondary)',
-                          }}
                           title="Restore code to before this turn"
                         >
                           ↶ Restore to before this turn
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>

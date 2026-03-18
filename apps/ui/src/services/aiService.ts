@@ -7,6 +7,7 @@ import { RenderService } from './renderService';
 import { captureOffscreen, type CaptureOptions } from './offscreenRenderer';
 import type { PreviewSceneStyle } from './previewSceneConfig';
 import type { AiProvider } from '../stores/apiKeyStore';
+import type { MeasurementUnit } from '../stores/settingsStore';
 
 export interface AiToolCallbacks {
   getCurrentCode: () => string;
@@ -17,6 +18,8 @@ export interface AiToolCallbacks {
   getCurrentFileRelativePath: () => string | null;
   listProjectFiles: () => Promise<string[] | null>;
   readProjectFile: (path: string) => Promise<string | null>;
+  getMeasurementUnit: () => MeasurementUnit;
+  setMeasurementUnit: (unit: MeasurementUnit) => void;
 }
 
 const PROJECT_FILE_ACCESS_UNAVAILABLE_MESSAGE =
@@ -336,6 +339,23 @@ export function buildTools(callbacks: AiToolCallbacks) {
       execute: async () => {
         eventBus.emit('render-requested');
         return '✅ Render triggered. Check the preview pane for the updated output.';
+      },
+    }),
+
+    set_measurement_unit: tool({
+      description: 'Change the display unit for measurements shown in the viewer panels',
+      inputSchema: z.object({
+        unit: z.enum(['mm', 'cm', 'in', 'units']).describe('The unit to display measurements in'),
+      }),
+      execute: async ({ unit }) => {
+        callbacks.setMeasurementUnit(unit);
+        const labels: Record<string, string> = {
+          mm: 'millimeters (mm)',
+          cm: 'centimeters (cm)',
+          in: 'inches (in)',
+          units: 'dimensionless units',
+        };
+        return `✅ Measurement unit changed to ${labels[unit]}.`;
       },
     }),
   };

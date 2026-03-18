@@ -347,6 +347,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
             </h2>
           </div>
           <nav className="flex-1 px-3 space-y-1">
+            {/* eslint-disable no-restricted-syntax -- nav items need imperative onMouseEnter/Leave to swap bg/color without extra state; <Button> doesn't expose those overrides cleanly */}
             {navItems.map((item) => (
               <button
                 key={item.key}
@@ -377,6 +378,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                 {item.label}
               </button>
             ))}
+            {/* eslint-enable no-restricted-syntax */}
           </nav>
         </div>
 
@@ -414,6 +416,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
                     Choose which panel arrangement to use as your default workspace
                   </p>
+                  {/* eslint-disable no-restricted-syntax -- layout preset cards need imperative onMouseEnter/Leave hover-lift; <Button> doesn't support the translateY style mutation needed here */}
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {[
                       { preset: 'default' as const, label: 'Editor First' },
@@ -469,6 +472,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       );
                     })}
                   </div>
+                  {/* eslint-enable no-restricted-syntax */}
                   <div className="mt-3 flex items-center justify-between">
                     <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                       Restore the current workspace to its default panel arrangement
@@ -498,6 +502,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       >
                         {section.category}
                       </div>
+                      {/* eslint-disable no-restricted-syntax -- theme picker cards need onMouseEnter/Leave hover-lift effect; <Button> doesn't support imperative hover style mutations */}
                       <div className="grid grid-cols-2 gap-2">
                         {section.themes.map((t) => {
                           const themeData = getTheme(t.id);
@@ -570,6 +575,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           );
                         })}
                       </div>
+                      {/* eslint-enable no-restricted-syntax */}
                     </div>
                   ))}
                 </div>
@@ -761,6 +767,49 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   >
                     <div className="pr-4">
                       <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                        Measurements
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Configure how measurements are displayed across all viewers.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    className="p-4"
+                  >
+                    <Label htmlFor="viewer-measurement-unit">Measurement Unit</Label>
+                    <Select
+                      id="viewer-measurement-unit"
+                      value={settings.viewer.measurementUnit}
+                      onChange={(e) =>
+                        handleViewerSettingChange(
+                          'measurementUnit',
+                          e.target.value as import('../stores/settingsStore').MeasurementUnit
+                        )
+                      }
+                    >
+                      <option value="mm">mm (millimeters)</option>
+                      <option value="cm">cm (centimeters)</option>
+                      <option value="in">in (inches)</option>
+                      <option value="units">units (dimensionless)</option>
+                    </Select>
+                  </div>
+                </div>
+
+                <div
+                  className="rounded-xl"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                  }}
+                >
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderBottom: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
                         2D viewer
                       </p>
                       <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
@@ -908,10 +957,10 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     border: '1px solid var(--border-primary)',
                   }}
                 >
-                  <button
+                  <Button
                     type="button"
+                    size="sm"
                     onClick={() => setEditorSubTab('general')}
-                    className="h-7 px-4 text-sm rounded-lg transition-all duration-150"
                     style={{
                       backgroundColor:
                         editorSubTab === 'general' ? 'var(--accent-primary)' : 'transparent',
@@ -920,24 +969,26 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           ? 'var(--text-inverse)'
                           : 'var(--text-secondary)',
                       fontWeight: editorSubTab === 'general' ? '500' : 'normal',
+                      border: 'none',
                     }}
                   >
                     General
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    size="sm"
                     onClick={() => setEditorSubTab('vim')}
-                    className="h-7 px-4 text-sm rounded-lg transition-all duration-150"
                     style={{
                       backgroundColor:
                         editorSubTab === 'vim' ? 'var(--accent-primary)' : 'transparent',
                       color:
                         editorSubTab === 'vim' ? 'var(--text-inverse)' : 'var(--text-secondary)',
                       fontWeight: editorSubTab === 'vim' ? '500' : 'normal',
+                      border: 'none',
                     }}
                   >
                     Vim
-                  </button>
+                  </Button>
                 </div>
 
                 {/* General Settings */}
@@ -1496,6 +1547,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         disabled={isLoading}
                       />
                       {provider === 'anthropic' && apiKey && !apiKey.startsWith('•') && (
+                        // eslint-disable-next-line no-restricted-syntax -- absolute-positioned inline toggle overlay on a password input; no Button size fits the 20px height in this context
                         <button
                           type="button"
                           onClick={() => setShowKey(!showKey)}
@@ -1607,6 +1659,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         disabled={isLoading}
                       />
                       {provider === 'openai' && apiKey && !apiKey.startsWith('•') && (
+                        // eslint-disable-next-line no-restricted-syntax -- absolute-positioned inline toggle overlay on a password input; no Button size fits the 20px height in this context
                         <button
                           type="button"
                           onClick={() => setShowKey(!showKey)}

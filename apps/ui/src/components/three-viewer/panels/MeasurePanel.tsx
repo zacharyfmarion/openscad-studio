@@ -1,4 +1,5 @@
 import { TbX } from 'react-icons/tb';
+import { Button } from '../../ui';
 import { formatMeasurementSummary3D } from '../measurementController3d';
 import type { ToolContextPanelProps } from '../types';
 
@@ -29,12 +30,13 @@ export function MeasurePanel({
               return (
                 <div
                   key={m.id}
-                  className="flex items-center shrink-0 rounded overflow-hidden text-xs"
+                  className="flex items-center shrink-0 rounded-lg overflow-hidden text-xs"
                   style={{
                     backgroundColor: selected ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
                     border: `1px solid ${selected ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
                   }}
                 >
+                  {/* eslint-disable-next-line no-restricted-syntax -- left half of a split chip; paired with the delete half below; <Button> inline-flex centering would push the text out of the chip */}
                   <button
                     type="button"
                     data-testid="preview-3d-measurement-list-item"
@@ -45,6 +47,7 @@ export function MeasurePanel({
                   >
                     {formatMeasurementSummary3D(m)}
                   </button>
+                  {/* eslint-disable-next-line no-restricted-syntax -- right half of the chip delete action; uses imperative onMouseEnter/Leave to tint the bg; no <IconButton> variant supports the left-border divider or the chip's tightly coupled sizing */}
                   <button
                     type="button"
                     aria-label="Delete measurement"
@@ -74,15 +77,16 @@ export function MeasurePanel({
               );
             })}
           </div>
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="ghost"
             data-testid="preview-3d-clear-measurements"
             onClick={onMeasurementsClear}
-            className="text-xs shrink-0"
-            style={{ color: 'var(--text-secondary)' }}
+            className="shrink-0"
           >
             Clear all
-          </button>
+          </Button>
         </>
       ) : null}
     </div>

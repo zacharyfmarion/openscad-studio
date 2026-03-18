@@ -253,6 +253,7 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
         cursor: 'pointer',
       }}
     >
+      {/* eslint-disable-next-line no-restricted-syntax -- panel-type icon trigger is a 14px icon button embedded in a dockview tab header (height: 100%); <IconButton>'s h-7 or h-8 sizes are larger than the tab strip allows */}
       <button
         type="button"
         onClick={(e) => {
@@ -294,12 +295,13 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
             zIndex: 1000,
             background: 'var(--bg-secondary)',
             border: '1px solid var(--border-primary)',
-            borderRadius: '4px',
+            borderRadius: 'var(--radius-md)',
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
             minWidth: '160px',
             padding: '4px 0',
           }}
         >
+          {/* eslint-disable no-restricted-syntax -- panel-type menu items use imperative inline style overrides on hover and match the dockview dropdown container's raw styling; migrating to <Button> would fight the dropdown's compact padding */}
           {PANEL_TYPES.map((type) => (
             <button
               key={type.id}
@@ -348,6 +350,7 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
               <span>{type.label}</span>
             </button>
           ))}
+          {/* eslint-enable no-restricted-syntax */}
         </div>
       )}
     </div>

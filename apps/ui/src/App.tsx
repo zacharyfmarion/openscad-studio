@@ -144,17 +144,18 @@ function DownloadForMacLink() {
       <div className="flex items-center">
         <a
           href={dmgUrl}
-          className="flex items-center gap-1 text-xs px-2 py-1 rounded-l transition-colors"
+          className="flex items-center gap-1 text-xs px-2 py-1 rounded-l-lg transition-colors"
           style={{ color: 'var(--text-secondary)' }}
           title={`Download for macOS (${label})`}
         >
           <TbDownload size={13} />
           <span>Download for Mac</span>
         </a>
+        {/* eslint-disable-next-line no-restricted-syntax -- right half of a split-button (rounded-r-lg only); fusing with the <a> download link means this can't be a standalone <Button> without breaking the split-button layout */}
         <button
           type="button"
           onClick={() => setShowDropdown((v) => !v)}
-          className="text-xs px-1 py-1 rounded-r transition-colors"
+          className="text-xs px-1 py-1 rounded-r-lg transition-colors"
           style={{ color: 'var(--text-tertiary)' }}
           title="Other architectures"
         >
@@ -163,7 +164,7 @@ function DownloadForMacLink() {
       </div>
       {showDropdown && (
         <div
-          className="absolute right-0 top-full mt-1 rounded-md shadow-lg border text-xs z-50 min-w-[160px]"
+          className="absolute right-0 top-full mt-1 rounded-lg shadow-lg border text-xs z-50 min-w-[160px]"
           style={{
             backgroundColor: 'var(--bg-elevated)',
             borderColor: 'var(--border-secondary)',

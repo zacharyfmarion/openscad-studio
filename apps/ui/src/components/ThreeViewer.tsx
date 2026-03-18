@@ -296,6 +296,7 @@ function MeasurementOverlay3D({
   model,
   accentColor,
   accentHoverColor,
+  unit,
 }: {
   measurements: MeasurementRecord3D[];
   draft: MeasurementDraft3D;
@@ -303,6 +304,7 @@ function MeasurementOverlay3D({
   model: LoadedPreviewModel | null;
   accentColor: string;
   accentHoverColor: string;
+  unit: import('../stores/settingsStore').MeasurementUnit;
 }) {
   const markerRadius = Math.max((model?.diagonal ?? 10) * 0.008, 0.15);
   const snapRingInner = markerRadius * 2.2;
@@ -340,7 +342,7 @@ function MeasurementOverlay3D({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {formatMeasurementSummary3D(measurement)}
+                {formatMeasurementSummary3D(measurement, unit)}
               </div>
             </Html>
           </group>
@@ -376,7 +378,7 @@ function MeasurementOverlay3D({
                 whiteSpace: 'nowrap',
               }}
             >
-              {formatMeasurementSummary3D(createMeasurementRecord3D(draft.start, draft.current, 0))}
+              {formatMeasurementSummary3D(createMeasurementRecord3D(draft.start, draft.current, 0), unit)}
             </div>
           </Html>
         </group>
@@ -1257,6 +1259,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
+        {/* eslint-disable no-restricted-syntax -- these four toolbar buttons float over the 3D canvas as Pattern A toggles with bg-elevated base; <IconButton> doesn't carry active-state border/bg variants needed here */}
         <button
           onClick={fitCurrentModelToView}
           className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
@@ -1310,6 +1313,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
         >
           <TbSun size={18} />
         </button>
+        {/* eslint-enable no-restricted-syntax */}
       </div>
 
       <div aria-live="polite" className="sr-only">
@@ -1355,10 +1359,11 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
           }}
           data-testid="preview-controls-hint"
         >
+          {/* eslint-disable-next-line no-restricted-syntax -- absolute 20×20px dismiss X on a floating hint badge; this sub-sm size doesn't fit any IconButton variant without className size fights */}
           <button
             type="button"
             onClick={dismissControlsHint}
-            className="absolute top-2 right-2 rounded transition-colors flex items-center justify-center"
+            className="absolute top-2 right-2 rounded-lg transition-colors flex items-center justify-center"
             style={{
               width: '20px',
               height: '20px',
@@ -1481,6 +1486,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
             model={loadedModel}
             accentColor={theme.colors.accent.primary}
             accentHoverColor={theme.colors.accent.hover}
+            unit={settings.viewer.measurementUnit}
           />
         ) : null}
         {interactionMode === 'section-plane' && loadedModel && sectionState?.enabled ? (

@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { threeToOpenScadSize } from '../../../services/coordinateTransform';
 import type { ToolContextPanelProps } from '../types';
-
-function fmtDim(v: number) {
-  return (Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(2)).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
-}
+import { useSettings } from '../../../stores/settingsStore';
+import { formatWithUnit } from '../../../utils/measurementUnits';
 
 export function BBoxPanel({ selection, loadedModel }: ToolContextPanelProps) {
+  const [settings] = useSettings();
+  const unit = settings.viewer.measurementUnit;
   const bounds = selection.bounds ?? loadedModel?.bounds ?? null;
   const size = bounds ? threeToOpenScadSize(bounds.getSize(new THREE.Vector3())) : null;
 
@@ -19,15 +19,15 @@ export function BBoxPanel({ selection, loadedModel }: ToolContextPanelProps) {
         <div className="flex gap-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
           <span>
             <span style={{ color: 'var(--text-tertiary)' }}>X: </span>
-            {fmtDim(size.x)}
+            {formatWithUnit(size.x, unit)}
           </span>
           <span>
             <span style={{ color: 'var(--text-tertiary)' }}>Y: </span>
-            {fmtDim(size.y)}
+            {formatWithUnit(size.y, unit)}
           </span>
           <span>
             <span style={{ color: 'var(--text-tertiary)' }}>Z: </span>
-            {fmtDim(size.z)}
+            {formatWithUnit(size.z, unit)}
           </span>
         </div>
       ) : null}

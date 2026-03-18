@@ -105,10 +105,11 @@ function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps
       </span>
 
       {/* Close button - always shows X, visible on active tab or hover */}
+      {/* eslint-disable-next-line no-restricted-syntax -- fixed 20×20px tab close button that must not consume the full sm (28px) height; using a raw element avoids overriding IconButton's h-7 w-7 size */}
       <button
         onClick={handleCloseClick}
         onMouseDown={(e) => e.stopPropagation()}
-        className="transition-opacity p-0.5 rounded flex items-center justify-center group-hover:!opacity-100"
+        className="transition-opacity p-0.5 rounded-lg flex items-center justify-center group-hover:!opacity-100"
         style={{
           color: 'var(--text-tertiary)',
           width: '20px',
@@ -190,9 +191,10 @@ export function TabBar({
         </SortableContext>
 
         {/* New tab button */}
+        {/* eslint-disable-next-line no-restricted-syntax -- flush icon-only new-tab button living in the tab strip; height is intentionally unconstrained to match tab strip height */}
         <button
           onClick={onNewTab}
-          className="px-3 py-2 transition-colors"
+          className="px-3 py-2 rounded-lg transition-colors"
           style={{
             color: 'var(--text-tertiary)',
           }}

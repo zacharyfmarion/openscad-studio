@@ -93,6 +93,7 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
         </div>
 
         <div className="px-8 py-6 grid gap-4 md:grid-cols-3">
+          {/* eslint-disable no-restricted-syntax -- large card-buttons with imperative onMouseEnter/Leave hover-lift (translateY + boxShadow); <Button> doesn't support these style mutations */}
           {cards.map(({ preset, title, description, Icon }) => {
             const isSelected = selected === preset;
             return (
@@ -153,6 +154,7 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
               </button>
             );
           })}
+          {/* eslint-enable no-restricted-syntax */}
         </div>
 
         <div

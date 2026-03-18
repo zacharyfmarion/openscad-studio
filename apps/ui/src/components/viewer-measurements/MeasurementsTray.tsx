@@ -1,3 +1,4 @@
+import { Button } from '../ui';
 import type { MeasurementListItemData } from './types';
 
 interface MeasurementsTrayProps {
@@ -33,7 +34,7 @@ export function MeasurementsTray({
 
   return (
     <div
-      className={`${inline ? '' : `absolute z-20 w-72 ${positionClassName}`} rounded-lg`}
+      className={`${inline ? '' : `absolute z-20 w-72 ${positionClassName}`} rounded-xl`}
       style={{
         backgroundColor: 'var(--bg-elevated)',
         border: '1px solid var(--border-primary)',
@@ -48,29 +49,30 @@ export function MeasurementsTray({
         style={{ borderBottom: '1px solid var(--border-primary)' }}
       >
         <span className="text-xs font-medium">{title}</span>
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant="ghost"
           onClick={(event) => {
             event.stopPropagation();
             onClearAll();
           }}
-          className="text-xs"
-          style={{ color: 'var(--text-tertiary)' }}
           data-testid={clearAllTestId}
         >
           Clear all
-        </button>
+        </Button>
       </div>
       <div className="max-h-48 overflow-auto p-2 space-y-2">
         {items.map((item) => (
           <div
             key={item.id}
-            className="rounded-md p-2"
+            className="rounded-lg p-2"
             style={{
               backgroundColor: item.selected ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
               border: `1px solid ${item.selected ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
             }}
           >
+            {/* eslint-disable-next-line no-restricted-syntax -- full-width text-left card row acting as a toggle; <Button> enforces inline-flex centering that breaks the stacked text+summary layout */}
             <button
               type="button"
               className="w-full text-left"
@@ -94,18 +96,18 @@ export function MeasurementsTray({
               ) : null}
             </button>
             <div className="mt-2 flex justify-end">
-              <button
+              <Button
                 type="button"
+                size="sm"
+                variant="ghost"
                 onClick={(event) => {
                   event.stopPropagation();
                   onDelete(item.id);
                 }}
-                className="text-xs"
-                style={{ color: 'var(--text-tertiary)' }}
                 data-testid={deleteTestId}
               >
                 Delete
-              </button>
+              </Button>
             </div>
           </div>
         ))}

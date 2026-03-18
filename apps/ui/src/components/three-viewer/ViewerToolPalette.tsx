@@ -28,6 +28,7 @@ export function ViewerToolPalette({ mode, onModeChange, loadedModel }: ViewerToo
         const shortcutLabel = tool.shortcut ? ` (${tool.shortcut})` : '';
 
         return (
+          // eslint-disable-next-line no-restricted-syntax -- palette tool buttons carry a full set of imperative inline styles (size, color, border, cursor, opacity) driven by active+disabled state; <IconButton> doesn't expose these overrides without full className fights
           <button
             key={tool.id}
             type="button"
@@ -46,7 +47,7 @@ export function ViewerToolPalette({ mode, onModeChange, loadedModel }: ViewerToo
               color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
               opacity: isDisabled ? 0.35 : 1,
               border: isActive ? '1px solid var(--border-primary)' : '1px solid transparent',
-              borderRadius: '8px',
+              borderRadius: 'var(--radius-md)',
               cursor: isDisabled ? 'not-allowed' : 'pointer',
               transition: 'background-color 0.15s, color 0.15s, border-color 0.15s',
               flexShrink: 0,

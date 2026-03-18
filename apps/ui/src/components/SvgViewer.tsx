@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { TbFocus2, TbZoomIn, TbZoomOut } from 'react-icons/tb';
 import { useTheme } from '../contexts/ThemeContext';
 import { getPreviewSceneStyle } from '../services/previewSceneConfig';
-import { IconButton } from './ui/IconButton';
+import { Button, IconButton } from './ui';
 import { MeasurementsTray } from './viewer-measurements/MeasurementsTray';
 import type { MeasurementListItemData } from './viewer-measurements/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
 import { buildOverlayModel } from './svg-viewer/overlayModel';
 import {
   createCommittedMeasurement,
+  formatMeasurementReadout,
   getDraftMeasurementPreview,
   getMeasurementMidpoint,
   isDraftMeasurementActive,
@@ -97,23 +98,22 @@ function ToolbarTextButton({
   testId?: string;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      size="sm"
+      variant="secondary"
       onClick={onClick}
       disabled={disabled}
       aria-label={title}
       title={title}
       data-testid={testId}
-      className="px-2.5 py-2 rounded text-xs font-medium transition-colors"
       style={{
-        backgroundColor: active ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-        border: '1px solid var(--border-secondary)',
-        color: active ? 'var(--text-inverse)' : 'var(--text-secondary)',
-        opacity: disabled ? 0.5 : 1,
+        backgroundColor: active ? 'var(--bg-tertiary)' : undefined,
+        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
       }}
     >
       {label}
-    </button>
+    </Button>
   );
 }
 
@@ -728,7 +728,8 @@ export function SvgViewer({ src }: SvgViewerProps) {
       ? `translate(${viewport.translateX} ${viewport.translateY}) scale(${viewport.scale})`
       : undefined;
 
-  const draftPreview = getDraftMeasurementPreview(draftMeasurement);
+  const measurementUnit = settings.viewer.measurementUnit;
+  const draftPreview = getDraftMeasurementPreview(draftMeasurement, measurementUnit);
   const measureSummary = draftPreview?.readout ?? null;
   const canInteract = !!loadedDocument && documentState.status !== 'loading';
   const measurementItems = useMemo<MeasurementListItemData[]>(
@@ -738,12 +739,12 @@ export function SvgViewer({ src }: SvgViewerProps) {
         return {
           id: measurement.id,
           title: measurement.id.slice(-6),
-          summary: `Distance ${measurement.distance.toFixed(2)} mm`,
+          summary: formatMeasurementReadout(measurement, measurementUnit),
           detail: `midpoint ${formatCoordinate(midpoint)}`,
           selected: measurement.id === selectedMeasurementId,
         };
       }),
-    [measurements, selectedMeasurementId]
+    [measurements, selectedMeasurementId, measurementUnit]
   );
   const measurementHelpCopy =
     viewMode === 'measure-distance'

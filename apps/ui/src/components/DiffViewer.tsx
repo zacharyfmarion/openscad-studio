@@ -91,17 +91,19 @@ export function DiffViewer({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* eslint-disable-next-line no-restricted-syntax -- DiffViewer uses semantic gray/green Tailwind color classes that don't map to theme tokens; will be redesigned when DiffViewer gets a full visual overhaul */}
           <button
             onClick={onReject}
             disabled={isApplying}
-            className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-gray-200 rounded text-sm font-medium transition-colors"
+            className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-gray-200 rounded-lg text-sm font-medium transition-colors"
           >
             Reject
           </button>
+          {/* eslint-disable-next-line no-restricted-syntax -- same as above; bg-green-600 is semantic for "apply" and doesn't have a theme token equivalent */}
           <button
             onClick={onAccept}
             disabled={isApplying}
-            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded text-sm font-medium transition-colors"
+            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg text-sm font-medium transition-colors"
           >
             {isApplying ? 'Applying...' : 'Accept'}
           </button>

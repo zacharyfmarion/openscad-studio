@@ -80,6 +80,7 @@ export class ErrorBoundary extends Component<Props, State> {
             This app requires a modern browser with WebAssembly support (Chrome, Edge, or Firefox
             recommended).
           </p>
+          {/* eslint-disable-next-line no-restricted-syntax -- ErrorBoundary is a class component rendered before React context is available; <Button> depends on theme context and may itself error, so plain HTML is intentional here */}
           <button
             type="button"
             onClick={() => window.location.reload()}
@@ -88,7 +89,7 @@ export class ErrorBoundary extends Component<Props, State> {
               background: '#268bd2',
               color: '#002b36',
               border: 'none',
-              borderRadius: '0.5rem',
+              borderRadius: 'var(--radius-md, 8px)',
               fontSize: '0.9375rem',
               fontWeight: 600,
               cursor: 'pointer',
@@ -156,10 +157,11 @@ export class InlineErrorBoundary extends Component<
               {this.state.error.message}
             </p>
           )}
+          {/* eslint-disable-next-line no-restricted-syntax -- same as above: class-component error boundary, plain HTML avoids cascading failures */}
           <button
             type="button"
             onClick={this.handleRetry}
-            className="px-4 py-2 rounded text-sm font-medium"
+            className="px-4 py-2 rounded-lg text-sm font-medium"
             style={{
               background: 'var(--accent-primary, #268bd2)',
               color: 'var(--text-inverse, #002b36)',
@@ -290,13 +292,14 @@ export class PanelErrorBoundary extends Component<
             </div>
           )}
 
+          {/* eslint-disable-next-line no-restricted-syntax -- PanelErrorBoundary is also a class component; using a raw button avoids importing React context that may itself be broken */}
           <button
             type="button"
             onClick={() => {
               void this.handleRetry();
             }}
             disabled={this.state.isResetting}
-            className="px-4 py-2 rounded text-sm font-medium"
+            className="px-4 py-2 rounded-lg text-sm font-medium"
             style={{
               backgroundColor: 'var(--accent-primary)',
               color: 'var(--text-inverse)',

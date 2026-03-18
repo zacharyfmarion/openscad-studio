@@ -21,6 +21,8 @@ export interface UiSettings {
   hasDismissedViewerControlsHint: boolean;
 }
 
+export type MeasurementUnit = 'mm' | 'cm' | 'in' | 'units';
+
 export interface ViewerSettings {
   showAxes: boolean;
   showAxisLabels: boolean;
@@ -35,6 +37,7 @@ export interface ViewerSettings {
   show2DBounds: boolean;
   show2DCursorCoords: boolean;
   enable2DGridSnap: boolean;
+  measurementUnit: MeasurementUnit;
 }
 
 export interface LibrarySettings {
@@ -113,6 +116,7 @@ const DEFAULT_SETTINGS: Settings = {
     show2DBounds: false,
     show2DCursorCoords: true,
     enable2DGridSnap: true,
+    measurementUnit: 'mm',
   },
   library: {
     customPaths: [],

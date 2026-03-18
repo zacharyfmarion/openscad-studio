@@ -1,3 +1,5 @@
+import { Button } from '../ui';
+
 export function ToolbarTextButton({
   label,
   title,
@@ -14,22 +16,21 @@ export function ToolbarTextButton({
   testId?: string;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      size="sm"
+      variant="secondary"
       title={title}
       aria-label={title}
       onClick={onClick}
       disabled={disabled}
       data-testid={testId}
-      className="px-2.5 py-2 rounded text-xs font-medium transition-colors"
       style={{
-        backgroundColor: active ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-        border: '1px solid var(--border-secondary)',
-        color: active ? 'var(--text-inverse)' : 'var(--text-secondary)',
-        opacity: disabled ? 0.5 : 1,
+        backgroundColor: active ? 'var(--bg-tertiary)' : undefined,
+        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
       }}
     >
       {label}
-    </button>
+    </Button>
   );
 }

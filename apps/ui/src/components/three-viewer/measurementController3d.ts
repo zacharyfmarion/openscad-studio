@@ -1,17 +1,10 @@
 import * as THREE from 'three';
 import { getWorldNormalFromIntersection } from './selectionController';
 import type { AxisLock, MeasurementRecord3D, MeasurementSnapKind } from './types';
+import type { MeasurementUnit } from '../../stores/settingsStore';
+import { formatWithUnit } from '../../utils/measurementUnits';
 
 const SNAP_THRESHOLD_PX = 14;
-
-function formatNumber(value: number): string {
-  if (!Number.isFinite(value)) {
-    return '0';
-  }
-
-  const rounded = Math.abs(value) >= 100 ? value.toFixed(1) : value.toFixed(2);
-  return rounded.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
-}
 
 export function createMeasurementId() {
   return `measurement3d_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -37,12 +30,18 @@ export function getMeasurementMidpoint3D(measurement: { start: THREE.Vector3; en
   return measurement.start.clone().add(measurement.end).multiplyScalar(0.5);
 }
 
-export function formatMeasurementSummary3D(measurement: { distance: number }) {
-  return `Distance ${formatNumber(measurement.distance)} units`;
+export function formatMeasurementSummary3D(
+  measurement: { distance: number },
+  unit: MeasurementUnit = 'mm'
+) {
+  return `Distance ${formatWithUnit(measurement.distance, unit)}`;
 }
 
-export function formatMeasurementDetail3D(measurement: { delta: THREE.Vector3 }) {
-  return `dx ${formatNumber(measurement.delta.x)}  dy ${formatNumber(measurement.delta.y)}  dz ${formatNumber(measurement.delta.z)}`;
+export function formatMeasurementDetail3D(
+  measurement: { delta: THREE.Vector3 },
+  unit: MeasurementUnit = 'mm'
+) {
+  return `dx ${formatWithUnit(measurement.delta.x, unit)}  dy ${formatWithUnit(measurement.delta.y, unit)}  dz ${formatWithUnit(measurement.delta.z, unit)}`;
 }
 
 export function applyAxisLock3D(
