@@ -3,6 +3,7 @@ import type { ModelSelectionSurface } from '../analytics/runtime';
 import { Button, Text } from './ui';
 import { AiComposer } from './AiComposer';
 import { ModelSelector } from './ModelSelector';
+import { TbFileText } from 'react-icons/tb';
 import { getPlatform } from '../platform';
 import { useHasApiKey } from '../stores/apiKeyStore';
 import type { AiDraft, AttachmentStore } from '../types/aiChat';
@@ -214,7 +215,7 @@ export function WelcomeScreen({
         ) : null}
 
         {showRecentFiles && recentFilesReady && recentFiles.length > 0 && (
-          <div className="space-y-3 pt-4">
+          <div className="space-y-3 -mt-2">
             <Text variant="section-heading" weight="medium" color="secondary">
               Recent files:
             </Text>
@@ -233,7 +234,13 @@ export function WelcomeScreen({
                   }}
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="text-lg">📄</div>
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{ color: 'var(--text-tertiary)' }}
+                      aria-hidden="true"
+                    >
+                      <TbFileText size={22} />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {file.name}
@@ -266,7 +273,7 @@ export function WelcomeScreen({
           </div>
         )}
 
-        <div className="flex justify-center gap-4 pt-4">
+        <div className="flex justify-center gap-4">
           {onOpenFile && (
             <Button variant="secondary" onClick={onOpenFile} className="text-sm">
               Open File
