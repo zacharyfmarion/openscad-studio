@@ -81,7 +81,12 @@ function formatCoordinate(point: SvgPoint | null) {
   return `x ${formatValue(point.x)}  y ${formatValue(point.y)}`;
 }
 
-const SVG_2D_TOOLS: { id: ViewMode; label: string; icon: ComponentType<{ size?: number }>; shortcut: string }[] = [
+const SVG_2D_TOOLS: {
+  id: ViewMode;
+  label: string;
+  icon: ComponentType<{ size?: number }>;
+  shortcut: string;
+}[] = [
   { id: 'pan', label: 'Pan', icon: TbPointer, shortcut: 'Esc' },
   { id: 'measure-distance', label: 'Measure', icon: TbRuler, shortcut: 'M' },
 ];
@@ -231,7 +236,9 @@ function Svg2DContextBar({
                         aria-pressed={selected}
                         onClick={() => onMeasurementSelect(item.id)}
                         className="px-2 py-1"
-                        style={{ color: selected ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+                        style={{
+                          color: selected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        }}
                       >
                         {item.summary}
                       </button>
@@ -341,8 +348,12 @@ function StatusCard({
           border: '1px solid var(--border-primary)',
         }}
       >
-        <Text variant="panel-title" weight="medium" as="p" className="mb-2">{title}</Text>
-        <Text variant="body" className="whitespace-pre-wrap">{detail}</Text>
+        <Text variant="panel-title" weight="medium" as="p" className="mb-2">
+          {title}
+        </Text>
+        <Text variant="body" className="whitespace-pre-wrap">
+          {detail}
+        </Text>
         {helperText ? (
           <Text variant="caption" color="tertiary" className="mt-3">
             {helperText}
@@ -974,420 +985,429 @@ export function SvgViewer({ src }: SvgViewerProps) {
           }}
           onClick={handleClick}
         >
-      <div
-        className="absolute top-2 right-2 z-20 flex gap-2"
-        onClick={(event) => event.stopPropagation()}
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        <IconButton
-          aria-label="Zoom in"
-          title="Zoom in"
-          data-testid="preview-2d-zoom-in"
-          disabled={!canInteract}
-          onClick={() => adjustZoom(1.15)}
-          style={{
-            backgroundColor: 'var(--bg-elevated)',
-            border: '1px solid var(--border-secondary)',
-          }}
-        >
-          <TbZoomIn size={18} />
-        </IconButton>
-        <IconButton
-          aria-label="Zoom out"
-          title="Zoom out"
-          data-testid="preview-2d-zoom-out"
-          disabled={!canInteract}
-          onClick={() => adjustZoom(1 / 1.15)}
-          style={{
-            backgroundColor: 'var(--bg-elevated)',
-            border: '1px solid var(--border-secondary)',
-          }}
-        >
-          <TbZoomOut size={18} />
-        </IconButton>
-        <IconButton
-          aria-label="Fit to drawing"
-          title="Fit to drawing"
-          data-testid="preview-2d-fit"
-          disabled={!canInteract}
-          onClick={fitToDrawing}
-          style={{
-            backgroundColor: 'var(--bg-elevated)',
-            border: '1px solid var(--border-secondary)',
-          }}
-        >
-          <TbFocus2 size={18} />
-        </IconButton>
-        <ToolbarTextButton
-          label="1:1"
-          title="Reset to 100% scale"
-          onClick={setActualScale}
-          disabled={!canInteract}
-          testId="preview-2d-actual-size"
-        />
-        <IconButton
-          aria-label="Toggle grid"
-          title="Toggle grid"
-          data-testid="preview-2d-toggle-grid"
-          disabled={!canInteract}
-          onClick={handleGridToggle}
-          style={{
-            backgroundColor: settings.viewer.show2DGrid ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-            border: '1px solid var(--border-secondary)',
-            color: settings.viewer.show2DGrid ? 'var(--text-primary)' : 'var(--text-secondary)',
-          }}
-        >
-          <TbGrid3X3 size={18} />
-        </IconButton>
-      </div>
-
-      <div aria-live="polite" className="sr-only">
-        {liveMessage}
-      </div>
-
-      {documentState.status === 'loading' ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
           <div
-            className="rounded-lg px-4 py-3 flex items-center gap-3"
-            style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.3)',
-              color: 'var(--text-secondary)',
-              border: '1px solid var(--border-secondary)',
-              backdropFilter: 'blur(6px)',
-            }}
+            className="absolute top-2 right-2 z-20 flex gap-2"
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
           >
-            <div
-              className="animate-spin h-5 w-5 border-2 rounded-full"
+            <IconButton
+              aria-label="Zoom in"
+              title="Zoom in"
+              data-testid="preview-2d-zoom-in"
+              disabled={!canInteract}
+              onClick={() => adjustZoom(1.15)}
               style={{
-                borderColor: 'var(--border-primary)',
-                borderTopColor: 'var(--accent-primary)',
+                backgroundColor: 'var(--bg-elevated)',
+                border: '1px solid var(--border-secondary)',
               }}
+            >
+              <TbZoomIn size={18} />
+            </IconButton>
+            <IconButton
+              aria-label="Zoom out"
+              title="Zoom out"
+              data-testid="preview-2d-zoom-out"
+              disabled={!canInteract}
+              onClick={() => adjustZoom(1 / 1.15)}
+              style={{
+                backgroundColor: 'var(--bg-elevated)',
+                border: '1px solid var(--border-secondary)',
+              }}
+            >
+              <TbZoomOut size={18} />
+            </IconButton>
+            <IconButton
+              aria-label="Fit to drawing"
+              title="Fit to drawing"
+              data-testid="preview-2d-fit"
+              disabled={!canInteract}
+              onClick={fitToDrawing}
+              style={{
+                backgroundColor: 'var(--bg-elevated)',
+                border: '1px solid var(--border-secondary)',
+              }}
+            >
+              <TbFocus2 size={18} />
+            </IconButton>
+            <ToolbarTextButton
+              label="1:1"
+              title="Reset to 100% scale"
+              onClick={setActualScale}
+              disabled={!canInteract}
+              testId="preview-2d-actual-size"
             />
-            <span className="text-sm">Loading 2D preview...</span>
+            <IconButton
+              aria-label="Toggle grid"
+              title="Toggle grid"
+              data-testid="preview-2d-toggle-grid"
+              disabled={!canInteract}
+              onClick={handleGridToggle}
+              style={{
+                backgroundColor: settings.viewer.show2DGrid
+                  ? 'var(--bg-tertiary)'
+                  : 'var(--bg-elevated)',
+                border: '1px solid var(--border-secondary)',
+                color: settings.viewer.show2DGrid ? 'var(--text-primary)' : 'var(--text-secondary)',
+              }}
+            >
+              <TbGrid3X3 size={18} />
+            </IconButton>
           </div>
-        </div>
-      ) : null}
 
-      {loadedDocument ? (
-        <div className="absolute inset-0 overflow-hidden" data-testid="preview-2d-viewport">
-          <svg
-            className="absolute inset-0 h-full w-full select-none"
-            viewBox={`0 0 ${Math.max(containerSize.width, 1)} ${Math.max(containerSize.height, 1)}`}
-            preserveAspectRatio="none"
-            overflow="hidden"
-            style={{
-              cursor:
-                viewMode === 'measure-distance'
-                  ? 'crosshair'
-                  : dragRef.current
-                    ? 'grabbing'
-                    : 'grab',
-            }}
-            data-testid="preview-2d-scene"
-          >
-            <g transform={stageStyle} data-testid="preview-2d-stage">
-              <g data-preview-svg dangerouslySetInnerHTML={{ __html: loadedDocument.markup }} />
+          <div aria-live="polite" className="sr-only">
+            {liveMessage}
+          </div>
 
-              {overlayModel ? (
-                <g data-testid="preview-2d-overlay">
-                  {overlayModel.minorGridLines.map((line) => (
-                    <line
-                      key={line.key}
-                      x1={line.x1}
-                      y1={line.y1}
-                      x2={line.x2}
-                      y2={line.y2}
-                      stroke={themeColors.minorGrid}
-                      strokeOpacity={0.28}
-                      strokeWidth={0.5}
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  ))}
+          {documentState.status === 'loading' ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+              <div
+                className="rounded-lg px-4 py-3 flex items-center gap-3"
+                style={{
+                  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-secondary)',
+                  backdropFilter: 'blur(6px)',
+                }}
+              >
+                <div
+                  className="animate-spin h-5 w-5 border-2 rounded-full"
+                  style={{
+                    borderColor: 'var(--border-primary)',
+                    borderTopColor: 'var(--accent-primary)',
+                  }}
+                />
+                <span className="text-sm">Loading 2D preview...</span>
+              </div>
+            </div>
+          ) : null}
 
-                  {overlayModel.majorGridLines.map((line) => (
-                    <line
-                      key={line.key}
-                      x1={line.x1}
-                      y1={line.y1}
-                      x2={line.x2}
-                      y2={line.y2}
-                      stroke={themeColors.majorGrid}
-                      strokeOpacity={0.52}
-                      strokeWidth={0.75}
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  ))}
+          {loadedDocument ? (
+            <div className="absolute inset-0 overflow-hidden" data-testid="preview-2d-viewport">
+              <svg
+                className="absolute inset-0 h-full w-full select-none"
+                viewBox={`0 0 ${Math.max(containerSize.width, 1)} ${Math.max(containerSize.height, 1)}`}
+                preserveAspectRatio="none"
+                overflow="hidden"
+                style={{
+                  cursor:
+                    viewMode === 'measure-distance'
+                      ? 'crosshair'
+                      : dragRef.current
+                        ? 'grabbing'
+                        : 'grab',
+                }}
+                data-testid="preview-2d-scene"
+              >
+                <g transform={stageStyle} data-testid="preview-2d-stage">
+                  <g data-preview-svg dangerouslySetInnerHTML={{ __html: loadedDocument.markup }} />
 
-                  {overlayModel.axesLines.map((line) => (
-                    <line
-                      key={line.key}
-                      x1={line.x1}
-                      y1={line.y1}
-                      x2={line.x2}
-                      y2={line.y2}
-                      stroke={line.tone === 'axis-x' ? themeColors.xAxis : themeColors.yAxis}
-                      strokeOpacity={0.85}
-                      strokeWidth={1.25}
-                      vectorEffect="non-scaling-stroke"
-                      data-axis={line.tone === 'axis-x' ? 'x' : 'y'}
-                    />
-                  ))}
+                  {overlayModel ? (
+                    <g data-testid="preview-2d-overlay">
+                      {overlayModel.minorGridLines.map((line) => (
+                        <line
+                          key={line.key}
+                          x1={line.x1}
+                          y1={line.y1}
+                          x2={line.x2}
+                          y2={line.y2}
+                          stroke={themeColors.minorGrid}
+                          strokeOpacity={0.28}
+                          strokeWidth={0.5}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      ))}
 
-                  {overlayModel.boundsRect ? (
-                    <rect
-                      x={overlayModel.boundsRect.x}
-                      y={overlayModel.boundsRect.y}
-                      width={overlayModel.boundsRect.width}
-                      height={overlayModel.boundsRect.height}
-                      fill="none"
-                      stroke={themeColors.bounds}
-                      strokeDasharray="4 3"
-                      strokeWidth={1}
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  ) : null}
+                      {overlayModel.majorGridLines.map((line) => (
+                        <line
+                          key={line.key}
+                          x1={line.x1}
+                          y1={line.y1}
+                          x2={line.x2}
+                          y2={line.y2}
+                          stroke={themeColors.majorGrid}
+                          strokeOpacity={0.52}
+                          strokeWidth={0.75}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      ))}
 
-                  {overlayModel.committedMeasurements.map((measurement) => (
-                    <g key={measurement.id} data-testid="preview-2d-committed-measurement">
-                      <line
-                        x1={measurement.line.x1}
-                        y1={measurement.line.y1}
-                        x2={measurement.line.x2}
-                        y2={measurement.line.y2}
-                        stroke={
-                          measurement.selected ? themeColors.measureSelected : themeColors.measure
-                        }
-                        strokeOpacity={measurement.selected ? 1 : 0.9}
-                        strokeWidth={measurement.selected ? 2 : 1.5}
-                        vectorEffect="non-scaling-stroke"
-                      />
-                      {[measurement.startMarker, measurement.endMarker].map((marker) => (
+                      {overlayModel.axesLines.map((line) => (
+                        <line
+                          key={line.key}
+                          x1={line.x1}
+                          y1={line.y1}
+                          x2={line.x2}
+                          y2={line.y2}
+                          stroke={line.tone === 'axis-x' ? themeColors.xAxis : themeColors.yAxis}
+                          strokeOpacity={0.85}
+                          strokeWidth={1.25}
+                          vectorEffect="non-scaling-stroke"
+                          data-axis={line.tone === 'axis-x' ? 'x' : 'y'}
+                        />
+                      ))}
+
+                      {overlayModel.boundsRect ? (
+                        <rect
+                          x={overlayModel.boundsRect.x}
+                          y={overlayModel.boundsRect.y}
+                          width={overlayModel.boundsRect.width}
+                          height={overlayModel.boundsRect.height}
+                          fill="none"
+                          stroke={themeColors.bounds}
+                          strokeDasharray="4 3"
+                          strokeWidth={1}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      ) : null}
+
+                      {overlayModel.committedMeasurements.map((measurement) => (
+                        <g key={measurement.id} data-testid="preview-2d-committed-measurement">
+                          <line
+                            x1={measurement.line.x1}
+                            y1={measurement.line.y1}
+                            x2={measurement.line.x2}
+                            y2={measurement.line.y2}
+                            stroke={
+                              measurement.selected
+                                ? themeColors.measureSelected
+                                : themeColors.measure
+                            }
+                            strokeOpacity={measurement.selected ? 1 : 0.9}
+                            strokeWidth={measurement.selected ? 2 : 1.5}
+                            vectorEffect="non-scaling-stroke"
+                          />
+                          {[measurement.startMarker, measurement.endMarker].map((marker) => (
+                            <circle
+                              key={marker.key}
+                              cx={marker.cx}
+                              cy={marker.cy}
+                              r={marker.r}
+                              fill={
+                                marker.tone === 'measure-selected'
+                                  ? themeColors.measureSelected
+                                  : themeColors.measure
+                              }
+                            />
+                          ))}
+                          <g
+                            data-testid={`preview-2d-measurement-item-${measurement.id}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              selectMeasurement(measurement.id);
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <rect
+                              x={measurement.labelBox.x}
+                              y={measurement.labelBox.y}
+                              width={measurement.labelBox.width}
+                              height={measurement.labelBox.height}
+                              rx={4 / Math.max(viewport.scale, 0.0001)}
+                              fill={themeColors.labelBackground}
+                              opacity={measurement.selected ? 0.95 : 0.82}
+                              stroke={
+                                measurement.selected
+                                  ? themeColors.measureSelected
+                                  : themeColors.measure
+                              }
+                              strokeOpacity={measurement.selected ? 0.95 : 0.55}
+                              strokeWidth={1 / Math.max(viewport.scale, 0.0001)}
+                            />
+                            <text
+                              x={measurement.label.x}
+                              y={measurement.label.y}
+                              textAnchor={measurement.label.anchor ?? 'start'}
+                              fill={
+                                measurement.selected
+                                  ? themeColors.measureSelected
+                                  : themeColors.measure
+                              }
+                              fontSize={12 / Math.max(viewport.scale, 0.0001)}
+                              fontFamily="monospace"
+                              dominantBaseline="middle"
+                              data-testid="preview-2d-measurement-label"
+                            >
+                              {measurement.label.text}
+                            </text>
+                          </g>
+                        </g>
+                      ))}
+
+                      {overlayModel.draftMeasurementLine ? (
+                        <line
+                          x1={overlayModel.draftMeasurementLine.x1}
+                          y1={overlayModel.draftMeasurementLine.y1}
+                          x2={overlayModel.draftMeasurementLine.x2}
+                          y2={overlayModel.draftMeasurementLine.y2}
+                          stroke={themeColors.measure}
+                          strokeOpacity={0.9}
+                          strokeWidth={1.5}
+                          vectorEffect="non-scaling-stroke"
+                          strokeDasharray="4 3"
+                        />
+                      ) : null}
+
+                      {overlayModel.draftMeasurementMarkers.map((marker) => (
                         <circle
                           key={marker.key}
                           cx={marker.cx}
                           cy={marker.cy}
                           r={marker.r}
-                          fill={
-                            marker.tone === 'measure-selected'
-                              ? themeColors.measureSelected
-                              : themeColors.measure
-                          }
+                          fill={themeColors.measure}
                         />
                       ))}
-                      <g
-                        data-testid={`preview-2d-measurement-item-${measurement.id}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          selectMeasurement(measurement.id);
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <rect
-                          x={measurement.labelBox.x}
-                          y={measurement.labelBox.y}
-                          width={measurement.labelBox.width}
-                          height={measurement.labelBox.height}
-                          rx={4 / Math.max(viewport.scale, 0.0001)}
-                          fill={themeColors.labelBackground}
-                          opacity={measurement.selected ? 0.95 : 0.82}
-                          stroke={
-                            measurement.selected ? themeColors.measureSelected : themeColors.measure
-                          }
-                          strokeOpacity={measurement.selected ? 0.95 : 0.55}
-                          strokeWidth={1 / Math.max(viewport.scale, 0.0001)}
+
+                      {overlayModel.draftSnapIndicator ? (
+                        <circle
+                          cx={overlayModel.draftSnapIndicator.cx}
+                          cy={overlayModel.draftSnapIndicator.cy}
+                          r={overlayModel.draftSnapIndicator.r}
+                          fill="none"
+                          stroke={themeColors.measure}
+                          strokeOpacity={0.8}
+                          strokeWidth={1.2}
+                          vectorEffect="non-scaling-stroke"
+                          data-testid="preview-2d-snap-indicator"
                         />
+                      ) : null}
+
+                      {[...overlayModel.boundsLabels].map((label) => (
                         <text
-                          x={measurement.label.x}
-                          y={measurement.label.y}
-                          textAnchor={measurement.label.anchor ?? 'start'}
-                          fill={
-                            measurement.selected ? themeColors.measureSelected : themeColors.measure
-                          }
+                          key={label.key}
+                          x={label.x}
+                          y={label.y}
+                          textAnchor={label.anchor ?? 'start'}
+                          fill={themeColors.labelText}
+                          fontSize={10 / Math.max(viewport.scale, 0.0001)}
+                          fontFamily="monospace"
+                          paintOrder="stroke"
+                          stroke={themeColors.labelBackground}
+                          strokeWidth={2 / Math.max(viewport.scale, 0.0001)}
+                        >
+                          {label.text}
+                        </text>
+                      ))}
+
+                      {overlayModel.draftMeasurementLabel ? (
+                        <text
+                          x={overlayModel.draftMeasurementLabel.x}
+                          y={overlayModel.draftMeasurementLabel.y}
+                          textAnchor={overlayModel.draftMeasurementLabel.anchor ?? 'start'}
+                          fill={themeColors.measure}
                           fontSize={12 / Math.max(viewport.scale, 0.0001)}
                           fontFamily="monospace"
+                          paintOrder="stroke"
+                          stroke={themeColors.labelBackground}
+                          strokeWidth={2 / Math.max(viewport.scale, 0.0001)}
                           dominantBaseline="middle"
-                          data-testid="preview-2d-measurement-label"
                         >
-                          {measurement.label.text}
+                          {overlayModel.draftMeasurementLabel.text}
                         </text>
-                      </g>
+                      ) : null}
+
+                      {overlayModel.draftSnapLabel ? (
+                        <text
+                          x={overlayModel.draftSnapLabel.x}
+                          y={overlayModel.draftSnapLabel.y}
+                          textAnchor={overlayModel.draftSnapLabel.anchor ?? 'start'}
+                          fill={themeColors.measure}
+                          fontSize={11 / Math.max(viewport.scale, 0.0001)}
+                          fontFamily="monospace"
+                          paintOrder="stroke"
+                          stroke={themeColors.labelBackground}
+                          strokeWidth={2 / Math.max(viewport.scale, 0.0001)}
+                          dominantBaseline="middle"
+                        >
+                          {overlayModel.draftSnapLabel.text}
+                        </text>
+                      ) : null}
                     </g>
-                  ))}
-
-                  {overlayModel.draftMeasurementLine ? (
-                    <line
-                      x1={overlayModel.draftMeasurementLine.x1}
-                      y1={overlayModel.draftMeasurementLine.y1}
-                      x2={overlayModel.draftMeasurementLine.x2}
-                      y2={overlayModel.draftMeasurementLine.y2}
-                      stroke={themeColors.measure}
-                      strokeOpacity={0.9}
-                      strokeWidth={1.5}
-                      vectorEffect="non-scaling-stroke"
-                      strokeDasharray="4 3"
-                    />
-                  ) : null}
-
-                  {overlayModel.draftMeasurementMarkers.map((marker) => (
-                    <circle
-                      key={marker.key}
-                      cx={marker.cx}
-                      cy={marker.cy}
-                      r={marker.r}
-                      fill={themeColors.measure}
-                    />
-                  ))}
-
-                  {overlayModel.draftSnapIndicator ? (
-                    <circle
-                      cx={overlayModel.draftSnapIndicator.cx}
-                      cy={overlayModel.draftSnapIndicator.cy}
-                      r={overlayModel.draftSnapIndicator.r}
-                      fill="none"
-                      stroke={themeColors.measure}
-                      strokeOpacity={0.8}
-                      strokeWidth={1.2}
-                      vectorEffect="non-scaling-stroke"
-                      data-testid="preview-2d-snap-indicator"
-                    />
-                  ) : null}
-
-                  {[...overlayModel.boundsLabels].map((label) => (
-                    <text
-                      key={label.key}
-                      x={label.x}
-                      y={label.y}
-                      textAnchor={label.anchor ?? 'start'}
-                      fill={themeColors.labelText}
-                      fontSize={10 / Math.max(viewport.scale, 0.0001)}
-                      fontFamily="monospace"
-                      paintOrder="stroke"
-                      stroke={themeColors.labelBackground}
-                      strokeWidth={2 / Math.max(viewport.scale, 0.0001)}
-                    >
-                      {label.text}
-                    </text>
-                  ))}
-
-                  {overlayModel.draftMeasurementLabel ? (
-                    <text
-                      x={overlayModel.draftMeasurementLabel.x}
-                      y={overlayModel.draftMeasurementLabel.y}
-                      textAnchor={overlayModel.draftMeasurementLabel.anchor ?? 'start'}
-                      fill={themeColors.measure}
-                      fontSize={12 / Math.max(viewport.scale, 0.0001)}
-                      fontFamily="monospace"
-                      paintOrder="stroke"
-                      stroke={themeColors.labelBackground}
-                      strokeWidth={2 / Math.max(viewport.scale, 0.0001)}
-                      dominantBaseline="middle"
-                    >
-                      {overlayModel.draftMeasurementLabel.text}
-                    </text>
-                  ) : null}
-
-                  {overlayModel.draftSnapLabel ? (
-                    <text
-                      x={overlayModel.draftSnapLabel.x}
-                      y={overlayModel.draftSnapLabel.y}
-                      textAnchor={overlayModel.draftSnapLabel.anchor ?? 'start'}
-                      fill={themeColors.measure}
-                      fontSize={11 / Math.max(viewport.scale, 0.0001)}
-                      fontFamily="monospace"
-                      paintOrder="stroke"
-                      stroke={themeColors.labelBackground}
-                      strokeWidth={2 / Math.max(viewport.scale, 0.0001)}
-                      dominantBaseline="middle"
-                    >
-                      {overlayModel.draftSnapLabel.text}
-                    </text>
                   ) : null}
                 </g>
-              ) : null}
-            </g>
-          </svg>
-        </div>
-      ) : null}
+              </svg>
+            </div>
+          ) : null}
 
-      {documentState.status === 'idle' ? (
-        <StatusCard
-          title="No 2D preview"
-          detail="Render a 2D OpenSCAD model to see the SVG viewer."
-        />
-      ) : null}
+          {documentState.status === 'idle' ? (
+            <StatusCard
+              title="No 2D preview"
+              detail="Render a 2D OpenSCAD model to see the SVG viewer."
+            />
+          ) : null}
 
-      {documentState.status === 'empty' && !loadedDocument ? (
-        <StatusCard
-          title="No 2D output"
-          detail="The render completed but did not produce any visible 2D geometry."
-          helperText="OpenSCAD WASM can produce empty output for some features, including text() when fonts are unavailable."
-        />
-      ) : null}
+          {documentState.status === 'empty' && !loadedDocument ? (
+            <StatusCard
+              title="No 2D output"
+              detail="The render completed but did not produce any visible 2D geometry."
+              helperText="OpenSCAD WASM can produce empty output for some features, including text() when fonts are unavailable."
+            />
+          ) : null}
 
-      {documentState.status === 'error' && !loadedDocument ? (
-        <StatusCard
-          title="Couldn't load SVG preview"
-          detail={documentState.error}
-          helperText="The preview surface stays isolated so a failed SVG load does not break the rest of the app."
-        />
-      ) : null}
+          {documentState.status === 'error' && !loadedDocument ? (
+            <StatusCard
+              title="Couldn't load SVG preview"
+              detail={documentState.error}
+              helperText="The preview surface stays isolated so a failed SVG load does not break the rest of the app."
+            />
+          ) : null}
 
-      {loadedDocument && documentState.status === 'empty' ? (
-        <div
-          className="absolute left-3 top-3 z-20 px-3 py-2 rounded-md text-xs"
-          style={{
-            backgroundColor: themeColors.bannerBackground,
-            border: '1px solid var(--border-primary)',
-            color: 'var(--text-secondary)',
-          }}
-          data-testid="preview-2d-empty-banner"
-        >
-          No visible 2D geometry. OpenSCAD WASM text rendering may be limited when fonts are
-          unavailable.
-        </div>
-      ) : null}
+          {loadedDocument && documentState.status === 'empty' ? (
+            <div
+              className="absolute left-3 top-3 z-20 px-3 py-2 rounded-md text-xs"
+              style={{
+                backgroundColor: themeColors.bannerBackground,
+                border: '1px solid var(--border-primary)',
+                color: 'var(--text-secondary)',
+              }}
+              data-testid="preview-2d-empty-banner"
+            >
+              No visible 2D geometry. OpenSCAD WASM text rendering may be limited when fonts are
+              unavailable.
+            </div>
+          ) : null}
 
-      {loadedDocument && documentState.status === 'error' ? (
-        <div
-          className="absolute left-3 top-3 z-20 px-3 py-2 rounded-md text-xs max-w-md"
-          style={{
-            backgroundColor: themeColors.bannerBackground,
-            border: '1px solid var(--border-primary)',
-            color: 'var(--text-secondary)',
-          }}
-          data-testid="preview-2d-error-banner"
-        >
-          Couldn&apos;t load SVG preview. Showing the last successful 2D preview instead.
-        </div>
-      ) : null}
+          {loadedDocument && documentState.status === 'error' ? (
+            <div
+              className="absolute left-3 top-3 z-20 px-3 py-2 rounded-md text-xs max-w-md"
+              style={{
+                backgroundColor: themeColors.bannerBackground,
+                border: '1px solid var(--border-primary)',
+                color: 'var(--text-secondary)',
+              }}
+              data-testid="preview-2d-error-banner"
+            >
+              Couldn&apos;t load SVG preview. Showing the last successful 2D preview instead.
+            </div>
+          ) : null}
 
-      {loadedDocument && documentState.warnings.length > 0 && documentState.status !== 'error' ? (
-        <div
-          className="absolute left-3 bottom-3 z-20 px-3 py-2 rounded-md text-xs max-w-lg"
-          style={{
-            backgroundColor: themeColors.bannerBackground,
-            border: '1px solid var(--border-primary)',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          {documentState.warnings[0]}
-        </div>
-      ) : null}
+          {loadedDocument &&
+          documentState.warnings.length > 0 &&
+          documentState.status !== 'error' ? (
+            <div
+              className="absolute left-3 bottom-3 z-20 px-3 py-2 rounded-md text-xs max-w-lg"
+              style={{
+                backgroundColor: themeColors.bannerBackground,
+                border: '1px solid var(--border-primary)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              {documentState.warnings[0]}
+            </div>
+          ) : null}
 
-      {loadedDocument && settings.viewer.show2DCursorCoords && cursorPoint ? (
-        <div
-          className="absolute right-3 bottom-3 z-20 px-3 py-2 rounded-md text-xs font-medium"
-          style={{
-            backgroundColor: themeColors.bannerBackground,
-            border: '1px solid var(--border-primary)',
-            color: 'var(--text-secondary)',
-          }}
-          data-testid="preview-2d-coordinate-readout"
-        >
-          {formatCoordinate(cursorPoint)}
-        </div>
-      ) : null}
-
+          {loadedDocument && settings.viewer.show2DCursorCoords && cursorPoint ? (
+            <div
+              className="absolute right-3 bottom-3 z-20 px-3 py-2 rounded-md text-xs font-medium"
+              style={{
+                backgroundColor: themeColors.bannerBackground,
+                border: '1px solid var(--border-primary)',
+                color: 'var(--text-secondary)',
+              }}
+              data-testid="preview-2d-coordinate-readout"
+            >
+              {formatCoordinate(cursorPoint)}
+            </div>
+          ) : null}
         </div>
       </div>
       <Svg2DContextBar

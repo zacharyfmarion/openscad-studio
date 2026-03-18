@@ -163,7 +163,8 @@ function isValidSliderConfig(
   if (config.min === undefined || config.max === undefined) return false;
   if (!Number.isFinite(config.min) || !Number.isFinite(config.max)) return false;
   if (config.min >= config.max) return false;
-  if (config.step !== undefined && (!Number.isFinite(config.step) || config.step <= 0)) return false;
+  if (config.step !== undefined && (!Number.isFinite(config.step) || config.step <= 0))
+    return false;
   if (value < config.min || value > config.max) return false;
   return true;
 }
