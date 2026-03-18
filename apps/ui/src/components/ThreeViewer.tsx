@@ -819,6 +819,18 @@ function ViewerCameraManager({
       return;
     }
 
+    // If the camera type hasn't caught up to the orthographic setting yet, wait for the next
+    // render. drei creates a new CameraControlsImpl when the R3F camera changes, which happens
+    // one render after the orthographic state change. Acting on the mismatched state would call
+    // fitToBox/setLookAt on the wrong camera type and leave the new camera unfitted.
+    const cameraMatchesProjection = orthographic
+      ? camera instanceof THREE.OrthographicCamera
+      : camera instanceof THREE.PerspectiveCamera;
+
+    if (!cameraMatchesProjection) {
+      return;
+    }
+
     const framing = derivePreviewFramingMetrics(modelFrame.box, sceneStyle);
 
     if (camera instanceof THREE.PerspectiveCamera) {

@@ -387,7 +387,7 @@ export function CustomizerPanel({
   return (
     <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div
-        className="sticky top-0 z-10 border-b backdrop-blur"
+        className="sticky top-0 z-10 border-b border-l backdrop-blur"
         style={{
           backgroundColor: 'color-mix(in srgb, var(--bg-primary) 92%, transparent)',
           borderColor: 'var(--border-primary)',
