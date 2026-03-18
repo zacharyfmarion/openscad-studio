@@ -125,6 +125,7 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
   const activeTab = useWorkspaceStore(selectActiveTab);
   const analytics = useAnalytics();
   const [isDownloadingStl, setIsDownloadingStl] = useState(false);
+  const [isDownloadingSvg, setIsDownloadingSvg] = useState(false);
 
   const handleDownloadStl = useCallback(async () => {
     if (isDownloadingStl) return;
@@ -149,6 +150,29 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
     }
   }, [isDownloadingStl, activeTab, source, analytics]);
 
+  const handleDownloadSvg = useCallback(async () => {
+    if (isDownloadingSvg) return;
+    const code = activeTab?.content ?? source;
+    setIsDownloadingSvg(true);
+    try {
+      const exportBytes = await RenderService.getInstance().exportModel(code, 'svg');
+      await getPlatform().fileExport(exportBytes, 'export.svg', [
+        { name: 'SVG Files', extensions: ['svg'] },
+      ]);
+      analytics.track('file exported', { format: 'svg' });
+    } catch (err) {
+      notifyError({
+        operation: 'export-file',
+        error: err,
+        fallbackMessage: 'SVG export failed',
+        toastId: 'export-error',
+        logLabel: 'SVG export failed',
+      });
+    } finally {
+      setIsDownloadingSvg(false);
+    }
+  }, [isDownloadingSvg, activeTab, source, analytics]);
+
   return (
     <PanelErrorBoundary panelId="customizer" panelName="Customizer">
       <div className="h-full" style={{ backgroundColor: 'var(--bg-secondary)' }}>
@@ -166,6 +190,8 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
           onEditCode={onOpenEditorPanel}
           onDownloadStl={handleDownloadStl}
           isDownloadingStl={isDownloadingStl}
+          onDownloadSvg={handleDownloadSvg}
+          isDownloadingSvg={isDownloadingSvg}
         />
       </div>
     </PanelErrorBoundary>

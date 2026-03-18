@@ -29,6 +29,8 @@ interface CustomizerPanelProps {
   onEditCode?: () => void;
   onDownloadStl?: () => void;
   isDownloadingStl?: boolean;
+  onDownloadSvg?: () => void;
+  isDownloadingSvg?: boolean;
 }
 
 interface GroupedParams {
@@ -106,19 +108,16 @@ function getDownloadDisabledReason({
   isRendering,
   previewAvailable,
   hasRenderErrors,
-  previewKind,
 }: {
   renderReady: boolean;
   isRendering: boolean;
   previewAvailable: boolean;
   hasRenderErrors: boolean;
-  previewKind: RenderKind | undefined;
 }): string | null {
   if (!renderReady) return 'Renderer is still starting up.';
   if (isRendering) return 'Rendering...';
   if (hasRenderErrors) return 'Fix the current render errors before downloading.';
-  if (!previewAvailable) return 'Render the model to enable STL download.';
-  if (previewKind !== 'mesh') return 'STL download is only available for 3D previews.';
+  if (!previewAvailable) return 'Render the model to enable download.';
   return null;
 }
 
@@ -165,6 +164,8 @@ export function CustomizerPanel({
   onEditCode,
   onDownloadStl,
   isDownloadingStl = false,
+  onDownloadSvg,
+  isDownloadingSvg = false,
 }: CustomizerPanelProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [parserReady, setParserReady] = useState(isParserReady);
@@ -301,7 +302,6 @@ export function CustomizerPanel({
     isRendering,
     previewAvailable,
     hasRenderErrors,
-    previewKind,
   });
 
   if (!parserReady) {
@@ -404,41 +404,57 @@ export function CustomizerPanel({
                   <TbSparkles size={12} />
                   Refine
                 </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={onDownloadStl}
-                  disabled={Boolean(downloadDisabledReason) || isDownloadingStl}
-                  className="inline-flex items-center gap-1"
-                  data-testid="customizer-download-button"
-                >
-                  {isDownloadingStl ? (
-                    <svg
-                      className="animate-spin"
-                      style={{ width: 12, height: 12 }}
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
-                  ) : (
-                    <TbDownload size={12} />
-                  )}
-                  Download STL
-                </Button>
+                {previewKind === 'svg' ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={onDownloadSvg}
+                    disabled={Boolean(downloadDisabledReason) || isDownloadingSvg}
+                    className="inline-flex items-center gap-1"
+                    data-testid="customizer-download-button"
+                  >
+                    {isDownloadingSvg ? (
+                      <svg
+                        className="animate-spin"
+                        style={{ width: 12, height: 12 }}
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <TbDownload size={12} />
+                    )}
+                    Download SVG
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={onDownloadStl}
+                    disabled={Boolean(downloadDisabledReason) || isDownloadingStl}
+                    className="inline-flex items-center gap-1"
+                    data-testid="customizer-download-button"
+                  >
+                    {isDownloadingStl ? (
+                      <svg
+                        className="animate-spin"
+                        style={{ width: 12, height: 12 }}
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <TbDownload size={12} />
+                    )}
+                    Download STL
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="secondary"

@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { TbFocus2, TbZoomIn, TbZoomOut } from 'react-icons/tb';
+import { type ComponentType, useEffect, useMemo, useRef, useState } from 'react';
+import { TbFocus2, TbGrid3X3, TbPointer, TbRuler, TbX, TbZoomIn, TbZoomOut } from 'react-icons/tb';
 import { useTheme } from '../contexts/ThemeContext';
 import { getPreviewSceneStyle } from '../services/previewSceneConfig';
 import { Button, IconButton, Text } from './ui';
-import { MeasurementsTray } from './viewer-measurements/MeasurementsTray';
 import type { MeasurementListItemData } from './viewer-measurements/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
 import { buildOverlayModel } from './svg-viewer/overlayModel';
@@ -82,6 +81,209 @@ function formatCoordinate(point: SvgPoint | null) {
   return `x ${formatValue(point.x)}  y ${formatValue(point.y)}`;
 }
 
+const SVG_2D_TOOLS: { id: ViewMode; label: string; icon: ComponentType<{ size?: number }>; shortcut: string }[] = [
+  { id: 'pan', label: 'Pan', icon: TbPointer, shortcut: 'Esc' },
+  { id: 'measure-distance', label: 'Measure', icon: TbRuler, shortcut: 'M' },
+];
+
+function Svg2DToolPalette({
+  mode,
+  onModeChange,
+  canInteract,
+}: {
+  mode: ViewMode;
+  onModeChange: (mode: ViewMode) => void;
+  canInteract: boolean;
+}) {
+  return (
+    <div
+      className="flex flex-col shrink-0 items-center"
+      style={{
+        width: '44px',
+        padding: '6px 0',
+        gap: '2px',
+        borderRight: '1px solid var(--border-primary)',
+      }}
+      data-testid="preview-2d-tool-palette"
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      {SVG_2D_TOOLS.map((tool) => {
+        const isActive = mode === tool.id;
+        const isDisabled = !canInteract;
+        const Icon = tool.icon;
+        return (
+          // eslint-disable-next-line no-restricted-syntax -- palette tool buttons carry a full set of imperative inline styles driven by active+disabled state; matches ViewerToolPalette pattern in ThreeViewer
+          <button
+            key={tool.id}
+            type="button"
+            title={`${tool.label} (${tool.shortcut})`}
+            aria-label={`${tool.label} (${tool.shortcut})`}
+            disabled={isDisabled}
+            onClick={() => onModeChange(tool.id)}
+            data-testid={`preview-2d-tool-${tool.id === 'pan' ? 'pan' : 'measure'}`}
+            style={{
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isActive ? 'var(--bg-tertiary, var(--bg-elevated))' : 'transparent',
+              color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+              opacity: isDisabled ? 0.35 : 1,
+              border: isActive ? '1px solid var(--border-primary)' : '1px solid transparent',
+              borderRadius: 'var(--radius-md)',
+              cursor: isDisabled ? 'not-allowed' : 'pointer',
+              transition: 'background-color 0.15s, color 0.15s, border-color 0.15s',
+              flexShrink: 0,
+            }}
+          >
+            <Icon size={17} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Svg2DContextBar({
+  mode,
+  draftMeasurement,
+  measureSummary,
+  measurementItems,
+  onMeasurementSelect,
+  onMeasurementDelete,
+  onMeasurementsClear,
+}: {
+  mode: ViewMode;
+  draftMeasurement: MeasurementDraft;
+  measureSummary: string | null;
+  measurementItems: MeasurementListItemData[];
+  onMeasurementSelect: (id: string) => void;
+  onMeasurementDelete: (id: string) => void;
+  onMeasurementsClear: () => void;
+}) {
+  const helpText =
+    mode === 'measure-distance'
+      ? draftMeasurement.status === 'placing-end'
+        ? 'Click to finish. Hold Shift to lock angle. Esc cancels.'
+        : 'Click to place start. Hold Shift to lock angle. Esc exits.'
+      : null;
+
+  return (
+    <div
+      className="flex items-center shrink-0"
+      style={{
+        height: '52px',
+        borderTop: '1px solid var(--border-primary)',
+        backgroundColor: 'var(--bg-secondary)',
+      }}
+      data-testid="preview-2d-context-bar"
+    >
+      {mode === 'measure-distance' ? (
+        <div className="flex flex-row items-center gap-3 px-3 w-full overflow-hidden h-full">
+          <span
+            className="text-xs shrink-0"
+            style={{ color: 'var(--text-secondary)', maxWidth: '220px' }}
+          >
+            {helpText}
+          </span>
+          {measureSummary ? (
+            <>
+              <div
+                className="shrink-0 h-4"
+                style={{ width: '1px', backgroundColor: 'var(--border-primary)' }}
+              />
+              <span
+                className="text-xs font-medium shrink-0"
+                style={{ color: 'var(--text-secondary)' }}
+                data-testid="preview-2d-measurement-readout"
+              >
+                {measureSummary}
+              </span>
+            </>
+          ) : null}
+          {measurementItems.length > 0 ? (
+            <>
+              <div
+                className="shrink-0 h-4"
+                style={{ width: '1px', backgroundColor: 'var(--border-primary)' }}
+              />
+              <div
+                className="flex flex-row gap-2 overflow-x-auto flex-1"
+                data-testid="preview-2d-measurements-tray"
+              >
+                {measurementItems.map((item) => {
+                  const selected = item.selected;
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center shrink-0 rounded-lg overflow-hidden text-xs"
+                      style={{
+                        backgroundColor: selected ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+                        border: `1px solid ${selected ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
+                      }}
+                    >
+                      {/* eslint-disable-next-line no-restricted-syntax -- left half of a split chip; matches MeasurePanel chip pattern */}
+                      <button
+                        type="button"
+                        data-testid="preview-2d-measurement-list-item"
+                        aria-pressed={selected}
+                        onClick={() => onMeasurementSelect(item.id)}
+                        className="px-2 py-1"
+                        style={{ color: selected ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+                      >
+                        {item.summary}
+                      </button>
+                      {/* eslint-disable-next-line no-restricted-syntax -- right half of the chip delete action; matches MeasurePanel chip pattern */}
+                      <button
+                        type="button"
+                        aria-label="Delete measurement"
+                        data-testid="preview-2d-delete-measurement"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMeasurementDelete(item.id);
+                        }}
+                        className="flex items-center justify-center px-1.5 py-1 transition-colors"
+                        style={{
+                          borderLeft: `1px solid ${selected ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
+                          color: 'var(--text-secondary)',
+                          backgroundColor: 'transparent',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor =
+                            'color-mix(in srgb, var(--bg-primary) 60%, transparent)';
+                          e.currentTarget.style.color = 'var(--text-primary)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.color = 'var(--text-secondary)';
+                        }}
+                      >
+                        <TbX size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                data-testid="preview-2d-clear-measurements"
+                onClick={onMeasurementsClear}
+                className="shrink-0"
+              >
+                Clear all
+              </Button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ToolbarTextButton({
   label,
   onClick,
@@ -98,22 +300,25 @@ function ToolbarTextButton({
   testId?: string;
 }) {
   return (
-    <Button
+    // eslint-disable-next-line no-restricted-syntax -- text toolbar buttons match the icon button visual style (bg-elevated, rounded-lg, same border/height) without a fixed width; Button variants don't expose this exact combination
+    <button
       type="button"
-      size="sm"
-      variant="secondary"
       onClick={onClick}
       disabled={disabled}
       aria-label={title}
       title={title}
       data-testid={testId}
+      className="h-8 rounded-lg transition-colors flex items-center justify-center px-2 text-sm font-medium"
       style={{
-        backgroundColor: active ? 'var(--bg-tertiary)' : undefined,
+        backgroundColor: active ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+        border: '1px solid var(--border-secondary)',
         color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+        opacity: disabled ? 0.4 : 1,
+        cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >
       {label}
-    </Button>
+    </button>
   );
 }
 
@@ -746,34 +951,29 @@ export function SvgViewer({ src }: SvgViewerProps) {
       }),
     [measurements, selectedMeasurementId, measurementUnit]
   );
-  const measurementHelpCopy =
-    viewMode === 'measure-distance'
-      ? draftMeasurement.status === 'placing-end' && draftMeasurement.start
-        ? 'Click again to finish. Hold Shift to lock angle in 15 degree steps. Esc to cancel. Delete removes the selected measurement.'
-        : 'Click to place start. Hold Shift after placing a point to lock angle in 15 degree steps. Esc exits measure mode. Delete removes the selected measurement.'
-      : null;
-
   return (
-    <div
-      ref={containerRef}
-      className="relative h-full w-full outline-none"
-      style={{ backgroundColor: themeColors.background }}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-      onKeyUp={handleKeyUp}
-      onWheel={handleWheel}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerLeave}
-      onDoubleClick={() => {
-        if (viewMode !== 'measure-distance') {
-          fitToDrawing();
-        }
-      }}
-      onClick={handleClick}
-      data-testid="preview-2d-root"
-    >
+    <div className="flex flex-col h-full w-full" data-testid="preview-2d-root">
+      <div className="flex flex-row flex-1 min-h-0">
+        <Svg2DToolPalette mode={viewMode} onModeChange={setViewMode} canInteract={canInteract} />
+        <div
+          ref={containerRef}
+          className="relative flex-1 min-w-0 outline-none"
+          style={{ backgroundColor: themeColors.background }}
+          tabIndex={0}
+          onKeyDown={handleKeyDown}
+          onKeyUp={handleKeyUp}
+          onWheel={handleWheel}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerLeave}
+          onDoubleClick={() => {
+            if (viewMode !== 'measure-distance') {
+              fitToDrawing();
+            }
+          }}
+          onClick={handleClick}
+        >
       <div
         className="absolute top-2 right-2 z-20 flex gap-2"
         onClick={(event) => event.stopPropagation()}
@@ -825,22 +1025,20 @@ export function SvgViewer({ src }: SvgViewerProps) {
           disabled={!canInteract}
           testId="preview-2d-actual-size"
         />
-        <ToolbarTextButton
-          label="Grid"
+        <IconButton
+          aria-label="Toggle grid"
           title="Toggle grid"
-          active={settings.viewer.show2DGrid}
+          data-testid="preview-2d-toggle-grid"
+          disabled={!canInteract}
           onClick={handleGridToggle}
-          disabled={!canInteract}
-          testId="preview-2d-toggle-grid"
-        />
-        <ToolbarTextButton
-          label="Measure"
-          title="Measure distance"
-          active={viewMode === 'measure-distance'}
-          onClick={toggleMeasurementMode}
-          disabled={!canInteract}
-          testId="preview-2d-toggle-measure"
-        />
+          style={{
+            backgroundColor: settings.viewer.show2DGrid ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+            border: '1px solid var(--border-secondary)',
+            color: settings.viewer.show2DGrid ? 'var(--text-primary)' : 'var(--text-secondary)',
+          }}
+        >
+          <TbGrid3X3 size={18} />
+        </IconButton>
       </div>
 
       <div aria-live="polite" className="sr-only">
@@ -1111,20 +1309,6 @@ export function SvgViewer({ src }: SvgViewerProps) {
         </div>
       ) : null}
 
-      {viewMode === 'measure-distance' && loadedDocument ? (
-        <div
-          className="absolute left-3 top-3 z-20 px-3 py-2 rounded-md text-xs max-w-md"
-          style={{
-            backgroundColor: themeColors.bannerBackground,
-            border: '1px solid var(--border-primary)',
-            color: 'var(--text-secondary)',
-          }}
-          data-testid="preview-2d-measure-help"
-        >
-          {measurementHelpCopy}
-        </div>
-      ) : null}
-
       {documentState.status === 'idle' ? (
         <StatusCard
           title="No 2D preview"
@@ -1204,38 +1388,23 @@ export function SvgViewer({ src }: SvgViewerProps) {
         </div>
       ) : null}
 
-      {loadedDocument && viewMode === 'measure-distance' && measureSummary ? (
-        <div
-          className="absolute right-3 top-16 z-20 px-3 py-2 rounded-md text-xs font-medium"
-          style={{
-            backgroundColor: themeColors.bannerBackground,
-            border: '1px solid var(--border-primary)',
-            color: 'var(--text-secondary)',
-          }}
-          data-testid="preview-2d-measurement-readout"
-        >
-          {measureSummary}
         </div>
-      ) : null}
-
-      {loadedDocument ? (
-        <MeasurementsTray
-          items={measurementItems}
-          containerTestId="preview-2d-measurements-tray"
-          clearAllTestId="preview-2d-clear-measurements"
-          itemTestId="preview-2d-measurement-list-item"
-          deleteTestId="preview-2d-delete-measurement"
-          onClearAll={clearAllMeasurements}
-          onSelect={selectMeasurement}
-          onDelete={(id) => {
-            setMeasurements((existing) => existing.filter((item) => item.id !== id));
-            if (selectedMeasurementId === id) {
-              setSelectedMeasurementId(null);
-            }
-            setLiveMessage('Measurement deleted');
-          }}
-        />
-      ) : null}
+      </div>
+      <Svg2DContextBar
+        mode={viewMode}
+        draftMeasurement={draftMeasurement}
+        measureSummary={measureSummary}
+        measurementItems={measurementItems}
+        onMeasurementSelect={selectMeasurement}
+        onMeasurementDelete={(id) => {
+          setMeasurements((existing) => existing.filter((item) => item.id !== id));
+          if (selectedMeasurementId === id) {
+            setSelectedMeasurementId(null);
+          }
+          setLiveMessage('Measurement deleted');
+        }}
+        onMeasurementsClear={clearAllMeasurements}
+      />
     </div>
   );
 }
