@@ -7,11 +7,7 @@
 
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import type { RenderKind } from '../hooks/useOpenScad';
-import {
-  bucketCount,
-  useAnalytics,
-  type CustomizerAction,
-} from '../analytics/runtime';
+import { bucketCount, useAnalytics, type CustomizerAction } from '../analytics/runtime';
 import { parseCustomizerParams } from '../utils/customizer/parser';
 import { isParserReady, onParserReady } from '../utils/formatter/parser';
 import type { CustomizerParam, ParameterProminence } from '../utils/customizer/types';
@@ -337,7 +333,15 @@ export function CustomizerPanel({
       has_studio_metadata: analyticsSummary.hasStudioMetadata,
       has_advanced_parameters: analyticsSummary.hasAdvancedParameters,
     });
-  }, [analytics, analyticsSummary, baselineCode, code, parserReady, settings.ui.defaultLayoutPreset, tabs.length]);
+  }, [
+    analytics,
+    analyticsSummary,
+    baselineCode,
+    code,
+    parserReady,
+    settings.ui.defaultLayoutPreset,
+    tabs.length,
+  ]);
 
   const trackCustomizerAction = useCallback(
     (action: CustomizerAction) => {

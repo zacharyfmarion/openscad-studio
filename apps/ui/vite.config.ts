@@ -6,9 +6,8 @@ import path from 'node:path';
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
-const appVersion = JSON.parse(
-  readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')
-).version as string;
+const appVersion = JSON.parse(readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8'))
+  .version as string;
 const sentryRelease = `openscad-studio@${appVersion}`;
 const hasSentryBuildConfig = Boolean(
   process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
