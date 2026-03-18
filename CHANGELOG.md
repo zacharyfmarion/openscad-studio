@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - 3D viewer inspection tools including measurement, bounding-box, and section-plane controls
 - New measurement tray, viewer context bar, and tool palette support across the viewer workflow
+- Added customizer-first layout that will be used when sharing designs
 
 ### Changed
 - Improved 2D and 3D viewer UI parity and supporting layout polish
