@@ -4,7 +4,7 @@
 
 import { Children, type ChangeEvent, useState, useEffect, useRef } from 'react';
 import type { CustomizerParam } from '../../utils/customizer/types';
-import { IconButton, RangeSlider, Select, Toggle } from '../ui';
+import { IconButton, RangeSlider, Select, Text, Toggle } from '../ui';
 import { TbRefresh } from 'react-icons/tb';
 
 interface ParameterControlProps {
@@ -37,7 +37,7 @@ function ControlShell({
   onReset,
 }: {
   param: CustomizerParam;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   inlineMeta?: React.ReactNode;
   isDirty?: boolean;
   onReset?: () => void;
@@ -79,10 +79,10 @@ function ControlShell({
           </div>
 
           {param.description && (
-            <p
-              className="mt-0.5 text-xs"
+            <Text
+              variant="caption"
+              className="mt-0.5"
               style={{
-                color: 'var(--text-secondary)',
                 display: '-webkit-box',
                 WebkitBoxOrient: 'vertical',
                 WebkitLineClamp: 2,
@@ -91,7 +91,7 @@ function ControlShell({
               title={param.description}
             >
               {param.description}
-            </p>
+            </Text>
           )}
         </div>
 
@@ -195,7 +195,6 @@ function SliderControl({ param, onChange, isDirty, onReset }: ParameterControlPr
   const step = param.step ?? 1;
   const [localValue, setLocalValue] = useState(Number(param.value));
   const debounceTimerRef = useRef<number | null>(null);
-  const fillPercent = max > min ? ((localValue - min) / (max - min)) * 100 : 0;
 
   useEffect(() => {
     setLocalValue(Number(param.value));

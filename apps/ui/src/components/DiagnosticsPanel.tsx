@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Text } from './ui';
 import type { Diagnostic } from '../platform/historyService';
 
 interface DiagnosticsPanelProps {
@@ -72,12 +73,9 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
                 >
                   echo
                 </span>
-                <p
-                  className="text-sm flex-1 min-w-0 font-mono"
-                  style={{ color: 'var(--text-primary)' }}
-                >
+                <Text variant="body" color="primary" className="flex-1 min-w-0 font-mono">
                   {diag.message.replace(/^ECHO:\s*/i, '')}
-                </p>
+                </Text>
               </div>
             </div>
           ))}
@@ -135,9 +133,9 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
                     Line {diag.line}:
                   </span>
                 )}
-                <p className="text-sm flex-1 min-w-0" style={{ color: 'var(--text-primary)' }}>
+                <Text variant="body" color="primary" className="flex-1 min-w-0">
                   {diag.message}
-                </p>
+                </Text>
               </div>
             </div>
           ))}

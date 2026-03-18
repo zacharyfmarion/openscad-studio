@@ -8,7 +8,7 @@ import {
 import { getAvailableThemes, getTheme } from '../themes';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAnalytics } from '../analytics/runtime';
-import { Button, IconButton, Input, Select, Label, Toggle } from './ui';
+import { Button, IconButton, Input, Select, Label, Toggle, Text } from './ui';
 import { Editor as MonacoEditor } from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
 import { registerVimConfigLanguage } from '../languages/vimConfigLanguage';
@@ -341,12 +341,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
           }}
         >
           <div className="px-5 py-5">
-            <h2
-              className="text-sm font-semibold uppercase tracking-wider"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
+            <Text variant="section-heading" as="h2" className="uppercase tracking-wider" color="tertiary">
               Settings
-            </h2>
+            </Text>
           </div>
           <nav className="flex-1 px-3 space-y-1">
             {/* eslint-disable no-restricted-syntax -- nav items need imperative onMouseEnter/Leave to swap bg/color without extra state; <Button> doesn't expose those overrides cleanly */}
@@ -391,7 +388,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
             className="flex items-center justify-between px-6 py-4 shrink-0"
             style={{ borderBottom: '1px solid var(--border-primary)' }}
           >
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>
+            <Text variant="section-heading" weight="medium" color="tertiary">
               {activeSection === 'appearance'
                 ? 'Appearance'
                 : activeSection === 'viewer'
@@ -405,7 +402,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         : activeSection === 'libraries'
                           ? 'Libraries'
                           : 'AI Assistant'}
-            </h3>
+            </Text>
             <IconButton size="sm" onClick={handleClose} title="Close settings">
               <TbX size={16} />
             </IconButton>
@@ -417,9 +414,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
               <div className="space-y-6">
                 <div>
                   <Label>Default Layout</Label>
-                  <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
+                  <Text variant="caption" color="tertiary" className="mb-4">
                     Choose which panel arrangement to use as your default workspace
-                  </p>
+                  </Text>
                   {/* eslint-disable no-restricted-syntax -- layout preset cards need imperative onMouseEnter/Leave hover-lift; <Button> doesn't support the translateY style mutation needed here */}
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {[
@@ -478,9 +475,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   </div>
                   {/* eslint-enable no-restricted-syntax */}
                   <div className="mt-3 flex items-center justify-between">
-                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    <Text variant="caption" color="tertiary">
                       Restore the current workspace to its default panel arrangement
-                    </p>
+                    </Text>
                     <Button
                       type="button"
                       variant="secondary"
@@ -495,9 +492,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
                 <div>
                   <Label>Theme</Label>
-                  <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
+                  <Text variant="caption" color="tertiary" className="mb-4">
                     Choose a color theme for the entire application
-                  </p>
+                  </Text>
                   {availableThemes.map((section) => (
                     <div key={section.category} className="mb-4">
                       <div
@@ -600,12 +597,12 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     style={{ borderBottom: '1px solid var(--border-primary)' }}
                   >
                     <div className="pr-4">
-                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <Text variant="body" weight="medium" color="primary">
                         3D viewer
-                      </p>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      </Text>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Configure reference overlays and labels used by the 3D preview.
-                      </p>
+                      </Text>
                     </div>
                   </div>
 
@@ -617,9 +614,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-show-axes" className="mb-0">
                         Show axes
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Show the X, Y, and Z reference axes in the 3D viewer
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-show-axes"
@@ -638,9 +635,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-show-axis-labels" className="mb-0">
                         Show axis labels
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Show numeric markers and X / Y / Z labels on the viewer axes
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-show-axis-labels"
@@ -660,9 +657,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-show-3d-grid" className="mb-0">
                         Show 3D grid
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Show the floor reference grid in the 3D viewer.
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-show-3d-grid"
@@ -681,9 +678,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-show-shadows" className="mb-0">
                         Show shadows
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Keep contact shadows enabled in the 3D viewer.
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-show-shadows"
@@ -702,9 +699,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-show-viewcube" className="mb-0">
                         Show viewcube
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Show the orientation cube in the bottom-left corner of the 3D viewer.
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-show-viewcube"
@@ -723,9 +720,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-measurement-snap-enabled" className="mb-0">
                         Snap 3D measurements
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Snap picks to nearby vertices and edge midpoints when measuring.
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-measurement-snap-enabled"
@@ -744,9 +741,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-show-selection-info" className="mb-0">
                         Show inspection HUD
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Show picked point, bounds, and tool status while inspecting 3D geometry.
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-show-selection-info"
@@ -770,12 +767,12 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     style={{ borderBottom: '1px solid var(--border-primary)' }}
                   >
                     <div className="pr-4">
-                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <Text variant="body" weight="medium" color="primary">
                         2D viewer
-                      </p>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      </Text>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Configure overlays and interaction aids used by the SVG preview.
-                      </p>
+                      </Text>
                     </div>
                   </div>
 
@@ -787,9 +784,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-show-2d-grid" className="mb-0">
                         Show 2D grid
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Show an adaptive grid in the SVG preview for layout and measurement.
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-show-2d-grid"
@@ -808,9 +805,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-show-2d-axes" className="mb-0">
                         Show 2D axes
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Show horizontal and vertical reference axes through the origin.
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-show-2d-axes"
@@ -829,9 +826,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-show-2d-origin" className="mb-0">
                         Show origin marker
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Show a highlighted marker at the SVG origin.
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-show-2d-origin"
@@ -850,9 +847,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-show-2d-bounds" className="mb-0">
                         Show drawing bounds
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Show the drawing extents with width and height labels.
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-show-2d-bounds"
@@ -871,9 +868,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-show-2d-cursor-coords" className="mb-0">
                         Show cursor coordinates
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Show live SVG coordinates for the current pointer location.
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-show-2d-cursor-coords"
@@ -892,9 +889,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       <Label htmlFor="viewer-enable-2d-grid-snap" className="mb-0">
                         Snap measurement to grid
                       </Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Snap measurement points to the origin, bounds corners, and grid when close.
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       id="viewer-enable-2d-grid-snap"
@@ -922,12 +919,12 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     style={{ borderBottom: '1px solid var(--border-primary)' }}
                   >
                     <div className="pr-4">
-                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <Text variant="body" weight="medium" color="primary">
                         Measurements
-                      </p>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      </Text>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Configure how measurements are displayed across all viewers.
-                      </p>
+                      </Text>
                     </div>
                   </div>
 
@@ -1012,9 +1009,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     >
                       <div>
                         <Label className="mb-0">Format on Save</Label>
-                        <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        <Text variant="caption" color="tertiary" className="mt-1">
                           Automatically format OpenSCAD code when saving files
-                        </p>
+                        </Text>
                       </div>
                       <Toggle
                         checked={settings.editor.formatOnSave}
@@ -1044,9 +1041,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     <div className="flex items-center justify-between p-4">
                       <div>
                         <Label className="mb-0">Use Tabs</Label>
-                        <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        <Text variant="caption" color="tertiary" className="mt-1">
                           Use tab characters instead of spaces for indentation
-                        </p>
+                        </Text>
                       </div>
                       <Toggle
                         checked={settings.editor.useTabs}
@@ -1060,9 +1057,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     >
                       <div>
                         <Label className="mb-0">Auto-Render on Idle</Label>
-                        <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        <Text variant="caption" color="tertiary" className="mt-1">
                           Automatically render preview after you stop typing
-                        </p>
+                        </Text>
                       </div>
                       <Toggle
                         checked={settings.editor.autoRenderOnIdle}
@@ -1107,9 +1104,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     >
                       <div>
                         <Label className="mb-0">Enable Vim Mode</Label>
-                        <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        <Text variant="caption" color="tertiary" className="mt-1">
                           Enable vim keybindings and modal editing in the editor
-                        </p>
+                        </Text>
                       </div>
                       <Toggle
                         checked={settings.editor.vimMode}
@@ -1141,10 +1138,10 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                             Reset to Defaults
                           </Button>
                         </div>
-                        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                        <Text variant="caption" color="tertiary">
                           Customize vim keybindings using vim-style commands. Lines starting with #
                           are comments.
-                        </p>
+                        </Text>
                         <div
                           style={{
                             height: '260px',
@@ -1219,7 +1216,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           />
                         </div>
                         <div className="flex items-center justify-between pt-1">
-                          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                          <Text variant="caption" color="tertiary">
                             Supported: <code style={{ color: 'var(--text-primary)' }}>map</code>,{' '}
                             <code style={{ color: 'var(--text-primary)' }}>imap</code>,{' '}
                             <code style={{ color: 'var(--text-primary)' }}>nmap</code>,{' '}
@@ -1229,7 +1226,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                             <code style={{ color: 'var(--text-primary)' }}>
                               map kj &lt;Esc&gt; insert
                             </code>
-                          </p>
+                          </Text>
                           <Button
                             type="button"
                             size="sm"
@@ -1265,10 +1262,10 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   >
                     <div className="pr-4">
                       <Label className="mb-0">Share anonymous product analytics</Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Anonymous product journeys help us understand how the app is used. Session
                         recording stays disabled.
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       checked={settings.privacy.analyticsEnabled}
@@ -1289,20 +1286,14 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         border: '1px solid var(--border-primary)',
                       }}
                     >
-                      <p
-                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
+                      <Text variant="caption" color="tertiary" className="text-[11px] font-semibold uppercase tracking-[0.18em]">
                         What we collect
-                      </p>
-                      <p
-                        className="text-xs mt-2 leading-5"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
+                      </Text>
+                      <Text variant="caption" className="mt-2 leading-5">
                         OpenSCAD Studio uses a persistent anonymous identifier on this
                         device/browser to understand product journeys over time. Product
                         interactions may be autocaptured.
-                      </p>
+                      </Text>
                     </div>
                     <div
                       className="rounded-lg p-3"
@@ -1311,19 +1302,13 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         border: '1px solid var(--border-primary)',
                       }}
                     >
-                      <p
-                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
+                      <Text variant="caption" color="tertiary" className="text-[11px] font-semibold uppercase tracking-[0.18em]">
                         What stays out
-                      </p>
-                      <p
-                        className="text-xs mt-2 leading-5"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
+                      </Text>
+                      <Text variant="caption" className="mt-2 leading-5">
                         We do not intentionally send OpenSCAD code, AI prompt text, attachment
                         contents, API keys, diagnostics text, stack traces, or absolute file paths.
-                      </p>
+                      </Text>
                     </div>
                     <div
                       className="rounded-lg p-3"
@@ -1332,19 +1317,13 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         border: '1px solid var(--border-primary)',
                       }}
                     >
-                      <p
-                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
+                      <Text variant="caption" color="tertiary" className="text-[11px] font-semibold uppercase tracking-[0.18em]">
                         Turning it off
-                      </p>
-                      <p
-                        className="text-xs mt-2 leading-5"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
+                      </Text>
+                      <Text variant="caption" className="mt-2 leading-5">
                         Turning this off stops future analytics capture on this device/browser
                         immediately. It does not delete data already collected.
-                      </p>
+                      </Text>
                     </div>
                     <div
                       className="rounded-lg p-3"
@@ -1353,20 +1332,14 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         border: '1px solid var(--border-primary)',
                       }}
                     >
-                      <p
-                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
+                      <Text variant="caption" color="tertiary" className="text-[11px] font-semibold uppercase tracking-[0.18em]">
                         Where it applies
-                      </p>
-                      <p
-                        className="text-xs mt-2 leading-5"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
+                      </Text>
+                      <Text variant="caption" className="mt-2 leading-5">
                         This preference is stored locally and does not sync across devices or
                         accounts. On the web it applies per browser/profile. On desktop it applies
                         per installed app profile/webview storage.
-                      </p>
+                      </Text>
                     </div>
                   </div>
                 </div>
@@ -1379,9 +1352,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <Label className="mb-0">Auto-discover System Libraries</Label>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      <Text variant="caption" color="tertiary" className="mt-1">
                         Automatically find OpenSCAD libraries in standard system locations
-                      </p>
+                      </Text>
                     </div>
                     <Toggle
                       checked={settings.library.autoDiscoverSystem}
@@ -1393,12 +1366,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
                   {settings.library.autoDiscoverSystem && (
                     <div className="space-y-2">
-                      <p
-                        className="text-xs font-semibold uppercase tracking-wider mb-2"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
+                      <Text variant="caption" color="tertiary" className="font-semibold uppercase tracking-wider mb-2">
                         System Paths
-                      </p>
+                      </Text>
                       {autoDiscoveredPaths.length === 0 ? (
                         <div className="text-sm italic" style={{ color: 'var(--text-tertiary)' }}>
                           No system libraries found
@@ -1430,12 +1400,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <p
-                      className="text-xs font-semibold uppercase tracking-wider"
-                      style={{ color: 'var(--text-tertiary)' }}
-                    >
+                    <Text variant="caption" color="tertiary" className="font-semibold uppercase tracking-wider">
                       Custom Paths
-                    </p>
+                    </Text>
                     <Button
                       type="button"
                       size="sm"
@@ -1500,10 +1467,10 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
             {activeSection === 'ai' && (
               <div className="space-y-5 ph-no-capture">
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                <Text variant="body">
                   Add your API keys to enable AI assistant features. Model selection is available in
                   the chat interface.
-                </p>
+                </Text>
 
                 {/* Anthropic Section */}
                 <div
@@ -1527,11 +1494,11 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       {hasAnthropicKey ? 'Configured' : 'Not configured'}
                     </span>
                   </div>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  <Text variant="caption" color="tertiary">
                     Required for Claude models. Your key is stored locally on this device/browser
                     profile and used for direct requests to Anthropic from the app. It is not sent
                     to our analytics.
-                  </p>
+                  </Text>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
                       <Input
@@ -1603,7 +1570,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       </svg>
                     </IconButton>
                   </div>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  <Text variant="caption" color="tertiary">
                     Don't have a key?{' '}
                     <a
                       href="https://console.anthropic.com/settings/keys"
@@ -1614,7 +1581,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     >
                       Get one from Anthropic
                     </a>
-                  </p>
+                  </Text>
                 </div>
 
                 {/* OpenAI Section */}
@@ -1639,11 +1606,11 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       {hasOpenAIKey ? 'Configured' : 'Not configured'}
                     </span>
                   </div>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  <Text variant="caption" color="tertiary">
                     Required for GPT models. Your key is stored locally on this device/browser
                     profile and used for direct requests to OpenAI from the app. It is not sent to
                     our analytics.
-                  </p>
+                  </Text>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
                       <Input
@@ -1715,7 +1682,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       </svg>
                     </IconButton>
                   </div>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  <Text variant="caption" color="tertiary">
                     Don't have a key?{' '}
                     <a
                       href="https://platform.openai.com/api-keys"
@@ -1726,7 +1693,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     >
                       Get one from OpenAI
                     </a>
-                  </p>
+                  </Text>
                 </div>
 
                 {error && (

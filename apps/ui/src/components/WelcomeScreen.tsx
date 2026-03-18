@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { ModelSelectionSurface } from '../analytics/runtime';
-import { Button } from './ui';
+import { Button, Text } from './ui';
 import { AiComposer } from './AiComposer';
 import { ModelSelector } from './ModelSelector';
 import { getPlatform } from '../platform';
@@ -130,12 +130,9 @@ export function WelcomeScreen({
       style={{ backgroundColor: 'var(--bg-primary)' }}
     >
       <div className="w-full max-w-3xl space-y-8">
-        <h1
-          className="text-4xl font-bold text-center mb-8"
-          style={{ color: 'var(--text-primary)' }}
-        >
+        <Text variant="page-heading" className="text-center mb-8">
           What do you want to create?
-        </h1>
+        </Text>
 
         {hasApiKey ? (
           <div data-testid="welcome-ai-entry" className="space-y-6 ph-no-capture">
@@ -166,9 +163,9 @@ export function WelcomeScreen({
               onSubmit={onStartWithDraft}
             />
             <div className="space-y-3">
-              <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+              <Text variant="section-heading" weight="medium" color="secondary">
                 Try an example:
-              </h3>
+              </Text>
               <div className="flex flex-wrap gap-2">
                 {EXAMPLE_PROMPTS.map((example) => (
                   <Button
@@ -196,10 +193,10 @@ export function WelcomeScreen({
               border: '1px solid var(--border-secondary)',
             }}
           >
-            <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
+            <Text variant="body" className="mb-2">
               Set up an API key to use the AI assistant
-            </p>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            </Text>
+            <Text variant="caption" color="tertiary">
               <a
                 href="#"
                 onClick={(event) => {
@@ -212,15 +209,15 @@ export function WelcomeScreen({
                 Open Settings
               </a>{' '}
               to configure (⌘,)
-            </p>
+            </Text>
           </div>
         ) : null}
 
         {showRecentFiles && recentFilesReady && recentFiles.length > 0 && (
           <div className="space-y-3 pt-4">
-            <h3 className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+            <Text variant="section-heading" weight="medium" color="secondary">
               Recent files:
-            </h3>
+            </Text>
             <div className="space-y-2">
               {/* eslint-disable no-restricted-syntax -- recent file rows are card-like list items with internal layout (icon + text + chevron); <Button> doesn't support full-width card layouts with multiple child columns */}
               {recentFiles.map((file) => (

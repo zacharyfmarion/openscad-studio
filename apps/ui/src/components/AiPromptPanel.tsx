@@ -1,5 +1,5 @@
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Button } from './ui';
+import { Button, Text } from './ui';
 import { MarkdownMessage } from './MarkdownMessage';
 import { ModelSelector } from './ModelSelector';
 import { AiComposer, type AiComposerRef } from './AiComposer';
@@ -240,9 +240,9 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
           style={{ backgroundColor: 'var(--bg-primary)' }}
         >
           <div className="text-center max-w-xs">
-            <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+            <Text variant="body" className="mb-3">
               Add an API key to get started
-            </p>
+            </Text>
             <Button
               type="button"
               variant="primary"

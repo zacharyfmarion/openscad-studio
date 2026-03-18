@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { IconType } from 'react-icons';
 import { TbSparkles, TbCode, TbAdjustmentsHorizontal } from 'react-icons/tb';
-import { Button } from './ui';
+import { Button, Text } from './ui';
 import type { WorkspacePreset } from '../stores/layoutStore';
 
 interface NuxLayoutPickerProps {
@@ -84,12 +84,12 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
         }}
       >
         <div className="px-8 pt-8 pb-2 text-center">
-          <h2 className="text-xl font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+          <Text variant="panel-title" className="mb-1 text-xl">
             Choose your workspace layout
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+          </Text>
+          <Text variant="body" color="tertiary">
             You can change this anytime in Settings
-          </p>
+          </Text>
         </div>
 
         <div className="px-8 py-6 grid gap-4 md:grid-cols-3">

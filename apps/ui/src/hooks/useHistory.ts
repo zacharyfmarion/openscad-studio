@@ -29,7 +29,7 @@ export function useHistory() {
     const unlistenRestore = eventBus.on('history:restore', () => {
       refreshHistoryState();
     });
-    const unlistenCodeUpdated = eventBus.on('code-updated', (_payload) => {
+    const unlistenCodeUpdated = eventBus.on('code-updated', () => {
       refreshHistoryState();
     });
     return () => {

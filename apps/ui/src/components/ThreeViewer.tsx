@@ -71,6 +71,7 @@ import type {
 import { TbBox, TbBoxModel, TbFocus2, TbSun, TbX } from 'react-icons/tb';
 import type { ToolContextPanelProps } from './three-viewer/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
+import { Text } from './ui';
 
 interface ThreeViewerProps {
   stlPath: string;
@@ -1033,11 +1034,11 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
     setLiveMessage('Measurement deleted');
   };
 
-  const clearAllMeasurements = () => {
+  const clearAllMeasurements = useCallback(() => {
     setMeasurements([]);
     setSelectedMeasurementId(null);
     setLiveMessage('Measurements cleared');
-  };
+  }, []);
 
   const updateSectionAxis = (axis: SectionAxis) => {
     if (!loadedModel || !sectionState) {
@@ -1253,7 +1254,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
                 borderTopColor: 'var(--accent-primary)',
               }}
             />
-            <p>Rendering...</p>
+            <Text variant="body">Rendering...</Text>
           </div>
         </div>
       )}

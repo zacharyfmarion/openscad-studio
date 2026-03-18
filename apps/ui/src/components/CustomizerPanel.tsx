@@ -11,7 +11,7 @@ import { parseCustomizerParams } from '../utils/customizer/parser';
 import { isParserReady, onParserReady } from '../utils/formatter/parser';
 import type { CustomizerParam, ParameterProminence } from '../utils/customizer/types';
 import { ParameterControl } from './customizer/ParameterControl';
-import { Button, Toggle } from './ui';
+import { Button, Text, Toggle } from './ui';
 import { TbAdjustmentsHorizontal, TbRefresh, TbSparkles, TbCode, TbDownload } from 'react-icons/tb';
 import { eventBus } from '../platform';
 
@@ -199,10 +199,6 @@ export function CustomizerPanel({
     }
   }, [baselineCode, parserReady]);
 
-  const totalParams = useMemo(
-    () => tabs.reduce((count, tab) => count + tab.params.length, 0),
-    [tabs]
-  );
   const advancedParamCount = useMemo(
     () =>
       tabs.reduce(
@@ -211,19 +207,6 @@ export function CustomizerPanel({
       ),
     [tabs]
   );
-  const richMetadataCount = useMemo(
-    () =>
-      tabs.reduce(
-        (count, tab) =>
-          count +
-          tab.params.filter(
-            (param) => Boolean(param.label || param.description || param.unit || param.group)
-          ).length,
-        0
-      ),
-    [tabs]
-  );
-
   const groupedTabs = useMemo(
     () =>
       tabs
@@ -347,12 +330,12 @@ export function CustomizerPanel({
             <TbAdjustmentsHorizontal size={22} />
           </div>
           <div className="space-y-1.5">
-            <h2 className="text-sm font-semibold leading-snug" style={{ color: 'var(--text-primary)' }}>
+            <Text variant="section-heading" as="h2" className="leading-snug">
               No parameters yet
-            </h2>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            </Text>
+            <Text variant="caption" className="leading-relaxed">
               Ask the AI to add customizer parameters with sliders and labels.
-            </p>
+            </Text>
           </div>
         </div>
 
@@ -396,9 +379,9 @@ export function CustomizerPanel({
         {isCustomizerFirstMode ? (
           <div className="px-4 py-2 space-y-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold flex-shrink-0" style={{ color: 'var(--text-primary)' }}>
+              <Text variant="section-heading" as="h2" className="flex-shrink-0">
                 Customize
-              </h2>
+              </Text>
               {advancedParamCount > 0 && (
                 <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
                   <Toggle
@@ -470,22 +453,20 @@ export function CustomizerPanel({
               </div>
             </div>
             {downloadDisabledReason && (
-              <p
-                className="text-xs"
-                style={{
-                  color: hasRenderErrors ? 'var(--color-error)' : 'var(--text-tertiary)',
-                }}
+              <Text
+                variant="caption"
+                color={hasRenderErrors ? 'error' : 'tertiary'}
                 data-testid="customizer-download-hint"
               >
                 {downloadDisabledReason}
-              </p>
+              </Text>
             )}
           </div>
         ) : (
           <div className="px-3 py-1.5 flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <Text variant="section-heading" as="h2">
               Customize
-            </h2>
+            </Text>
             <div className="flex items-center gap-2">
               {advancedParamCount > 0 && (
                 <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -518,12 +499,9 @@ export function CustomizerPanel({
             {showTabHeaders && (
               <div className="flex items-center justify-between">
                 <div>
-                  <h3
-                    className="text-[11px] font-semibold uppercase tracking-[0.12em]"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
+                  <Text variant="overline">
                     {tab.name}
-                  </h3>
+                  </Text>
                 </div>
               </div>
             )}
@@ -564,12 +542,9 @@ export function CustomizerPanel({
                   >
                     {group.name && !isRedundantGroupName(tab.name, group.name) && (
                       <div className="mb-2">
-                        <h4
-                          className="text-xs font-medium uppercase tracking-[0.08em]"
-                          style={{ color: 'var(--text-secondary)' }}
-                        >
+                        <Text variant="overline" weight="medium" className="tracking-[0.08em]">
                           {group.name}
-                        </h4>
+                        </Text>
                       </div>
                     )}
 

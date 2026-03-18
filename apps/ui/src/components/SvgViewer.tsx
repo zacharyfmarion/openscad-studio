@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { TbFocus2, TbZoomIn, TbZoomOut } from 'react-icons/tb';
 import { useTheme } from '../contexts/ThemeContext';
 import { getPreviewSceneStyle } from '../services/previewSceneConfig';
-import { Button, IconButton } from './ui';
+import { Button, IconButton, Text } from './ui';
 import { MeasurementsTray } from './viewer-measurements/MeasurementsTray';
 import type { MeasurementListItemData } from './viewer-measurements/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
@@ -136,12 +136,12 @@ function StatusCard({
           border: '1px solid var(--border-primary)',
         }}
       >
-        <p className="text-lg font-medium mb-2">{title}</p>
-        <p className="text-sm whitespace-pre-wrap">{detail}</p>
+        <Text variant="panel-title" weight="medium" as="p" className="mb-2">{title}</Text>
+        <Text variant="body" className="whitespace-pre-wrap">{detail}</Text>
         {helperText ? (
-          <p className="text-xs mt-3" style={{ color: 'var(--text-tertiary)' }}>
+          <Text variant="caption" color="tertiary" className="mt-3">
             {helperText}
-          </p>
+          </Text>
         ) : null}
       </div>
     </div>
