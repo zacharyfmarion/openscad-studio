@@ -5,7 +5,7 @@
  * and updates the source code when values change.
  */
 
-import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { useMemo, useCallback, useState, useEffect } from 'react';
 import type { RenderKind } from '../hooks/useOpenScad';
 import { parseCustomizerParams } from '../utils/customizer/parser';
 import { isParserReady, onParserReady } from '../utils/formatter/parser';
@@ -17,6 +17,7 @@ import { eventBus } from '../platform';
 
 interface CustomizerPanelProps {
   code: string;
+  baselineCode: string;
   onChange: (newCode: string) => void;
   isCustomizerFirstMode?: boolean;
   previewKind?: RenderKind;
@@ -59,12 +60,6 @@ function replaceParamValue(code: string, param: CustomizerParam, nextValue: stri
   return code.replace(assignmentPattern, (_, prefix, __, suffix) => {
     return prefix + nextValue + suffix;
   });
-}
-
-function buildParameterIdentity(tabs: ReturnType<typeof parseCustomizerParams>): string {
-  return tabs
-    .flatMap((tab) => tab.params.map((param) => `${tab.name}:${param.line}:${param.name}`))
-    .join('|');
 }
 
 function groupParams(params: CustomizerParam[], showAdvanced: boolean): GroupedParams[] {
@@ -158,6 +153,7 @@ function LoadingState() {
 
 export function CustomizerPanel({
   code,
+  baselineCode,
   onChange,
   isCustomizerFirstMode = false,
   previewKind,
@@ -171,8 +167,6 @@ export function CustomizerPanel({
   isDownloadingStl = false,
 }: CustomizerPanelProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const defaultsRef = useRef<Map<string, string>>(new Map());
-  const defaultsSignatureRef = useRef<string>('');
   const [parserReady, setParserReady] = useState(isParserReady);
 
   useEffect(() => {
@@ -190,29 +184,20 @@ export function CustomizerPanel({
     }
   }, [code, parserReady]);
 
-  const parameterIdentity = useMemo(() => buildParameterIdentity(tabs), [tabs]);
-
-  useEffect(() => {
-    if (!tabs.length) {
-      defaultsRef.current = new Map();
-      defaultsSignatureRef.current = '';
-      return;
+  // Parse baseline parameters for dirty comparison and reset values.
+  // This is purely derived from baselineCode — no refs or effects needed.
+  const baselineParams = useMemo(() => {
+    if (!parserReady) return new Map<string, string>();
+    try {
+      return new Map(
+        parseCustomizerParams(baselineCode)
+          .flatMap((tab) => tab.params)
+          .map((p) => [getParamKey(p), p.rawValue])
+      );
+    } catch {
+      return new Map<string, string>();
     }
-
-    if (defaultsSignatureRef.current === parameterIdentity) {
-      return;
-    }
-
-    const defaults = new Map<string, string>();
-    for (const tab of tabs) {
-      for (const param of tab.params) {
-        defaults.set(getParamKey(param), param.rawValue);
-      }
-    }
-
-    defaultsRef.current = defaults;
-    defaultsSignatureRef.current = parameterIdentity;
-  }, [parameterIdentity, tabs]);
+  }, [baselineCode, parserReady]);
 
   const totalParams = useMemo(
     () => tabs.reduce((count, tab) => count + tab.params.length, 0),
@@ -252,54 +237,50 @@ export function CustomizerPanel({
   const showTabHeaders = groupedTabs.length > 1 || groupedTabs.some((tab) => tab.name !== 'Parameters');
 
   const hasChanges = useMemo(() => {
-    const defaults = defaultsRef.current;
-    if (!defaults.size) return false;
-
+    if (!baselineParams.size) return false;
     for (const tab of tabs) {
       for (const param of tab.params) {
-        const defaultValue = defaults.get(getParamKey(param));
-        if (defaultValue !== undefined && param.rawValue !== defaultValue) {
+        const baseline = baselineParams.get(getParamKey(param));
+        if (baseline !== undefined && param.rawValue !== baseline) {
           return true;
         }
       }
     }
-
     return false;
-  }, [tabs]);
+  }, [tabs, baselineParams]);
 
   const handleResetDefaults = useCallback(() => {
-    const defaults = defaultsRef.current;
-    if (!defaults.size) return;
+    if (!baselineParams.size) return;
 
     let newCode = code;
     for (const tab of tabs) {
       for (const param of tab.params) {
-        const defaultValue = defaults.get(getParamKey(param));
-        if (defaultValue === undefined || param.rawValue === defaultValue) continue;
-        newCode = replaceParamValue(newCode, param, defaultValue);
+        const baseline = baselineParams.get(getParamKey(param));
+        if (baseline === undefined || param.rawValue === baseline) continue;
+        newCode = replaceParamValue(newCode, param, baseline);
       }
     }
 
     if (newCode !== code) {
       onChange(newCode);
-      eventBus.emit('code-updated', { code: newCode });
+      eventBus.emit('code-updated', { code: newCode, source: 'customizer' });
     }
-  }, [code, onChange, tabs]);
+  }, [code, onChange, tabs, baselineParams]);
 
   const handleResetParameter = useCallback(
     (param: CustomizerParam) => {
-      const defaultValue = defaultsRef.current.get(getParamKey(param));
-      if (defaultValue === undefined || param.rawValue === defaultValue) {
+      const baseline = baselineParams.get(getParamKey(param));
+      if (baseline === undefined || param.rawValue === baseline) {
         return;
       }
 
-      const newCode = replaceParamValue(code, param, defaultValue);
+      const newCode = replaceParamValue(code, param, baseline);
       if (newCode !== code) {
         onChange(newCode);
-        eventBus.emit('code-updated', { code: newCode });
+        eventBus.emit('code-updated', { code: newCode, source: 'customizer' });
       }
     },
-    [code, onChange]
+    [code, onChange, baselineParams]
   );
 
   const handleParameterChange = useCallback(
@@ -324,7 +305,7 @@ export function CustomizerPanel({
 
       if (newCode !== code) {
         onChange(newCode);
-        eventBus.emit('code-updated', { code: newCode });
+        eventBus.emit('code-updated', { code: newCode, source: 'customizer' });
       } else {
         console.warn('[Customizer] Failed to update parameter:', param.name);
       }
@@ -442,7 +423,6 @@ export function CustomizerPanel({
                 </Button>
                 <Button
                   type="button"
-                  variant="primary"
                   size="sm"
                   onClick={onDownloadStl}
                   disabled={Boolean(downloadDisabledReason) || isDownloadingStl}
@@ -557,8 +537,8 @@ export function CustomizerPanel({
                   return (
                     <div key={`${tab.name}-${group.id}`} className="space-y-2">
                       {group.params.map((param) => {
-                        const defaultValue = defaultsRef.current.get(getParamKey(param));
-                        const isDirty = defaultValue !== undefined && param.rawValue !== defaultValue;
+                        const baseline = baselineParams.get(getParamKey(param));
+                        const isDirty = baseline !== undefined && param.rawValue !== baseline;
 
                         return (
                           <ParameterControl
@@ -595,8 +575,8 @@ export function CustomizerPanel({
 
                     <div className="space-y-2">
                       {group.params.map((param) => {
-                        const defaultValue = defaultsRef.current.get(getParamKey(param));
-                        const isDirty = defaultValue !== undefined && param.rawValue !== defaultValue;
+                        const baseline = baselineParams.get(getParamKey(param));
+                        const isDirty = baseline !== undefined && param.rawValue !== baseline;
 
                         return (
                           <ParameterControl

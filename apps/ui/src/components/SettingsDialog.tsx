@@ -24,6 +24,7 @@ import {
   TbFolderOpen,
   TbShield,
   TbRefresh,
+  TbRuler,
 } from 'react-icons/tb';
 import {
   storeApiKey as storeApiKeyToStorage,
@@ -54,7 +55,7 @@ function saveVimConfigIfChanged(localVimConfig: string, currentSettings: Setting
   }
 }
 
-export type SettingsSection = 'appearance' | 'viewer' | 'editor' | 'privacy' | 'ai' | 'libraries';
+export type SettingsSection = 'appearance' | 'viewer' | 'editor' | 'privacy' | 'ai' | 'libraries' | 'project';
 type EditorSubTab = 'general' | 'vim';
 
 export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogProps) {
@@ -309,6 +310,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     { key: 'appearance', label: 'Appearance', icon: <TbPalette size={16} /> },
     { key: 'viewer', label: 'Viewer', icon: <TbBox size={16} /> },
     { key: 'editor', label: 'Editor', icon: <TbCode size={16} /> },
+    { key: 'project', label: 'Project', icon: <TbRuler size={16} /> },
     { key: 'privacy', label: 'Privacy', icon: <TbShield size={16} /> },
     ...(isDesktop
       ? [{ key: 'libraries' as const, label: 'Libraries', icon: <TbBooks size={16} /> }]
@@ -396,11 +398,13 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   ? 'Viewer'
                   : activeSection === 'editor'
                     ? 'Editor'
-                    : activeSection === 'privacy'
-                      ? 'Privacy'
-                      : activeSection === 'libraries'
-                        ? 'Libraries'
-                        : 'AI Assistant'}
+                    : activeSection === 'project'
+                      ? 'Project'
+                      : activeSection === 'privacy'
+                        ? 'Privacy'
+                        : activeSection === 'libraries'
+                          ? 'Libraries'
+                          : 'AI Assistant'}
             </h3>
             <IconButton size="sm" onClick={handleClose} title="Close settings">
               <TbX size={16} />
@@ -767,49 +771,6 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                   >
                     <div className="pr-4">
                       <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                        Measurements
-                      </p>
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                        Configure how measurements are displayed across all viewers.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    className="p-4"
-                  >
-                    <Label htmlFor="viewer-measurement-unit">Measurement Unit</Label>
-                    <Select
-                      id="viewer-measurement-unit"
-                      value={settings.viewer.measurementUnit}
-                      onChange={(e) =>
-                        handleViewerSettingChange(
-                          'measurementUnit',
-                          e.target.value as import('../stores/settingsStore').MeasurementUnit
-                        )
-                      }
-                    >
-                      <option value="mm">mm (millimeters)</option>
-                      <option value="cm">cm (centimeters)</option>
-                      <option value="in">in (inches)</option>
-                      <option value="units">units (dimensionless)</option>
-                    </Select>
-                  </div>
-                </div>
-
-                <div
-                  className="rounded-xl"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                  }}
-                >
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderBottom: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
                         2D viewer
                       </p>
                       <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
@@ -942,6 +903,51 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         handleViewerSettingChange('enable2DGridSnap', event.target.checked)
                       }
                     />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'project' && (
+              <div className="space-y-5">
+                <div
+                  className="rounded-xl"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--border-primary)',
+                  }}
+                >
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    style={{ borderBottom: '1px solid var(--border-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                        Measurements
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Configure how measurements are displayed across all viewers.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4">
+                    <Label htmlFor="project-measurement-unit">Measurement Unit</Label>
+                    <Select
+                      id="project-measurement-unit"
+                      value={settings.viewer.measurementUnit}
+                      onChange={(e) =>
+                        handleViewerSettingChange(
+                          'measurementUnit',
+                          e.target.value as import('../stores/settingsStore').MeasurementUnit
+                        )
+                      }
+                    >
+                      <option value="mm">mm (millimeters)</option>
+                      <option value="cm">cm (centimeters)</option>
+                      <option value="in">in (inches)</option>
+                      <option value="units">units (dimensionless)</option>
+                    </Select>
                   </div>
                 </div>
               </div>

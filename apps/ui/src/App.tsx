@@ -454,6 +454,17 @@ function App() {
 
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
 
+  // Customizer baseline: the source code as it exists without user customizer overrides.
+  // Resets on tab switch; updates when code changes externally (AI/editor), not from customizer.
+  const [customizerBaseline, setCustomizerBaseline] = useState(source);
+  const customizerBaselineTabRef = useRef(activeTabId);
+  useEffect(() => {
+    if (customizerBaselineTabRef.current !== activeTabId) {
+      customizerBaselineTabRef.current = activeTabId;
+      setCustomizerBaseline(source);
+    }
+  }, [activeTabId, source]);
+
   // Use refs to avoid stale closures in event listeners
   const sourceRef = useRef<string>(source);
   const workingDirRef = useRef<string | null>(workingDir);
@@ -1120,9 +1131,12 @@ function App() {
   }, [activeTabId, updateWorkspaceTabContent]);
 
   useEffect(() => {
-    const unlisten = eventBus.on('code-updated', ({ code }) => {
+    const unlisten = eventBus.on('code-updated', ({ code, source: eventSource }) => {
       updateSourceAndRenderRef.current(code, 'code_update');
       updateWorkspaceTabContent(activeTabId, code);
+      if (eventSource !== 'customizer') {
+        setCustomizerBaseline(code);
+      }
     });
     return unlisten;
   }, [activeTabId, updateWorkspaceTabContent]);
@@ -1238,6 +1252,7 @@ function App() {
   const workspaceState: WorkspaceState = useMemo(
     () => ({
       source,
+      customizerBaseline,
       updateSource,
       diagnostics: activeDiagnostics,
       onManualRender: manualRender,
@@ -1294,6 +1309,7 @@ function App() {
     }),
     [
       source,
+      customizerBaseline,
       updateSource,
       activeDiagnostics,
       manualRender,

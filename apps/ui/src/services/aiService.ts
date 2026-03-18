@@ -41,8 +41,8 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
 ### Critical Rules for Editing:
 1. **ALWAYS use exact string replacement**: Never output full file replacements. Use \`apply_edit\` with exact substrings.
 2. **Provide exact substrings**: The \`old_string\` must match exactly (including whitespace and indentation) and must be unique in the file.
-3. **Keep changes small**: Maximum 120 lines changed per edit. Break large changes into multiple steps.
-4. **Automatic validation**: \`apply_edit\` validates the edit and test-compiles the code before applying. If validation fails, the error will be returned and no changes are made.
+3. **Keep changes focused**: Each edit should change one logical unit. Break unrelated changes into separate steps.
+4. **Always validate when done**: After finishing all edits, always call \`get_diagnostics\` to confirm the code compiles cleanly. Fix any errors before declaring success.
 5. **Include context**: Make the \`old_string\` large enough to be unique - include surrounding lines if needed.
 
 ### Recommended Workflow:
@@ -51,6 +51,7 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
 3. For fixes, use \`get_diagnostics\` to see what errors exist
 4. Use \`apply_edit\` with the exact old text, new replacement, and a rationale explaining the change
 5. The preview updates automatically after successful edits
+6. After all edits are complete, call \`get_diagnostics\` to verify the code compiles without new errors. If there are errors, fix them with additional \`apply_edit\` calls.
 
 ### OpenSCAD Quick Reference:
 
@@ -273,27 +274,7 @@ export function buildTools(callbacks: AiToolCallbacks) {
           return `❌ Failed to apply edit: old_string found ${occurrences} times. It must be unique.\n\nRationale: ${rationale}\n\nThe edit was not applied. Include more surrounding context to make old_string unique.`;
         }
 
-        const lineCount = new_string.split('\n').length;
-        if (lineCount > 120) {
-          return `❌ Failed to apply edit: replacement is ${lineCount} lines (max 120).\n\nRationale: ${rationale}\n\nBreak the change into smaller edits.`;
-        }
-
         const newCode = currentCode.replace(old_string, new_string);
-
-        const beforeResult = await RenderService.getInstance().checkSyntax(currentCode);
-        const afterResult = await RenderService.getInstance().checkSyntax(newCode);
-
-        const beforeErrors = beforeResult.diagnostics.filter((d) => d.severity === 'error').length;
-        const afterErrors = afterResult.diagnostics.filter((d) => d.severity === 'error').length;
-
-        if (afterErrors > beforeErrors) {
-          const errorMessages = afterResult.diagnostics
-            .filter((d) => d.severity === 'error')
-            .map((d) => `  [Error] (line ${d.line ?? '?'}): ${d.message}`)
-            .join('\n');
-
-          return `❌ Failed to apply edit: introduces ${afterErrors - beforeErrors} new error(s).\n\nCompilation errors after applying edit:\n${errorMessages}\n\nRationale: ${rationale}\n\nThe edit was rolled back. No changes were made. Please fix the errors and try again.`;
-        }
 
         const checkpointId = historyService.createCheckpoint(
           currentCode,
@@ -302,10 +283,10 @@ export function buildTools(callbacks: AiToolCallbacks) {
           'ai'
         );
 
-        eventBus.emit('code-updated', { code: newCode });
+        eventBus.emit('code-updated', { code: newCode, source: 'ai' });
 
         const checkpointSuffix = `\n[CHECKPOINT:${checkpointId}]`;
-        return `✅ Edit applied successfully!\n✅ Code compiles without new errors\n✅ Preview has been updated automatically\n\nRationale: ${rationale}\n\nThe changes are now live in the editor.${checkpointSuffix}`;
+        return `✅ Edit applied successfully!\n✅ Preview has been updated automatically\n\nRationale: ${rationale}\n\nThe changes are now live in the editor.${checkpointSuffix}`;
       },
     }),
 
