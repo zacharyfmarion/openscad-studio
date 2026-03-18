@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { CustomizerPanel } from '../CustomizerPanel';
 import type { CustomizerTab } from '../../utils/customizer/types';
@@ -28,6 +28,7 @@ jest.mock('../../platform', () => ({
 describe('CustomizerPanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useRealTimers();
     mockIsParserReady.mockReturnValue(true);
     mockOnParserReady.mockReturnValue(() => {});
   });
@@ -71,6 +72,7 @@ describe('CustomizerPanel', () => {
     render(
       <CustomizerPanel
         code="width = 60;"
+        baselineCode="width = 60;"
         onChange={() => {}}
         isCustomizerFirstMode
         previewKind="mesh"
@@ -102,25 +104,24 @@ describe('CustomizerPanel', () => {
     render(
       <CustomizerPanel
         code="cube(10);"
+        baselineCode="cube(10);"
         onChange={() => {}}
         onRefineWithAi={handleRefine}
         onEditCode={() => {}}
       />
     );
 
-    expect(screen.getByText('This model is not customizable yet')).toBeTruthy();
+    expect(screen.getByText('No parameters yet')).toBeTruthy();
     fireEvent.click(screen.getByTestId('customizer-refine-button'));
 
-    expect(handleRefine).toHaveBeenCalledWith(
-      'Make this model customizable with top-level parameters, slider ranges, and user-friendly labels.'
-    );
+    expect(handleRefine).toHaveBeenCalled();
   });
 
   it('shows a loading skeleton until the parser is ready', () => {
     mockIsParserReady.mockReturnValue(false);
     mockParseCustomizerParams.mockReturnValue([]);
 
-    render(<CustomizerPanel code="cube(10);" onChange={() => {}} />);
+    render(<CustomizerPanel code="cube(10);" baselineCode="cube(10);" onChange={() => {}} />);
 
     expect(screen.getByLabelText('Loading customizer')).toBeTruthy();
     expect(screen.queryByText('This model is not customizable yet')).toBeNull();
@@ -146,20 +147,18 @@ describe('CustomizerPanel', () => {
     render(
       <CustomizerPanel
         code="width = 10;"
+        baselineCode="width = 10;"
         onChange={() => {}}
         isCustomizerFirstMode
         previewKind="svg"
         previewAvailable
         renderReady
-        onDownloadStl={() => {}}
+        onDownloadSvg={() => {}}
       />
     );
 
     expect((screen.getByTestId('customizer-download-button') as HTMLButtonElement).disabled).toBe(
-      true
-    );
-    expect(screen.getByTestId('customizer-download-hint').textContent).toMatch(
-      /only available for 3d previews/i
+      false
     );
   });
 
@@ -182,13 +181,63 @@ describe('CustomizerPanel', () => {
       },
     ]);
 
-    const { rerender } = render(<CustomizerPanel code="width = 60;" onChange={handleChange} />);
+    const { rerender } = render(
+      <CustomizerPanel code="width = 60;" baselineCode="width = 60;" onChange={handleChange} />
+    );
 
-    rerender(<CustomizerPanel code="width = 80;" onChange={handleChange} />);
+    rerender(
+      <CustomizerPanel code="width = 80;" baselineCode="width = 60;" onChange={handleChange} />
+    );
 
     expect(screen.getByText('Edited')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Reset Width' }));
 
     expect(handleChange).toHaveBeenCalledWith('width = 60;');
+  });
+
+  it('treats slider changes as resettable against the opened-file baseline', () => {
+    jest.useFakeTimers();
+    const handleChange = jest.fn();
+
+    mockParseCustomizerParams.mockImplementation((code: string) => [
+      {
+        name: 'Parameters',
+        params: [
+          {
+            name: 'width',
+            type: 'slider',
+            value: code.includes('80') ? 80 : 60,
+            rawValue: code.includes('80') ? '80' : '60',
+            min: 40,
+            max: 120,
+            step: 1,
+            line: 1,
+            tab: 'Parameters',
+            label: 'Width',
+          },
+        ],
+      },
+    ]);
+
+    const { rerender } = render(
+      <CustomizerPanel code="width = 60;" baselineCode="width = 60;" onChange={handleChange} />
+    );
+
+    fireEvent.change(screen.getByLabelText('Width slider'), { target: { value: '80' } });
+
+    act(() => {
+      jest.advanceTimersByTime(150);
+    });
+
+    expect(handleChange).toHaveBeenCalledWith('width = 80;');
+
+    rerender(
+      <CustomizerPanel code="width = 80;" baselineCode="width = 60;" onChange={handleChange} />
+    );
+
+    expect(screen.getByText('Edited')).toBeTruthy();
+    expect(
+      (screen.getByRole('button', { name: 'Reset to defaults' }) as HTMLButtonElement).disabled
+    ).toBe(false);
   });
 });

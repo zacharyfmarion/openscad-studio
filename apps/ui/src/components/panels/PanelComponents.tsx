@@ -109,7 +109,6 @@ const DiffViewerPanel: React.FC<IDockviewPanelProps> = () => {
 const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
   const {
     source,
-    customizerBaseline,
     updateSource,
     previewKind,
     previewSrc,
@@ -178,7 +177,7 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
       <div className="h-full" style={{ backgroundColor: 'var(--bg-secondary)' }}>
         <CustomizerPanel
           code={source}
-          baselineCode={customizerBaseline}
+          baselineCode={activeTab?.customizerBaseContent ?? source}
           onChange={updateSource}
           isCustomizerFirstMode={settings.ui.defaultLayoutPreset === 'customizer-first'}
           previewKind={previewKind}

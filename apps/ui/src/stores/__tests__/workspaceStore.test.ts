@@ -18,6 +18,7 @@ describe('workspaceStore', () => {
 
     expect(newTab).toBeDefined();
     expect(newTab?.render).toEqual(createEmptyRenderState());
+    expect(newTab?.customizerBaseContent).toBe('square([10, 10]);');
     expect(state.activeTabId).toBe(newTabId);
     expect(state.activeTabId).not.toBe(initialActiveTabId);
   });
@@ -40,6 +41,34 @@ describe('workspaceStore', () => {
       name: 'model.scad',
       savedContent: 'cube([5, 5, 5]);',
       isDirty: false,
+    });
+  });
+
+  it('keeps customizer baseline separate from tab content updates', () => {
+    const store = createWorkspaceStore();
+    const tabId = store.getState().activeTabId!;
+    const initialBaseline = store.getState().tabs[0].customizerBaseContent;
+
+    store.getState().updateTabContent(tabId, 'cube([5, 5, 5]);');
+
+    expect(store.getState().tabs[0]).toMatchObject({
+      content: 'cube([5, 5, 5]);',
+      customizerBaseContent: initialBaseline,
+      isDirty: true,
+    });
+  });
+
+  it('updates customizer baseline without changing dirty state', () => {
+    const store = createWorkspaceStore();
+    const tabId = store.getState().activeTabId!;
+
+    store.getState().updateTabContent(tabId, 'cube([5, 5, 5]);');
+    store.getState().setTabCustomizerBase(tabId, 'cube([2, 2, 2]);');
+
+    expect(store.getState().tabs[0]).toMatchObject({
+      content: 'cube([5, 5, 5]);',
+      customizerBaseContent: 'cube([2, 2, 2]);',
+      isDirty: true,
     });
   });
 
@@ -78,6 +107,7 @@ describe('workspaceStore', () => {
 
     const replacedTab = store.getState().tabs.find((tab) => tab.id === replacedId)!;
     expect(replacedTab.filePath).toBe('/tmp/floorplan.scad');
+    expect(replacedTab.customizerBaseContent).toBe('square([20, 20]);');
     expect(replacedTab.render).toEqual(createEmptyRenderState());
   });
 

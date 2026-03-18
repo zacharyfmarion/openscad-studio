@@ -203,6 +203,7 @@ function App() {
   const createTab = useWorkspaceStore((state) => state.createTab);
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
   const updateWorkspaceTabContent = useWorkspaceStore((state) => state.updateTabContent);
+  const setTabCustomizerBase = useWorkspaceStore((state) => state.setTabCustomizerBase);
   const renameTab = useWorkspaceStore((state) => state.renameTab);
   const markTabSaved = useWorkspaceStore((state) => state.markTabSaved);
   const closeTabLocal = useWorkspaceStore((state) => state.closeTabLocal);
@@ -304,13 +305,21 @@ function App() {
 
   const handleUndo = useCallback(async () => {
     const checkpoint = await undo();
-    if (checkpoint) updateSource(checkpoint.code);
-  }, [undo, updateSource]);
+    if (checkpoint) {
+      updateSource(checkpoint.code);
+      updateWorkspaceTabContent(activeTabId, checkpoint.code);
+      setTabCustomizerBase(activeTabId, checkpoint.code);
+    }
+  }, [activeTabId, setTabCustomizerBase, undo, updateSource, updateWorkspaceTabContent]);
 
   const handleRedo = useCallback(async () => {
     const checkpoint = await redo();
-    if (checkpoint) updateSource(checkpoint.code);
-  }, [redo, updateSource]);
+    if (checkpoint) {
+      updateSource(checkpoint.code);
+      updateWorkspaceTabContent(activeTabId, checkpoint.code);
+      setTabCustomizerBase(activeTabId, checkpoint.code);
+    }
+  }, [activeTabId, redo, setTabCustomizerBase, updateSource, updateWorkspaceTabContent]);
 
   const aiPromptPanelRef = useRef<AiPromptPanelRef>(null);
   const analytics = useAnalytics();
@@ -445,6 +454,14 @@ function App() {
     [updateWorkspaceTabContent]
   );
 
+  const updateTabContentAndCustomizerBase = useCallback(
+    (id: string, content: string) => {
+      updateWorkspaceTabContent(id, content);
+      setTabCustomizerBase(id, content);
+    },
+    [setTabCustomizerBase, updateWorkspaceTabContent]
+  );
+
   const reorderTabs = useCallback(
     (newTabs: WorkspaceDocumentTab[]) => {
       reorderWorkspaceTabs(newTabs.map((tab) => tab.id));
@@ -453,17 +470,6 @@ function App() {
   );
 
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
-
-  // Customizer baseline: the source code as it exists without user customizer overrides.
-  // Resets on tab switch; updates when code changes externally (AI/editor), not from customizer.
-  const [customizerBaseline, setCustomizerBaseline] = useState(source);
-  const customizerBaselineTabRef = useRef(activeTabId);
-  useEffect(() => {
-    if (customizerBaselineTabRef.current !== activeTabId) {
-      customizerBaselineTabRef.current = activeTabId;
-      setCustomizerBaseline(source);
-    }
-  }, [activeTabId, source]);
 
   // Use refs to avoid stale closures in event listeners
   const sourceRef = useRef<string>(source);
@@ -644,7 +650,10 @@ function App() {
               indentSize: currentSettings.editor.indentSize,
               useTabs: currentSettings.editor.useTabs,
             });
-            updateSource(currentSource);
+            if (currentSource !== sourceRef.current) {
+              updateSource(currentSource);
+              updateTabContentAndCustomizerBase(currentTab.id, currentSource);
+            }
           } catch (err) {
             console.error('[saveFile] Failed to format code:', err);
           }
@@ -710,7 +719,7 @@ function App() {
         return false;
       }
     },
-    [analytics, markTabSaved, updateSource]
+    [analytics, markTabSaved, updateSource, updateTabContentAndCustomizerBase]
   );
 
   const handleStartWithDraft = useCallback(
@@ -1125,21 +1134,21 @@ function App() {
   useEffect(() => {
     const unlisten = eventBus.on('history:restore', ({ code }) => {
       updateSourceAndRenderRef.current(code, 'history_restore');
-      updateWorkspaceTabContent(activeTabId, code);
+      updateTabContentAndCustomizerBase(activeTabId, code);
     });
     return unlisten;
-  }, [activeTabId, updateWorkspaceTabContent]);
+  }, [activeTabId, updateTabContentAndCustomizerBase]);
 
   useEffect(() => {
     const unlisten = eventBus.on('code-updated', ({ code, source: eventSource }) => {
       updateSourceAndRenderRef.current(code, 'code_update');
       updateWorkspaceTabContent(activeTabId, code);
       if (eventSource !== 'customizer') {
-        setCustomizerBaseline(code);
+        setTabCustomizerBase(activeTabId, code);
       }
     });
     return unlisten;
-  }, [activeTabId, updateWorkspaceTabContent]);
+  }, [activeTabId, setTabCustomizerBase, updateWorkspaceTabContent]);
 
   const previousSettingsDialogRef = useRef(false);
   useEffect(() => {
@@ -1252,7 +1261,6 @@ function App() {
   const workspaceState: WorkspaceState = useMemo(
     () => ({
       source,
-      customizerBaseline,
       updateSource,
       diagnostics: activeDiagnostics,
       onManualRender: manualRender,
@@ -1309,7 +1317,6 @@ function App() {
     }),
     [
       source,
-      customizerBaseline,
       updateSource,
       activeDiagnostics,
       manualRender,

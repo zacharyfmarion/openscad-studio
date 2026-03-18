@@ -33,6 +33,7 @@ export function createWorkspaceTab(args?: {
     filePath: args?.filePath ?? null,
     name: args?.name ?? DEFAULT_TAB_NAME,
     content,
+    customizerBaseContent: content,
     savedContent: content,
     isDirty: false,
     render: createEmptyRenderState(),

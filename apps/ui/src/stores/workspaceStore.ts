@@ -92,6 +92,15 @@ export function createWorkspaceStore(
       }));
     },
 
+    setTabCustomizerBase: (id, content) => {
+      set((state) => ({
+        ...state,
+        tabs: state.tabs.map((tab) =>
+          tab.id === id ? { ...tab, customizerBaseContent: content } : tab
+        ),
+      }));
+    },
+
     renameTab: (id, name) => {
       set((state) => ({
         ...state,
@@ -147,6 +156,7 @@ export function createWorkspaceStore(
                 filePath: args.filePath,
                 name: args.name,
                 content: args.content,
+                customizerBaseContent: args.content,
                 savedContent: args.content,
                 isDirty: false,
                 render: createEmptyRenderState(),

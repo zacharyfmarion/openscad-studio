@@ -10,7 +10,6 @@ import type { AiDraft, AttachmentStore, Message, ToolCall, VisionSupport } from 
 export interface WorkspaceState {
   // Editor
   source: string;
-  customizerBaseline: string;
   updateSource: (code: string) => void;
   diagnostics: Diagnostic[];
   onManualRender: (() => void) | undefined;
