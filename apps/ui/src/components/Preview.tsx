@@ -37,8 +37,12 @@ export function Preview({ src, kind, isRendering, error, viewerId }: PreviewProp
             borderColor: 'var(--color-error)',
           }}
         >
-          <Text variant="body" weight="semibold" color="error">Render Error</Text>
-          <Text variant="body" color="error" className="mt-1 whitespace-pre-wrap">{error}</Text>
+          <Text variant="body" weight="semibold" color="error">
+            Render Error
+          </Text>
+          <Text variant="body" color="error" className="mt-1 whitespace-pre-wrap">
+            {error}
+          </Text>
         </div>
       </div>
     );
@@ -51,7 +55,9 @@ export function Preview({ src, kind, isRendering, error, viewerId }: PreviewProp
         className="w-full h-full flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
-        <Text variant="body" color="tertiary">No preview available</Text>
+        <Text variant="body" color="tertiary">
+          No preview available
+        </Text>
       </div>
     );
   }
@@ -73,7 +79,9 @@ export function Preview({ src, kind, isRendering, error, viewerId }: PreviewProp
       className="w-full h-full flex items-center justify-center"
       style={{ backgroundColor: 'var(--bg-primary)' }}
     >
-      <Text variant="body" color="error">Unexpected render format: {kind}</Text>
+      <Text variant="body" color="error">
+        Unexpected render format: {kind}
+      </Text>
     </div>
   );
 }

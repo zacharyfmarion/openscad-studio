@@ -223,7 +223,13 @@ function STLModel({
 
   return (
     <group ref={groupRef} name="modelContainer">
-      <mesh ref={meshRef} geometry={geometry} castShadow receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh
+        ref={meshRef}
+        geometry={geometry}
+        castShadow
+        receiveShadow
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
         {wireframe ? (
           sectionPlane ? (
             <meshBasicMaterial
@@ -366,7 +372,14 @@ function MeasurementOverlay3D({
               <meshBasicMaterial color={accentColor} depthTest={false} />
             </mesh>
           ))}
-          <Html position={getMeasurementMidpoint3D({ start: draft.start, end: draft.current }).toArray()} center distanceFactor={12}>
+          <Html
+            position={getMeasurementMidpoint3D({
+              start: draft.start,
+              end: draft.current,
+            }).toArray()}
+            center
+            distanceFactor={12}
+          >
             <div
               style={{
                 padding: '3px 7px',
@@ -379,7 +392,10 @@ function MeasurementOverlay3D({
                 whiteSpace: 'nowrap',
               }}
             >
-              {formatMeasurementSummary3D(createMeasurementRecord3D(draft.start, draft.current, 0), unit)}
+              {formatMeasurementSummary3D(
+                createMeasurementRecord3D(draft.start, draft.current, 0),
+                unit
+              )}
             </div>
           </Html>
         </group>
@@ -397,11 +413,7 @@ function MeasurementOverlay3D({
   );
 }
 
-function BBoxOverlay({
-  bounds,
-}: {
-  bounds: THREE.Box3;
-}) {
+function BBoxOverlay({ bounds }: { bounds: THREE.Box3 }) {
   const center = bounds.getCenter(new THREE.Vector3());
   const size = bounds.getSize(new THREE.Vector3());
 
@@ -453,11 +465,7 @@ function SectionPlaneOverlay({
 
   return (
     <group name="sectionPlaneHelper">
-      <mesh
-        position={visual.position.toArray()}
-        quaternion={visual.quaternion}
-        renderOrder={22}
-      >
+      <mesh position={visual.position.toArray()} quaternion={visual.quaternion} renderOrder={22}>
         <planeGeometry args={[visual.size, visual.size]} />
         <meshBasicMaterial
           color={color}
@@ -468,7 +476,9 @@ function SectionPlaneOverlay({
         />
       </mesh>
       <Html position={visual.position.toArray()} center distanceFactor={12}>
-        <LabelBadge text={`Section ${{ x: 'X', y: 'Z', z: 'Y' }[state.axis] ?? state.axis.toUpperCase()}`} />
+        <LabelBadge
+          text={`Section ${{ x: 'X', y: 'Z', z: 'Y' }[state.axis] ?? state.axis.toUpperCase()}`}
+        />
       </Html>
     </group>
   );
@@ -631,7 +641,18 @@ function ViewerInteractionController({
       dom.removeEventListener('pointerup', handlePointerUp);
       dom.removeEventListener('pointerleave', handlePointerLeave);
     };
-  }, [camera, draft, gl.domElement, mode, model, onCommitMeasurement, onDraftChange, onHoverChange, onSelectionChange, snapEnabled]);
+  }, [
+    camera,
+    draft,
+    gl.domElement,
+    mode,
+    model,
+    onCommitMeasurement,
+    onDraftChange,
+    onHoverChange,
+    onSelectionChange,
+    snapEnabled,
+  ]);
 
   return null;
 }
@@ -940,7 +961,9 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
 
   const sectionPlane = useMemo(
     () =>
-      loadedModel && sectionState?.enabled ? createClippingPlane(loadedModel.bounds, sectionState) : null,
+      loadedModel && sectionState?.enabled
+        ? createClippingPlane(loadedModel.bounds, sectionState)
+        : null,
     [loadedModel, sectionState]
   );
   const cameraControlsEnabled = true;
@@ -1054,23 +1077,20 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
     });
   };
 
-  const handleModeChange = useCallback(
-    (next: InteractionMode) => {
-      setInteractionMode((prev) => {
-        if (prev === next) {
-          setDraftMeasurement(INITIAL_DRAFT);
-          return 'orbit';
-        }
-        if (next === 'measure-distance') {
-          setDraftMeasurement({ ...INITIAL_DRAFT, status: 'placing-start' });
-        } else {
-          setDraftMeasurement(INITIAL_DRAFT);
-        }
-        return next;
-      });
-    },
-    []
-  );
+  const handleModeChange = useCallback((next: InteractionMode) => {
+    setInteractionMode((prev) => {
+      if (prev === next) {
+        setDraftMeasurement(INITIAL_DRAFT);
+        return 'orbit';
+      }
+      if (next === 'measure-distance') {
+        setDraftMeasurement({ ...INITIAL_DRAFT, status: 'placing-start' });
+      } else {
+        setDraftMeasurement(INITIAL_DRAFT);
+      }
+      return next;
+    });
+  }, []);
 
   const contextPanelProps = useMemo<ToolContextPanelProps>(
     () => ({
@@ -1266,291 +1286,302 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
           loadedModel={loadedModel}
         />
         <div className="relative flex-1 min-w-0">
-
-      <div
-        className="absolute top-2 right-2 z-10 flex gap-2"
-        onClick={(event) => event.stopPropagation()}
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        {/* eslint-disable no-restricted-syntax -- these four toolbar buttons float over the 3D canvas as Pattern A toggles with bg-elevated base; <IconButton> doesn't carry active-state border/bg variants needed here */}
-        <button
-          onClick={fitCurrentModelToView}
-          className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
-          style={{
-            backgroundColor: 'var(--bg-elevated)',
-            border: '1px solid var(--border-primary)',
-            color: 'var(--text-secondary)',
-          }}
-          title="Fit to View"
-          data-testid="preview-fit-view"
-        >
-          <TbFocus2 size={18} />
-        </button>
-
-        <button
-          onClick={() => setOrthographic(!orthographic)}
-          className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
-          style={{
-            backgroundColor: orthographic ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-            border: `1px solid ${orthographic ? 'var(--border-primary)' : 'var(--border-primary)'}`,
-            color: orthographic ? 'var(--text-primary)' : 'var(--text-secondary)',
-          }}
-          title="Orthographic Projection"
-          data-testid="preview-toggle-orthographic"
-        >
-          <TbBox size={18} />
-        </button>
-
-        <button
-          onClick={() => setWireframe(!wireframe)}
-          className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
-          style={{
-            backgroundColor: wireframe ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-            border: '1px solid var(--border-primary)',
-            color: wireframe ? 'var(--text-primary)' : 'var(--text-secondary)',
-          }}
-          title="Wireframe Mode"
-        >
-          {wireframe ? <TbBox size={18} /> : <TbBoxModel size={18} />}
-        </button>
-
-        <button
-          onClick={() => updateSetting('viewer', { showShadows: !showShadows })}
-          className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
-          style={{
-            backgroundColor: showShadows ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-            border: '1px solid var(--border-primary)',
-            color: showShadows ? 'var(--text-primary)' : 'var(--text-secondary)',
-          }}
-          title="Toggle Shadows"
-        >
-          <TbSun size={18} />
-        </button>
-        {/* eslint-enable no-restricted-syntax */}
-      </div>
-
-      <div aria-live="polite" className="sr-only">
-        {liveMessage}
-      </div>
-
-      {showSelectionInfo && interactionMode === 'orbit' && selectionSource.point ? (
-        <div
-          className="absolute right-3 bottom-3 z-20 w-72 rounded-lg p-3 space-y-2"
-          style={{
-            backgroundColor: 'var(--bg-elevated)',
-            border: '1px solid var(--border-primary)',
-            color: 'var(--text-secondary)',
-          }}
-          data-testid="preview-3d-inspector-hud"
-        >
-          <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-            Inspector
-          </div>
-          <div className="text-[11px]">
-            <div>
-              <span style={{ color: 'var(--text-tertiary)' }}>Point:</span>{' '}
-              {formatVector3(selectionSource.point ? threeToOpenScadDelta(selectionSource.point) : null)}
-            </div>
-            <div>
-              <span style={{ color: 'var(--text-tertiary)' }}>Normal:</span>{' '}
-              {formatVector3(selectionSource.normal ? threeToOpenScadDelta(selectionSource.normal) : null)}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {showControlsHint && (
-        <div
-          className="absolute bottom-3 right-3 z-30 rounded text-xs pr-8"
-          style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.32)',
-            border: '1px solid var(--border-secondary)',
-            color: 'var(--text-tertiary)',
-            backdropFilter: 'blur(8px)',
-            maxWidth: '360px',
-            padding: '10px 38px 10px 12px',
-          }}
-          data-testid="preview-controls-hint"
-        >
-          {/* eslint-disable-next-line no-restricted-syntax -- absolute 20×20px dismiss X on a floating hint badge; this sub-sm size doesn't fit any IconButton variant without className size fights */}
-          <button
-            type="button"
-            onClick={dismissControlsHint}
-            className="absolute top-2 right-2 rounded-lg transition-colors flex items-center justify-center"
-            style={{
-              width: '20px',
-              height: '20px',
-              color: 'var(--text-tertiary)',
-            }}
-            title="Dismiss controls hint"
-            aria-label="Dismiss controls hint"
-            data-testid="preview-controls-hint-dismiss"
+          <div
+            className="absolute top-2 right-2 z-10 flex gap-2"
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
           >
-            <TbX size={14} />
-          </button>
-          {prefersTouchHint
-            ? `${interactionConfig.touchHint} Use M, B, and S when the viewer is focused to switch inspection tools.`
-            : `${interactionConfig.desktopHint} Use M, B, and S when the viewer is focused to switch inspection tools.`}
-        </div>
-      )}
+            {/* eslint-disable no-restricted-syntax -- these four toolbar buttons float over the 3D canvas as Pattern A toggles with bg-elevated base; <IconButton> doesn't carry active-state border/bg variants needed here */}
+            <button
+              onClick={fitCurrentModelToView}
+              className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
+              style={{
+                backgroundColor: 'var(--bg-elevated)',
+                border: '1px solid var(--border-primary)',
+                color: 'var(--text-secondary)',
+              }}
+              title="Fit to View"
+              data-testid="preview-fit-view"
+            >
+              <TbFocus2 size={18} />
+            </button>
 
-      <Canvas
-        shadows
-        gl={{ preserveDrawingBuffer: true }}
-        onCreated={({ gl }) => {
-          gl.localClippingEnabled = true;
-        }}
-        style={{ width: '100%', height: '100%', background: sceneStyle.backgroundColor }}
-      >
-        {orthographic ? (
-          <OrthographicCamera
-            makeDefault
-            position={sceneStyle.camera.defaultPosition}
-            zoom={sceneStyle.camera.orthographicZoom}
-            near={sceneStyle.camera.orthographicNear}
-            far={sceneStyle.camera.baseFar}
-          />
-        ) : (
-          <PerspectiveCamera
-            makeDefault
-            position={sceneStyle.camera.defaultPosition}
-            fov={sceneStyle.camera.perspectiveFov}
-            near={sceneStyle.camera.near}
-            far={sceneStyle.camera.baseFar}
-          />
-        )}
+            <button
+              onClick={() => setOrthographic(!orthographic)}
+              className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
+              style={{
+                backgroundColor: orthographic ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+                border: `1px solid ${orthographic ? 'var(--border-primary)' : 'var(--border-primary)'}`,
+                color: orthographic ? 'var(--text-primary)' : 'var(--text-secondary)',
+              }}
+              title="Orthographic Projection"
+              data-testid="preview-toggle-orthographic"
+            >
+              <TbBox size={18} />
+            </button>
 
-        <ViewerCameraManager
-          cameraControlsRef={cameraControlsRef}
-          modelFrame={modelFrame}
-          orthographic={orthographic}
-          sceneStyle={sceneStyle}
-          showAxes={showAxes}
-          showAxisLabels={showAxisLabels}
-          animateInitialFrame={animateInitialFrameRef.current}
-          interactionMode={interactionMode}
-          selectionActive={!!selection.objectUuid}
-          measurementCount={measurements.length}
-          sectionState={sectionState}
-        />
+            <button
+              onClick={() => setWireframe(!wireframe)}
+              className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
+              style={{
+                backgroundColor: wireframe ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+                border: '1px solid var(--border-primary)',
+                color: wireframe ? 'var(--text-primary)' : 'var(--text-secondary)',
+              }}
+              title="Wireframe Mode"
+            >
+              {wireframe ? <TbBox size={18} /> : <TbBoxModel size={18} />}
+            </button>
 
-        <Environment preset={sceneStyle.environmentPreset} />
-        <ambientLight
-          color={sceneStyle.ambientLight.color}
-          intensity={sceneStyle.ambientLight.intensity}
-        />
-        <directionalLight
-          color={sceneStyle.directionalLight.color}
-          position={sceneStyle.directionalLight.position}
-          intensity={sceneStyle.directionalLight.intensity}
-          castShadow
-          shadow-mapSize={sceneStyle.directionalLight.shadowMapSize}
-        />
+            <button
+              onClick={() => updateSetting('viewer', { showShadows: !showShadows })}
+              className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
+              style={{
+                backgroundColor: showShadows ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+                border: '1px solid var(--border-primary)',
+                color: showShadows ? 'var(--text-primary)' : 'var(--text-secondary)',
+              }}
+              title="Toggle Shadows"
+            >
+              <TbSun size={18} />
+            </button>
+            {/* eslint-enable no-restricted-syntax */}
+          </div>
 
-        <group name="helpersContainer">
-          {showGrid ? (
-            <Grid
-              infiniteGrid
-              cellSize={gridMetrics.cellSize}
-              sectionSize={gridMetrics.sectionSize}
-              fadeDistance={gridMetrics.fadeDistance}
-              cellThickness={gridMetrics.cellThickness}
-              sectionThickness={gridMetrics.sectionThickness}
-              cellColor={sceneStyle.gridColor}
-              sectionColor={sceneStyle.gridSectionColor}
-            />
+          <div aria-live="polite" className="sr-only">
+            {liveMessage}
+          </div>
+
+          {showSelectionInfo && interactionMode === 'orbit' && selectionSource.point ? (
+            <div
+              className="absolute right-3 bottom-3 z-20 w-72 rounded-lg p-3 space-y-2"
+              style={{
+                backgroundColor: 'var(--bg-elevated)',
+                border: '1px solid var(--border-primary)',
+                color: 'var(--text-secondary)',
+              }}
+              data-testid="preview-3d-inspector-hud"
+            >
+              <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                Inspector
+              </div>
+              <div className="text-[11px]">
+                <div>
+                  <span style={{ color: 'var(--text-tertiary)' }}>Point:</span>{' '}
+                  {formatVector3(
+                    selectionSource.point ? threeToOpenScadDelta(selectionSource.point) : null
+                  )}
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-tertiary)' }}>Normal:</span>{' '}
+                  {formatVector3(
+                    selectionSource.normal ? threeToOpenScadDelta(selectionSource.normal) : null
+                  )}
+                </div>
+              </div>
+            </div>
           ) : null}
 
-          {showAxes && (
-            <PreviewAxesOverlay
-              axisMetrics={axisMetrics}
+          {showControlsHint && (
+            <div
+              className="absolute bottom-3 right-3 z-30 rounded text-xs pr-8"
+              style={{
+                backgroundColor: 'rgba(0, 0, 0, 0.32)',
+                border: '1px solid var(--border-secondary)',
+                color: 'var(--text-tertiary)',
+                backdropFilter: 'blur(8px)',
+                maxWidth: '360px',
+                padding: '10px 38px 10px 12px',
+              }}
+              data-testid="preview-controls-hint"
+            >
+              {/* eslint-disable-next-line no-restricted-syntax -- absolute 20×20px dismiss X on a floating hint badge; this sub-sm size doesn't fit any IconButton variant without className size fights */}
+              <button
+                type="button"
+                onClick={dismissControlsHint}
+                className="absolute top-2 right-2 rounded-lg transition-colors flex items-center justify-center"
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  color: 'var(--text-tertiary)',
+                }}
+                title="Dismiss controls hint"
+                aria-label="Dismiss controls hint"
+                data-testid="preview-controls-hint-dismiss"
+              >
+                <TbX size={14} />
+              </button>
+              {prefersTouchHint
+                ? `${interactionConfig.touchHint} Use M, B, and S when the viewer is focused to switch inspection tools.`
+                : `${interactionConfig.desktopHint} Use M, B, and S when the viewer is focused to switch inspection tools.`}
+            </div>
+          )}
+
+          <Canvas
+            shadows
+            gl={{ preserveDrawingBuffer: true }}
+            onCreated={({ gl }) => {
+              gl.localClippingEnabled = true;
+            }}
+            style={{ width: '100%', height: '100%', background: sceneStyle.backgroundColor }}
+          >
+            {orthographic ? (
+              <OrthographicCamera
+                makeDefault
+                position={sceneStyle.camera.defaultPosition}
+                zoom={sceneStyle.camera.orthographicZoom}
+                near={sceneStyle.camera.orthographicNear}
+                far={sceneStyle.camera.baseFar}
+              />
+            ) : (
+              <PerspectiveCamera
+                makeDefault
+                position={sceneStyle.camera.defaultPosition}
+                fov={sceneStyle.camera.perspectiveFov}
+                near={sceneStyle.camera.near}
+                far={sceneStyle.camera.baseFar}
+              />
+            )}
+
+            <ViewerCameraManager
+              cameraControlsRef={cameraControlsRef}
+              modelFrame={modelFrame}
+              orthographic={orthographic}
               sceneStyle={sceneStyle}
-              showLabels={showAxisLabels}
+              showAxes={showAxes}
+              showAxisLabels={showAxisLabels}
+              animateInitialFrame={animateInitialFrameRef.current}
+              interactionMode={interactionMode}
+              selectionActive={!!selection.objectUuid}
+              measurementCount={measurements.length}
+              sectionState={sectionState}
             />
-          )}
 
-          {showShadows && sceneStyle.contactShadows.enabledByDefault && (
-            <ContactShadows
-              position={[0, 0, 0]}
-              opacity={sceneStyle.contactShadows.opacity}
-              scale={sceneStyle.contactShadows.scale}
-              blur={sceneStyle.contactShadows.blur}
-              far={sceneStyle.contactShadows.far}
+            <Environment preset={sceneStyle.environmentPreset} />
+            <ambientLight
+              color={sceneStyle.ambientLight.color}
+              intensity={sceneStyle.ambientLight.intensity}
             />
-          )}
-        </group>
-
-        <STLModel
-          url={stlPath}
-          wireframe={wireframe}
-          sceneStyle={sceneStyle}
-          sectionPlane={sectionPlane}
-          onModelFrameChange={setModelFrame}
-          onModelChange={setLoadedModel}
-        />
-
-        {selection.bounds ? <SelectionBoundsOverlay bounds={selection.bounds} color="#3b82f6" /> : null}
-        {interactionMode === 'measure-bbox' && activeBounds ? <BBoxOverlay bounds={activeBounds} /> : null}
-        {measurements.length > 0 || draftMeasurement.status !== 'idle' ? (
-          <MeasurementOverlay3D
-            measurements={measurements}
-            draft={draftMeasurement}
-            selectedMeasurementId={selectedMeasurementId}
-            model={loadedModel}
-            accentColor={theme.colors.accent.primary}
-            accentHoverColor={theme.colors.accent.hover}
-            unit={settings.viewer.measurementUnit}
-          />
-        ) : null}
-        {interactionMode === 'section-plane' && loadedModel && sectionState?.enabled ? (
-          <SectionPlaneOverlay bounds={loadedModel.bounds} state={sectionState} color={sceneStyle.axis.xColor} />
-        ) : null}
-
-        <ViewerInteractionController
-          mode={interactionMode}
-          model={loadedModel}
-          snapEnabled={snapEnabled}
-          draft={draftMeasurement}
-          onHoverChange={setHoverSelection}
-          onSelectionChange={(next) => {
-            setSelection(next);
-            if (next.objectUuid) {
-              setLiveMessage('Selection updated');
-            }
-          }}
-          onDraftChange={setDraftMeasurement}
-          onCommitMeasurement={(measurement) => {
-            setMeasurements((existing) => [measurement, ...existing]);
-            setSelectedMeasurementId(measurement.id);
-            setLiveMessage('Measurement added');
-          }}
-        />
-
-        <CameraControls
-          ref={cameraControlsRef}
-          makeDefault
-          enabled={cameraControlsEnabled}
-          minDistance={0.05}
-          maxDistance={sceneStyle.camera.baseMaxDistance}
-          mouseButtons={interactionConfig.mouseButtons}
-          touches={interactionConfig.touches}
-          dollyToCursor={!orthographic}
-          dollySpeed={0.5}
-          truckSpeed={1}
-        />
-
-        {showViewcube ? (
-          <GizmoHelper alignment="bottom-left" margin={[80, 80]}>
-            <GizmoViewcube
-              font="16px Inter, sans-serif"
-              opacity={1}
-              faces={['Front', 'Back', 'Top', 'Bottom', 'Left', 'Right']}
-              textColor={sceneStyle.backgroundColor}
-              color={sceneStyle.modelColor}
+            <directionalLight
+              color={sceneStyle.directionalLight.color}
+              position={sceneStyle.directionalLight.position}
+              intensity={sceneStyle.directionalLight.intensity}
+              castShadow
+              shadow-mapSize={sceneStyle.directionalLight.shadowMapSize}
             />
-          </GizmoHelper>
-        ) : null}
-      </Canvas>
+
+            <group name="helpersContainer">
+              {showGrid ? (
+                <Grid
+                  infiniteGrid
+                  cellSize={gridMetrics.cellSize}
+                  sectionSize={gridMetrics.sectionSize}
+                  fadeDistance={gridMetrics.fadeDistance}
+                  cellThickness={gridMetrics.cellThickness}
+                  sectionThickness={gridMetrics.sectionThickness}
+                  cellColor={sceneStyle.gridColor}
+                  sectionColor={sceneStyle.gridSectionColor}
+                />
+              ) : null}
+
+              {showAxes && (
+                <PreviewAxesOverlay
+                  axisMetrics={axisMetrics}
+                  sceneStyle={sceneStyle}
+                  showLabels={showAxisLabels}
+                />
+              )}
+
+              {showShadows && sceneStyle.contactShadows.enabledByDefault && (
+                <ContactShadows
+                  position={[0, 0, 0]}
+                  opacity={sceneStyle.contactShadows.opacity}
+                  scale={sceneStyle.contactShadows.scale}
+                  blur={sceneStyle.contactShadows.blur}
+                  far={sceneStyle.contactShadows.far}
+                />
+              )}
+            </group>
+
+            <STLModel
+              url={stlPath}
+              wireframe={wireframe}
+              sceneStyle={sceneStyle}
+              sectionPlane={sectionPlane}
+              onModelFrameChange={setModelFrame}
+              onModelChange={setLoadedModel}
+            />
+
+            {selection.bounds ? (
+              <SelectionBoundsOverlay bounds={selection.bounds} color="#3b82f6" />
+            ) : null}
+            {interactionMode === 'measure-bbox' && activeBounds ? (
+              <BBoxOverlay bounds={activeBounds} />
+            ) : null}
+            {measurements.length > 0 || draftMeasurement.status !== 'idle' ? (
+              <MeasurementOverlay3D
+                measurements={measurements}
+                draft={draftMeasurement}
+                selectedMeasurementId={selectedMeasurementId}
+                model={loadedModel}
+                accentColor={theme.colors.accent.primary}
+                accentHoverColor={theme.colors.accent.hover}
+                unit={settings.viewer.measurementUnit}
+              />
+            ) : null}
+            {interactionMode === 'section-plane' && loadedModel && sectionState?.enabled ? (
+              <SectionPlaneOverlay
+                bounds={loadedModel.bounds}
+                state={sectionState}
+                color={sceneStyle.axis.xColor}
+              />
+            ) : null}
+
+            <ViewerInteractionController
+              mode={interactionMode}
+              model={loadedModel}
+              snapEnabled={snapEnabled}
+              draft={draftMeasurement}
+              onHoverChange={setHoverSelection}
+              onSelectionChange={(next) => {
+                setSelection(next);
+                if (next.objectUuid) {
+                  setLiveMessage('Selection updated');
+                }
+              }}
+              onDraftChange={setDraftMeasurement}
+              onCommitMeasurement={(measurement) => {
+                setMeasurements((existing) => [measurement, ...existing]);
+                setSelectedMeasurementId(measurement.id);
+                setLiveMessage('Measurement added');
+              }}
+            />
+
+            <CameraControls
+              ref={cameraControlsRef}
+              makeDefault
+              enabled={cameraControlsEnabled}
+              minDistance={0.05}
+              maxDistance={sceneStyle.camera.baseMaxDistance}
+              mouseButtons={interactionConfig.mouseButtons}
+              touches={interactionConfig.touches}
+              dollyToCursor={!orthographic}
+              dollySpeed={0.5}
+              truckSpeed={1}
+            />
+
+            {showViewcube ? (
+              <GizmoHelper alignment="bottom-left" margin={[80, 80]}>
+                <GizmoViewcube
+                  font="16px Inter, sans-serif"
+                  opacity={1}
+                  faces={['Front', 'Back', 'Top', 'Bottom', 'Left', 'Right']}
+                  textColor={sceneStyle.backgroundColor}
+                  color={sceneStyle.modelColor}
+                />
+              </GizmoHelper>
+            ) : null}
+          </Canvas>
         </div>
       </div>
 

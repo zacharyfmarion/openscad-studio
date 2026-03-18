@@ -18,13 +18,22 @@ export function MeasurePanel({
 
   return (
     <div className="flex flex-row items-center gap-3 px-3 w-full overflow-hidden h-full">
-      <span className="text-xs shrink-0" style={{ color: 'var(--text-secondary)', maxWidth: '220px' }}>
+      <span
+        className="text-xs shrink-0"
+        style={{ color: 'var(--text-secondary)', maxWidth: '220px' }}
+      >
         {helpText}
       </span>
       {measurements.length > 0 ? (
         <>
-          <div className="shrink-0 h-4" style={{ width: '1px', backgroundColor: 'var(--border-primary)' }} />
-          <div className="flex flex-row gap-2 overflow-x-auto flex-1" data-testid="preview-3d-measurements-tray">
+          <div
+            className="shrink-0 h-4"
+            style={{ width: '1px', backgroundColor: 'var(--border-primary)' }}
+          />
+          <div
+            className="flex flex-row gap-2 overflow-x-auto flex-1"
+            data-testid="preview-3d-measurements-tray"
+          >
             {measurements.map((m) => {
               const selected = m.id === selectedMeasurementId;
               return (
@@ -63,7 +72,8 @@ export function MeasurePanel({
                       backgroundColor: 'transparent',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--bg-primary) 60%, transparent)';
+                      e.currentTarget.style.backgroundColor =
+                        'color-mix(in srgb, var(--bg-primary) 60%, transparent)';
                       e.currentTarget.style.color = 'var(--text-primary)';
                     }}
                     onMouseLeave={(e) => {

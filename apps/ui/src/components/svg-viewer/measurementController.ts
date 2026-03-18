@@ -285,10 +285,7 @@ export function resolveMeasurementPlacement(args: {
   };
 }
 
-export function getDraftMeasurementPreview(
-  draft: MeasurementDraft,
-  unit: MeasurementUnit = 'mm'
-) {
+export function getDraftMeasurementPreview(draft: MeasurementDraft, unit: MeasurementUnit = 'mm') {
   if (draft.status !== 'placing-end' || !draft.start || !draft.current) {
     return null;
   }

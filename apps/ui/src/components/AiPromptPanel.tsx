@@ -243,11 +243,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
             <Text variant="body" className="mb-3">
               Add an API key to get started
             </Text>
-            <Button
-              type="button"
-              variant="primary"
-              onClick={() => onOpenSettings?.()}
-            >
+            <Button type="button" variant="primary" onClick={() => onOpenSettings?.()}>
               Open Settings
             </Button>
           </div>

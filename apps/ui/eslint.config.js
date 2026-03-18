@@ -35,8 +35,7 @@ export default tseslint.config(
         'error',
         {
           selector: 'JSXOpeningElement[name.name="h1"]',
-          message:
-            'Use <Text variant="page-heading"> from components/ui instead of a raw <h1>.',
+          message: 'Use <Text variant="page-heading"> from components/ui instead of a raw <h1>.',
         },
         {
           selector: 'JSXOpeningElement[name.name="h2"]',
@@ -45,13 +44,11 @@ export default tseslint.config(
         },
         {
           selector: 'JSXOpeningElement[name.name="h3"]',
-          message:
-            'Use <Text variant="section-heading"> from components/ui instead of a raw <h3>.',
+          message: 'Use <Text variant="section-heading"> from components/ui instead of a raw <h3>.',
         },
         {
           selector: 'JSXOpeningElement[name.name="h4"]',
-          message:
-            'Use <Text variant="section-heading"> from components/ui instead of a raw <h4>.',
+          message: 'Use <Text variant="section-heading"> from components/ui instead of a raw <h4>.',
         },
         {
           selector: 'JSXOpeningElement[name.name="p"]',

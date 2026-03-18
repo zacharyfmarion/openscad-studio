@@ -184,7 +184,9 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
           previewKind={previewKind}
           previewAvailable={Boolean(previewSrc)}
           isRendering={isRendering}
-          hasRenderErrors={Boolean(error) || diagnostics.some((entry) => entry.severity === 'error')}
+          hasRenderErrors={
+            Boolean(error) || diagnostics.some((entry) => entry.severity === 'error')
+          }
           renderReady={renderReady}
           onRefineWithAi={onOpenCustomizerAiRefine}
           onEditCode={onOpenEditorPanel}

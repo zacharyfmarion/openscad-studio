@@ -1,8 +1,5 @@
 import { Button, SegmentedControl, RangeSlider } from '../../ui';
-import {
-  clampSectionOffset,
-  getSectionAxisBounds,
-} from '../sectionPlaneController';
+import { clampSectionOffset, getSectionAxisBounds } from '../sectionPlaneController';
 import type { SectionAxis, ToolContextPanelProps } from '../types';
 
 const AXIS_OPTIONS: { value: SectionAxis; label: string; title: string }[] = [

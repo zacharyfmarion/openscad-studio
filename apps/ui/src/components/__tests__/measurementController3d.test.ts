@@ -44,10 +44,7 @@ describe('measurementController3d', () => {
   });
 
   it('locks the measured endpoint to the dominant axis', () => {
-    const locked = applyAxisLock3D(
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(2, 0.5, 0.25)
-    );
+    const locked = applyAxisLock3D(new THREE.Vector3(0, 0, 0), new THREE.Vector3(2, 0.5, 0.25));
 
     expect(locked.axis).toBe('x');
     expect(locked.point.toArray()).toEqual([2, 0, 0]);

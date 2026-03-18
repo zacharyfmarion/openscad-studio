@@ -9,10 +9,7 @@ interface MaterialSnapshot {
   emissiveIntensity?: number;
 }
 
-function forEachMaterial(
-  root: THREE.Object3D,
-  callback: (material: THREE.Material) => void
-) {
+function forEachMaterial(root: THREE.Object3D, callback: (material: THREE.Material) => void) {
   root.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) {
       return;
@@ -46,7 +43,10 @@ export class ViewerMaterialManager {
     this.originals.set(material, snapshot);
   }
 
-  apply(root: THREE.Object3D | null, args: { clippingPlane: THREE.Plane | null; selected: boolean }) {
+  apply(
+    root: THREE.Object3D | null,
+    args: { clippingPlane: THREE.Plane | null; selected: boolean }
+  ) {
     if (!root) {
       return;
     }

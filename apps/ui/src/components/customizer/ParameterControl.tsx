@@ -51,7 +51,9 @@ function ControlShell({
       style={{
         backgroundColor: 'var(--bg-primary)',
         borderColor: isDirty ? 'var(--accent-primary)' : 'var(--border-primary)',
-        boxShadow: isDirty ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent-primary) 35%, transparent)' : undefined,
+        boxShadow: isDirty
+          ? 'inset 0 0 0 1px color-mix(in srgb, var(--accent-primary) 35%, transparent)'
+          : undefined,
       }}
       data-testid={`customizer-control-${param.name}`}
     >
@@ -149,21 +151,38 @@ function ValueWithUnit({
   );
 }
 
-export function ParameterControl({ param, onChange, isDirty = false, onReset }: ParameterControlProps) {
+export function ParameterControl({
+  param,
+  onChange,
+  isDirty = false,
+  onReset,
+}: ParameterControlProps) {
   switch (param.type) {
     case 'boolean':
-      return <BooleanControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />;
+      return (
+        <BooleanControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />
+      );
     case 'slider':
-      return <SliderControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />;
+      return (
+        <SliderControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />
+      );
     case 'dropdown':
-      return <DropdownControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />;
+      return (
+        <DropdownControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />
+      );
     case 'vector':
-      return <VectorControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />;
+      return (
+        <VectorControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />
+      );
     case 'string':
-      return <StringControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />;
+      return (
+        <StringControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />
+      );
     case 'number':
     default:
-      return <NumberControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />;
+      return (
+        <NumberControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />
+      );
   }
 }
 
@@ -280,7 +299,10 @@ function SliderControl({ param, onChange, isDirty, onReset }: ParameterControlPr
   return (
     <ControlShell param={param} isDirty={isDirty} onReset={onReset} inlineMeta={inlineValueInput}>
       <div className="flex items-center gap-2 mt-0.5">
-        <span className="text-[11px] shrink-0 tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+        <span
+          className="text-[11px] shrink-0 tabular-nums"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
           {min}
         </span>
         <RangeSlider
@@ -293,7 +315,10 @@ function SliderControl({ param, onChange, isDirty, onReset }: ParameterControlPr
           aria-label={`${getDisplayLabel(param)} slider`}
           className="flex-1"
         />
-        <span className="text-[11px] shrink-0 tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+        <span
+          className="text-[11px] shrink-0 tabular-nums"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
           {max}
         </span>
       </div>
@@ -310,7 +335,9 @@ function DropdownControl({ param, onChange, isDirty, onReset }: ParameterControl
         id={`param-${param.name}`}
         value={value}
         onChange={(event) => {
-          const option = param.options?.find((candidate) => String(candidate.value) === event.target.value);
+          const option = param.options?.find(
+            (candidate) => String(candidate.value) === event.target.value
+          );
           if (option) {
             onChange(option.value);
           }

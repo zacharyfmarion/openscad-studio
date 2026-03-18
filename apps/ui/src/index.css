@@ -5,9 +5,9 @@
 /* Theme CSS Variables - Default (Solarized Dark) */
 :root {
   /* Radius scale */
-  --radius-md: 8px;   /* interactive controls: buttons, inputs, selects */
-  --radius-lg: 12px;  /* cards & panels */
-  --radius-xl: 16px;  /* dialogs & prominent empty states */
+  --radius-md: 8px; /* interactive controls: buttons, inputs, selects */
+  --radius-lg: 12px; /* cards & panels */
+  --radius-xl: 16px; /* dialogs & prominent empty states */
   --radius-full: 9999px; /* pills: toggles, badges */
 
   --bg-primary: #002b36;

@@ -26,7 +26,10 @@ export function createMeasurementRecord3D(
   };
 }
 
-export function getMeasurementMidpoint3D(measurement: { start: THREE.Vector3; end: THREE.Vector3 }) {
+export function getMeasurementMidpoint3D(measurement: {
+  start: THREE.Vector3;
+  end: THREE.Vector3;
+}) {
   return measurement.start.clone().add(measurement.end).multiplyScalar(0.5);
 }
 
@@ -104,10 +107,12 @@ function getSnappedCandidates(
     return candidates;
   }
 
-  const localVertices = [intersection.face.a, intersection.face.b, intersection.face.c].map((index) =>
-    new THREE.Vector3().fromBufferAttribute(position, index)
+  const localVertices = [intersection.face.a, intersection.face.b, intersection.face.c].map(
+    (index) => new THREE.Vector3().fromBufferAttribute(position, index)
   );
-  const worldVertices = localVertices.map((vertex) => vertex.applyMatrix4(intersection.object.matrixWorld));
+  const worldVertices = localVertices.map((vertex) =>
+    vertex.applyMatrix4(intersection.object.matrixWorld)
+  );
 
   for (const vertex of worldVertices) {
     candidates.push({ point: vertex, kind: 'vertex' });
@@ -161,7 +166,10 @@ export function resolveMeasurementPick3D(args: {
     }))
     .sort((a, b) => {
       if (a.kind !== b.kind) {
-        const priority = { vertex: 0, edge: 1, surface: 2 } satisfies Record<MeasurementSnapKind, number>;
+        const priority = { vertex: 0, edge: 1, surface: 2 } satisfies Record<
+          MeasurementSnapKind,
+          number
+        >;
         if (a.screenDistance <= SNAP_THRESHOLD_PX && b.screenDistance <= SNAP_THRESHOLD_PX) {
           return priority[a.kind] - priority[b.kind];
         }
@@ -173,11 +181,13 @@ export function resolveMeasurementPick3D(args: {
   const picked =
     snapEnabled && rankedCandidates[0] && rankedCandidates[0].screenDistance <= SNAP_THRESHOLD_PX
       ? rankedCandidates[0]
-      : rankedCandidates.find((candidate) => candidate.kind === 'surface') ?? rankedCandidates[0];
+      : (rankedCandidates.find((candidate) => candidate.kind === 'surface') ?? rankedCandidates[0]);
 
   const point = picked.point.clone();
   const locked =
-    lockAxis && start ? applyAxisLock3D(start, point, preferredAxis ?? null) : { point, axis: preferredAxis ?? null };
+    lockAxis && start
+      ? applyAxisLock3D(start, point, preferredAxis ?? null)
+      : { point, axis: preferredAxis ?? null };
 
   return {
     point: locked.point,

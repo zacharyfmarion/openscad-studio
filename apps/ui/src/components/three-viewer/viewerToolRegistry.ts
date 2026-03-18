@@ -15,7 +15,19 @@ export interface ViewerToolDefinition {
 
 export const VIEWER_TOOLS: ViewerToolDefinition[] = [
   { id: 'orbit', label: 'Orbit', icon: TbPointer, shortcut: 'Esc' },
-  { id: 'measure-distance', label: 'Measure', icon: TbRuler, shortcut: 'M', contextPanel: MeasurePanel },
+  {
+    id: 'measure-distance',
+    label: 'Measure',
+    icon: TbRuler,
+    shortcut: 'M',
+    contextPanel: MeasurePanel,
+  },
   { id: 'measure-bbox', label: 'Bounds', icon: TbBox, shortcut: 'B', contextPanel: BBoxPanel },
-  { id: 'section-plane', label: 'Section', icon: TbScissors, shortcut: 'S', contextPanel: SectionPlanePanel },
+  {
+    id: 'section-plane',
+    label: 'Section',
+    icon: TbScissors,
+    shortcut: 'S',
+    contextPanel: SectionPlanePanel,
+  },
 ];

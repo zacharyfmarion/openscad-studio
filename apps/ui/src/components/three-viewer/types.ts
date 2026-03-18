@@ -1,10 +1,6 @@
 import type * as THREE from 'three';
 
-export type InteractionMode =
-  | 'orbit'
-  | 'measure-distance'
-  | 'measure-bbox'
-  | 'section-plane';
+export type InteractionMode = 'orbit' | 'measure-distance' | 'measure-bbox' | 'section-plane';
 
 export type MeasurementSnapKind = 'surface' | 'vertex' | 'edge';
 export type AxisLock = 'x' | 'y' | 'z' | null;

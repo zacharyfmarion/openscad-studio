@@ -45,7 +45,6 @@ const PROMINENCE_ORDER: Record<ParameterProminence, number> = {
   advanced: 2,
 };
 
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -132,18 +131,9 @@ function LoadingState() {
             backgroundColor: 'var(--bg-secondary)',
           }}
         >
-          <div
-            className="h-3 w-24 rounded"
-            style={{ backgroundColor: 'var(--bg-tertiary)' }}
-          />
-          <div
-            className="h-10 rounded-lg"
-            style={{ backgroundColor: 'var(--bg-tertiary)' }}
-          />
-          <div
-            className="h-2 w-32 rounded"
-            style={{ backgroundColor: 'var(--bg-tertiary)' }}
-          />
+          <div className="h-3 w-24 rounded" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+          <div className="h-10 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
+          <div className="h-2 w-32 rounded" style={{ backgroundColor: 'var(--bg-tertiary)' }} />
         </div>
       ))}
     </div>
@@ -203,7 +193,8 @@ export function CustomizerPanel({
   const advancedParamCount = useMemo(
     () =>
       tabs.reduce(
-        (count, tab) => count + tab.params.filter((param) => param.prominence === 'advanced').length,
+        (count, tab) =>
+          count + tab.params.filter((param) => param.prominence === 'advanced').length,
         0
       ),
     [tabs]
@@ -218,7 +209,8 @@ export function CustomizerPanel({
         .filter((tab) => tab.groups.length > 0),
     [showAdvanced, tabs]
   );
-  const showTabHeaders = groupedTabs.length > 1 || groupedTabs.some((tab) => tab.name !== 'Parameters');
+  const showTabHeaders =
+    groupedTabs.length > 1 || groupedTabs.some((tab) => tab.name !== 'Parameters');
 
   const hasChanges = useMemo(() => {
     if (!baselineParams.size) return false;
@@ -362,7 +354,6 @@ export function CustomizerPanel({
             </Button>
           )}
         </div>
-
       </div>
     );
   }
@@ -383,7 +374,10 @@ export function CustomizerPanel({
                 Customize
               </Text>
               {advancedParamCount > 0 && (
-                <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                <div
+                  className="flex items-center gap-1.5 text-xs"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
                   <Toggle
                     checked={showAdvanced}
                     onChange={(event) => setShowAdvanced(event.target.checked)}
@@ -421,8 +415,19 @@ export function CustomizerPanel({
                         fill="none"
                         viewBox="0 0 24 24"
                       >
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
                       </svg>
                     ) : (
                       <TbDownload size={12} />
@@ -446,8 +451,19 @@ export function CustomizerPanel({
                         fill="none"
                         viewBox="0 0 24 24"
                       >
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
                       </svg>
                     ) : (
                       <TbDownload size={12} />
@@ -485,7 +501,10 @@ export function CustomizerPanel({
             </Text>
             <div className="flex items-center gap-2">
               {advancedParamCount > 0 && (
-                <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                <div
+                  className="flex items-center gap-2 text-xs"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
                   <Toggle
                     checked={showAdvanced}
                     onChange={(event) => setShowAdvanced(event.target.checked)}
@@ -515,14 +534,12 @@ export function CustomizerPanel({
             {showTabHeaders && (
               <div className="flex items-center justify-between">
                 <div>
-                  <Text variant="overline">
-                    {tab.name}
-                  </Text>
+                  <Text variant="overline">{tab.name}</Text>
                 </div>
               </div>
             )}
 
-            {tab.groups.map((group) => (
+            {tab.groups.map((group) =>
               (() => {
                 const shouldFlattenGroup =
                   tab.groups.length === 1 && isRedundantGroupName(tab.name, group.name);
@@ -583,7 +600,7 @@ export function CustomizerPanel({
                   </div>
                 );
               })()
-            ))}
+            )}
           </section>
         ))}
       </div>

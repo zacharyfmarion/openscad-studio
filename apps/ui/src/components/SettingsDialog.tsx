@@ -55,7 +55,14 @@ function saveVimConfigIfChanged(localVimConfig: string, currentSettings: Setting
   }
 }
 
-export type SettingsSection = 'appearance' | 'viewer' | 'editor' | 'privacy' | 'ai' | 'libraries' | 'project';
+export type SettingsSection =
+  | 'appearance'
+  | 'viewer'
+  | 'editor'
+  | 'privacy'
+  | 'ai'
+  | 'libraries'
+  | 'project';
 type EditorSubTab = 'general' | 'vim';
 
 export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogProps) {
@@ -341,7 +348,12 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
           }}
         >
           <div className="px-5 py-5">
-            <Text variant="section-heading" as="h2" className="uppercase tracking-wider" color="tertiary">
+            <Text
+              variant="section-heading"
+              as="h2"
+              className="uppercase tracking-wider"
+              color="tertiary"
+            >
               Settings
             </Text>
           </div>
@@ -1230,7 +1242,9 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           <Button
                             type="button"
                             size="sm"
-                            variant={localVimConfig !== settings.editor.vimConfig ? 'primary' : 'ghost'}
+                            variant={
+                              localVimConfig !== settings.editor.vimConfig ? 'primary' : 'ghost'
+                            }
                             onClick={() => {
                               handleEditorSettingChange('vimConfig', localVimConfig);
                             }}
@@ -1286,7 +1300,11 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         border: '1px solid var(--border-primary)',
                       }}
                     >
-                      <Text variant="caption" color="tertiary" className="text-[11px] font-semibold uppercase tracking-[0.18em]">
+                      <Text
+                        variant="caption"
+                        color="tertiary"
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                      >
                         What we collect
                       </Text>
                       <Text variant="caption" className="mt-2 leading-5">
@@ -1302,7 +1320,11 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         border: '1px solid var(--border-primary)',
                       }}
                     >
-                      <Text variant="caption" color="tertiary" className="text-[11px] font-semibold uppercase tracking-[0.18em]">
+                      <Text
+                        variant="caption"
+                        color="tertiary"
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                      >
                         What stays out
                       </Text>
                       <Text variant="caption" className="mt-2 leading-5">
@@ -1317,7 +1339,11 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         border: '1px solid var(--border-primary)',
                       }}
                     >
-                      <Text variant="caption" color="tertiary" className="text-[11px] font-semibold uppercase tracking-[0.18em]">
+                      <Text
+                        variant="caption"
+                        color="tertiary"
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                      >
                         Turning it off
                       </Text>
                       <Text variant="caption" className="mt-2 leading-5">
@@ -1332,7 +1358,11 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                         border: '1px solid var(--border-primary)',
                       }}
                     >
-                      <Text variant="caption" color="tertiary" className="text-[11px] font-semibold uppercase tracking-[0.18em]">
+                      <Text
+                        variant="caption"
+                        color="tertiary"
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                      >
                         Where it applies
                       </Text>
                       <Text variant="caption" className="mt-2 leading-5">
@@ -1366,7 +1396,11 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
                   {settings.library.autoDiscoverSystem && (
                     <div className="space-y-2">
-                      <Text variant="caption" color="tertiary" className="font-semibold uppercase tracking-wider mb-2">
+                      <Text
+                        variant="caption"
+                        color="tertiary"
+                        className="font-semibold uppercase tracking-wider mb-2"
+                      >
                         System Paths
                       </Text>
                       {autoDiscoveredPaths.length === 0 ? (
@@ -1400,7 +1434,11 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
 
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <Text variant="caption" color="tertiary" className="font-semibold uppercase tracking-wider">
+                    <Text
+                      variant="caption"
+                      color="tertiary"
+                      className="font-semibold uppercase tracking-wider"
+                    >
                       Custom Paths
                     </Text>
                     <Button
@@ -1431,14 +1469,14 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                       </div>
                     ) : (
                       settings.library.customPaths.map((path) => (
-                          <div
-                            key={path}
-                            className="flex items-center justify-between gap-2 p-2 rounded-lg group"
-                            style={{
-                              backgroundColor: 'var(--bg-primary)',
-                              border: '1px solid var(--border-primary)',
-                            }}
-                          >
+                        <div
+                          key={path}
+                          className="flex items-center justify-between gap-2 p-2 rounded-lg group"
+                          style={{
+                            backgroundColor: 'var(--bg-primary)',
+                            border: '1px solid var(--border-primary)',
+                          }}
+                        >
                           <div className="flex items-center gap-2 min-w-0">
                             <TbFolderOpen size={16} style={{ color: 'var(--text-tertiary)' }} />
                             <span
