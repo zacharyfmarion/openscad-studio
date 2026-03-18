@@ -6,6 +6,7 @@ type PreviewState = {
   currentFits: boolean;
   fitCount: number;
   maxDim: number | null;
+  modelVersion: string | null;
   orthographic: boolean;
   cameraFar: number | null;
   cameraZoom: number | null;
@@ -171,6 +172,7 @@ test.describe('3D Rendering', () => {
       const centerX = box.x + box.width / 2;
       const centerY = box.y + box.height / 2;
 
+      await app.focus3DViewer();
       await app.page.keyboard.down('Shift');
       await app.page.mouse.move(centerX, centerY);
       await app.page.mouse.down({ button: 'left' });
@@ -212,17 +214,15 @@ test.describe('3D Rendering', () => {
 
   test('large models stay framed across projection changes', async ({ app }) => {
     await app.waitForRender();
-    await setMonacoValue(app.page, 'cube([50, 50, 406.4]);');
-    await app.focusEditor();
-    await app.triggerRender();
+    const snapshot = await app.updateSourceAndRender('cube([50, 50, 406.4]);');
+    expect(snapshot?.previewKind).toBe('mesh');
     await app.waitForRender();
 
-    await app.page.waitForFunction(() => {
-      const preview = (window as any).__TEST_PREVIEW__;
-      return preview && preview.maxDim !== null;
+    const initialState = await app.waitForPreviewState({
+      modelVersion: snapshot?.previewSrc ?? null,
+      maxDimAtLeast: 400,
+      minFitCount: 1,
     });
-
-    const initialState = await app.page.evaluate(() => (window as any).__TEST_PREVIEW__);
 
     expect(initialState.maxDim).toBeGreaterThan(400);
     expect(initialState.cameraFar).toBeGreaterThanOrEqual(2000);
@@ -232,9 +232,10 @@ test.describe('3D Rendering', () => {
     expect(initialState.axisMajorStep).toBeGreaterThanOrEqual(100);
 
     await app.page.getByTestId('preview-toggle-orthographic').click();
-    await app.page.waitForTimeout(1000);
-
-    const orthographicState = await app.page.evaluate(() => (window as any).__TEST_PREVIEW__);
+    const orthographicState = await app.waitForPreviewState({
+      orthographic: true,
+      minFitCount: initialState.fitCount + 1,
+    });
 
     expect(orthographicState.orthographic).toBe(true);
     expect(orthographicState.fitCount).toBeGreaterThan(initialState.fitCount);
@@ -275,15 +276,14 @@ test.describe('3D Rendering', () => {
     await app.waitForRender();
     await app.openSettings();
     await app.page.getByRole('button', { name: 'Viewer', exact: true }).click();
-    await app.page.getByLabel('Show axes').uncheck();
-    await app.closeDialog();
-    await app.page.waitForTimeout(500);
-    await app.page.waitForFunction(() => {
-      const preview = (window as any).__TEST_PREVIEW__;
-      return preview && preview.axesVisible === false;
-    });
+    await app.page.getByTestId('settings-viewer-show-axes').uncheck();
+    await app.page.getByTestId('settings-close-button').click();
 
-    const previewState = (await app.page.evaluate(() => (window as any).__TEST_PREVIEW__)) as PreviewState;
+    const previewState = await app.waitForPreviewState({
+      timeout: 10_000,
+      axesVisible: false,
+      axisLabelsVisible: false,
+    });
 
     expect(previewState.axesVisible).toBe(false);
     expect(previewState.axisLabelsVisible).toBe(false);
@@ -293,15 +293,14 @@ test.describe('3D Rendering', () => {
     await app.waitForRender();
     await app.openSettings();
     await app.page.getByRole('button', { name: 'Viewer', exact: true }).click();
-    await app.page.getByLabel('Show axis labels').uncheck();
-    await app.closeDialog();
-    await app.page.waitForTimeout(500);
-    await app.page.waitForFunction(() => {
-      const preview = (window as any).__TEST_PREVIEW__;
-      return preview && preview.axesVisible === true && preview.axisLabelsVisible === false;
-    });
+    await app.page.getByTestId('settings-viewer-show-axis-labels').uncheck();
+    await app.page.getByTestId('settings-close-button').click();
 
-    const previewState = (await app.page.evaluate(() => (window as any).__TEST_PREVIEW__)) as PreviewState;
+    const previewState = await app.waitForPreviewState({
+      timeout: 10_000,
+      axesVisible: true,
+      axisLabelsVisible: false,
+    });
 
     expect(previewState.axesVisible).toBe(true);
     expect(previewState.axisLabelsVisible).toBe(false);
@@ -309,13 +308,11 @@ test.describe('3D Rendering', () => {
 
   test('small model edits preserve the current panned framing when still visible', async ({ app }) => {
     await app.waitForRender();
-    await setMonacoValue(app.page, 'cube([20, 20, 20]);');
-    await app.focusEditor();
-    await app.triggerRender();
+    const initialSnapshot = await app.updateSourceAndRender('cube([20, 20, 20]);');
+    expect(initialSnapshot?.previewKind).toBe('mesh');
     await app.waitForRender();
-    await app.page.waitForFunction(() => {
-      const preview = (window as any).__TEST_PREVIEW__;
-      return preview?.cameraTarget && preview?.cameraPosition;
+    await app.waitForPreviewState({
+      modelVersion: initialSnapshot?.previewSrc ?? null,
     });
 
     const canvas = app.previewCanvas3D;
@@ -326,6 +323,7 @@ test.describe('3D Rendering', () => {
       const centerX = box.x + box.width / 2;
       const centerY = box.y + box.height / 2;
 
+      await app.focus3DViewer();
       await app.page.mouse.move(centerX, centerY);
       await app.page.mouse.down({ button: 'right' });
       await app.page.mouse.move(centerX + 35, centerY + 18, { steps: 8 });
@@ -337,39 +335,41 @@ test.describe('3D Rendering', () => {
       () => (window as any).__TEST_PREVIEW__
     )) as PreviewState;
 
-    await setMonacoValue(app.page, 'cube([21, 20, 20]);');
-    await app.focusEditor();
-    await app.triggerRender();
+    const editSnapshot = await app.updateSourceAndRender('cube([21, 20, 20]);');
+    expect(editSnapshot?.previewKind).toBe('mesh');
     await app.waitForRender();
 
-    const afterEditState = (await app.page.evaluate(
-      () => (window as any).__TEST_PREVIEW__
-    )) as PreviewState;
+    const afterEditState = await app.waitForPreviewState({
+      modelVersion: editSnapshot?.previewSrc ?? null,
+    });
 
-    expect(afterEditState.currentFits).toBe(true);
     expect(afterEditState.fitCount).toBe(beforeEditState.fitCount);
     expect(vectorDistance(afterEditState.cameraTarget, beforeEditState.cameraTarget)).toBeLessThan(0.5);
+    expect(vectorDistance(afterEditState.cameraPosition, beforeEditState.cameraPosition)).toBeLessThan(0.5);
   });
 
   test('large shrink changes reframe the model back down', async ({ app }) => {
     await app.waitForRender();
-    await setMonacoValue(app.page, 'cube([20, 20, 300]);');
-    await app.focusEditor();
-    await app.triggerRender();
+    const tallSnapshot = await app.updateSourceAndRender('cube([20, 20, 300]);');
+    expect(tallSnapshot?.previewKind).toBe('mesh');
     await app.waitForRender();
 
-    const tallState = await app.page.evaluate(() => (window as any).__TEST_PREVIEW__);
+    const tallState = await app.waitForPreviewState({
+      modelVersion: tallSnapshot?.previewSrc ?? null,
+      maxDimAtLeast: 300,
+      minFitCount: 1,
+    });
 
-    await setMonacoValue(app.page, 'cube([20, 20, 60]);');
-    await app.focusEditor();
-    await app.triggerRender();
+    const shorterSnapshot = await app.updateSourceAndRender('cube([20, 20, 60]);');
+    expect(shorterSnapshot?.previewKind).toBe('mesh');
     await app.waitForRender();
-    await app.page.waitForTimeout(800);
 
-    const shorterState = await app.page.evaluate(() => (window as any).__TEST_PREVIEW__);
+    const shorterState = await app.waitForPreviewState({
+      modelVersion: shorterSnapshot?.previewSrc ?? null,
+    });
 
     expect(shorterState.maxDim).toBeLessThan(tallState.maxDim);
-    expect(shorterState.fitCount).toBeGreaterThan(tallState.fitCount);
+    expect(shorterState.cameraFar).toBeLessThan(tallState.cameraFar);
     expect(shorterState.axisExtent).toBeLessThan(tallState.axisExtent);
     expect(shorterState.axisMajorStep).toBeLessThanOrEqual(tallState.axisMajorStep);
   });

@@ -15,6 +15,28 @@ This document helps AI assistants (like Claude) understand the OpenSCAD Studio c
 - **Web Deployment**: Cloudflare Pages
 - **Package Manager**: pnpm (monorepo workspace)
 
+## Design Context
+
+### Users
+
+OpenSCAD Studio should optimize first for hobbyist makers. These users are building precise 2D and 3D models for fabrication, prototyping, printing, laser cutting, and personal projects. They value tools that help them move quickly without feeling simplified or toy-like, and they want an environment that supports experimentation while still feeling trustworthy for exact work.
+
+### Brand Personality
+
+The brand personality is build, speed, precision. The product should feel professional, technically credible, and efficient. It should support focused making work with confidence and clarity rather than leaning on playful novelty or overt AI-first theatrics.
+
+### Aesthetic Direction
+
+Preserve and tighten the current aesthetic instead of replacing it. The existing theme system is a strength and should remain intact, with Solarized Dark continuing as the default baseline unless intentionally changed elsewhere. The visual direction should take cues from tools like Ableton Live and Affinity Designer: dense but deliberate, polished, capable, and tuned for serious creative work. Avoid anything that feels generic, glossy, or obviously AI-generated.
+
+### Design Principles
+
+1. Respect maker workflows. Prioritize fast iteration, precise feedback, and layouts that help users stay in flow while modeling.
+2. Tighten, do not reinvent. Improve hierarchy, spacing, contrast, and polish within the current design language instead of introducing a disconnected visual reset.
+3. Feel professionally technical. Interfaces should communicate capability and precision without becoming cold, cluttered, or intimidating.
+4. Preserve theme flexibility. New UI work must fit naturally into the existing theme system and work well in both dark and light themes.
+5. Avoid AI-generic styling. Favor intentional, grounded, tool-like design over flashy gradients, empty decoration, or trendy "generated" aesthetics.
+
 ## Architecture
 
 ### High-Level Structure

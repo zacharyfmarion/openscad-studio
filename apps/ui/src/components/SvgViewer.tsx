@@ -190,6 +190,7 @@ function Svg2DContextBar({
           <span
             className="text-xs shrink-0"
             style={{ color: 'var(--text-secondary)', maxWidth: '220px' }}
+            data-testid="preview-2d-measure-help"
           >
             {helpText}
           </span>

@@ -1,5 +1,71 @@
 import { test as base, expect, Page, Locator } from '@playwright/test';
+import * as http from 'http';
 import { getMonacoValue, setMonacoValue } from '../helpers/editor';
+
+type RenderSnapshot = {
+  previewSrc: string;
+  previewKind: 'mesh' | 'svg';
+  diagnostics: Array<{ severity?: string; message?: string }>;
+  error: string;
+  dimensionMode: '2d' | '3d';
+};
+
+type PreviewState = {
+  currentFits: boolean;
+  fitCount: number;
+  maxDim: number | null;
+  modelVersion: string | null;
+  orthographic: boolean;
+  cameraFar: number | null;
+  cameraZoom: number | null;
+  gridCellSize: number | null;
+  gridSectionSize: number | null;
+  axisExtent: number | null;
+  axisMinorStep: number | null;
+  axisMajorStep: number | null;
+  axisLabelStep: number | null;
+  axesVisible: boolean;
+  axisLabelsVisible: boolean;
+  cameraPosition: [number, number, number] | null;
+  cameraTarget: [number, number, number] | null;
+};
+
+async function isLocalServerReady(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = http.get(`http://127.0.0.1:${port}/`, (res) => {
+      resolve((res.statusCode ?? 500) < 500);
+      res.resume();
+    });
+    req.on('error', () => resolve(false));
+    req.setTimeout(2_000, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function gotoAppWithRetry(page: Page, timeout = 30_000): Promise<void> {
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded', timeout });
+    return;
+  } catch (firstError) {
+    const serverReady = await isLocalServerReady(3000);
+    await page.goto('about:blank', { waitUntil: 'load', timeout: 5_000 }).catch(() => {});
+
+    try {
+      await page.goto('/', { waitUntil: 'domcontentloaded', timeout });
+      return;
+    } catch (secondError) {
+      const details = [
+        `Initial page.goto('/') failed and retry also failed.`,
+        `Server health on retry: ${serverReady ? 'ready' : 'unreachable'}.`,
+        `First error: ${String(firstError)}`,
+        `Second error: ${String(secondError)}`,
+      ].join(' ');
+      throw new Error(details);
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // AppHelper — thin abstraction over common app interactions
@@ -70,6 +136,112 @@ export class AppHelper {
     } else {
       await this.page.keyboard.press('Meta+Enter');
     }
+  }
+
+  async updateSourceAndRender(code: string, trigger: string = 'manual'): Promise<RenderSnapshot | null> {
+    const snapshot = await this.page.evaluate(
+      async ({ nextCode, renderTrigger }) => {
+        return (window as any).__TEST_OPENSCAD__?.updateSourceAndRender?.(nextCode, renderTrigger) ?? null;
+      },
+      { nextCode: code, renderTrigger: trigger }
+    );
+
+    if (snapshot?.previewKind === 'mesh' && snapshot.previewSrc) {
+      await this.waitForPreviewState({
+        modelVersion: snapshot.previewSrc,
+        timeout: 30_000,
+      });
+    }
+
+    return snapshot;
+  }
+
+  async getPreviewState(): Promise<PreviewState | null> {
+    return this.page.evaluate(() => (window as any).__TEST_PREVIEW__ ?? null);
+  }
+
+  async waitForPreviewState(
+    options: {
+      timeout?: number;
+      modelVersionNot?: string | null;
+      modelVersion?: string | null;
+      maxDimAtLeast?: number;
+      minFitCount?: number;
+      fitCount?: number;
+      orthographic?: boolean;
+      currentFits?: boolean;
+      axesVisible?: boolean;
+      axisLabelsVisible?: boolean;
+    } = {}
+  ): Promise<PreviewState> {
+    const timeout = options.timeout ?? 30_000;
+    await this.page.waitForFunction(
+      (expected) => {
+        const preview = (window as any).__TEST_PREVIEW__;
+        if (!preview) return false;
+        if (expected.modelVersion !== undefined && preview.modelVersion !== expected.modelVersion) {
+          return false;
+        }
+        if (
+          expected.modelVersionNot !== undefined &&
+          preview.modelVersion === expected.modelVersionNot
+        ) {
+          return false;
+        }
+        if (
+          expected.maxDimAtLeast !== undefined &&
+          !(typeof preview.maxDim === 'number' && preview.maxDim >= expected.maxDimAtLeast)
+        ) {
+          return false;
+        }
+        if (
+          expected.minFitCount !== undefined &&
+          !(typeof preview.fitCount === 'number' && preview.fitCount >= expected.minFitCount)
+        ) {
+          return false;
+        }
+        if (expected.fitCount !== undefined && preview.fitCount !== expected.fitCount) {
+          return false;
+        }
+        if (
+          expected.orthographic !== undefined &&
+          preview.orthographic !== expected.orthographic
+        ) {
+          return false;
+        }
+        if (
+          expected.currentFits !== undefined &&
+          preview.currentFits !== expected.currentFits
+        ) {
+          return false;
+        }
+        if (
+          expected.axesVisible !== undefined &&
+          preview.axesVisible !== expected.axesVisible
+        ) {
+          return false;
+        }
+        if (
+          expected.axisLabelsVisible !== undefined &&
+          preview.axisLabelsVisible !== expected.axisLabelsVisible
+        ) {
+          return false;
+        }
+        return true;
+      },
+      options,
+      { timeout }
+    );
+
+    return (await this.getPreviewState()) as PreviewState;
+  }
+
+  async focus3DViewer() {
+    await this.page.getByTestId('preview-3d-root').click();
+  }
+
+  async focus2DViewer() {
+    await this.page.getByTestId('preview-2d-root').click();
   }
 
   /**
@@ -299,7 +471,7 @@ export const test = base.extend<AppFixtures>({
   app: [
     async ({ page, isTauri }, use) => {
       // Navigate to app and wait for initial load
-      await page.goto('/', { waitUntil: 'domcontentloaded' });
+      await gotoAppWithRetry(page);
       await page.evaluate(() => {
         (window as any).__PLAYWRIGHT__ = true;
       });

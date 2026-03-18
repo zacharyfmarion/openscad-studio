@@ -102,6 +102,7 @@ declare global {
       currentFits: boolean;
       fitCount: number;
       maxDim: number | null;
+      modelVersion: string | null;
       orthographic: boolean;
       cameraFar: number | null;
       cameraZoom: number | null;
@@ -713,6 +714,7 @@ function ViewerCameraManager({
         currentFits: currentFitsRef.current,
         fitCount: fitCountRef.current,
         maxDim: frame?.maxDim ?? null,
+        modelVersion: frame?.version ?? null,
         orthographic,
         cameraFar:
           camera instanceof THREE.PerspectiveCamera || camera instanceof THREE.OrthographicCamera
@@ -772,7 +774,7 @@ function ViewerCameraManager({
         sceneStyle,
         enableTransition,
       }).then(() => {
-        publishTestState(frame);
+        publishTestState();
       });
     },
     [cameraControlsRef, orthographic, publishTestState, sceneStyle]
@@ -874,18 +876,37 @@ function ViewerCameraManager({
     const previousMaxDim = lastModelMaxDimRef.current;
     const shrankSignificantly =
       previousMaxDim !== null && modelFrame.maxDim < previousMaxDim * SIGNIFICANT_SHRINK_RATIO;
+    const changedSlightly =
+      previousMaxDim !== null &&
+      modelFrame.maxDim >= previousMaxDim * SIGNIFICANT_SHRINK_RATIO &&
+      modelFrame.maxDim <= previousMaxDim * 1.1;
 
     currentFitsRef.current = boxFitsCameraView(camera, modelFrame.box);
-    const underfillsView = boxUnderfillsCameraView(camera, modelFrame.box);
+    const remainsVisibleInView = boxFitsCameraView(camera, modelFrame.box, -0.25);
+    // Once a user has panned to a custom framing, small model edits should keep that composition
+    // instead of snapping the camera back to center.
+    const preserveExistingFraming =
+      modelVersionChanged && !isFirstFrame && !projectionChanged && changedSlightly;
+    const forceRefitForShrink = modelVersionChanged && shrankSignificantly;
 
     const needsFit =
       isFirstFrame ||
       projectionChanged ||
-      (modelVersionChanged && (!currentFitsRef.current || (shrankSignificantly && underfillsView)));
+      (modelVersionChanged &&
+        !preserveExistingFraming &&
+        (!remainsVisibleInView ||
+          shrankSignificantly ||
+          boxUnderfillsCameraView(camera, modelFrame.box)));
 
     lastProjectionRef.current = orthographic;
     lastModelVersionRef.current = modelFrame.version;
     lastModelMaxDimRef.current = modelFrame.maxDim;
+
+    if (forceRefitForShrink) {
+      pendingAutoFitVersionRef.current = null;
+      fitModelToView(modelFrame, true);
+      return;
+    }
 
     if (!needsFit) {
       pendingAutoFitVersionRef.current = null;

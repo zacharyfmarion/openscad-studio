@@ -415,7 +415,12 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           ? 'Libraries'
                           : 'AI Assistant'}
             </Text>
-            <IconButton size="sm" onClick={handleClose} title="Close settings">
+            <IconButton
+              size="sm"
+              onClick={handleClose}
+              title="Close settings"
+              data-testid="settings-close-button"
+            >
               <TbX size={16} />
             </IconButton>
           </div>
@@ -632,6 +637,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     </div>
                     <Toggle
                       id="viewer-show-axes"
+                      data-testid="settings-viewer-show-axes"
                       checked={settings.viewer.showAxes}
                       onChange={(event) =>
                         handleViewerSettingChange('showAxes', event.target.checked)
@@ -653,6 +659,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     </div>
                     <Toggle
                       id="viewer-show-axis-labels"
+                      data-testid="settings-viewer-show-axis-labels"
                       checked={settings.viewer.showAxisLabels}
                       disabled={!settings.viewer.showAxes}
                       onChange={(event) =>
