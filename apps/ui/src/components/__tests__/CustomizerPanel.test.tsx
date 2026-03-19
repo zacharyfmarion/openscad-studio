@@ -4,11 +4,13 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { CustomizerPanel } from '../CustomizerPanel';
 import type { CustomizerTab } from '../../utils/customizer/types';
+import { updateSetting } from '../../stores/settingsStore';
 
 const mockParseCustomizerParams = jest.fn<(code: string) => CustomizerTab[]>();
 const mockIsParserReady = jest.fn(() => true);
 const mockOnParserReady = jest.fn(() => () => {});
 const mockEmit = jest.fn();
+const mockTrack = jest.fn();
 
 jest.mock('../../utils/customizer/parser', () => ({
   parseCustomizerParams: (code: string) => mockParseCustomizerParams(code),
@@ -25,10 +27,28 @@ jest.mock('../../platform', () => ({
   },
 }));
 
+jest.mock('../../analytics/runtime', () => ({
+  useAnalytics: () => ({
+    track: (...args: unknown[]) => mockTrack(...args),
+    trackError: jest.fn(),
+    setAnalyticsEnabled: jest.fn(),
+  }),
+  bucketCount: (value: number, thresholds: number[]) => {
+    for (const threshold of thresholds) {
+      if (value <= threshold) {
+        return `<=${threshold}`;
+      }
+    }
+    return `>${thresholds[thresholds.length - 1]}`;
+  },
+}));
+
 describe('CustomizerPanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useRealTimers();
+    localStorage.clear();
+    updateSetting('ui', { defaultLayoutPreset: 'default' });
     mockIsParserReady.mockReturnValue(true);
     mockOnParserReady.mockReturnValue(() => {});
   });
@@ -95,6 +115,16 @@ describe('CustomizerPanel', () => {
 
     expect(screen.getAllByText('Advanced').length).toBeGreaterThan(0);
     expect(screen.getByText('Tolerance')).toBeTruthy();
+    expect(mockTrack).toHaveBeenCalledWith(
+      'customizer rendered',
+      expect.objectContaining({
+        layout_preset: 'default',
+        parameter_count_bucket: '<=3',
+        group_count_bucket: '<=2',
+        has_studio_metadata: false,
+        has_advanced_parameters: true,
+      })
+    );
   });
 
   it('shows the no-params refine state and forwards the suggested AI prompt', () => {
@@ -115,6 +145,15 @@ describe('CustomizerPanel', () => {
     fireEvent.click(screen.getByTestId('customizer-refine-button'));
 
     expect(handleRefine).toHaveBeenCalled();
+    expect(mockTrack).toHaveBeenCalledWith(
+      'customizer action clicked',
+      expect.objectContaining({
+        action: 'open_ai_refine',
+        layout_preset: 'default',
+        has_studio_metadata: false,
+        parameter_count_bucket: '<=0',
+      })
+    );
   });
 
   it('shows a loading skeleton until the parser is ready', () => {
@@ -160,6 +199,80 @@ describe('CustomizerPanel', () => {
     expect((screen.getByTestId('customizer-download-button') as HTMLButtonElement).disabled).toBe(
       false
     );
+  });
+
+  it('tracks customizer render and export actions with bounded properties', () => {
+    const handleDownloadSvg = jest.fn();
+    mockParseCustomizerParams.mockReturnValue([
+      {
+        name: 'Dimensions',
+        params: [
+          {
+            name: 'width',
+            type: 'slider',
+            value: 60,
+            rawValue: '60',
+            min: 40,
+            max: 120,
+            step: 1,
+            line: 2,
+            tab: 'Dimensions',
+            group: 'Body',
+            label: 'Width',
+            prominence: 'primary',
+            source: 'hybrid',
+          },
+          {
+            name: 'height',
+            type: 'number',
+            value: 30,
+            rawValue: '30',
+            line: 3,
+            tab: 'Dimensions',
+            group: 'Body',
+            source: 'standard',
+          },
+        ],
+      },
+    ]);
+
+    updateSetting('ui', { defaultLayoutPreset: 'customizer-first' });
+
+    render(
+      <CustomizerPanel
+        code="width = 60;\nheight = 30;"
+        baselineCode="width = 60;\nheight = 30;"
+        onChange={() => {}}
+        isCustomizerFirstMode
+        previewKind="svg"
+        previewAvailable
+        renderReady
+        onDownloadSvg={handleDownloadSvg}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('customizer-download-button'));
+
+    expect(mockTrack).toHaveBeenCalledWith(
+      'customizer rendered',
+      expect.objectContaining({
+        layout_preset: 'customizer-first',
+        parameter_count_bucket: '<=3',
+        group_count_bucket: '<=1',
+        has_studio_metadata: true,
+        has_advanced_parameters: false,
+      })
+    );
+    expect(mockTrack).toHaveBeenCalledWith(
+      'customizer action clicked',
+      expect.objectContaining({
+        action: 'open_export',
+        layout_preset: 'customizer-first',
+        has_studio_metadata: true,
+        parameter_count_bucket: '<=3',
+      })
+    );
+    expect(handleDownloadSvg).toHaveBeenCalled();
   });
 
   it('marks overridden fields and supports resetting a single parameter', () => {

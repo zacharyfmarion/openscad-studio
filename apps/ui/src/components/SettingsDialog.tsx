@@ -7,7 +7,11 @@ import {
 } from '../stores/settingsStore';
 import { getAvailableThemes, getTheme } from '../themes';
 import { useTheme } from '../contexts/ThemeContext';
-import { useAnalytics } from '../analytics/runtime';
+import {
+  useAnalytics,
+  type LayoutSelectionSource,
+  type ViewerPreferenceKey,
+} from '../analytics/runtime';
 import { Button, IconButton, Input, Select, Label, Toggle, Text } from './ui';
 import { Editor as MonacoEditor } from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
@@ -175,6 +179,20 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     };
     setSettings(updated);
     saveSettings(updated);
+
+    if (key === 'measurementUnit') {
+      analytics.track('viewer preference changed', {
+        setting: 'measurement_unit' satisfies ViewerPreferenceKey,
+        value,
+      });
+    }
+
+    if (key === 'measurementSnapEnabled') {
+      analytics.track('viewer preference changed', {
+        setting: 'measurement_snap_enabled' satisfies ViewerPreferenceKey,
+        enabled: value,
+      });
+    }
   };
 
   const handleLibrarySettingChange = <K extends keyof Settings['library']>(
@@ -447,12 +465,20 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                           key={preset}
                           type="button"
                           onClick={() => {
+                            const changed = settings.ui.defaultLayoutPreset !== preset;
                             const updated = {
                               ...settings,
                               ui: { ...settings.ui, defaultLayoutPreset: preset },
                             };
                             setSettings(updated);
                             saveSettings(updated);
+                            if (changed) {
+                              analytics.track('workspace layout selected', {
+                                preset,
+                                source: 'settings' satisfies LayoutSelectionSource,
+                                is_first_run: false,
+                              });
+                            }
                             applyWorkspacePreset(preset);
                           }}
                           className="rounded-lg p-3 text-left transition-all duration-150"
@@ -498,7 +524,14 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
                     <Button
                       type="button"
                       variant="secondary"
-                      onClick={() => applyWorkspacePreset(settings.ui.defaultLayoutPreset)}
+                      onClick={() => {
+                        analytics.track('workspace layout selected', {
+                          preset: settings.ui.defaultLayoutPreset,
+                          source: 'layout_reset' satisfies LayoutSelectionSource,
+                          is_first_run: false,
+                        });
+                        applyWorkspacePreset(settings.ui.defaultLayoutPreset);
+                      }}
                       className="ml-4 shrink-0 inline-flex items-center gap-1.5 text-xs"
                     >
                       <TbRefresh size={14} />

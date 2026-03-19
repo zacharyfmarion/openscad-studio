@@ -59,6 +59,7 @@ import {
   getSectionAxisBounds,
   getSectionPlaneVisualTransform,
 } from './three-viewer/sectionPlaneController';
+import { useThreeViewerAnalytics } from './three-viewer/useThreeViewerAnalytics';
 import type {
   InteractionMode,
   LoadedPreviewModel,
@@ -1078,11 +1079,26 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
     setLiveMessage('Measurement deleted');
   };
 
+  const { handleModeChange, trackMeasurementsCleared, trackDistanceMeasurementCommitted } =
+    useThreeViewerAnalytics({
+      interactionMode,
+      setInteractionMode,
+      setDraftMeasurement,
+      initialDraft: INITIAL_DRAFT,
+      activeBounds,
+      loadedModel,
+      selection,
+      sectionState,
+      measurementUnit: settings.viewer.measurementUnit,
+      snapEnabled,
+    });
+
   const clearAllMeasurements = useCallback(() => {
+    trackMeasurementsCleared(measurements.length);
     setMeasurements([]);
     setSelectedMeasurementId(null);
     setLiveMessage('Measurements cleared');
-  }, []);
+  }, [measurements.length, trackMeasurementsCleared]);
 
   const updateSectionAxis = (axis: SectionAxis) => {
     if (!loadedModel || !sectionState) {
@@ -1097,21 +1113,6 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
       offset: (bounds.min + bounds.max) / 2,
     });
   };
-
-  const handleModeChange = useCallback((next: InteractionMode) => {
-    setInteractionMode((prev) => {
-      if (prev === next) {
-        setDraftMeasurement(INITIAL_DRAFT);
-        return 'orbit';
-      }
-      if (next === 'measure-distance') {
-        setDraftMeasurement({ ...INITIAL_DRAFT, status: 'placing-start' });
-      } else {
-        setDraftMeasurement(INITIAL_DRAFT);
-      }
-      return next;
-    });
-  }, []);
 
   const contextPanelProps = useMemo<ToolContextPanelProps>(
     () => ({
@@ -1157,17 +1158,17 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
       case 'm':
       case 'M':
         event.preventDefault();
-        handleModeChange('measure-distance');
+        handleModeChange('measure-distance', 'shortcut');
         break;
       case 'b':
       case 'B':
         event.preventDefault();
-        handleModeChange('measure-bbox');
+        handleModeChange('measure-bbox', 'shortcut');
         break;
       case 's':
       case 'S':
         event.preventDefault();
-        handleModeChange('section-plane');
+        handleModeChange('section-plane', 'shortcut');
         break;
       case 'Delete':
       case 'Backspace':
@@ -1181,7 +1182,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
         if (interactionMode === 'measure-distance' && draftMeasurement.status === 'placing-end') {
           setDraftMeasurement({ ...INITIAL_DRAFT, status: 'placing-start' });
         } else {
-          handleModeChange('orbit');
+          handleModeChange('orbit', 'shortcut');
         }
         break;
       case 'ArrowLeft':
@@ -1303,7 +1304,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
       <div className="flex flex-row flex-1 min-h-0">
         <ViewerToolPalette
           mode={interactionMode}
-          onModeChange={handleModeChange}
+          onModeChange={(mode) => handleModeChange(mode, 'toolbar')}
           loadedModel={loadedModel}
         />
         <div className="relative flex-1 min-w-0">
@@ -1575,6 +1576,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
                 setMeasurements((existing) => [measurement, ...existing]);
                 setSelectedMeasurementId(measurement.id);
                 setLiveMessage('Measurement added');
+                trackDistanceMeasurementCommitted(measurements.length + 1);
               }}
             />
 

@@ -5,6 +5,16 @@ import { jest } from '@jest/globals';
 import { ThemeProvider } from '../../contexts/ThemeContext';
 import { SvgViewer } from '../SvgViewer';
 
+const mockTrack = jest.fn();
+
+jest.mock('../../analytics/runtime', () => ({
+  useAnalytics: () => ({
+    track: (...args: unknown[]) => mockTrack(...args),
+    trackError: jest.fn(),
+    setAnalyticsEnabled: jest.fn(),
+  }),
+}));
+
 const rect = {
   x: 0,
   y: 0,
@@ -44,6 +54,7 @@ function renderViewer(src = 'blob:ready') {
 describe('SvgViewer', () => {
   beforeEach(() => {
     localStorage.clear();
+    jest.clearAllMocks();
     (global as typeof globalThis & { fetch: jest.Mock }).fetch = jest.fn();
 
     Object.defineProperty(window, 'matchMedia', {
@@ -105,8 +116,8 @@ describe('SvgViewer', () => {
 
     expect(await screen.findByTestId('preview-2d-overlay')).toBeTruthy();
 
-    const root = screen.getByTestId('preview-2d-root');
-    fireEvent.pointerMove(root, { clientX: 200, clientY: 150 });
+    const scene = screen.getByTestId('preview-2d-scene');
+    fireEvent.pointerMove(scene, { clientX: 200, clientY: 150 });
 
     expect((await screen.findByTestId('preview-2d-coordinate-readout')).textContent).toMatch(/x/i);
     expect(
@@ -146,29 +157,58 @@ describe('SvgViewer', () => {
       expect(stored.viewer.show2DGrid).toBe(false);
     });
 
-    fireEvent.click(screen.getByTestId('preview-2d-toggle-measure'));
+    fireEvent.click(screen.getByTestId('preview-2d-tool-measure'));
     expect(await screen.findByTestId('preview-2d-measure-help')).toBeTruthy();
+    expect(mockTrack).toHaveBeenCalledWith(
+      'viewer tool selected',
+      expect.objectContaining({
+        viewer_kind: '2d',
+        tool: 'measure_distance',
+        input_method: 'toolbar',
+        measurement_unit: 'mm',
+      })
+    );
 
-    const root = screen.getByTestId('preview-2d-root');
-    fireEvent.click(root, { clientX: 150, clientY: 150 });
-    fireEvent.pointerMove(root, { clientX: 250, clientY: 150 });
+    const scene = screen.getByTestId('preview-2d-scene');
+    const focusTarget = scene.parentElement as HTMLElement;
+    fireEvent.click(scene, { clientX: 150, clientY: 150 });
+    fireEvent.pointerMove(scene, { clientX: 250, clientY: 150 });
 
     expect((await screen.findByTestId('preview-2d-measurement-readout')).textContent).toMatch(
       /distance/i
     );
 
-    fireEvent.click(root, { clientX: 250, clientY: 150 });
+    fireEvent.click(scene, { clientX: 250, clientY: 150 });
 
     expect(await screen.findByTestId('preview-2d-measurements-tray')).toBeTruthy();
     expect(screen.getAllByTestId('preview-2d-committed-measurement')).toHaveLength(1);
+    expect(mockTrack).toHaveBeenCalledWith(
+      'measurement committed',
+      expect.objectContaining({
+        viewer_kind: '2d',
+        measurement_kind: 'distance',
+        measurement_count: 1,
+        measurement_unit: 'mm',
+      })
+    );
     await waitFor(() => {
       expect(screen.queryByTestId('preview-2d-measurement-readout')).toBeNull();
     });
 
-    fireEvent.keyDown(root, { key: 'Escape' });
+    focusTarget.focus();
+    fireEvent.keyDown(focusTarget, { key: 'Escape' });
     await waitFor(() => {
       expect(screen.queryByTestId('preview-2d-measure-help')).toBeNull();
     });
+    expect(mockTrack).toHaveBeenCalledWith(
+      'viewer tool selected',
+      expect.objectContaining({
+        viewer_kind: '2d',
+        tool: 'pan',
+        input_method: 'shortcut',
+        measurement_unit: 'mm',
+      })
+    );
   });
 
   it('supports repeated measurements and deleting the selected item', async () => {
@@ -182,25 +222,60 @@ describe('SvgViewer', () => {
 
     await screen.findByTestId('preview-2d-overlay');
 
-    fireEvent.click(screen.getByTestId('preview-2d-toggle-measure'));
-    const root = screen.getByTestId('preview-2d-root');
+    fireEvent.click(screen.getByTestId('preview-2d-tool-measure'));
+    const scene = screen.getByTestId('preview-2d-scene');
+    const focusTarget = scene.parentElement as HTMLElement;
 
-    fireEvent.click(root, { clientX: 120, clientY: 140 });
-    fireEvent.pointerMove(root, { clientX: 200, clientY: 140 });
-    fireEvent.click(root, { clientX: 200, clientY: 140 });
+    fireEvent.click(scene, { clientX: 120, clientY: 140 });
+    fireEvent.pointerMove(scene, { clientX: 200, clientY: 140 });
+    fireEvent.click(scene, { clientX: 200, clientY: 140 });
 
-    fireEvent.click(root, { clientX: 140, clientY: 180 });
-    fireEvent.pointerMove(root, { clientX: 260, clientY: 180 });
-    fireEvent.click(root, { clientX: 260, clientY: 180 });
+    fireEvent.click(scene, { clientX: 140, clientY: 180 });
+    fireEvent.pointerMove(scene, { clientX: 260, clientY: 180 });
+    fireEvent.click(scene, { clientX: 260, clientY: 180 });
 
     expect(screen.getAllByTestId('preview-2d-committed-measurement')).toHaveLength(2);
     expect(screen.getAllByTestId('preview-2d-measurement-list-item')).toHaveLength(2);
 
-    fireEvent.keyDown(root, { key: 'Delete' });
+    focusTarget.focus();
+    fireEvent.keyDown(focusTarget, { key: 'Delete' });
 
     await waitFor(() => {
       expect(screen.getAllByTestId('preview-2d-committed-measurement')).toHaveLength(1);
     });
+  });
+
+  it('tracks clearing measurements with bounded counts', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      headers: { get: () => 'image/svg+xml' },
+      text: async () => filledSvg,
+    });
+
+    renderViewer('blob:measure-clear');
+
+    await screen.findByTestId('preview-2d-overlay');
+
+    fireEvent.click(screen.getByTestId('preview-2d-tool-measure'));
+    const scene = screen.getByTestId('preview-2d-scene');
+
+    fireEvent.click(scene, { clientX: 120, clientY: 140 });
+    fireEvent.pointerMove(scene, { clientX: 200, clientY: 140 });
+    fireEvent.click(scene, { clientX: 200, clientY: 140 });
+
+    fireEvent.click(scene, { clientX: 140, clientY: 180 });
+    fireEvent.pointerMove(scene, { clientX: 260, clientY: 180 });
+    fireEvent.click(scene, { clientX: 260, clientY: 180 });
+
+    fireEvent.click(screen.getByTestId('preview-2d-clear-measurements'));
+
+    expect(mockTrack).toHaveBeenCalledWith(
+      'measurements cleared',
+      expect.objectContaining({
+        viewer_kind: '2d',
+        cleared_count: 2,
+      })
+    );
   });
 
   it('shows empty-state guidance for SVG output with no geometry', async () => {
@@ -228,11 +303,11 @@ describe('SvgViewer', () => {
 
     await screen.findByTestId('preview-2d-overlay');
 
-    fireEvent.click(screen.getByTestId('preview-2d-toggle-measure'));
-    const root = screen.getByTestId('preview-2d-root');
+    fireEvent.click(screen.getByTestId('preview-2d-tool-measure'));
+    const scene = screen.getByTestId('preview-2d-scene');
 
-    fireEvent.click(root, { clientX: 150, clientY: 150 });
-    fireEvent.pointerMove(root, { clientX: 250, clientY: 160, shiftKey: true });
+    fireEvent.click(scene, { clientX: 150, clientY: 150 });
+    fireEvent.pointerMove(scene, { clientX: 250, clientY: 160, shiftKey: true });
 
     const draftLine = document.querySelector(
       '[data-testid="preview-2d-overlay"] line[stroke-dasharray="4 3"]'

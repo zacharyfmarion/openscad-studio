@@ -5,8 +5,9 @@
  * and updates the source code when values change.
  */
 
-import { useMemo, useCallback, useState, useEffect } from 'react';
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import type { RenderKind } from '../hooks/useOpenScad';
+import { bucketCount, useAnalytics, type CustomizerAction } from '../analytics/runtime';
 import { parseCustomizerParams } from '../utils/customizer/parser';
 import { isParserReady, onParserReady } from '../utils/formatter/parser';
 import type { CustomizerParam, ParameterProminence } from '../utils/customizer/types';
@@ -14,6 +15,7 @@ import { ParameterControl } from './customizer/ParameterControl';
 import { Button, Text, Toggle } from './ui';
 import { TbAdjustmentsHorizontal, TbRefresh, TbSparkles, TbCode, TbDownload } from 'react-icons/tb';
 import { eventBus } from '../platform';
+import { useSettings } from '../stores/settingsStore';
 
 interface CustomizerPanelProps {
   code: string;
@@ -120,6 +122,18 @@ function getDownloadDisabledReason({
   return null;
 }
 
+function getCustomizerAnalyticsSummary(tabs: GroupedParams[] | { params: CustomizerParam[] }[]) {
+  const params = tabs.flatMap((tab) => tab.params);
+  const groupCount = tabs.reduce((count, tab) => count + groupParams(tab.params, true).length, 0);
+
+  return {
+    hasStudioMetadata: params.some((param) => param.source === 'hybrid'),
+    hasAdvancedParameters: params.some((param) => param.prominence === 'advanced'),
+    parameterCountBucket: bucketCount(params.length, [0, 1, 3, 8, 20]),
+    groupCountBucket: bucketCount(groupCount, [1, 2, 4, 8]),
+  };
+}
+
 function LoadingState() {
   return (
     <div className="p-4 space-y-3" aria-label="Loading customizer">
@@ -159,6 +173,9 @@ export function CustomizerPanel({
 }: CustomizerPanelProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [parserReady, setParserReady] = useState(isParserReady);
+  const analytics = useAnalytics();
+  const [settings] = useSettings();
+  const lastRenderedSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (parserReady) return;
@@ -211,6 +228,7 @@ export function CustomizerPanel({
   );
   const showTabHeaders =
     groupedTabs.length > 1 || groupedTabs.some((tab) => tab.name !== 'Parameters');
+  const analyticsSummary = useMemo(() => getCustomizerAnalyticsSummary(tabs), [tabs]);
 
   const hasChanges = useMemo(() => {
     if (!baselineParams.size) return false;
@@ -296,6 +314,72 @@ export function CustomizerPanel({
     hasRenderErrors,
   });
 
+  useEffect(() => {
+    if (!parserReady || tabs.length === 0) {
+      lastRenderedSignatureRef.current = null;
+      return;
+    }
+
+    const renderSignature = `${baselineCode}\n---\n${code}`;
+    if (lastRenderedSignatureRef.current === renderSignature) {
+      return;
+    }
+
+    lastRenderedSignatureRef.current = renderSignature;
+    analytics.track('customizer rendered', {
+      layout_preset: settings.ui.defaultLayoutPreset,
+      parameter_count_bucket: analyticsSummary.parameterCountBucket,
+      group_count_bucket: analyticsSummary.groupCountBucket,
+      has_studio_metadata: analyticsSummary.hasStudioMetadata,
+      has_advanced_parameters: analyticsSummary.hasAdvancedParameters,
+    });
+  }, [
+    analytics,
+    analyticsSummary,
+    baselineCode,
+    code,
+    parserReady,
+    settings.ui.defaultLayoutPreset,
+    tabs.length,
+  ]);
+
+  const trackCustomizerAction = useCallback(
+    (action: CustomizerAction) => {
+      analytics.track('customizer action clicked', {
+        action,
+        layout_preset: settings.ui.defaultLayoutPreset,
+        has_studio_metadata: analyticsSummary.hasStudioMetadata,
+        parameter_count_bucket: analyticsSummary.parameterCountBucket,
+      });
+    },
+    [
+      analytics,
+      analyticsSummary.hasStudioMetadata,
+      analyticsSummary.parameterCountBucket,
+      settings.ui.defaultLayoutPreset,
+    ]
+  );
+
+  const handleRefineWithAi = useCallback(() => {
+    trackCustomizerAction('open_ai_refine');
+    onRefineWithAi?.();
+  }, [onRefineWithAi, trackCustomizerAction]);
+
+  const handleEditCode = useCallback(() => {
+    trackCustomizerAction('open_editor');
+    onEditCode?.();
+  }, [onEditCode, trackCustomizerAction]);
+
+  const handleDownloadSvg = useCallback(() => {
+    trackCustomizerAction('open_export');
+    onDownloadSvg?.();
+  }, [onDownloadSvg, trackCustomizerAction]);
+
+  const handleDownloadStl = useCallback(() => {
+    trackCustomizerAction('open_export');
+    onDownloadStl?.();
+  }, [onDownloadStl, trackCustomizerAction]);
+
   if (!parserReady) {
     return (
       <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -335,7 +419,7 @@ export function CustomizerPanel({
           <Button
             type="button"
             variant="primary"
-            onClick={() => onRefineWithAi?.()}
+            onClick={handleRefineWithAi}
             className="inline-flex items-center justify-center gap-1.5 text-xs w-full"
             data-testid="customizer-refine-button"
           >
@@ -346,7 +430,7 @@ export function CustomizerPanel({
             <Button
               type="button"
               variant="secondary"
-              onClick={onEditCode}
+              onClick={handleEditCode}
               className="inline-flex items-center justify-center gap-1.5 text-xs w-full"
             >
               <TbCode size={13} />
@@ -391,7 +475,7 @@ export function CustomizerPanel({
                   type="button"
                   variant="secondary"
                   size="sm"
-                  onClick={() => onRefineWithAi?.()}
+                  onClick={handleRefineWithAi}
                   className="inline-flex items-center gap-1"
                   data-testid="customizer-refine-button"
                 >
@@ -402,7 +486,7 @@ export function CustomizerPanel({
                   <Button
                     type="button"
                     size="sm"
-                    onClick={onDownloadSvg}
+                    onClick={handleDownloadSvg}
                     disabled={Boolean(downloadDisabledReason) || isDownloadingSvg}
                     className="inline-flex items-center gap-1"
                     data-testid="customizer-download-button"
@@ -438,7 +522,7 @@ export function CustomizerPanel({
                   <Button
                     type="button"
                     size="sm"
-                    onClick={onDownloadStl}
+                    onClick={handleDownloadStl}
                     disabled={Boolean(downloadDisabledReason) || isDownloadingStl}
                     className="inline-flex items-center gap-1"
                     data-testid="customizer-download-button"

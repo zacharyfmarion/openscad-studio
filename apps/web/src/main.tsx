@@ -1,3 +1,4 @@
+import '@ui/sentry';
 import ReactDOM from 'react-dom/client';
 import posthog from 'posthog-js';
 import { PostHogProvider } from '@posthog/react';
@@ -11,6 +12,7 @@ import { shouldCaptureBootstrapAnalytics } from '@ui/analytics/bootstrapPolicy';
 import { AnalyticsRuntimeProvider } from '@ui/analytics/runtime';
 import { ErrorBoundary } from '@ui/components/ErrorBoundary';
 import { ThemeProvider } from '@ui/contexts/ThemeContext';
+import { captureSentryException } from '@ui/sentry';
 import { initFormatter } from '@ui/utils/formatter';
 import { initializePlatform } from '@ui/platform';
 import { loadSettings } from '@ui/stores/settingsStore';
@@ -63,6 +65,8 @@ if (window.__UNSUPPORTED_BROWSER) {
       renderApp();
     })
     .catch((error) => {
+      captureSentryException(error, { tags: { phase: 'platform-init' } });
+
       if (shouldCaptureBootstrapEvents) {
         captureBootstrapError(posthog, error, {
           analyticsEnabled,

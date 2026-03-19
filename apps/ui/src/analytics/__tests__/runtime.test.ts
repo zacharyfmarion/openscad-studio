@@ -118,4 +118,52 @@ describe('analytics runtime', () => {
       })
     );
   });
+
+  it('captures bounded viewer and customizer analytics payloads', () => {
+    const client = createClient();
+    const analytics = createAnalyticsApi({
+      client,
+      analyticsEnabled: true,
+      sharedProperties: {
+        app_version: '0.11.0',
+        runtime_surface: 'desktop',
+      },
+    });
+
+    analytics.track('customizer rendered', {
+      layout_preset: 'customizer-first',
+      parameter_count_bucket: '<=3',
+      group_count_bucket: '<=2',
+      has_studio_metadata: true,
+      has_advanced_parameters: false,
+    });
+    analytics.track('measurement committed', {
+      viewer_kind: '3d',
+      measurement_kind: 'bbox',
+      measurement_unit: 'mm',
+      bbox_scope: 'selection',
+    });
+
+    expect(client.capture).toHaveBeenNthCalledWith(
+      1,
+      'customizer rendered',
+      expect.objectContaining({
+        layout_preset: 'customizer-first',
+        parameter_count_bucket: '<=3',
+        group_count_bucket: '<=2',
+        has_studio_metadata: true,
+        has_advanced_parameters: false,
+      })
+    );
+    expect(client.capture).toHaveBeenNthCalledWith(
+      2,
+      'measurement committed',
+      expect.objectContaining({
+        viewer_kind: '3d',
+        measurement_kind: 'bbox',
+        measurement_unit: 'mm',
+        bbox_scope: 'selection',
+      })
+    );
+  });
 });

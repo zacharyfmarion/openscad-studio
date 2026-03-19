@@ -15,7 +15,7 @@ import { panelComponents, tabComponents, WorkspaceTab } from './components/panel
 import { useTheme } from './contexts/ThemeContext';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import type { WorkspaceState } from './contexts/WorkspaceContext';
-import { useAnalytics } from './analytics/runtime';
+import { useAnalytics, type LayoutSelectionSource } from './analytics/runtime';
 import {
   setDockviewApi,
   getDockviewApi,
@@ -743,6 +743,7 @@ function App() {
       setShowNux(false);
       analytics.track('workspace layout selected', {
         preset,
+        source: 'nux' satisfies LayoutSelectionSource,
         is_first_run: true,
       });
 

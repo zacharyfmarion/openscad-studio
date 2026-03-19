@@ -6,6 +6,7 @@ import { Button, IconButton, Text } from './ui';
 import type { MeasurementListItemData } from './viewer-measurements/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
 import { buildOverlayModel } from './svg-viewer/overlayModel';
+import { useSvgViewerAnalytics } from './svg-viewer/useSvgViewerAnalytics';
 import {
   createCommittedMeasurement,
   formatMeasurementReadout,
@@ -38,7 +39,6 @@ interface SvgViewerProps {
 }
 
 type DocumentStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
-
 interface DocumentState {
   status: DocumentStatus;
   error: string;
@@ -456,6 +456,18 @@ export function SvgViewer({ src }: SvgViewerProps) {
     });
   };
 
+  const {
+    handleViewModeChange,
+    toggleMeasurementMode,
+    trackMeasurementCommitted,
+    trackMeasurementsCleared,
+  } = useSvgViewerAnalytics({
+    viewMode,
+    setViewMode,
+    resetDraftMeasurement,
+    measurementUnit: settings.viewer.measurementUnit,
+  });
+
   useEffect(() => {
     if (!src) {
       setDocumentState(INITIAL_DOCUMENT_STATE);
@@ -647,14 +659,6 @@ export function SvgViewer({ src }: SvgViewerProps) {
     updateSetting('viewer', { show2DGrid: !settings.viewer.show2DGrid });
   };
 
-  const toggleMeasurementMode = () => {
-    setViewMode((current) => {
-      const nextMode = current === 'measure-distance' ? 'pan' : 'measure-distance';
-      resetDraftMeasurement(nextMode === 'measure-distance' ? 'placing-start' : 'idle');
-      return nextMode;
-    });
-  };
-
   const updateCursorAndDraftFromEvent = (clientX: number, clientY: number, shiftKey = false) => {
     if (!containerRef.current || !loadedDocument) {
       return;
@@ -837,6 +841,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
       setMeasurements((existing) => [measurement, ...existing]);
       setSelectedMeasurementId(measurement.id);
       setLiveMessage('Measurement added');
+      trackMeasurementCommitted(measurements.length + 1);
 
       return {
         status: 'placing-start',
@@ -860,6 +865,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
   };
 
   const clearAllMeasurements = () => {
+    trackMeasurementsCleared(measurements.length);
     setMeasurements([]);
     setSelectedMeasurementId(null);
     setLiveMessage('Measurements cleared');
@@ -900,7 +906,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
       case 'm':
       case 'M':
         event.preventDefault();
-        toggleMeasurementMode();
+        toggleMeasurementMode('shortcut');
         break;
       case 'Delete':
       case 'Backspace':
@@ -915,8 +921,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
           if (isDraftMeasurementActive(draftMeasurement)) {
             resetDraftMeasurement('placing-start');
           } else {
-            setViewMode('pan');
-            resetDraftMeasurement();
+            handleViewModeChange('pan', 'shortcut');
           }
         }
         break;
@@ -966,7 +971,11 @@ export function SvgViewer({ src }: SvgViewerProps) {
   return (
     <div className="flex flex-col h-full w-full" data-testid="preview-2d-root">
       <div className="flex flex-row flex-1 min-h-0">
-        <Svg2DToolPalette mode={viewMode} onModeChange={setViewMode} canInteract={canInteract} />
+        <Svg2DToolPalette
+          mode={viewMode}
+          onModeChange={(mode) => handleViewModeChange(mode, 'toolbar')}
+          canInteract={canInteract}
+        />
         <div
           ref={containerRef}
           className="relative flex-1 min-w-0 outline-none"
