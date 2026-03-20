@@ -5,18 +5,18 @@
 <h1 align="center">OpenSCAD Studio</h1>
 
 <p align="center">
-  <strong>A modern OpenSCAD editor with live preview and AI copilot — runs in your browser or as a desktop app</strong>
+  <strong>A precision-first OpenSCAD workspace for makers, with live preview and an optional AI copilot</strong>
 </p>
 
 <p align="center">
   <a href="https://openscad-studio.pages.dev"><img src="https://img.shields.io/badge/Web-Try_Now-brightgreen.svg" alt="Try Now"></a>
-  <img src="https://img.shields.io/badge/version-0.7.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.7.1-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/license-GPL--2.0-blue.svg" alt="License">
   <img src="https://img.shields.io/badge/Tauri-2.0-24C8DB.svg" alt="Tauri">
   <img src="https://img.shields.io/badge/React-19-61DAFB.svg" alt="React">
 </p>
 
-> **🌐 Try it now** — OpenSCAD Studio is available as a [web app](https://openscad-studio.pages.dev) (no install needed) or as a [macOS desktop app](#desktop-macos). The web version runs entirely in your browser using WebAssembly.
+> **Try it now** - OpenSCAD Studio is available as a [web app](https://openscad-studio.pages.dev) with no install required, or as a [macOS desktop app](#desktop-macos). The web version runs entirely in your browser using WebAssembly.
 >
 > **Desktop:** macOS 10.15 (Catalina) or later.
 
@@ -26,28 +26,52 @@
   <img src="images/example.png" alt="OpenSCAD Studio Screenshot" width="100%">
 </p>
 
-## ✨ Motivation
+## Why OpenSCAD Studio
 
-As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precision and maps to my mental model of building things. However, some operations (like rounding with `minkowski`) are not very intuitive. At work, I often use Cursor and Claude Code for writing code, and found myself plugging my OpenSCAD code into ChatGPT in order to either (1) scaffold out a starting point or (2) fix a confusing issue in my code. I also became frustrated by certain limitations of the OpenSCAD editor, like not being able to easily indent code with the editor commands I'm used to. So I built OpenSCAD Studio, which aims to be something like a Cursor for the language.
+OpenSCAD Studio is built for hobbyist makers doing real fabrication work: 3D printing, laser cutting, prototyping, enclosures, fixtures, jigs, and personal projects that still demand exact dimensions and fast iteration.
+
+The goal is not to turn OpenSCAD into a toy or an AI demo. The goal is to make the workflow faster, clearer, and more capable while preserving the technical trust and precision that make OpenSCAD valuable in the first place.
+
+That means:
+
+- Fast feedback loops for exact modeling work
+- A dense, deliberate, tool-like interface instead of generic AI-product styling
+- Shared web and desktop experiences with the same core workflow
+- AI as an assistant for drafting, fixing, and explaining code, not the center of the product
 
 ## Features
 
-- 🌐 **Web app** - Use directly in your browser at [openscad-studio.pages.dev](https://openscad-studio.pages.dev) — no install needed
-- 🤖 **AI copilot** - Chat with Claude/GPT to generate and fix code (bring your own API key)
-- 🎨 **Modern editor** - OpenSCAD syntax highlighting, multi-tab editing, format on save, vim mode support
-- 📐 **2D mode** - Dedicated SVG viewer for laser cutting and engraving
-- 🖼️ **Live 3D preview** - Interactive mesh viewer with orbit controls and content-hash caching
-- 🔍 **Real-time diagnostics** - Inline error markers with line/column precision
-- ⚙️ **Customizer panel** - Interactive controls for OpenSCAD parameters with auto-rendering
-- 🌈 **22+ themes** - Popular themes like Catppuccin, Dracula, One Dark Pro, GitHub, Nord, Tokyo Night, and more
+- Browser-based app at [openscad-studio.pages.dev](https://openscad-studio.pages.dev) with no install required
+- macOS desktop app built with Tauri
+- Monaco-based OpenSCAD editor with syntax highlighting, multi-tab editing, format on save, and Vim mode
+- Fast local rendering with `openscad-wasm` for the web app
+- Interactive 3D mesh preview with orbit controls and content-hash caching
+- Dedicated 2D SVG mode for laser-cutting and engraving workflows
+- Real-time diagnostics with line- and column-accurate markers
+- Customizer panel for interactive OpenSCAD parameters
+- Library path support for `include` / `use` workflows, including libraries such as BOSL2
+- Theme system with 22+ built-in themes
+- Optional AI copilot for generating, editing, and explaining OpenSCAD code with your own Anthropic or OpenAI API key
 
 **Limitations:** Special operators (!, #, %, \*) preview not yet implemented
 
-## 📦 Installation
+## Product Direction
+
+OpenSCAD Studio is moving toward a more polished, maker-first workflow:
+
+- Faster iteration for precise modeling and fabrication tasks
+- Better diagnostics and preview feedback you can trust
+- Stronger support for multi-file and library-based OpenSCAD projects
+- An AI copilot that becomes useful by understanding your code and preview context
+- One shared React/TypeScript application across web and desktop
+
+The product direction is deliberately professional and technically grounded: build, speed, precision.
+
+## Installation
 
 ### Web (No Install)
 
-Visit **[openscad-studio.pages.dev](https://openscad-studio.pages.dev)**. Works in Chrome and Edge (requires SharedArrayBuffer support). No OpenSCAD installation needed — rendering is done via WebAssembly in your browser.
+Visit **[openscad-studio.pages.dev](https://openscad-studio.pages.dev)**. Works in Chrome and Edge (requires SharedArrayBuffer support). No OpenSCAD installation needed; rendering is done with WebAssembly in your browser.
 
 ### Desktop (macOS)
 
@@ -79,83 +103,94 @@ pnpm tauri:build  # Desktop
 
 Desktop development requires the [Rust toolchain](https://rustup.rs/). Web development only needs Node.js 18+ and pnpm.
 
-## 🏗️ Project Structure
+## Architecture
 
-```
+OpenSCAD Studio uses one shared frontend for both the web app and the macOS desktop app:
+
+- React + TypeScript for the UI
+- `openscad-wasm` for local rendering in the browser
+- Tauri for desktop shell features like native file dialogs and filesystem access
+- Client-side AI requests via the Vercel AI SDK
+
+The desktop app is not an AI backend. Tauri provides native shell capabilities, while AI chat, tool execution, and most product logic live in the shared frontend.
+
+## Project Structure
+
+```text
 openscad-studio/
 ├── apps/
-│   ├── ui/                      # Desktop app (Tauri + React)
-│   │   ├── src/                 # Shared React frontend
+│   ├── ui/                      # Shared React frontend + Tauri desktop shell
+│   │   ├── src/
 │   │   │   ├── components/      # React components
 │   │   │   ├── hooks/           # Custom React hooks
 │   │   │   ├── platform/        # Platform abstraction layer
 │   │   │   │   ├── types.ts     # PlatformBridge interface
 │   │   │   │   ├── tauriBridge.ts # Desktop implementation
 │   │   │   │   └── webBridge.ts # Web implementation
-│   │   │   ├── services/        # OpenSCAD WASM worker, render service, AI service
+│   │   │   ├── services/        # Rendering, diagnostics, AI services
 │   │   │   ├── stores/          # Zustand state management
-│   │   │   └── themes/          # 22+ editor themes
-│   │   └── src-tauri/           # Rust backend (desktop only)
+│   │   │   └── themes/          # Built-in editor themes
+│   │   └── src-tauri/           # Rust desktop runtime
 │   └── web/                     # Web app entry point (Vite)
 └── packages/
     └── shared/                  # Shared TypeScript types
 ```
 
-## 🤖 AI Copilot Setup
+## AI Copilot Setup
 
-The AI copilot uses the [Vercel AI SDK](https://sdk.vercel.ai/) with streaming support. AI requests are made client-side in both the web app and the Tauri desktop app, and API keys are currently stored in local storage state inside the browser/webview. This is a convenience tradeoff, not backend-style secret isolation.
+The AI copilot uses the [Vercel AI SDK](https://sdk.vercel.ai/) with streaming support. Requests are made client-side in both the web app and the Tauri desktop app.
+
+API keys are currently stored in local storage state inside the browser or desktop webview. That is a convenience tradeoff for a shared web + desktop AI stack, not backend-style secret isolation.
 
 1. Open Settings (⌘,)
-2. Navigate to "AI" tab
-3. Enter your Anthropic / OpenAI API key
+2. Navigate to the AI tab
+3. Enter your Anthropic or OpenAI API key
 
-**Supported Providers:**
-All models from the following providers are supported:
+Supported providers:
 
 - Anthropic
 - OpenAI
 
 The AI can:
 
-- View your current code and preview
+- Read your current code and preview context
 - Make targeted code changes
-- Check for compilation errors
+- Check diagnostics before applying edits
 - Generate new OpenSCAD designs from natural language
 
-## 📚 Documentation
+## Documentation
 
 - **[CLAUDE.md](CLAUDE.md)** - Comprehensive guide for AI assistants and contributors
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Web + desktop architecture design
+- **[AGENTS.md](AGENTS.md)** - Current AI architecture, product context, and design guidance
 - **[engineering-roadmap.md](engineering-roadmap.md)** - Detailed development roadmap with phases
 
-## 🗺️ Roadmap
+## Roadmap Snapshot
 
-- ✅ **Phase 1-2**: Monaco editor, live preview, 3D viewer, export, caching
-- ✅ **Phase 3**: AI copilot
-- ✅ **Phase 4 (Partial)**: Production polish, customizer, themes, CI/CD, library management
-- ✅ **Phase 5 (v0.7)**: Web version with openscad-wasm
+- Completed: Monaco editor, live preview, 3D viewer, export, diagnostics, themes, AI copilot, web support with `openscad-wasm`, and library management
+- In progress: architecture cleanup, deeper AI UX, and better multi-file project context
+- Direction: keep improving precision workflows, technical trust, and the shared web/desktop experience without drifting into generic AI-product conventions
 
-See [engineering-roadmap.md](engineering-roadmap.md) for detailed breakdown.
+See [engineering-roadmap.md](engineering-roadmap.md) for the detailed breakdown.
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please:
+Contributions are welcome. Please:
 
 1. Check existing issues or create a new one to discuss your idea
 2. Fork the repository and create a feature branch
-3. Follow the code style (prettier for TypeScript, rustfmt for Rust)
+3. Follow the code style (`prettier` for TypeScript, `rustfmt` for Rust)
 4. Update documentation as needed
 5. Submit a pull request
 
 For detailed development guidelines, see [CLAUDE.md](CLAUDE.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## 📄 License
+## License
 
-This project is licensed under the GNU General Public License v2.0 - see [LICENSE](LICENSE) for details.
+This project is licensed under the GNU General Public License v2.0. See [LICENSE](LICENSE) for details.
 
-This license change was made to comply with OpenSCAD's GPL-2.0 license, as the project now bundles openscad-wasm.
+This license change was made to comply with OpenSCAD's GPL-2.0 license, as the project now bundles `openscad-wasm`.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 Built with:
 
@@ -163,10 +198,10 @@ Built with:
 - [React](https://react.dev/) - UI framework
 - [Monaco Editor](https://microsoft.github.io/monaco-editor/) - Code editor
 - [Three.js](https://threejs.org/) - 3D rendering
-- [OpenSCAD](https://openscad.org/) - The amazing CSG tool this editor is built for
+- [OpenSCAD](https://openscad.org/) - The CSG tool this editor is built for
 - [openscad-wasm](https://github.com/nicolo-ribaudo/openscad-wasm) - WebAssembly build of OpenSCAD
 - [Vercel AI SDK](https://sdk.vercel.ai/) - AI streaming framework
 
 ---
 
-**Made with ❤️ for the OpenSCAD community**
+Built for the OpenSCAD community.
