@@ -72,6 +72,7 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
 
   return (
     <div
+      data-testid="nux-layout-picker"
       className="fixed inset-0 flex items-center justify-center z-50"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
     >
@@ -100,6 +101,8 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
               <button
                 key={preset}
                 type="button"
+                data-testid={`nux-layout-option-${preset}`}
+                data-selected={isSelected ? 'true' : 'false'}
                 onClick={() => setSelected(preset)}
                 className="flex-1 rounded-lg transition-all duration-150"
                 style={{
@@ -161,7 +164,11 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
           className="flex justify-end px-8 py-4"
           style={{ borderTop: '1px solid var(--border-primary)' }}
         >
-          <Button variant="primary" onClick={() => onSelect(selected)}>
+          <Button
+            variant="primary"
+            data-testid="nux-layout-continue"
+            onClick={() => onSelect(selected)}
+          >
             Continue
           </Button>
         </div>
