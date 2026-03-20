@@ -40,7 +40,7 @@ function RadioIndicator({ selected }: { selected: boolean }) {
 }
 
 export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
-  const [selected, setSelected] = useState<LayoutPreset>('customizer-first');
+  const [selected, setSelected] = useState<LayoutPreset>('ai-first');
 
   if (!isOpen) return null;
 
@@ -50,12 +50,6 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
     description: string;
     Icon: IconType;
   }[] = [
-    {
-      preset: 'customizer-first',
-      title: 'Customizer First',
-      Icon: TbAdjustmentsHorizontal,
-      description: 'Preview and tweak dimensions fast',
-    },
     {
       preset: 'ai-first',
       title: 'AI First',
@@ -68,10 +62,17 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
       Icon: TbCode,
       description: 'Hands-on coding',
     },
+    {
+      preset: 'customizer-first',
+      title: 'Customizer First',
+      Icon: TbAdjustmentsHorizontal,
+      description: 'Preview and tweak dimensions fast',
+    },
   ];
 
   return (
     <div
+      data-testid="nux-layout-picker"
       className="fixed inset-0 flex items-center justify-center z-50"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
     >
@@ -100,6 +101,8 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
               <button
                 key={preset}
                 type="button"
+                data-testid={`nux-layout-option-${preset}`}
+                data-selected={isSelected ? 'true' : 'false'}
                 onClick={() => setSelected(preset)}
                 className="flex-1 rounded-lg transition-all duration-150"
                 style={{
@@ -161,7 +164,11 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
           className="flex justify-end px-8 py-4"
           style={{ borderTop: '1px solid var(--border-primary)' }}
         >
-          <Button variant="primary" onClick={() => onSelect(selected)}>
+          <Button
+            variant="primary"
+            data-testid="nux-layout-continue"
+            onClick={() => onSelect(selected)}
+          >
             Continue
           </Button>
         </div>

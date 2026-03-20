@@ -165,6 +165,10 @@ All tool execution is implemented in TypeScript and runs inside the app frontend
 
 Multiple AI agents may be working on this repository simultaneously. If you encounter unexpected changes, new files, or errors that you did not introduce, ignore them and move on. Do not attempt to delete, revert, or fix changes made by other agents unless the user explicitly asks you to work in that area.
 
+## Pull requests
+
+Unless the user explicitly says otherwise, open pull requests against `main`. Do not target release branches or any other base branch by default.
+
 ## Implementation plans
 
 When starting a non-trivial feature or change, create a Markdown plan file in `implementation-plans/` (for example, `implementation-plans/ai-edit-validation.md`). The plan should outline the goal, approach, affected files, and a checklist of steps.
