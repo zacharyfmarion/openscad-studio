@@ -40,7 +40,7 @@ function RadioIndicator({ selected }: { selected: boolean }) {
 }
 
 export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
-  const [selected, setSelected] = useState<LayoutPreset>('customizer-first');
+  const [selected, setSelected] = useState<LayoutPreset>('ai-first');
 
   if (!isOpen) return null;
 
@@ -50,12 +50,6 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
     description: string;
     Icon: IconType;
   }[] = [
-    {
-      preset: 'customizer-first',
-      title: 'Customizer First',
-      Icon: TbAdjustmentsHorizontal,
-      description: 'Preview and tweak dimensions fast',
-    },
     {
       preset: 'ai-first',
       title: 'AI First',
@@ -67,6 +61,12 @@ export function NuxLayoutPicker({ isOpen, onSelect }: NuxLayoutPickerProps) {
       title: 'Editor First',
       Icon: TbCode,
       description: 'Hands-on coding',
+    },
+    {
+      preset: 'customizer-first',
+      title: 'Customizer First',
+      Icon: TbAdjustmentsHorizontal,
+      description: 'Preview and tweak dimensions fast',
     },
   ];
 
