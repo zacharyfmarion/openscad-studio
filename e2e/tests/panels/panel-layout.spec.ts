@@ -18,6 +18,35 @@ test.describe('Panel layout', () => {
     });
   });
 
+  test('NUX defaults to AI First on first run', async ({ app }) => {
+    await app.page.evaluate(() => localStorage.clear());
+    await app.page.reload();
+
+    await app.page.waitForFunction(
+      () => document.querySelector('[data-testid="nux-layout-picker"]') !== null,
+      undefined,
+      { timeout: 10_000 }
+    );
+
+    await app.page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-testid="nux-layout-option-ai-first"]')
+          ?.getAttribute('data-selected') === 'true',
+      undefined,
+      { timeout: 10_000 }
+    );
+
+    await expect(app.page.getByTestId('nux-layout-option-default')).toHaveAttribute(
+      'data-selected',
+      'false'
+    );
+    await expect(app.page.getByTestId('nux-layout-option-customizer-first')).toHaveAttribute(
+      'data-selected',
+      'false'
+    );
+  });
+
   test('panels are resizable', async ({ app }) => {
     // Dockview uses .dv-sash elements as resize handles
     const sash = app.page.locator('.dv-sash').first();
