@@ -132,7 +132,7 @@ function buildErrorFingerprint(operation: string, error: unknown): string {
     .slice(0, 80);
 }
 
-function inferErrorDomain(operation: string): AnalyticsErrorDomain {
+export function inferErrorDomain(operation: string): AnalyticsErrorDomain {
   if (operation.includes('render') || operation.includes('openscad')) return 'render';
   if (operation.includes('ai')) return 'ai';
   if (
