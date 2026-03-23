@@ -43,6 +43,10 @@ export interface CustomizerParam {
 
   // Raw text for replacement
   rawValue: string; // Original value as string (e.g., "10", "true", "[1,2,3]")
+
+  // Byte offsets of the value token in the source (from tree-sitter AST)
+  valueStartIndex?: number;
+  valueEndIndex?: number;
 }
 
 export interface CustomizerTab {

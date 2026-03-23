@@ -383,6 +383,8 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
           type: commentConfig?.type || inferredType,
           line: child.startPosition.row + 1, // 1-indexed
           tab: currentTab,
+          valueStartIndex: valueNode.startIndex,
+          valueEndIndex: valueNode.endIndex,
         };
 
         // Add range/options from comment if present
