@@ -59,6 +59,12 @@ const RELEASE_ASSETS: Record<MacArch, string> = {
 type MacArch = 'aarch64' | 'x64';
 
 function isIgnorableRejection(reason: unknown): boolean {
+  // Raw DOM Events (e.g. from img.onerror = reject) carry no meaningful error
+  // message and should not be forwarded to Sentry.
+  if (typeof Event !== 'undefined' && reason instanceof Event) {
+    return true;
+  }
+
   const message =
     reason instanceof Error
       ? reason.message
@@ -531,7 +537,7 @@ function App() {
                 reject(new Error('Could not get 2d context'));
               }
             };
-            img.onerror = reject;
+            img.onerror = () => reject(new Error('Failed to load SVG image'));
             img.src = url;
           });
           URL.revokeObjectURL(url);
