@@ -114,6 +114,15 @@
         </style>
       </div>
     </div>
+    <script>
+      // Polyfill Object.hasOwn for Safari < 15.4 and other older browsers.
+      // Some dependencies (e.g. posthog-js, ai SDK) rely on this method.
+      if (!Object.hasOwn) {
+        Object.hasOwn = function (obj, prop) {
+          return Object.prototype.hasOwnProperty.call(obj, prop);
+        };
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
