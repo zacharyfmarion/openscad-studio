@@ -1,5 +1,9 @@
 import { toast } from 'sonner';
-import { trackAnalyticsError, inferErrorDomain, type AnalyticsErrorDomain } from '../analytics/runtime';
+import {
+  trackAnalyticsError,
+  inferErrorDomain,
+  type AnalyticsErrorDomain,
+} from '../analytics/runtime';
 import { captureSentryException } from '../sentry';
 
 export interface NormalizedAppError {
