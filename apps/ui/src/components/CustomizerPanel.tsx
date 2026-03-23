@@ -9,6 +9,7 @@ import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import type { RenderKind } from '../hooks/useOpenScad';
 import { bucketCount, useAnalytics, type CustomizerAction } from '../analytics/runtime';
 import { parseCustomizerParams } from '../utils/customizer/parser';
+import { replaceParamValue } from '../utils/customizer/replaceParamValue';
 import { isParserReady, onParserReady } from '../utils/formatter/parser';
 import type { CustomizerParam, ParameterProminence } from '../utils/customizer/types';
 import { ParameterControl } from './customizer/ParameterControl';
@@ -47,22 +48,8 @@ const PROMINENCE_ORDER: Record<ParameterProminence, number> = {
   advanced: 2,
 };
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function getParamKey(param: CustomizerParam): string {
   return `${param.line}:${param.name}`;
-}
-
-function replaceParamValue(code: string, param: CustomizerParam, nextValue: string): string {
-  const assignmentPattern = new RegExp(
-    `^(\\s*${escapeRegExp(param.name)}\\s*=\\s*)([^;]+)(;.*)$`,
-    'gm'
-  );
-  return code.replace(assignmentPattern, (_, prefix, __, suffix) => {
-    return prefix + nextValue + suffix;
-  });
 }
 
 function groupParams(params: CustomizerParam[], showAdvanced: boolean): GroupedParams[] {
@@ -246,13 +233,25 @@ export function CustomizerPanel({
   const handleResetDefaults = useCallback(() => {
     if (!baselineParams.size) return;
 
-    let newCode = code;
+    // Collect all changed params and their baseline values
+    const replacements: Array<{ param: CustomizerParam; baseline: string }> = [];
     for (const tab of tabs) {
       for (const param of tab.params) {
         const baseline = baselineParams.get(getParamKey(param));
         if (baseline === undefined || param.rawValue === baseline) continue;
-        newCode = replaceParamValue(newCode, param, baseline);
+        replacements.push({ param, baseline });
       }
+    }
+
+    if (!replacements.length) return;
+
+    // Apply in descending offset order: editing from end-to-start ensures that
+    // earlier byte positions remain valid after each replacement.
+    replacements.sort((a, b) => (b.param.valueStartIndex ?? 0) - (a.param.valueStartIndex ?? 0));
+
+    let newCode = code;
+    for (const { param, baseline } of replacements) {
+      newCode = replaceParamValue(newCode, param, baseline);
     }
 
     if (newCode !== code) {
