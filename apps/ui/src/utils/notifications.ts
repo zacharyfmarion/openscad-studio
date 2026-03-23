@@ -1,5 +1,10 @@
 import { toast } from 'sonner';
-import { trackAnalyticsError, type AnalyticsErrorDomain } from '../analytics/runtime';
+import {
+  trackAnalyticsError,
+  inferErrorDomain,
+  type AnalyticsErrorDomain,
+} from '../analytics/runtime';
+import { captureSentryException } from '../sentry';
 
 export interface NormalizedAppError {
   message: string;
@@ -76,6 +81,17 @@ export function notifyError({
 
   if (error !== undefined) {
     console.error(logLabel ?? `[${operation}]`, error);
+    captureSentryException(error, {
+      tags: {
+        operation,
+        error_domain: errorDomain ?? inferErrorDomain(operation),
+      },
+      extra: {
+        source_component: sourceComponent ?? logLabel ?? operation,
+        handled: handled ?? true,
+        ...analyticsProperties,
+      },
+    });
   }
 
   toast.error(normalized.message, {
