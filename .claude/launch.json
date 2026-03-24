@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Web Dev Server",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["web:dev"],
+      "port": 3000
+    },
+    {
+      "name": "Tauri Desktop Dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["tauri:dev"],
+      "port": 1420
+    }
+  ]
+}
