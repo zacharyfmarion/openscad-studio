@@ -9,10 +9,10 @@ Related docs:
 
 ## 1. Branch And PR Setup
 
-- [ ] Create a dedicated feature branch for share + staging work
-- [ ] Commit the current share/staging implementation to that branch
-- [ ] Push the branch to GitHub
-- [ ] Open a reference PR against `main`
+- [x] Create a dedicated feature branch for share + staging work
+- [x] Commit the current share/staging implementation to that branch
+- [x] Push the branch to GitHub
+- [x] Open a reference PR against `main`
 
 ## 2. Local Confidence
 
