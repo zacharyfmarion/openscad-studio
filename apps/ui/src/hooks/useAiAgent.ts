@@ -52,6 +52,13 @@ import {
 import { getRelativeProjectPath, normalizeProjectRelativePath } from '../utils/projectFilePaths';
 import { updateSetting, loadSettings, type MeasurementUnit } from '../stores/settingsStore';
 
+function humanizeStreamError(errorText: string): string {
+  if (/failed to fetch/i.test(errorText)) {
+    return 'Could not reach the AI service — check your internet connection.';
+  }
+  return `Failed: ${errorText}`;
+}
+
 const EMPTY_DRAFT: AiDraft = {
   text: '',
   attachmentIds: [],
@@ -135,6 +142,7 @@ export interface AiAgentState {
     rationale: string;
   } | null;
   error: string | null;
+  errorObject: Error | null;
   isApplyingDiff: boolean;
   messages: Message[];
   conversations: Conversation[];
@@ -156,6 +164,7 @@ export function useAiAgent() {
     streamingResponse: null,
     proposedDiff: null,
     error: null,
+    errorObject: null,
     isApplyingDiff: false,
     messages: [],
     conversations: [],
@@ -353,6 +362,7 @@ export function useAiAgent() {
       options: {
         reason: 'complete' | 'cancelled' | 'error';
         errorText?: string | null;
+        errorObject?: Error | null;
         restoreDraft?: boolean;
         completionNotice?: string | null;
       }
@@ -406,7 +416,8 @@ export function useAiAgent() {
           isStreaming: false,
           streamingResponse: null,
           currentToolCalls: [],
-          error: options.errorText ? `Failed: ${options.errorText}` : null,
+          error: options.errorText ? humanizeStreamError(options.errorText) : null,
+          errorObject: options.errorObject ?? null,
           messages: nextMessages,
           attachments: nextConversation.attachments,
           draft: options.restoreDraft && submittedDraft ? submittedDraft : prev.draft,
@@ -683,6 +694,7 @@ export function useAiAgent() {
         });
 
         let streamErrorText: string | null = null;
+        let streamErrorObject: Error | null = null;
         let streamFinishReason: string | null = null;
 
         for await (const chunk of result.fullStream) {
@@ -727,6 +739,7 @@ export function useAiAgent() {
           if (chunk.type === 'error') {
             streamErrorText =
               chunk.error instanceof Error ? chunk.error.message : String(chunk.error);
+            streamErrorObject = chunk.error instanceof Error ? chunk.error : null;
             console.error('[useAiAgent] Stream error:', chunk.error);
             break;
           }
@@ -749,6 +762,7 @@ export function useAiAgent() {
           finalizeStreamTurn(activeTurnRef.current, {
             reason: streamErrorText ? 'error' : 'complete',
             errorText: streamErrorText,
+            errorObject: streamErrorObject,
             restoreDraft: Boolean(streamErrorText) && !didReceiveResponseRef.current,
             completionNotice,
           });
@@ -761,17 +775,20 @@ export function useAiAgent() {
 
         console.error('[useAiAgent] Error submitting prompt:', error);
         const errorText = error instanceof Error ? error.message : String(error);
+        const errorObject = error instanceof Error ? error : null;
 
         if (activeTurnRef.current) {
           finalizeStreamTurn(activeTurnRef.current, {
             reason: 'error',
             errorText,
+            errorObject,
             restoreDraft: !didReceiveResponseRef.current,
           });
         } else {
           setState((prev) => ({
             ...prev,
-            error: `Failed: ${errorText}`,
+            error: humanizeStreamError(errorText),
+            errorObject,
             isStreaming: false,
             streamingResponse: null,
             currentToolCalls: [],
@@ -815,7 +832,7 @@ export function useAiAgent() {
   const rejectDiff = useCallback(() => {}, []);
 
   const clearError = useCallback(() => {
-    setState((prev) => ({ ...prev, error: null }));
+    setState((prev) => ({ ...prev, error: null, errorObject: null }));
   }, []);
 
   const setCurrentModel = useCallback(
@@ -859,6 +876,7 @@ export function useAiAgent() {
         draftErrors: [],
         streamingResponse: null,
         error: null,
+        errorObject: null,
         currentToolCalls: [],
       };
     });

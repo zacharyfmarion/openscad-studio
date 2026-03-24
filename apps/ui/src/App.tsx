@@ -58,7 +58,7 @@ const RELEASE_ASSETS: Record<MacArch, string> = {
 
 type MacArch = 'aarch64' | 'x64';
 
-function isIgnorableRejection(reason: unknown): boolean {
+function isIgnorableError(reason: unknown): boolean {
   // Raw DOM Events (e.g. from img.onerror = reject) carry no meaningful error
   // message and should not be forwarded to Sentry.
   if (typeof Event !== 'undefined' && reason instanceof Event) {
@@ -84,7 +84,10 @@ function isIgnorableRejection(reason: unknown): boolean {
     normalized === 'render cancelled' ||
     normalized === 'render canceled' ||
     normalized.includes('aborterror') ||
-    normalized.includes('aborted')
+    normalized.includes('aborted') ||
+    // drei/three.js asset loader errors (e.g. HDR environment map fetch failures)
+    // are handled locally by EnvironmentWithFallback and should not surface as toasts.
+    normalized.startsWith('could not load ')
   );
 }
 
@@ -336,6 +339,7 @@ function App() {
     streamingResponse,
     proposedDiff,
     error: aiError,
+    errorObject: aiErrorObject,
     isApplyingDiff,
     messages,
     draft,
@@ -1202,16 +1206,20 @@ function App() {
     if (aiError) {
       notifyError({
         operation: 'ai-stream',
-        error: aiError,
+        error: aiErrorObject ?? aiError,
+        displayMessage: aiError,
         fallbackMessage: 'AI request failed',
         toastId: 'ai-stream-error',
       });
       clearAiError();
     }
-  }, [aiError, clearAiError]);
+  }, [aiError, aiErrorObject, clearAiError]);
 
   useEffect(() => {
     const handleWindowError = (event: ErrorEvent) => {
+      if (isIgnorableError(event.error ?? event.message)) {
+        return;
+      }
       notifyError({
         operation: 'unexpected-runtime-error',
         error: event.error ?? event.message,
@@ -1222,7 +1230,7 @@ function App() {
     };
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      if (isIgnorableRejection(event.reason)) {
+      if (isIgnorableError(event.reason)) {
         return;
       }
 

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
   Billboard,
@@ -936,6 +937,24 @@ function ViewerCameraManager({
   return null;
 }
 
+class EnvironmentErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    return this.state.hasError ? null : this.props.children;
+  }
+}
+
+function EnvironmentWithFallback({ preset }: { preset: string }) {
+  return (
+    <EnvironmentErrorBoundary>
+      <Environment preset={preset as Parameters<typeof Environment>[0]['preset']} />
+    </EnvironmentErrorBoundary>
+  );
+}
+
 export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) {
   const { theme } = useTheme();
   const [settings] = useSettings();
@@ -1479,7 +1498,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
               sectionState={sectionState}
             />
 
-            <Environment preset={sceneStyle.environmentPreset} />
+            <EnvironmentWithFallback preset={sceneStyle.environmentPreset} />
             <ambientLight
               color={sceneStyle.ambientLight.color}
               intensity={sceneStyle.ambientLight.intensity}
