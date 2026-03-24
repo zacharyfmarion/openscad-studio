@@ -58,7 +58,7 @@ const RELEASE_ASSETS: Record<MacArch, string> = {
 
 type MacArch = 'aarch64' | 'x64';
 
-function isIgnorableRejection(reason: unknown): boolean {
+function isIgnorableError(reason: unknown): boolean {
   // Raw DOM Events (e.g. from img.onerror = reject) carry no meaningful error
   // message and should not be forwarded to Sentry.
   if (typeof Event !== 'undefined' && reason instanceof Event) {
@@ -1217,6 +1217,9 @@ function App() {
 
   useEffect(() => {
     const handleWindowError = (event: ErrorEvent) => {
+      if (isIgnorableError(event.error ?? event.message)) {
+        return;
+      }
       notifyError({
         operation: 'unexpected-runtime-error',
         error: event.error ?? event.message,
@@ -1227,7 +1230,7 @@ function App() {
     };
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      if (isIgnorableRejection(event.reason)) {
+      if (isIgnorableError(event.reason)) {
         return;
       }
 
