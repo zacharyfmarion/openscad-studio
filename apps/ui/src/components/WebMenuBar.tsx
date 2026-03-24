@@ -83,15 +83,22 @@ function MenuDropdown({
 
 interface WebMenuBarProps {
   onExport: () => void;
+  onShare?: () => void;
   onSettings: () => void;
   onUndo: () => void;
   onRedo: () => void;
 }
 
-export function WebMenuBar({ onExport, onSettings, onUndo, onRedo }: WebMenuBarProps) {
+export function WebMenuBar({ onExport, onShare, onSettings, onUndo, onRedo }: WebMenuBarProps) {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
-  const menuDef = useMemo(() => getMenuBarDef(), []);
+  const menuDef = useMemo(() => {
+    const nextMenuDef = getMenuBarDef();
+    if (onShare) {
+      nextMenuDef[0]?.items.splice(6, 0, { type: 'action', id: 'file.share', label: 'Share...' });
+    }
+    return nextMenuDef;
+  }, [onShare]);
 
   const handleClose = useCallback(() => {
     setOpenMenu(null);
@@ -115,6 +122,9 @@ export function WebMenuBar({ onExport, onSettings, onUndo, onRedo }: WebMenuBarP
         case 'file.export':
           onExport();
           break;
+        case 'file.share':
+          onShare?.();
+          break;
         case 'file.settings':
           onSettings();
           break;
@@ -129,7 +139,7 @@ export function WebMenuBar({ onExport, onSettings, onUndo, onRedo }: WebMenuBarP
           break;
       }
     },
-    [onExport, onSettings, onUndo, onRedo]
+    [onExport, onRedo, onSettings, onShare, onUndo]
   );
 
   useEffect(() => {

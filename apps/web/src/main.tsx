@@ -13,16 +13,19 @@ import { AnalyticsRuntimeProvider } from '@ui/analytics/runtime';
 import { ErrorBoundary } from '@ui/components/ErrorBoundary';
 import { ThemeProvider } from '@ui/contexts/ThemeContext';
 import { captureSentryException } from '@ui/sentry';
+import { parseShareContext } from '@ui/services/shareRouting';
 import { initFormatter } from '@ui/utils/formatter';
 import { initializePlatform } from '@ui/platform';
 import { loadSettings } from '@ui/stores/settingsStore';
 import '@ui/index.css';
 
-declare global {
-  interface Window {
-    __UNSUPPORTED_BROWSER?: boolean;
-  }
+const initialShareContext = parseShareContext(window.location.pathname, window.location.search);
+if (initialShareContext) {
+  window.__SHARE_CONTEXT = initialShareContext;
 }
+window.__SHARE_API_BASE = import.meta.env.VITE_SHARE_API_URL || 'https://openscad-studio.pages.dev';
+window.__SHARE_ENABLED =
+  import.meta.env.PROD || import.meta.env.VITE_ENABLE_PROD_SHARE_DEV === 'true';
 
 if (window.__UNSUPPORTED_BROWSER) {
   // eslint-disable-next-line no-console

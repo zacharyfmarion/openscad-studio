@@ -33,6 +33,8 @@ packages/**/Cargo.lock
 # Environment
 .env
 .env.local
+.dev.vars
+.dev.vars.*
 
 # Tauri
 src-tauri/target/
@@ -41,6 +43,9 @@ src-tauri/WixTools/
 # Jest cache
 .jest-cache/
 .jest-cache-formatter/
+
+# Wrangler local state
+.wrangler/
 
 playwright-report/
 test-results/

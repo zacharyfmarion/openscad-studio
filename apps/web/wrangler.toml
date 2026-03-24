@@ -1,0 +1,13 @@
+name = "openscad-studio"
+compatibility_date = "2026-03-24"
+pages_build_output_dir = "./dist"
+
+# Cloudflare Pages projects must bind:
+# - `SHARE_KV`
+# - `SHARE_R2`
+#
+# Production and staging bindings are configured in the Cloudflare Pages UI.
+# For local share testing, use:
+#   pnpm share:dev
+# which runs `wrangler pages dev` with local `SHARE_KV` and `SHARE_R2`
+# emulation plus persistent state in `.wrangler/state/share-dev`.

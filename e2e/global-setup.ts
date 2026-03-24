@@ -39,7 +39,12 @@ async function globalSetup(_config: FullConfig) {
   devServer = spawn('pnpm', ['web:dev'], {
     cwd: process.cwd(),
     stdio: 'pipe',
-    env: { ...process.env, BROWSER: 'none' },
+    env: {
+      ...process.env,
+      BROWSER: 'none',
+      VITE_ENABLE_PROD_SHARE_DEV: 'true',
+      VITE_SHARE_API_URL: `http://localhost:${WEB_DEV_PORT}`,
+    },
     detached: false,
   });
 

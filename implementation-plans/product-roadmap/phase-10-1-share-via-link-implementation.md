@@ -13,7 +13,14 @@ This plan implements:
 
 Backend: Cloudflare Workers (Pages Functions) + KV + R2. Stays within free tier for a long time (see cost analysis in conversation).
 
-Scope: Single-file designs only. No user accounts, no marketplace. Anonymous sharing. Web-only. Share button only shown in the web app, not Tauri desktop, for the first pass.
+Scope: Single-file designs only. No user accounts, no marketplace. Anonymous sharing. Web-only. Share button only shown in the web app, not Tauri desktop, for the first pass. Shared links bypass the welcome screen and NUX so first-time visitors land directly in the shared design.
+
+## Product Decisions
+
+- Shared-link layout overrides are transient for the current session only. Opening a shared design must not change `defaultLayoutPreset` or persist a share-driven Dockview layout to local storage.
+- Thumbnail previews are immutable after creation. Upload is allowed once per share and must be authorized with a one-time token returned from `POST /api/share`.
+- Share APIs are production-backed for v1. The client intentionally targets `https://openscad-studio.pages.dev` unless explicitly overridden for development or ops work.
+- Shared-link entry bypasses the welcome screen and onboarding picker so the shared design is the first visible state.
 
 ## Architecture Overview
 
@@ -32,7 +39,7 @@ User clicks "Share"
 │  apps/web/functions/api/    │
 │  share.ts                   │
 └──────────┬──────────────────┘
-           │ KV put share:{id}
+           │ KV put share:{id} + one-time thumbnail upload token
            v
 ┌─────────────────────────────┐
 │  Cloudflare KV              │  <- Compressed code + metadata
@@ -41,7 +48,7 @@ User clicks "Share"
 
 After share succeeds, client uploads thumbnail:
     |
-    | PUT /api/share/{id}/thumbnail (PNG blob)
+    | PUT /api/share/{id}/thumbnail (PNG blob + one-time token)
     v
 ┌─────────────────────────────┐
 │  Cloudflare R2              │  <- thumbnails/{id}.png
@@ -90,6 +97,7 @@ interface ShareRecord {
   createdAt: string;         // ISO 8601
   forkedFrom: string | null; // Parent shareId if this is a remix
   thumbnailKey: string | null; // R2 object key, e.g. "thumbnails/a3bK9xmQ.png"
+  thumbnailUploadTokenHash: string | null; // cleared after first successful upload
   codeSize: number;          // Uncompressed size in bytes (for display)
 }
 ```
@@ -122,7 +130,7 @@ Request:
 Response:
 
 ```json
-{ "id": "string", "url": "string" }
+{ "id": "string", "url": "string", "thumbnailUploadToken": "string" }
 ```
 
 Logic:
@@ -135,8 +143,9 @@ Logic:
 6. Generate 8-char nanoid
 7. Compress code using `CompressionStream('gzip')`
 8. Base64-encode compressed bytes
-9. Write to KV: `SHARE_KV.put('share:${id}', JSON.stringify(record))`
-10. Return `{ id, url: 'https://openscad-studio.pages.dev/s/${id}' }`
+9. Generate a cryptographically random one-time `thumbnailUploadToken` and store only its hash in the record
+10. Write to KV: `SHARE_KV.put('share:${id}', JSON.stringify(record))`
+11. Return `{ id, url: 'https://openscad-studio.pages.dev/s/${id}', thumbnailUploadToken }`
 
 Rate limiting:
 
@@ -183,7 +192,7 @@ Logic:
 
 File: `apps/web/functions/api/share/[id]/thumbnail.ts`
 
-Request: binary PNG body with `Content-Type: image/png`
+Request: binary PNG body with `Content-Type: image/png` and `Authorization: Bearer {thumbnailUploadToken}`
 
 Response:
 
@@ -196,9 +205,16 @@ Logic:
 1. Validate content type is `image/png`
 2. Validate body size `<= 512KB`
 3. Verify share exists in KV
-4. Write PNG to R2: `SHARE_R2.put('thumbnails/${id}.png', body)`
-5. Update KV record `thumbnailKey`
-6. Return `thumbnailUrl`
+4. Verify `thumbnailKey === null` and `thumbnailUploadTokenHash` is present
+5. Hash the provided bearer token and compare it to `thumbnailUploadTokenHash`
+6. Write PNG to R2: `SHARE_R2.put('thumbnails/${id}.png', body)`
+7. Update KV record `thumbnailKey` and clear `thumbnailUploadTokenHash`
+8. Return `thumbnailUrl`
+
+Errors:
+
+- `401`: missing or invalid thumbnail upload token
+- `409`: thumbnail already exists for this share
 
 ### `GET /s/[[shareId]]`
 
@@ -234,6 +250,9 @@ API client for share operations.
 const SHARE_API_BASE =
   import.meta.env.VITE_SHARE_API_URL || 'https://openscad-studio.pages.dev';
 
+const SHARE_ENABLED =
+  import.meta.env.PROD || import.meta.env.VITE_ENABLE_PROD_SHARE_DEV === 'true';
+
 export interface CreateShareRequest {
   code: string;
   title: string;
@@ -251,13 +270,14 @@ export interface ShareData {
 
 export async function createShare(
   req: CreateShareRequest,
-): Promise<{ id: string; url: string }>;
+): Promise<{ id: string; url: string; thumbnailUploadToken: string }>;
 
 export async function getShare(shareId: string): Promise<ShareData>;
 
 export async function uploadThumbnail(
   shareId: string,
   pngBlob: Blob,
+  thumbnailUploadToken: string,
 ): Promise<void>;
 ```
 
@@ -266,6 +286,7 @@ Notes:
 - `createShare`: `POST /api/share`, surface descriptive error messages by status code
 - `getShare`: `GET /api/share/{id}`, throw on `404`
 - `uploadThumbnail`: `PUT /api/share/{id}/thumbnail`, fire-and-forget, silent caller-side failure handling
+- Sharing stays production-backed for v1. Keep the explicit production default, and gate Share UI behind `SHARE_ENABLED` so local/preview builds do not accidentally write to production unless intentionally opted in.
 - Desktop note: sharing is web-only for v1, but `VITE_SHARE_API_URL` already supports later Tauri use
 
 ### `apps/ui/src/hooks/useShareLoader.ts`
@@ -298,6 +319,7 @@ Implementation:
 5. On `404`, set `This design doesn't exist or has been removed.`
 6. On network error, set `Couldn't load this design. Check your connection.`
 7. After success, clean the URL with `window.history.replaceState({}, document.title, '/')` so refresh preserves local edits instead of re-fetching the original
+8. Expose enough state for `App.tsx` to bypass welcome/NUX and enter the shared design immediately
 
 ### `apps/ui/src/components/ShareDialog.tsx`
 
@@ -397,9 +419,13 @@ Changes:
 4. On successful share load:
    - `replaceWelcomeTab({ filePath: null, name: shareData.title, content: shareData.code })`
    - hide welcome screen
+   - suppress NUX for this entry path so the shared design opens immediately
    - set `shareOrigin`
-5. In `onDockviewReady`, override layout preset to `customizer-first` when share mode is `customizer`
-6. Add web-only Share button in header toolbar after Export
+5. In `onDockviewReady`, apply a transient share-mode layout override when share mode is `customizer`
+   - do not call `updateSetting('ui', { defaultLayoutPreset: ... })`
+   - do not persist the share-driven Dockview layout with `saveLayout()`
+   - do not clear the user's previously saved non-share layout while in share mode
+6. Add web-only Share button in header toolbar after Export when `SHARE_ENABLED` is true
 7. Render `ShareBanner` above Dockview when `shareOrigin` is set
 8. Render `ShareDialog` next to existing dialogs
 9. Show loading overlay while a share is loading
@@ -433,7 +459,7 @@ Timing:
 Implementation sketch:
 
 ```ts
-async function uploadShareThumbnail(shareId: string) {
+async function uploadShareThumbnail(shareId: string, thumbnailUploadToken: string) {
   try {
     let dataUrl: string | null = null;
 
@@ -454,7 +480,7 @@ async function uploadShareThumbnail(shareId: string) {
     const response = await fetch(dataUrl);
     const blob = await response.blob();
 
-    await uploadThumbnail(shareId, blob);
+    await uploadThumbnail(shareId, blob, thumbnailUploadToken);
   } catch (err) {
     console.warn('[share] Thumbnail upload failed:', err);
   }
@@ -496,6 +522,8 @@ Re-sharing:
 | `POST /api/share` 500 | ShareDialog | Show `Something went wrong. Try again.` |
 | `GET /api/share` 404 | Share load screen | Show missing-design message and `Go to Editor` |
 | `GET /api/share` network error | Share load screen | Show network message plus Retry and `Go to Editor` |
+| `PUT /api/share/{id}/thumbnail` 401 | Background flow | Console warning only; token missing/invalid |
+| `PUT /api/share/{id}/thumbnail` 409 | Background flow | Console warning only; thumbnail already exists |
 | Thumbnail capture fails | Background flow | Console warning only |
 | Thumbnail upload fails | Background flow | Console warning only |
 | OG function cannot read KV | Pages Function | Serve SPA with default OG tags |
@@ -509,12 +537,16 @@ Re-sharing:
 1. Create KV namespace `SHARE_KV`
 2. Create R2 bucket `share-thumbnails`
 3. Create `apps/web/wrangler.toml` with bindings
-4. Create `apps/web/functions/api/share.ts`
-5. Create `apps/web/functions/api/share/[id].ts`
-6. Create `apps/web/functions/api/share/[id]/thumbnail.ts`
-7. Create `apps/web/functions/s/[[shareId]].ts`
-8. Test endpoints with `curl`
-9. Verify COOP/COEP headers pass through functions
+4. Update web deployment so Cloudflare Pages actually uploads `apps/web/functions`
+   - either run `wrangler pages deploy dist` from `apps/web`
+   - or deploy from repo root with `--cwd apps/web` / explicit config so Wrangler sees the `functions/` directory
+5. Update `.github/workflows/deploy-web.yml` to use the new deploy shape
+6. Create `apps/web/functions/api/share.ts`
+7. Create `apps/web/functions/api/share/[id].ts`
+8. Create `apps/web/functions/api/share/[id]/thumbnail.ts`
+9. Create `apps/web/functions/s/[[shareId]].ts`
+10. Test endpoints with `curl`
+11. Verify COOP/COEP headers pass through functions
 
 ### Phase B: Frontend - Share Creation
 
@@ -524,16 +556,18 @@ Re-sharing:
 4. Add `showShareDialog` state and dialog render
 5. Add `Share...` to `WebMenuBar.tsx`
 6. Wire `onShare` from `WebMenuBar` to `App`
-7. Add thumbnail generation after successful share
+7. Gate Share UI behind `SHARE_ENABLED` so local/preview builds do not write to production by accident
+8. Add thumbnail generation after successful share using the one-time upload token returned by `createShare()`
 
 ### Phase C: Frontend - Share Loading
 
 1. Add `__SHARE_CONTEXT` detection to `apps/web/src/main.tsx`
 2. Create `apps/ui/src/hooks/useShareLoader.ts`
 3. Integrate `useShareLoader` into `App.tsx`
-4. Handle customizer-first layout override in `onDockviewReady`
-5. Create `apps/ui/src/components/ShareBanner.tsx`
-6. Render `ShareBanner` when `shareOrigin` is set
+4. Bypass welcome/NUX when booting from a shared link
+5. Handle customizer-first layout override in `onDockviewReady` without persisting it to user settings or saved layout
+6. Create `apps/ui/src/components/ShareBanner.tsx`
+7. Render `ShareBanner` when `shareOrigin` is set
 
 ### Phase D: Polish and Testing
 
@@ -544,7 +578,9 @@ Re-sharing:
 5. Verify COOP/COEP headers still work through Pages Functions
 6. Test on mobile web
 7. Verify Share button is hidden in Tauri desktop
-8. Add E2E coverage for share creation and loading
+8. Verify share-mode layout does not overwrite the user's saved layout or `defaultLayoutPreset`
+9. Verify second thumbnail upload is rejected after the first succeeds
+10. Add E2E coverage for share creation and loading
 
 ## Key Files Reference
 
@@ -555,6 +591,7 @@ Re-sharing:
 | `apps/web/functions/api/share/[id]/thumbnail.ts` | Create | PUT endpoint for thumbnails |
 | `apps/web/functions/s/[[shareId]].ts` | Create | OG tag injection |
 | `apps/web/wrangler.toml` | Create | KV and R2 bindings |
+| `.github/workflows/deploy-web.yml` | Modify | Deploy `apps/web/functions` alongside `dist` |
 | `apps/ui/src/services/shareService.ts` | Create | Frontend API client |
 | `apps/ui/src/hooks/useShareLoader.ts` | Create | Share URL detection and loading |
 | `apps/ui/src/components/ShareDialog.tsx` | Create | Share creation modal |
@@ -570,23 +607,27 @@ Re-sharing:
 ### Manual Testing
 
 1. Share creation: click Share, enter title, get URL, verify it works in incognito
-2. Share loading: open shared URL, confirm code loads, customizer-first layout is active, preview renders
+2. Share loading: open shared URL, confirm code loads, customizer-first layout is active, preview renders, and welcome/NUX are skipped
 3. Mode toggle: open with `?mode=editor` and verify full editor layout
 4. Remix: open shared link, modify code, click `Share your remix`, verify `forkedFrom`
 5. OG tags: paste share URL into card validators and verify title and thumbnail
 6. Clipboard: verify copy works and fallback appears when clipboard API is unavailable
 7. Error states: test nonexistent share ID, offline network, and `>50KB` code
 8. Desktop: verify shared URLs still point to the web app and Share UI remains hidden in Tauri
+9. Open a shared design, close it, then reopen the app normally and confirm the user's saved layout/preset is unchanged
+10. Attempt a second thumbnail upload for the same share and verify the endpoint rejects it
 
 ### Automated Testing
 
 - E2E: create share, open share URL, verify code loads
+- E2E: open shared URL, confirm welcome/NUX do not appear, and confirm share-mode layout does not persist after leaving the shared design
 - Unit: `shareService` error handling, `useShareLoader` URL parsing, code-size validation
 
 ### Infrastructure Testing
 
-- Verify Workers deploy with `wrangler pages deploy`
+- Verify Workers deploy with `wrangler pages deploy` from a location/config that includes `apps/web/functions`
 - Verify KV reads and writes
 - Verify R2 uploads and public thumbnail access
+- Verify one-time thumbnail upload tokens are invalid after first successful use
 - Verify COOP/COEP headers are preserved through Pages Functions
 - Load test rate limiting behavior
