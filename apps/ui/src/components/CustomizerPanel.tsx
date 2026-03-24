@@ -42,6 +42,17 @@ interface GroupedParams {
   params: CustomizerParam[];
 }
 
+function toTestIdSegment(value: string | null): string {
+  if (!value) return 'default';
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'default'
+  );
+}
+
 const PROMINENCE_ORDER: Record<ParameterProminence, number> = {
   primary: 0,
   secondary: 1,
@@ -123,7 +134,11 @@ function getCustomizerAnalyticsSummary(tabs: GroupedParams[] | { params: Customi
 
 function LoadingState() {
   return (
-    <div className="p-4 space-y-3" aria-label="Loading customizer">
+    <div
+      className="p-4 space-y-3"
+      aria-label="Loading customizer"
+      data-testid="customizer-loading-state"
+    >
       {[0, 1, 2].map((block) => (
         <div
           key={block}
@@ -381,7 +396,12 @@ export function CustomizerPanel({
 
   if (!parserReady) {
     return (
-      <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div
+        className="h-full overflow-y-auto"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+        data-testid="customizer-panel"
+        data-state="loading"
+      >
         <LoadingState />
       </div>
     );
@@ -392,7 +412,8 @@ export function CustomizerPanel({
       <div
         className="h-full flex flex-col items-center justify-center p-6 gap-5"
         style={{ backgroundColor: 'var(--bg-primary)' }}
-        data-testid="customizer-empty-state"
+        data-testid="customizer-panel"
+        data-state="empty"
       >
         <div className="flex flex-col items-center gap-3 text-center max-w-[220px]">
           <div
@@ -405,10 +426,19 @@ export function CustomizerPanel({
             <TbAdjustmentsHorizontal size={22} />
           </div>
           <div className="space-y-1.5">
-            <Text variant="section-heading" as="h2" className="leading-snug">
+            <Text
+              variant="section-heading"
+              as="h2"
+              className="leading-snug"
+              data-testid="customizer-empty-title"
+            >
               No parameters yet
             </Text>
-            <Text variant="caption" className="leading-relaxed">
+            <Text
+              variant="caption"
+              className="leading-relaxed"
+              data-testid="customizer-empty-description"
+            >
               Ask the AI to add customizer parameters with sliders and labels.
             </Text>
           </div>
@@ -442,7 +472,12 @@ export function CustomizerPanel({
   }
 
   return (
-    <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div
+      className="h-full overflow-y-auto"
+      style={{ backgroundColor: 'var(--bg-primary)' }}
+      data-testid="customizer-panel"
+      data-state="ready"
+    >
       <div
         className="sticky top-0 z-10 border-b border-l backdrop-blur"
         style={{
@@ -465,6 +500,7 @@ export function CustomizerPanel({
                     checked={showAdvanced}
                     onChange={(event) => setShowAdvanced(event.target.checked)}
                     aria-label="Show advanced controls"
+                    data-testid="customizer-advanced-toggle"
                   />
                   <span>Advanced</span>
                 </div>
@@ -592,6 +628,7 @@ export function CustomizerPanel({
                     checked={showAdvanced}
                     onChange={(event) => setShowAdvanced(event.target.checked)}
                     aria-label="Show advanced controls"
+                    data-testid="customizer-advanced-toggle"
                   />
                   <span>Advanced</span>
                 </div>
@@ -613,7 +650,11 @@ export function CustomizerPanel({
 
       <div className="p-3 space-y-3">
         {groupedTabs.map((tab) => (
-          <section key={tab.name} className="space-y-3">
+          <section
+            key={tab.name}
+            className="space-y-3"
+            data-testid={`customizer-tab-${toTestIdSegment(tab.name)}`}
+          >
             {showTabHeaders && (
               <div className="flex items-center justify-between">
                 <div>
@@ -629,7 +670,11 @@ export function CustomizerPanel({
 
                 if (shouldFlattenGroup) {
                   return (
-                    <div key={`${tab.name}-${group.id}`} className="space-y-2">
+                    <div
+                      key={`${tab.name}-${group.id}`}
+                      className="space-y-2"
+                      data-testid={`customizer-group-${toTestIdSegment(group.name ?? tab.name)}`}
+                    >
                       {group.params.map((param) => {
                         const baseline = baselineParams.get(getParamKey(param));
                         const isDirty = baseline !== undefined && param.rawValue !== baseline;
@@ -655,6 +700,7 @@ export function CustomizerPanel({
                     style={{
                       backgroundColor: 'var(--bg-secondary)',
                     }}
+                    data-testid={`customizer-group-${toTestIdSegment(group.name)}`}
                   >
                     {group.name && !isRedundantGroupName(tab.name, group.name) && (
                       <div className="mb-2">

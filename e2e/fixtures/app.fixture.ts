@@ -116,6 +116,11 @@ export class AppHelper {
     return this.page.locator('canvas[data-engine]').first();
   }
 
+  /** Customizer panel root */
+  get customizerPanel(): Locator {
+    return this.page.getByTestId('customizer-panel');
+  }
+
   /** 2D SVG preview container */
   get previewSvg2D(): Locator {
     return this.page.locator('[data-preview-svg]').first();
@@ -138,18 +143,29 @@ export class AppHelper {
     }
   }
 
-  async updateSourceAndRender(code: string, trigger: string = 'manual'): Promise<RenderSnapshot | null> {
+  async updateSourceAndRender(
+    code: string,
+    trigger: string = 'manual',
+    options?: { waitForPreviewState?: boolean; timeout?: number }
+  ): Promise<RenderSnapshot | null> {
     const snapshot = await this.page.evaluate(
       async ({ nextCode, renderTrigger }) => {
-        return (window as any).__TEST_OPENSCAD__?.updateSourceAndRender?.(nextCode, renderTrigger) ?? null;
+        return (
+          (window as any).__TEST_OPENSCAD__?.updateSourceAndRender?.(nextCode, renderTrigger) ??
+          null
+        );
       },
       { nextCode: code, renderTrigger: trigger }
     );
 
-    if (snapshot?.previewKind === 'mesh' && snapshot.previewSrc) {
+    if (
+      options?.waitForPreviewState !== false &&
+      snapshot?.previewKind === 'mesh' &&
+      snapshot.previewSrc
+    ) {
       await this.waitForPreviewState({
         modelVersion: snapshot.previewSrc,
-        timeout: 30_000,
+        timeout: options?.timeout ?? 30_000,
       });
     }
 
@@ -203,22 +219,13 @@ export class AppHelper {
         if (expected.fitCount !== undefined && preview.fitCount !== expected.fitCount) {
           return false;
         }
-        if (
-          expected.orthographic !== undefined &&
-          preview.orthographic !== expected.orthographic
-        ) {
+        if (expected.orthographic !== undefined && preview.orthographic !== expected.orthographic) {
           return false;
         }
-        if (
-          expected.currentFits !== undefined &&
-          preview.currentFits !== expected.currentFits
-        ) {
+        if (expected.currentFits !== undefined && preview.currentFits !== expected.currentFits) {
           return false;
         }
-        if (
-          expected.axesVisible !== undefined &&
-          preview.axesVisible !== expected.axesVisible
-        ) {
+        if (expected.axesVisible !== undefined && preview.axesVisible !== expected.axesVisible) {
           return false;
         }
         if (
@@ -267,6 +274,15 @@ export class AppHelper {
 
     // Extra settle time for Three.js to finish drawing
     await this.page.waitForTimeout(500);
+  }
+
+  async waitForCustomizerState(
+    state: 'loading' | 'empty' | 'ready',
+    options?: { timeout?: number }
+  ) {
+    await expect(this.customizerPanel).toHaveAttribute('data-state', state, {
+      timeout: options?.timeout ?? 15_000,
+    });
   }
 
   /** Wait for the WASM engine to initialize (web only) */
