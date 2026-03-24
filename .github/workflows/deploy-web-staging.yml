@@ -1,0 +1,55 @@
+name: Deploy Web App (Staging)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Pages (Staging)
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}
+      VITE_PUBLIC_POSTHOG_HOST: ${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}
+      VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+      VITE_SENTRY_ENVIRONMENT: staging
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web app
+        run: pnpm web:build
+
+      - name: Deploy to Cloudflare Pages (Staging)
+        working-directory: apps/web
+        run: npx wrangler@3 pages deploy dist --project-name=openscad-studio-staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
