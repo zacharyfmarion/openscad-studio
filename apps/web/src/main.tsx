@@ -23,7 +23,7 @@ const initialShareContext = parseShareContext(window.location.pathname, window.l
 if (initialShareContext) {
   window.__SHARE_CONTEXT = initialShareContext;
 }
-window.__SHARE_API_BASE = import.meta.env.VITE_SHARE_API_URL || 'https://openscad-studio.pages.dev';
+window.__SHARE_API_BASE = import.meta.env.VITE_SHARE_API_URL || window.location.origin;
 window.__SHARE_ENABLED =
   import.meta.env.PROD || import.meta.env.VITE_ENABLE_PROD_SHARE_DEV === 'true';
 
