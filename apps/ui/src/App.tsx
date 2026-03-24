@@ -336,6 +336,7 @@ function App() {
     streamingResponse,
     proposedDiff,
     error: aiError,
+    errorObject: aiErrorObject,
     isApplyingDiff,
     messages,
     draft,
@@ -1202,13 +1203,14 @@ function App() {
     if (aiError) {
       notifyError({
         operation: 'ai-stream',
-        error: aiError,
+        error: aiErrorObject ?? aiError,
+        displayMessage: aiError,
         fallbackMessage: 'AI request failed',
         toastId: 'ai-stream-error',
       });
       clearAiError();
     }
-  }, [aiError, clearAiError]);
+  }, [aiError, aiErrorObject, clearAiError]);
 
   useEffect(() => {
     const handleWindowError = (event: ErrorEvent) => {
