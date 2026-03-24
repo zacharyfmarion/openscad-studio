@@ -84,7 +84,10 @@ function isIgnorableRejection(reason: unknown): boolean {
     normalized === 'render cancelled' ||
     normalized === 'render canceled' ||
     normalized.includes('aborterror') ||
-    normalized.includes('aborted')
+    normalized.includes('aborted') ||
+    // drei/three.js asset loader errors (e.g. HDR environment map fetch failures)
+    // are handled locally by EnvironmentWithFallback and should not surface as toasts.
+    normalized.startsWith('could not load ')
   );
 }
 
