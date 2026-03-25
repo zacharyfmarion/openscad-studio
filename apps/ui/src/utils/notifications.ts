@@ -15,6 +15,7 @@ export interface UiErrorContext {
   operation: string;
   error?: unknown;
   fallbackMessage?: string;
+  displayMessage?: string;
   toastId?: string;
   logLabel?: string;
   description?: string;
@@ -69,6 +70,7 @@ export function notifyError({
   operation,
   error,
   fallbackMessage,
+  displayMessage,
   toastId,
   logLabel,
   description,
@@ -94,7 +96,7 @@ export function notifyError({
     });
   }
 
-  toast.error(normalized.message, {
+  toast.error(displayMessage ?? normalized.message, {
     id: toastId,
     description,
   });

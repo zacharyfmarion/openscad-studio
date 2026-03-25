@@ -1,4 +1,5 @@
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { ChatImage, ChatImageGrid } from './ChatImage';
 import { Button, Text } from './ui';
 import { MarkdownMessage } from './MarkdownMessage';
 import { ModelSelector } from './ModelSelector';
@@ -320,33 +321,24 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                           <div className="text-sm whitespace-pre-wrap font-mono">{userText}</div>
                         ) : null}
                         {imageParts.length > 0 && (
-                          <div className={`grid gap-2 ${userText ? 'mt-2' : ''}`}>
-                            {imageParts.map((part) => {
-                              const attachment = attachments[part.attachmentId];
-                              return (
-                                <div
-                                  key={part.attachmentId}
-                                  className="rounded border overflow-hidden"
-                                  style={{
-                                    backgroundColor: 'rgba(255,255,255,0.08)',
-                                    borderColor: 'rgba(255,255,255,0.2)',
-                                  }}
-                                >
-                                  {attachment?.previewUrl ? (
-                                    <img
-                                      src={attachment.previewUrl}
-                                      alt={part.filename}
-                                      className="max-w-full object-cover"
-                                      style={{ maxHeight: '220px', width: '100%' }}
-                                    />
-                                  ) : null}
-                                  <div className="px-2 py-1 text-xs" style={{ opacity: 0.85 }}>
-                                    {part.filename}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
+                          <ChatImageGrid
+                            className={userText ? 'mt-2' : ''}
+                            images={imageParts
+                              .map((part) => {
+                                const att = attachments[part.attachmentId];
+                                return {
+                                  src: att?.previewUrl ?? '',
+                                  fullSrc:
+                                    att?.normalizedData && att.normalizedMimeType
+                                      ? `data:${att.normalizedMimeType};base64,${att.normalizedData}`
+                                      : undefined,
+                                  width: att?.width,
+                                  height: att?.height,
+                                  filename: part.filename,
+                                };
+                              })
+                              .filter((img) => Boolean(img.src))}
+                          />
                         )}
                       </div>
                     </div>
@@ -427,14 +419,10 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                       )}
                       {imageDataUrl && (
                         <div className="mt-2">
-                          <img
+                          <ChatImage
                             src={imageDataUrl}
                             alt="Preview screenshot"
-                            className="max-w-full rounded border"
-                            style={{
-                              maxHeight: '300px',
-                              borderColor: 'var(--border-secondary)',
-                            }}
+                            filename="preview.png"
                           />
                         </div>
                       )}
@@ -481,14 +469,10 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                         )}
                         {imageDataUrl && (
                           <div className="mt-2">
-                            <img
+                            <ChatImage
                               src={imageDataUrl}
                               alt="Preview screenshot"
-                              className="max-w-full rounded border"
-                              style={{
-                                maxHeight: '300px',
-                                borderColor: 'var(--border-secondary)',
-                              }}
+                              filename="preview.png"
                             />
                           </div>
                         )}
