@@ -52,6 +52,14 @@ import {
 import { getRelativeProjectPath, normalizeProjectRelativePath } from '../utils/projectFilePaths';
 import { updateSetting, loadSettings, type MeasurementUnit } from '../stores/settingsStore';
 
+function extractErrorText(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return String(error);
+}
+
 function humanizeStreamError(errorText: string): string {
   if (/failed to fetch/i.test(errorText)) {
     return 'Could not reach the AI service — check your internet connection.';
@@ -737,9 +745,9 @@ export function useAiAgent() {
           syncActiveTurnState(turnUpdate.state);
 
           if (chunk.type === 'error') {
-            streamErrorText =
-              chunk.error instanceof Error ? chunk.error.message : String(chunk.error);
-            streamErrorObject = chunk.error instanceof Error ? chunk.error : null;
+            streamErrorText = extractErrorText(chunk.error);
+            streamErrorObject =
+              chunk.error instanceof Error ? chunk.error : new Error(streamErrorText);
             console.error('[useAiAgent] Stream error:', chunk.error);
             break;
           }
@@ -774,8 +782,8 @@ export function useAiAgent() {
         }
 
         console.error('[useAiAgent] Error submitting prompt:', error);
-        const errorText = error instanceof Error ? error.message : String(error);
-        const errorObject = error instanceof Error ? error : null;
+        const errorText = extractErrorText(error);
+        const errorObject = error instanceof Error ? error : new Error(errorText);
 
         if (activeTurnRef.current) {
           finalizeStreamTurn(activeTurnRef.current, {
