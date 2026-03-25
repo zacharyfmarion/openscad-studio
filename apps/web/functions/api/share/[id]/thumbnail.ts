@@ -16,7 +16,10 @@ function getBearerToken(request: Request): string | null {
   return token || null;
 }
 
-export const onRequestGet: PagesFunction<Env> = async (context) => {
+async function buildThumbnailResponse(
+  context: EventContext<Env, string, unknown>,
+  includeBody: boolean
+) {
   const shareId = context.params.id;
   if (!shareId || typeof shareId !== 'string') {
     return json({ error: 'Missing share id.' }, { status: 400 });
@@ -27,7 +30,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return json({ error: 'Thumbnail not found.' }, { status: 404 });
   }
 
-  const object = await context.env.SHARE_R2.get(share.thumbnailKey);
+  const object = includeBody
+    ? await context.env.SHARE_R2.get(share.thumbnailKey)
+    : await context.env.SHARE_R2.head(share.thumbnailKey);
   if (!object) {
     return json({ error: 'Thumbnail not found.' }, { status: 404 });
   }
@@ -39,8 +44,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'image/png');
   }
-  return new Response(object.body, { headers });
-};
+  return new Response(includeBody ? object.body : null, { headers });
+}
+
+export const onRequestGet: PagesFunction<Env> = async (context) =>
+  buildThumbnailResponse(context, true);
+
+export const onRequestHead: PagesFunction<Env> = async (context) =>
+  buildThumbnailResponse(context, false);
 
 export const onRequestPut: PagesFunction<Env> = async (context) => {
   const shareId = context.params.id;
