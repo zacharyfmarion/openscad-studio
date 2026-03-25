@@ -746,7 +746,8 @@ export function useAiAgent() {
 
           if (chunk.type === 'error') {
             streamErrorText = extractErrorText(chunk.error);
-            streamErrorObject = chunk.error instanceof Error ? chunk.error : new Error(streamErrorText);
+            streamErrorObject =
+              chunk.error instanceof Error ? chunk.error : new Error(streamErrorText);
             console.error('[useAiAgent] Stream error:', chunk.error);
             break;
           }
