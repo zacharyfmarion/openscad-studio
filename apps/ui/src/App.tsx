@@ -569,9 +569,15 @@ function App() {
     updateStlBlobUrl(activePreviewKind === 'mesh' && activePreviewSrc ? activePreviewSrc : null);
   }, [activePreviewKind, activePreviewSrc, updateStlBlobUrl]);
   useEffect(() => {
-    updateCapturePreview(() => captureCurrentPreview());
+    updateCapturePreview(() =>
+      captureCurrentPreview({
+        svgSourceUrl: activePreviewKind === 'svg' ? activePreviewSrc : null,
+        targetWidth: 1200,
+        targetHeight: 630,
+      })
+    );
     return () => updateCapturePreview(null);
-  }, [updateCapturePreview]);
+  }, [activePreviewKind, activePreviewSrc, updateCapturePreview]);
 
   useEffect(() => {
     workingDirRef.current = workingDir;
@@ -1708,7 +1714,13 @@ function App() {
         source={source}
         tabName={activeTab.name}
         forkedFrom={shareOrigin?.shareId ?? null}
-        capturePreview={captureCurrentPreview}
+        capturePreview={() =>
+          captureCurrentPreview({
+            svgSourceUrl: activePreviewKind === 'svg' ? activePreviewSrc : null,
+            targetWidth: 1200,
+            targetHeight: 630,
+          })
+        }
         stlBlobUrl={activePreviewKind === 'mesh' ? activePreviewSrc : null}
         previewKind={activePreviewKind}
       />
