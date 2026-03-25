@@ -746,7 +746,7 @@ export function useAiAgent() {
 
           if (chunk.type === 'error') {
             streamErrorText = extractErrorText(chunk.error);
-            streamErrorObject = chunk.error instanceof Error ? chunk.error : null;
+            streamErrorObject = chunk.error instanceof Error ? chunk.error : new Error(streamErrorText);
             console.error('[useAiAgent] Stream error:', chunk.error);
             break;
           }
@@ -782,7 +782,7 @@ export function useAiAgent() {
 
         console.error('[useAiAgent] Error submitting prompt:', error);
         const errorText = extractErrorText(error);
-        const errorObject = error instanceof Error ? error : null;
+        const errorObject = error instanceof Error ? error : new Error(errorText);
 
         if (activeTurnRef.current) {
           finalizeStreamTurn(activeTurnRef.current, {
