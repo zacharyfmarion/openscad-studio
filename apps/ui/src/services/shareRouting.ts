@@ -2,10 +2,7 @@ import type { ShareContext, ShareMode } from '../types/share';
 
 const SHARE_PATH_REGEX = /^\/s\/([a-zA-Z0-9_-]{1,20})\/?$/;
 
-export function parseShareContext(
-  pathname: string,
-  search: string = ''
-): ShareContext | null {
+export function parseShareContext(pathname: string, search: string = ''): ShareContext | null {
   const match = pathname.match(SHARE_PATH_REGEX);
   if (!match) {
     return null;

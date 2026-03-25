@@ -48,12 +48,11 @@ import { formatOpenScadCode } from './utils/formatter';
 import { addRecentFile, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview } from './utils/capturePreview';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
-import { useShareLoader } from './hooks/useShareLoader';
+import { useShareEntry } from './hooks/useShareEntry';
 import { TbSettings, TbBox, TbRuler2, TbDownload, TbShare3 } from 'react-icons/tb';
 import { Toaster } from 'sonner';
 import type { AiDraft } from './types/aiChat';
 import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTypes';
-import type { ShareOrigin } from './types/share';
 
 const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
 
@@ -220,6 +219,7 @@ function App() {
   const markTabSaved = useWorkspaceStore((state) => state.markTabSaved);
   const closeTabLocal = useWorkspaceStore((state) => state.closeTabLocal);
   const replaceWelcomeTab = useWorkspaceStore((state) => state.replaceWelcomeTab);
+  const openSharedDocument = useWorkspaceStore((state) => state.openSharedDocument);
   const reorderWorkspaceTabs = useWorkspaceStore((state) => state.reorderTabs);
   const beginTabRender = useWorkspaceStore((state) => state.beginTabRender);
   const commitTabRenderResult = useWorkspaceStore((state) => state.commitTabRenderResult);
@@ -240,21 +240,15 @@ function App() {
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsSection | undefined>(
     undefined
   );
-  const [shareOrigin, setShareOrigin] = useState<ShareOrigin | null>(null);
-  const [isShareBannerDismissed, setIsShareBannerDismissed] = useState(false);
-  const [skipShareEntry, setSkipShareEntry] = useState(false);
   const [settings] = useSettings();
   const { theme } = useTheme();
   const previewSceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
   const { capabilities } = getPlatform();
   const { undo, redo } = useHistory();
-  const {
-    isLoading: isShareLoading,
-    shareData,
-    error: shareLoadError,
-    shareContext,
-    retry: retryShareLoad,
-  } = useShareLoader(!skipShareEntry);
+  const initialShareContext = useMemo(
+    () => (typeof window === 'undefined' ? null : (window.__SHARE_CONTEXT ?? null)),
+    []
+  );
 
   const {
     source,
@@ -271,6 +265,7 @@ function App() {
     renderWithTrigger,
     auxiliaryFiles,
   } = useOpenScad({
+    suppressInitialRender: Boolean(initialShareContext),
     workingDir,
     autoRenderOnIdle: settings.editor.autoRenderOnIdle,
     autoRenderDelayMs: settings.editor.autoRenderDelayMs,
@@ -325,7 +320,56 @@ function App() {
   const activeDiagnostics = activeRender?.diagnostics ?? diagnostics;
   const activeError = activeRender?.error ?? error;
   const activeDimensionMode = activeRender?.dimensionMode ?? dimensionMode;
-  const isShareEntry = Boolean(shareContext && !skipShareEntry);
+
+  const handleOpenFallbackEditor = useCallback(() => {
+    setShowNux(false);
+    hideWelcomeScreen();
+    window.history.replaceState({}, document.title, '/');
+
+    if (!activeRender?.lastRenderedContent && ready) {
+      void renderWithTrigger('initial');
+    }
+  }, [activeRender?.lastRenderedContent, hideWelcomeScreen, ready, renderWithTrigger]);
+
+  const handleOpenSharedDocument = useCallback(
+    (share: { title: string; code: string }) => {
+      setShowNux(false);
+      return openSharedDocument({
+        name: share.title,
+        content: share.code,
+      });
+    },
+    [openSharedDocument]
+  );
+
+  const handleRenderSharedDocument = useCallback(
+    ({ tabId, code }: { tabId: string; code: string }) => {
+      updateWorkspaceTabContent(tabId, code);
+      setTabCustomizerBase(tabId, code);
+      return updateSourceAndRender(code, 'file_open');
+    },
+    [setTabCustomizerBase, updateSourceAndRender, updateWorkspaceTabContent]
+  );
+
+  const {
+    context: shareContext,
+    origin: shareOrigin,
+    error: shareLoadError,
+    phase: sharePhase,
+    shouldBlockUi: shouldBlockShareUi,
+    shouldShowError: shouldShowShareError,
+    isActive: isShareEntry,
+    retry: retryShareLoad,
+    skip: skipShareEntry,
+    dismissBanner: dismissShareBanner,
+    markVisualReady: markSharePreviewReady,
+    isBannerDismissed: isShareBannerDismissed,
+  } = useShareEntry({
+    renderReady: ready,
+    openSharedDocument: handleOpenSharedDocument,
+    renderSharedDocument: handleRenderSharedDocument,
+    openFallbackEditor: handleOpenFallbackEditor,
+  });
 
   const handleUndo = useCallback(async () => {
     const checkpoint = await undo();
@@ -558,58 +602,11 @@ function App() {
     updateSourceAndRenderRef.current = updateSourceAndRender;
   }, [updateSourceAndRender]);
 
-  const appliedShareIdRef = useRef<string | null>(null);
-
   useEffect(() => {
     if (isShareEntry) {
       setShowNux(false);
     }
   }, [isShareEntry]);
-
-  useEffect(() => {
-    if (!shareContext || !shareData) {
-      return;
-    }
-
-    if (appliedShareIdRef.current === shareData.id) {
-      return;
-    }
-
-    appliedShareIdRef.current = shareData.id;
-    setShowNux(false);
-    setIsShareBannerDismissed(false);
-
-    const nextTabId = replaceWelcomeTab({
-      filePath: null,
-      name: shareData.title,
-      content: shareData.code,
-    });
-    setActiveTab(nextTabId);
-    hideWelcomeScreen();
-    setShareOrigin({
-      shareId: shareContext.shareId,
-      mode: shareContext.mode,
-      title: shareData.title,
-      forkedFrom: shareData.forkedFrom,
-    });
-
-    window.setTimeout(() => {
-      updateSourceAndRenderRef.current(shareData.code, 'file_open');
-      updateWorkspaceTabContent(nextTabId, shareData.code);
-      setTabCustomizerBase(nextTabId, shareData.code);
-      if (renderWithTriggerRef.current) {
-        renderWithTriggerRef.current('file_open');
-      }
-    }, 0);
-  }, [
-    hideWelcomeScreen,
-    replaceWelcomeTab,
-    setActiveTab,
-    setTabCustomizerBase,
-    shareContext,
-    shareData,
-    updateWorkspaceTabContent,
-  ]);
 
   // Centralized render-on-tab-change effect
   // This ensures ANY tab switch triggers a render, regardless of how it happened
@@ -1277,38 +1274,41 @@ function App() {
     };
   }, []);
 
-  const onDockviewReady = useCallback((event: DockviewReadyEvent) => {
-    const { api } = event;
-    setDockviewApi(api);
+  const onDockviewReady = useCallback(
+    (event: DockviewReadyEvent) => {
+      const { api } = event;
+      setDockviewApi(api);
 
-    const savedPreset = loadSettings().ui.defaultLayoutPreset;
-    const layoutMode =
-      typeof window !== 'undefined' && window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY).matches
-        ? 'mobile'
-        : 'desktop';
-    const sharePreset =
-      isShareEntry && shareContext
-        ? shareContext.mode === 'customizer'
-          ? 'customizer-first'
-          : 'default'
-        : null;
+      const savedPreset = loadSettings().ui.defaultLayoutPreset;
+      const layoutMode =
+        typeof window !== 'undefined' && window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY).matches
+          ? 'mobile'
+          : 'desktop';
+      const sharePreset =
+        isShareEntry && shareContext
+          ? shareContext.mode === 'customizer'
+            ? 'customizer-first'
+            : 'default'
+          : null;
 
-    if (!sharePreset) {
-      clearSavedLayout();
-    }
+      if (!sharePreset) {
+        clearSavedLayout();
+      }
 
-    addPresetPanels(api, sharePreset ?? savedPreset, layoutMode);
+      addPresetPanels(api, sharePreset ?? savedPreset, layoutMode);
 
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    if (!sharePreset) {
-      api.onDidLayoutChange(() => {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(() => {
-          saveLayout();
-        }, 300);
-      });
-    }
-  }, [isShareEntry, shareContext]);
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      if (!sharePreset) {
+        api.onDidLayoutChange(() => {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => {
+            saveLayout();
+          }, 300);
+        });
+      }
+    },
+    [isShareEntry, shareContext]
+  );
 
   const workspaceState: WorkspaceState = useMemo(
     () => ({
@@ -1328,6 +1328,7 @@ function App() {
       isRendering,
       error: activeError,
       renderReady: ready,
+      onPreviewVisualReady: isShareEntry ? markSharePreviewReady : undefined,
       isStreaming,
       streamingResponse,
       proposedDiff,
@@ -1384,6 +1385,8 @@ function App() {
       isRendering,
       activeError,
       ready,
+      isShareEntry,
+      markSharePreviewReady,
       isStreaming,
       streamingResponse,
       proposedDiff,
@@ -1418,16 +1421,15 @@ function App() {
     ]
   );
 
-  const isApplyingShare =
-    isShareEntry && Boolean(shareData) && shareOrigin?.shareId !== shareData?.id;
-  const shouldShowShareLoading = isShareEntry && (isShareLoading || isApplyingShare);
-  const shouldShowShareError = isShareEntry && !isShareLoading && Boolean(shareLoadError);
   const shouldShowWelcome = showWelcome && !isShareEntry;
   const canUseShare = !capabilities.hasNativeMenu && isShareEnabled();
+  const shouldShowShareBanner = Boolean(
+    shareOrigin && sharePhase === 'ready' && !isShareBannerDismissed
+  );
 
-  const content = shouldShowShareLoading ? (
+  const shareBlockingOverlay = shouldBlockShareUi ? (
     <div
-      className="flex h-screen items-center justify-center"
+      className="fixed inset-0 z-[80] flex items-center justify-center"
       data-testid="share-loading-screen"
       style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
     >
@@ -1451,7 +1453,9 @@ function App() {
         </div>
       </div>
     </div>
-  ) : shouldShowShareError ? (
+  ) : null;
+
+  const content = shouldShowShareError ? (
     <div
       className="flex h-screen items-center justify-center"
       data-testid="share-error-screen"
@@ -1469,15 +1473,7 @@ function App() {
           {shareLoadError}
         </div>
         <div className="mt-5 flex items-center justify-end gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setSkipShareEntry(true);
-              setShowNux(false);
-              hideWelcomeScreen();
-              window.history.replaceState({}, document.title, '/');
-            }}
-          >
+          <Button variant="secondary" onClick={skipShareEntry}>
             Go to Editor
           </Button>
           <Button variant="primary" onClick={retryShareLoad}>
@@ -1671,11 +1667,11 @@ function App() {
         </div>
       </header>
 
-      {shareOrigin && !isShareBannerDismissed && (
+      {shouldShowShareBanner && shareOrigin && (
         <ShareBanner
           origin={shareOrigin}
           onShareRemix={handleOpenShareDialog}
-          onDismiss={() => setIsShareBannerDismissed(true)}
+          onDismiss={dismissShareBanner}
         />
       )}
 
@@ -1724,6 +1720,7 @@ function App() {
   return (
     <>
       {content}
+      {shareBlockingOverlay}
       <Toaster
         richColors
         position="bottom-right"

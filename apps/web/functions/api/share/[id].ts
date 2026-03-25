@@ -1,10 +1,4 @@
-import {
-  decompressSource,
-  getThumbnailUrl,
-  json,
-  readShare,
-  type Env,
-} from '../../_lib/share';
+import { decompressSource, getThumbnailUrl, json, readShare, type Env } from '../../_lib/share';
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const shareId = context.params.id;

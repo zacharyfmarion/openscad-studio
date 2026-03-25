@@ -78,6 +78,7 @@ interface ThreeViewerProps {
   stlPath: string;
   isLoading?: boolean;
   viewerId?: string;
+  onVisualReady?: () => void;
 }
 
 const introAnimatedViewerIds = new Set<string>();
@@ -936,7 +937,7 @@ function ViewerCameraManager({
   return null;
 }
 
-export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) {
+export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: ThreeViewerProps) {
   const { theme } = useTheme();
   const [settings] = useSettings();
   const sceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
@@ -947,6 +948,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
 
   const [modelFrame, setModelFrame] = useState<ModelFrame | null>(null);
   const [loadedModel, setLoadedModel] = useState<LoadedPreviewModel | null>(null);
+  const lastVisualReadyVersionRef = useRef<string | null>(null);
   const [orthographic, setOrthographic] = useState(false);
   const [wireframe, setWireframe] = useState(false);
   const [interactionMode, setInteractionMode] = useState<InteractionMode>('orbit');
@@ -1264,6 +1266,19 @@ export function ThreeViewer({ stlPath, isLoading, viewerId }: ThreeViewerProps) 
   const dismissControlsHint = () => {
     updateSetting('ui', { hasDismissedViewerControlsHint: true });
   };
+
+  useEffect(() => {
+    if (loadedModel?.version !== stlPath) {
+      return;
+    }
+
+    if (!loadedModel || lastVisualReadyVersionRef.current === loadedModel.version) {
+      return;
+    }
+
+    lastVisualReadyVersionRef.current = loadedModel.version;
+    onVisualReady?.();
+  }, [loadedModel, onVisualReady, stlPath]);
 
   const selectionSource = selection.objectUuid ? selection : hoverSelection;
 

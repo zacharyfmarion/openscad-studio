@@ -1,12 +1,7 @@
 /** @jest-environment jsdom */
 
 import { jest } from '@jest/globals';
-import {
-  createShare,
-  getShare,
-  ShareRequestError,
-  uploadThumbnail,
-} from '../shareService';
+import { createShare, getShare, ShareRequestError, uploadThumbnail } from '../shareService';
 
 function createMockResponse(body: unknown, init: { status: number }) {
   return {
@@ -55,9 +50,9 @@ describe('shareService', () => {
   });
 
   it('throws a typed error for failed share loads', async () => {
-    jest.spyOn(globalThis, 'fetch').mockResolvedValue(
-      createMockResponse({ error: 'Design not found' }, { status: 404 })
-    );
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(createMockResponse({ error: 'Design not found' }, { status: 404 }));
 
     await expect(getShare('missing')).rejects.toEqual(
       expect.objectContaining<Partial<ShareRequestError>>({
@@ -69,15 +64,13 @@ describe('shareService', () => {
   });
 
   it('sends the thumbnail upload bearer token', async () => {
-    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
-      createMockResponse({ thumbnailUrl: 'https://example.com/thumb.png' }, { status: 200 })
-    );
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        createMockResponse({ thumbnailUrl: 'https://example.com/thumb.png' }, { status: 200 })
+      );
 
-    await uploadThumbnail(
-      'abc12345',
-      new Blob(['test'], { type: 'image/png' }),
-      'thumbnail-token'
-    );
+    await uploadThumbnail('abc12345', new Blob(['test'], { type: 'image/png' }), 'thumbnail-token');
 
     expect(fetchSpy).toHaveBeenCalledWith(
       expect.stringContaining('/api/share/abc12345/thumbnail'),

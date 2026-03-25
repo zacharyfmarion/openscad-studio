@@ -27,7 +27,10 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function toShareError(response: Response, fallbackMessage: string): Promise<ShareRequestError> {
+async function toShareError(
+  response: Response,
+  fallbackMessage: string
+): Promise<ShareRequestError> {
   try {
     const payload = (await response.json()) as { error?: string };
     return new ShareRequestError({

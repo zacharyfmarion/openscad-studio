@@ -1,6 +1,10 @@
 import { getShareUrl, getThumbnailUrl, readShare, type Env } from '../_lib/share';
 
-function replaceMetaTag(html: string, selector: { attr: string; name: string }, content: string): string {
+function replaceMetaTag(
+  html: string,
+  selector: { attr: string; name: string },
+  content: string
+): string {
   const escapedName = selector.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(
     `<meta\\s+${selector.attr}=["']${escapedName}["']\\s+content=["'][^"']*["']\\s*\\/?>`,
@@ -29,7 +33,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const html = await response.text();
   const origin = new URL(context.request.url).origin;
   const shareUrl = getShareUrl(origin, shareId);
-  const thumbnailUrl = share.thumbnailKey ? getThumbnailUrl(origin, shareId) : `${origin}/icon-512.png`;
+  const thumbnailUrl = share.thumbnailKey
+    ? getThumbnailUrl(origin, shareId)
+    : `${origin}/icon-512.png`;
 
   const updated = [
     [{ attr: 'property', name: 'og:title' }, `${share.title} — OpenSCAD Studio`],
@@ -39,7 +45,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     ],
     [{ attr: 'property', name: 'og:image' }, thumbnailUrl],
     [{ attr: 'property', name: 'og:url' }, shareUrl],
-    [{ attr: 'name', name: 'twitter:card' }, share.thumbnailKey ? 'summary_large_image' : 'summary'],
+    [
+      { attr: 'name', name: 'twitter:card' },
+      share.thumbnailKey ? 'summary_large_image' : 'summary',
+    ],
     [{ attr: 'name', name: 'twitter:title' }, `${share.title} — OpenSCAD Studio`],
     [
       { attr: 'name', name: 'twitter:description' },

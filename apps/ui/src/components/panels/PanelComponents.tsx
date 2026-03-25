@@ -33,7 +33,8 @@ const EditorPanel: React.FC<IDockviewPanelProps> = () => {
 };
 
 const PreviewPanel: React.FC<IDockviewPanelProps> = () => {
-  const { activeTabId, previewSrc, previewKind, isRendering, error } = useWorkspace();
+  const { activeTabId, previewSrc, previewKind, isRendering, error, onPreviewVisualReady } =
+    useWorkspace();
   return (
     <PanelErrorBoundary panelId="preview" panelName="Preview">
       <Preview
@@ -42,6 +43,7 @@ const PreviewPanel: React.FC<IDockviewPanelProps> = () => {
         isRendering={isRendering}
         error={error}
         viewerId={activeTabId}
+        onVisualReady={onPreviewVisualReady}
       />
     </PanelErrorBoundary>
   );

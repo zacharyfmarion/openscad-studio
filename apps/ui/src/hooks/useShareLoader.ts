@@ -17,7 +17,9 @@ export function useShareLoader(enabled: boolean = true): ShareLoaderResult {
       return null;
     }
 
-    return window.__SHARE_CONTEXT ?? parseShareContext(window.location.pathname, window.location.search);
+    return (
+      window.__SHARE_CONTEXT ?? parseShareContext(window.location.pathname, window.location.search)
+    );
   }, []);
   const [isLoading, setIsLoading] = useState(Boolean(enabled && shareContext));
   const [shareData, setShareData] = useState<ShareData | null>(null);

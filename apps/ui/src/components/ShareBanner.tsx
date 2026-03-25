@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { TbArrowUpRight, TbGitBranch, TbX } from 'react-icons/tb';
 import { getShare } from '../services/shareService';
 import type { ShareOrigin } from '../types/share';
-import { Button } from './ui';
+import { Button, IconButton } from './ui';
 
 interface ShareBannerProps {
   origin: ShareOrigin;
@@ -49,11 +49,12 @@ export function ShareBanner({ origin, onShareRemix, onDismiss }: ShareBannerProp
       }}
     >
       <div className="min-w-0">
-        <div className="font-medium">
-          Shared design: &quot;{origin.title}&quot;
-        </div>
+        <div className="font-medium">Shared design: &quot;{origin.title}&quot;</div>
         {origin.forkedFrom ? (
-          <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+          <div
+            className="flex items-center gap-1 text-xs"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             <TbGitBranch size={12} />
             <span>Remixed from {parentTitle ? `"${parentTitle}"` : 'another shared design'}</span>
           </div>
@@ -77,15 +78,14 @@ export function ShareBanner({ origin, onShareRemix, onDismiss }: ShareBannerProp
             <TbArrowUpRight size={14} />
           </span>
         </Button>
-        <button
-          type="button"
+        <IconButton
+          size="sm"
           onClick={onDismiss}
           aria-label="Dismiss shared design banner"
-          className="rounded-md p-1"
-          style={{ color: 'var(--text-secondary)' }}
+          data-testid="share-banner-dismiss"
         >
           <TbX size={16} />
-        </button>
+        </IconButton>
       </div>
     </div>
   );

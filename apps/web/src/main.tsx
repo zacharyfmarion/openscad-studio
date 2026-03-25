@@ -57,6 +57,8 @@ if (window.__UNSUPPORTED_BROWSER) {
       </PostHogProvider>
     );
 
+  renderApp();
+
   initializePlatform()
     .then((platform) => {
       if (shouldCaptureBootstrapEvents) {
@@ -65,7 +67,6 @@ if (window.__UNSUPPORTED_BROWSER) {
           capabilities: platform.capabilities,
         });
       }
-      renderApp();
     })
     .catch((error) => {
       captureSentryException(error, { tags: { phase: 'platform-init' } });
@@ -77,6 +78,5 @@ if (window.__UNSUPPORTED_BROWSER) {
         });
       }
       console.error('[main] Failed to initialize platform:', error);
-      renderApp();
     });
 }

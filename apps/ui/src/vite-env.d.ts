@@ -11,10 +11,6 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_PROD_SHARE_DEV?: string;
 }
 
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
-
 declare global {
   interface Window {
     __UNSUPPORTED_BROWSER?: boolean;

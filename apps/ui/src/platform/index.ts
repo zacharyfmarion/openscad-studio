@@ -11,13 +11,126 @@ export type { EventMap } from './eventBus';
 export { historyService } from './historyService';
 export type { EditorCheckpoint, CheckpointDiff, Diagnostic, ChangeType } from './historyService';
 
-import type { PlatformBridge } from './types';
+import type {
+  ConfirmDialogOptions,
+  FileFilter,
+  FileOpenResult,
+  PlatformBridge,
+  PlatformCapabilities,
+} from './types';
 
 let _bridge: PlatformBridge | null = null;
 
 function isTauri(): boolean {
   return '__TAURI_INTERNALS__' in window;
 }
+
+function createBootstrapCapabilities(): PlatformCapabilities {
+  return isTauri()
+    ? {
+        multiFile: true,
+        hasNativeMenu: true,
+        hasFileSystem: true,
+        canSetWindowTitle: true,
+      }
+    : {
+        multiFile: false,
+        hasNativeMenu: false,
+        hasFileSystem: false,
+        canSetWindowTitle: true,
+      };
+}
+
+class BootstrapBridge implements PlatformBridge {
+  readonly capabilities = createBootstrapCapabilities();
+
+  async fileOpen(filters?: FileFilter[]): Promise<FileOpenResult | null> {
+    void filters;
+    return null;
+  }
+
+  async fileRead(path: string): Promise<FileOpenResult | null> {
+    void path;
+    return null;
+  }
+
+  async fileSave(
+    content: string,
+    path?: string | null,
+    filters?: FileFilter[],
+    defaultFilename?: string
+  ): Promise<string | null> {
+    void content;
+    void path;
+    void filters;
+    void defaultFilename;
+    return null;
+  }
+
+  async fileSaveAs(
+    content: string,
+    filters?: FileFilter[],
+    defaultFilename?: string
+  ): Promise<string | null> {
+    void content;
+    void filters;
+    void defaultFilename;
+    return null;
+  }
+
+  async fileExport(
+    data: Uint8Array,
+    defaultFilename: string,
+    filters?: FileFilter[]
+  ): Promise<void> {
+    void data;
+    void defaultFilename;
+    void filters;
+  }
+
+  async confirm(message: string, options?: ConfirmDialogOptions): Promise<boolean> {
+    void options;
+    return window.confirm(message);
+  }
+
+  async ask(message: string, options?: ConfirmDialogOptions): Promise<boolean> {
+    void options;
+    return window.confirm(message);
+  }
+
+  setWindowTitle(title: string): void {
+    document.title = title;
+  }
+
+  onCloseRequested(handler: () => Promise<boolean>): () => void {
+    void handler;
+    return () => {};
+  }
+
+  async fileExists(absolutePath: string): Promise<boolean> {
+    void absolutePath;
+    return false;
+  }
+
+  async readTextFile(absolutePath: string): Promise<string | null> {
+    void absolutePath;
+    return null;
+  }
+
+  async readDirectoryFiles(): Promise<Record<string, string>> {
+    return {};
+  }
+
+  async getLibraryPaths(): Promise<string[]> {
+    return [];
+  }
+
+  async pickDirectory(): Promise<string | null> {
+    return null;
+  }
+}
+
+const bootstrapBridge = new BootstrapBridge();
 
 export async function initializePlatform(): Promise<PlatformBridge> {
   if (_bridge) return _bridge;
@@ -38,8 +151,5 @@ export async function initializePlatform(): Promise<PlatformBridge> {
 }
 
 export function getPlatform(): PlatformBridge {
-  if (!_bridge) {
-    throw new Error('Platform not initialized. Call initializePlatform() first.');
-  }
-  return _bridge;
+  return _bridge ?? bootstrapBridge;
 }

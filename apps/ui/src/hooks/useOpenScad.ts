@@ -21,11 +21,13 @@ export interface RenderSnapshot {
 }
 
 interface UseOpenScadOptions {
+  initialSource?: string;
   workingDir?: string | null;
   autoRenderOnIdle?: boolean;
   autoRenderDelayMs?: number;
   library?: LibrarySettings;
   createRenderOwner?: () => RenderOwner | null;
+  suppressInitialRender?: boolean;
   onRenderSettled?: (event: {
     owner: RenderOwner | null;
     code: string;
@@ -37,15 +39,15 @@ interface UseOpenScadOptions {
 export function useOpenScad(options: UseOpenScadOptions = {}) {
   const analytics = useAnalytics();
   const {
+    initialSource = '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
     autoRenderOnIdle = false,
     autoRenderDelayMs = 500,
     library,
     createRenderOwner,
+    suppressInitialRender = false,
     onRenderSettled,
   } = options;
-  const [source, setSource] = useState<string>(
-    '// Type your OpenSCAD code here\ncube([10, 10, 10]);'
-  );
+  const [source, setSource] = useState<string>(initialSource);
   const [ready, setReady] = useState(false);
   const [previewSrc, setPreviewSrc] = useState<string>('');
   const [previewKind, setPreviewKind] = useState<RenderKind>('mesh');
@@ -409,11 +411,11 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
   // Initial render when WASM is ready
   useEffect(() => {
-    if (ready && source) {
+    if (!suppressInitialRender && ready && source) {
       lastRenderedSourceRef.current = source;
       void doRender(source, dimensionMode, 'initial');
     }
-  }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, suppressInitialRender]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Function to clear preview (for when opening new files)
   const clearPreview = useCallback(() => {

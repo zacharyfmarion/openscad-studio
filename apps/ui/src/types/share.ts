@@ -1,4 +1,12 @@
 export type ShareMode = 'customizer' | 'editor';
+export type ShareEntryPhase =
+  | 'idle'
+  | 'fetching'
+  | 'applying'
+  | 'rendering'
+  | 'ready'
+  | 'error'
+  | 'skipped';
 
 export interface ShareContext {
   shareId: string;
@@ -29,4 +37,14 @@ export interface CreateShareResponse {
 export interface ShareOrigin extends ShareContext {
   title: string;
   forkedFrom: string | null;
+}
+
+export interface ShareEntryState {
+  context: ShareContext | null;
+  phase: ShareEntryPhase;
+  shareData: ShareData | null;
+  origin: ShareOrigin | null;
+  error: string | null;
+  isBannerDismissed: boolean;
+  targetTabId: string | null;
 }
