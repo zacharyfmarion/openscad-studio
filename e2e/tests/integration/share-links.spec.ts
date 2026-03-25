@@ -2,11 +2,15 @@ import { test, expect } from '../../fixtures/app.fixture';
 import { setMonacoValue } from '../../helpers/editor';
 
 const SHARE_ID = 'abc12345';
-const SHARE_CODE = ['width = 18; // [10:40]', 'height = 12; // [8:24]', 'cube([width, height, 5]);'].join(
-  '\n'
-);
+const SHARE_CODE = [
+  'width = 18; // [10:40]',
+  'height = 12; // [8:24]',
+  'cube([width, height, 5]);',
+].join('\n');
 
 test.describe('Share links', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test('creates a share link from the dialog', async ({ app }) => {
     await app.page.route('**/api/share', async (route) => {
       await route.fulfill({
@@ -77,9 +81,9 @@ test.describe('Share links', () => {
     });
 
     await page.goto(`/s/${SHARE_ID}`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('share-loading-screen')).toBeVisible();
     await expect(page.getByTestId('share-banner')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(/choose your workspace layout/i)).toHaveCount(0);
+    await expect(page.getByTestId('nux-layout-picker')).toHaveCount(0);
+    await expect(page.getByTestId('welcome-container')).toHaveCount(0);
     await expect(page.getByTestId('customizer-control-width')).toBeVisible({ timeout: 15_000 });
 
     const storedPreset = await page.evaluate(() => {

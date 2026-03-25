@@ -138,10 +138,16 @@ export class AppHelper {
     }
   }
 
-  async updateSourceAndRender(code: string, trigger: string = 'manual'): Promise<RenderSnapshot | null> {
+  async updateSourceAndRender(
+    code: string,
+    trigger: string = 'manual'
+  ): Promise<RenderSnapshot | null> {
     const snapshot = await this.page.evaluate(
       async ({ nextCode, renderTrigger }) => {
-        return (window as any).__TEST_OPENSCAD__?.updateSourceAndRender?.(nextCode, renderTrigger) ?? null;
+        return (
+          (window as any).__TEST_OPENSCAD__?.updateSourceAndRender?.(nextCode, renderTrigger) ??
+          null
+        );
       },
       { nextCode: code, renderTrigger: trigger }
     );
@@ -203,22 +209,13 @@ export class AppHelper {
         if (expected.fitCount !== undefined && preview.fitCount !== expected.fitCount) {
           return false;
         }
-        if (
-          expected.orthographic !== undefined &&
-          preview.orthographic !== expected.orthographic
-        ) {
+        if (expected.orthographic !== undefined && preview.orthographic !== expected.orthographic) {
           return false;
         }
-        if (
-          expected.currentFits !== undefined &&
-          preview.currentFits !== expected.currentFits
-        ) {
+        if (expected.currentFits !== undefined && preview.currentFits !== expected.currentFits) {
           return false;
         }
-        if (
-          expected.axesVisible !== undefined &&
-          preview.axesVisible !== expected.axesVisible
-        ) {
+        if (expected.axesVisible !== undefined && preview.axesVisible !== expected.axesVisible) {
           return false;
         }
         if (
@@ -320,11 +317,16 @@ export class AppHelper {
 
   /** Dismiss the welcome screen if it's showing */
   async dismissWelcomeScreen() {
-    const startButton = this.page.getByRole('button', { name: /start with empty project/i });
+    const welcomeScreen = this.page.getByTestId('welcome-screen');
+    const startButton = this.page.getByTestId('welcome-start-empty-project');
+    if (!(await welcomeScreen.isVisible({ timeout: 2_000 }).catch(() => false))) {
+      return;
+    }
+
     if (await startButton.isVisible({ timeout: 2000 }).catch(() => false)) {
       await startButton.click();
-      await startButton.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
-      await this.page.waitForTimeout(300);
+      await welcomeScreen.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
+      await this.page.waitForTimeout(500);
     }
   }
 
@@ -332,20 +334,19 @@ export class AppHelper {
 
   /** Dismiss the NUX layout picker if shown */
   async dismissNux() {
-    // The NUX modal has heading 'Choose your workspace layout' and a 'Continue' button
-    const nuxHeading = this.page.getByText('Choose your workspace layout');
-    if (await nuxHeading.isVisible({ timeout: 3000 }).catch(() => false)) {
-      // Select 'Editor First' layout (default is 'AI First' which hides the editor)
-      const editorFirstBtn = this.page.getByText('Editor First');
-      if (await editorFirstBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+    const picker = this.page.getByTestId('nux-layout-picker');
+    if (await picker.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      const editorFirstBtn = this.page.getByTestId('nux-layout-option-default');
+      if (await editorFirstBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
         await editorFirstBtn.click();
       }
-      // Click Continue to apply and dismiss
-      const continueBtn = this.page.getByRole('button', { name: /continue/i });
-      if (await continueBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+
+      const continueBtn = this.page.getByTestId('nux-layout-continue');
+      if (await continueBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
         await continueBtn.click();
       }
-      await nuxHeading.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+
+      await picker.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
       // Wait for the backdrop animation to finish
       await this.page.waitForTimeout(500);
     }

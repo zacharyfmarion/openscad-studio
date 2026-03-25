@@ -275,11 +275,21 @@ export function WelcomeScreen({
 
         <div className="flex justify-center gap-4">
           {onOpenFile && (
-            <Button variant="secondary" onClick={onOpenFile} className="text-sm">
+            <Button
+              variant="secondary"
+              onClick={onOpenFile}
+              className="text-sm"
+              data-testid="welcome-open-file"
+            >
               Open File
             </Button>
           )}
-          <Button variant="ghost" onClick={onStartManually} className="text-sm">
+          <Button
+            variant="ghost"
+            onClick={onStartManually}
+            className="text-sm"
+            data-testid="welcome-start-empty-project"
+          >
             Start with empty project →
           </Button>
         </div>
