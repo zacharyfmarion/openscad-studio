@@ -1,6 +1,15 @@
 import { useEffect } from 'react';
 import { useModels } from '../hooks/useModels';
-import { IconButton, Select } from './ui';
+import {
+  IconButton,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+  SelectGroup,
+  SelectLabel,
+} from './ui';
 import { notifyError } from '../utils/notifications';
 
 interface ModelSelectorProps {
@@ -35,7 +44,6 @@ export function ModelSelector({
     });
   }, [error]);
 
-  // If no providers available, show nothing or disabled state
   if (!hasModels && !isLoading) {
     return (
       <span className="text-xs" style={{ color: 'var(--text-tertiary)', opacity: 0.5 }}>
@@ -43,46 +51,6 @@ export function ModelSelector({
       </span>
     );
   }
-
-  const selectControl = (
-    <Select
-      value={currentModel}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={disabled || isLoading}
-      size="sm"
-      className="model-selector font-semibold"
-      style={{
-        color: 'var(--text-primary)',
-        width: compact ? 'min(180px, 42vw)' : 'auto',
-        minWidth: compact ? '100px' : '120px',
-        backgroundColor: compact ? 'var(--bg-elevated)' : 'var(--bg-tertiary)',
-        backgroundImage: compact ? 'none' : undefined,
-        border: '1px solid var(--border-secondary)',
-        borderRadius: '4px',
-        paddingRight: compact ? '2.5rem' : undefined,
-        height: compact ? '32px' : undefined,
-      }}
-    >
-      {anthropicModels.length > 0 && (
-        <optgroup label="Anthropic">
-          {anthropicModels.map((model) => (
-            <option key={model.id} value={model.id}>
-              {model.display_name}
-            </option>
-          ))}
-        </optgroup>
-      )}
-      {openaiModels.length > 0 && (
-        <optgroup label="OpenAI">
-          {openaiModels.map((model) => (
-            <option key={model.id} value={model.id}>
-              {model.display_name}
-            </option>
-          ))}
-        </optgroup>
-      )}
-    </Select>
-  );
 
   return (
     <div
@@ -93,57 +61,43 @@ export function ModelSelector({
         minHeight: compact ? '32px' : undefined,
       }}
     >
-      {compact ? (
-        <div
+      <Select value={currentModel} onValueChange={onChange} disabled={disabled || isLoading}>
+        <SelectTrigger
+          size="sm"
           style={{
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'stretch',
+            width: compact ? 'min(180px, 42vw)' : undefined,
+            minWidth: compact ? '100px' : '120px',
           }}
         >
-          {selectControl}
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              top: '1px',
-              right: '1px',
-              bottom: '1px',
-              width: '28px',
-              borderLeft: '1px solid var(--border-primary)',
-              borderTopRightRadius: '3px',
-              borderBottomRightRadius: '3px',
-              backgroundColor: 'rgba(255,255,255,0.04)',
-              pointerEvents: 'none',
-            }}
-          />
-          <svg
-            aria-hidden="true"
-            width="12"
-            height="12"
-            viewBox="0 0 16 16"
-            fill="none"
-            style={{
-              position: 'absolute',
-              top: '50%',
-              right: '8px',
-              transform: 'translateY(-50%)',
-              pointerEvents: 'none',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            <path
-              d="M4 6L8 10L12 6"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
-      ) : (
-        selectControl
-      )}
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {anthropicModels.length > 0 && (
+            <SelectGroup>
+              <SelectLabel>Anthropic</SelectLabel>
+              {anthropicModels.map((model) => (
+                <SelectItem key={model.id} value={model.id}>
+                  {model.display_name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          )}
+          {anthropicModels.length > 0 && openaiModels.length > 0 && (
+            <div className="my-1 mx-2 h-px" style={{ backgroundColor: 'var(--border-primary)' }} />
+          )}
+          {openaiModels.length > 0 && (
+            <SelectGroup>
+              <SelectLabel>OpenAI</SelectLabel>
+              {openaiModels.map((model) => (
+                <SelectItem key={model.id} value={model.id}>
+                  {model.display_name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          )}
+        </SelectContent>
+      </Select>
+
       {!compact && (
         <IconButton
           size="sm"
@@ -176,18 +130,6 @@ export function ModelSelector({
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
-        }
-        .model-selector {
-          transition: background-color 0.15s ease, border-color 0.15s ease;
-        }
-        .model-selector:hover:not(:disabled) {
-          background-color: var(--bg-primary) !important;
-          border-color: var(--border-secondary) !important;
-        }
-        .model-selector:focus {
-          border-color: var(--accent-primary) !important;
-          outline: none;
-          box-shadow: 0 0 0 1px var(--accent-primary);
         }
       `}</style>
     </div>

@@ -1,7 +1,17 @@
 import { useRef } from 'react';
 import { Editor as MonacoEditor } from '@monaco-editor/react';
 import type * as Monaco from 'monaco-editor';
-import { Button, Label, Select, Toggle, Text } from '../ui';
+import {
+  Button,
+  Label,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+  Toggle,
+  Text,
+} from '../ui';
 import { getTheme } from '../../themes';
 import { getDefaultVimConfig } from '../../stores/settingsStore';
 import { registerVimConfigLanguage } from '../../languages/vimConfigLanguage';
@@ -54,12 +64,17 @@ export function EditorSettings({
         >
           <Label>Indent Size</Label>
           <Select
-            value={settings.editor.indentSize}
-            onChange={(e) => onEditorChange('indentSize', Number(e.target.value))}
+            value={String(settings.editor.indentSize)}
+            onValueChange={(v) => onEditorChange('indentSize', Number(v) as 2 | 4 | 8)}
           >
-            <option value={2}>2 spaces</option>
-            <option value={4}>4 spaces</option>
-            <option value={8}>8 spaces</option>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="2">2 spaces</SelectItem>
+              <SelectItem value="4">4 spaces</SelectItem>
+              <SelectItem value="8">8 spaces</SelectItem>
+            </SelectContent>
           </Select>
         </SettingsCardSection>
 
@@ -95,13 +110,18 @@ export function EditorSettings({
           >
             <Label>Render Delay</Label>
             <Select
-              value={settings.editor.autoRenderDelayMs}
-              onChange={(e) => onEditorChange('autoRenderDelayMs', Number(e.target.value))}
+              value={String(settings.editor.autoRenderDelayMs)}
+              onValueChange={(v) => onEditorChange('autoRenderDelayMs', Number(v))}
             >
-              <option value={300}>300ms (fast)</option>
-              <option value={500}>500ms (default)</option>
-              <option value={1000}>1 second</option>
-              <option value={2000}>2 seconds</option>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="300">300ms (fast)</SelectItem>
+                <SelectItem value="500">500ms (default)</SelectItem>
+                <SelectItem value="1000">1 second</SelectItem>
+                <SelectItem value="2000">2 seconds</SelectItem>
+              </SelectContent>
             </Select>
           </SettingsCardSection>
         )}
