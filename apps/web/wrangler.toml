@@ -12,6 +12,14 @@ pages_build_output_dir = "./dist"
 # which runs `wrangler pages dev` with local `SHARE_KV` and `SHARE_R2`
 # emulation plus persistent state in `.wrangler/state/share-dev`.
 
+[[kv_namespaces]]
+binding = "SHARE_KV"
+id = "7a5296abd7b44f11a331dc0cf2c42b55"
+
+[[r2_buckets]]
+binding = "SHARE_R2"
+bucket_name = "share-thumbnails-production"
+
 [[env.preview.kv_namespaces]]
 binding = "SHARE_KV"
 id = "55463463091d414fa35d361a91ba019d"
