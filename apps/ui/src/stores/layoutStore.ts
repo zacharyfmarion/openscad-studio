@@ -45,27 +45,6 @@ function addMobilePanels(api: DockviewApi) {
     position: { referenceGroup: previewPanel.group.id },
     inactive: true,
   });
-  api.addPanel({
-    id: 'ai-chat',
-    component: 'ai-chat',
-    title: 'AI',
-    position: { referenceGroup: previewPanel.group.id },
-    inactive: true,
-  });
-  api.addPanel({
-    id: 'editor',
-    component: 'editor',
-    title: 'Editor',
-    position: { referenceGroup: previewPanel.group.id },
-    inactive: true,
-  });
-  api.addPanel({
-    id: 'console',
-    component: 'console',
-    title: 'Console',
-    position: { referenceGroup: previewPanel.group.id },
-    inactive: true,
-  });
 }
 
 export function addPresetPanels(

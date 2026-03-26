@@ -30,6 +30,7 @@ import {
 import { useOpenScad } from './hooks/useOpenScad';
 import { useAiAgent } from './hooks/useAiAgent';
 import { useHistory } from './hooks/useHistory';
+import { useMobileLayout } from './hooks/useMobileLayout';
 import { getPlatform, eventBus, type ExportFormat } from './platform';
 import { RenderService } from './services/renderService';
 import { getPreviewSceneStyle } from './services/previewSceneConfig';
@@ -208,6 +209,7 @@ function DownloadForMacLink() {
 }
 
 function App() {
+  const { isMobile } = useMobileLayout();
   const [showNux, setShowNux] = useState(() => !loadSettings().ui.hasCompletedNux);
   const tabs = useWorkspaceStore(selectTabs);
   const activeTabId = useWorkspaceStore(selectActiveTabId) ?? '';
@@ -1540,7 +1542,7 @@ function App() {
         }}
         initialTab={settingsInitialTab}
       />
-      <NuxLayoutPicker isOpen={showNux} onSelect={handleNuxSelect} />
+      <NuxLayoutPicker isOpen={showNux && !isMobile} onSelect={handleNuxSelect} />
     </div>
   ) : (
     <div
@@ -1555,7 +1557,7 @@ function App() {
           borderBottom: '1px solid var(--border-subtle)',
         }}
       >
-        {!capabilities.hasNativeMenu && (
+        {!capabilities.hasNativeMenu && !isMobile && (
           <WebMenuBar
             onExport={() => setShowExportDialog(true)}
             onShare={canUseShare ? handleOpenShareDialog : undefined}
@@ -1565,28 +1567,45 @@ function App() {
           />
         )}
 
-        <div className="flex-1 min-w-0 overflow-hidden">
-          {capabilities.multiFile ? (
-            <TabBar
-              tabs={tabs}
-              activeTabId={activeTabId}
-              onTabClick={switchTab}
-              onTabClose={closeTab}
-              onNewTab={() => createNewTab()}
-              onReorderTabs={reorderTabs}
-            />
-          ) : (
-            <EditableFileName
-              name={activeTab.name}
-              isDirty={activeTab.isDirty}
-              onRename={(newName) => {
-                renameTab(activeTabId, newName);
-              }}
-            />
-          )}
-        </div>
+        {!isMobile && (
+          <div className="flex-1 min-w-0 overflow-hidden">
+            {capabilities.multiFile ? (
+              <TabBar
+                tabs={tabs}
+                activeTabId={activeTabId}
+                onTabClick={switchTab}
+                onTabClose={closeTab}
+                onNewTab={() => createNewTab()}
+                onReorderTabs={reorderTabs}
+              />
+            ) : (
+              <EditableFileName
+                name={activeTab.name}
+                isDirty={activeTab.isDirty}
+                onRename={(newName) => {
+                  renameTab(activeTabId, newName);
+                }}
+              />
+            )}
+          </div>
+        )}
 
-        {!capabilities.hasNativeMenu && <DownloadForMacLink />}
+        {isMobile && (
+          <div className="flex items-center gap-2 px-3 flex-1">
+            <img
+              src="/favicon-32x32.png"
+              alt="OpenSCAD Studio"
+              width={20}
+              height={20}
+              className="rounded"
+            />
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              OpenSCAD Studio
+            </span>
+          </div>
+        )}
+
+        {!capabilities.hasNativeMenu && !isMobile && <DownloadForMacLink />}
 
         <div className="flex items-center gap-1.5 px-3 py-1 shrink-0">
           {isRendering && (
@@ -1606,42 +1625,47 @@ function App() {
             </div>
           )}
 
-          <div
-            data-testid="dimension-mode"
-            className={`flex items-center gap-1 h-7 px-2.5 text-xs ${CONTROL_RADIUS_CLASS} border`}
-            style={{
-              color: 'var(--text-secondary)',
-              backgroundColor: 'var(--bg-elevated)',
-              borderColor: 'var(--border-secondary)',
-            }}
-          >
-            {activeDimensionMode === '2d' ? (
-              <>
-                <TbRuler2 size={12} />
-                <span className="font-medium">2D</span>
-              </>
-            ) : (
-              <>
-                <TbBox size={12} />
-                <span className="font-medium">3D</span>
-              </>
-            )}
-          </div>
+          {!isMobile && (
+            <>
+              <div
+                data-testid="dimension-mode"
+                className={`flex items-center gap-1 h-7 px-2.5 text-xs ${CONTROL_RADIUS_CLASS} border`}
+                style={{
+                  color: 'var(--text-secondary)',
+                  backgroundColor: 'var(--bg-elevated)',
+                  borderColor: 'var(--border-secondary)',
+                }}
+              >
+                {activeDimensionMode === '2d' ? (
+                  <>
+                    <TbRuler2 size={12} />
+                    <span className="font-medium">2D</span>
+                  </>
+                ) : (
+                  <>
+                    <TbBox size={12} />
+                    <span className="font-medium">3D</span>
+                  </>
+                )}
+              </div>
 
-          <div
-            style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }}
-          />
+              <div
+                style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }}
+              />
 
-          <Button
-            data-testid="render-button"
-            variant="primary"
-            onClick={manualRender}
-            disabled={isRendering || !ready}
-            size="sm"
-            className="text-xs px-2 py-1"
-          >
-            Render (⌘↵)
-          </Button>
+              <Button
+                data-testid="render-button"
+                variant="primary"
+                onClick={manualRender}
+                disabled={isRendering || !ready}
+                size="sm"
+                className="text-xs px-2 py-1"
+              >
+                Render (⌘↵)
+              </Button>
+            </>
+          )}
+
           <Button
             data-testid="export-button"
             variant="secondary"
