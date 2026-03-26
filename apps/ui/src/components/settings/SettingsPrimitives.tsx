@@ -69,7 +69,7 @@ export function SettingsCardHeader({
       <div className="pr-4 flex flex-col" style={{ gap: 'var(--space-helper-gap)' }}>
         <Text variant="section-heading">{title}</Text>
         {description ? (
-          <Text variant="caption" color="tertiary">
+          <Text variant="caption" color="accent">
             {description}
           </Text>
         ) : null}

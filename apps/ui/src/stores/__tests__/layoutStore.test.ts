@@ -93,27 +93,19 @@ describe('layoutStore addPresetPanels', () => {
     expect(api.getPanel('preview')?.group.id).toBe(api.getPanel('console')?.group.id);
   });
 
-  it('uses a single preview-first tab group on mobile', () => {
+  it('uses a single preview+customizer tab group on mobile', () => {
     const api = createMockApi();
 
     addPresetPanels(api, 'default', 'mobile');
 
     expect(api.groups).toHaveLength(1);
-    expect(api.addPanelCalls.map((call) => call.id)).toEqual([
-      'preview',
-      'customizer',
-      'ai-chat',
-      'editor',
-      'console',
-    ]);
+    expect(api.addPanelCalls.map((call) => call.id)).toEqual(['preview', 'customizer']);
 
     const previewGroupId = api.getPanel('preview')?.group.id;
-    for (const panelId of ['customizer', 'ai-chat', 'editor', 'console']) {
-      expect(api.getPanel(panelId)?.group.id).toBe(previewGroupId);
-    }
+    expect(api.getPanel('customizer')?.group.id).toBe(previewGroupId);
 
     expect(api.addPanelCalls[0]?.inactive).toBeUndefined();
-    expect(api.addPanelCalls.slice(1).every((call) => call.inactive)).toBe(true);
+    expect(api.addPanelCalls[1]?.inactive).toBe(true);
   });
 
   it('creates a preview-led customizer-first desktop layout', () => {
@@ -122,9 +114,12 @@ describe('layoutStore addPresetPanels', () => {
     addPresetPanels(api, 'customizer-first');
 
     expect(api.groups).toHaveLength(2);
-    expect(api.getPanel('preview')?.group.id).not.toBe(api.getPanel('customizer')?.group.id);
-    expect(api.getPanel('customizer')?.group.id).toBe(api.getPanel('ai-chat')?.group.id);
-    expect(api.getPanel('customizer')?.group.id).toBe(api.getPanel('editor')?.group.id);
-    expect(api.getPanel('customizer')?.group.id).toBe(api.getPanel('console')?.group.id);
+    const previewGroupId = api.getPanel('preview')?.group.id;
+    const customizerGroupId = api.getPanel('customizer')?.group.id;
+    expect(customizerGroupId).not.toBe(previewGroupId);
+    // ai-chat, editor, console are tabs in the left (preview) group
+    expect(api.getPanel('ai-chat')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('editor')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('console')?.group.id).toBe(previewGroupId);
   });
 });

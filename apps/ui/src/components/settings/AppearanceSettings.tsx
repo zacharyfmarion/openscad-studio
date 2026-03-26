@@ -37,9 +37,13 @@ export function AppearanceSettings({
           title="Layout"
           description="Choose which panel arrangement to use as your default workspace."
         />
-        <SettingsCardSection className="flex flex-col" style={{ gap: 'var(--space-label-gap)' }}>
+        <SettingsCardSection
+          className="flex flex-row justify-between items-center"
+          style={{ gap: 'var(--space-label-gap)' }}
+        >
           <Label>Default Layout</Label>
           <SegmentedControl
+            size="sm"
             aria-label="Default workspace layout"
             options={DEFAULT_LAYOUT_OPTIONS}
             value={settings.ui.defaultLayoutPreset}

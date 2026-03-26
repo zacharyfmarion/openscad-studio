@@ -7,7 +7,7 @@ export interface LabelProps extends LabelHTMLAttributes<HTMLLabelElement> {
 
 export const Label = forwardRef<HTMLLabelElement, LabelProps>(
   ({ variant = 'secondary', size = 'sm', className = '', children, ...props }, ref) => {
-    const baseStyles = 'block font-medium';
+    const baseStyles = 'block font-normal';
 
     const sizeStyles = {
       xs: 'text-xs',

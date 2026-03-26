@@ -171,7 +171,6 @@ export function WelcomeScreen({
                 {EXAMPLE_PROMPTS.map((example) => (
                   <Button
                     key={example}
-                    size="sm"
                     variant="secondary"
                     onClick={() => {
                       if (!hasApiKey) return;
