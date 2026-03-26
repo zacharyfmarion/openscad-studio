@@ -42,6 +42,14 @@ test('export STL triggers download', async ({ app }) => {
   const formatSelect = dialog.getByRole('combobox');
   await formatSelect.selectOption('stl');
 
+  // showSaveFilePicker opens a native OS dialog Playwright cannot drive.
+  // Remove it so fileExport falls back to the programmatic a.click() path,
+  // which fires the download event that Playwright can observe.
+  await app.page.evaluate(() => {
+    delete (window as any).showSaveFilePicker;
+    delete (window as any).showOpenFilePicker;
+  });
+
   const downloadPromise = app.page.waitForEvent('download');
   await dialog.getByRole('button', { name: /export/i }).click();
   const download = await downloadPromise;
@@ -69,6 +77,11 @@ test('export SVG format', async ({ app }) => {
   const formatSelect = dialog.getByRole('combobox');
   await formatSelect.selectOption('svg');
 
+  await app.page.evaluate(() => {
+    delete (window as any).showSaveFilePicker;
+    delete (window as any).showOpenFilePicker;
+  });
+
   const downloadPromise = app.page.waitForEvent('download');
   await dialog.getByRole('button', { name: /export/i }).click();
   await downloadPromise;
@@ -83,6 +96,11 @@ test('export OBJ format', async ({ app }) => {
   const dialog = app.page.locator('[data-testid="export-dialog"]');
   const formatSelect = dialog.getByRole('combobox');
   await formatSelect.selectOption('obj');
+
+  await app.page.evaluate(() => {
+    delete (window as any).showSaveFilePicker;
+    delete (window as any).showOpenFilePicker;
+  });
 
   const downloadPromise = app.page.waitForEvent('download');
   await dialog.getByRole('button', { name: /export/i }).click();

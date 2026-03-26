@@ -184,16 +184,16 @@ export class WebBridge implements PlatformBridge {
     filters?: FileFilter[]
   ): Promise<void> {
     if (hasFileSystemAccess()) {
-      try {
-        const types: PickerAcceptType[] = filters?.length
-          ? filters.map((f) => ({
-              description: f.name,
-              accept: {
-                'application/octet-stream': f.extensions.map((ext) => `.${ext}`),
-              },
-            }))
-          : [];
+      const types: PickerAcceptType[] = filters?.length
+        ? filters.map((f) => ({
+            description: f.name,
+            accept: {
+              'application/octet-stream': f.extensions.map((ext) => `.${ext}`),
+            },
+          }))
+        : [];
 
+      try {
         const handle = await window.showSaveFilePicker({
           types: types.length ? types : undefined,
           suggestedName: defaultFilename,
@@ -202,10 +202,12 @@ export class WebBridge implements PlatformBridge {
         const writable = await handle.createWritable();
         await writable.write(data);
         await writable.close();
-        return;
-      } catch {
-        /* use download fallback */
+      } catch (err) {
+        // User cancelled the picker — silently return without triggering the fallback download
+        if (err instanceof Error && err.name === 'AbortError') return;
+        throw err;
       }
+      return;
     }
 
     const blob = new Blob([data], { type: 'application/octet-stream' });
