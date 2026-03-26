@@ -111,7 +111,10 @@ describe('SettingsDialog privacy copy', () => {
       </ThemeProvider>
     );
 
+    // 3D and 2D content are both visible without any tab switching
     expect(await screen.findByText('Show axes')).toBeTruthy();
+    expect(screen.getByText('3D Viewer')).toBeTruthy();
+    expect(screen.getByText('2D Viewer')).toBeTruthy();
 
     const axesToggle = screen.getByLabelText('Show axes') as HTMLInputElement;
     const axisLabelsToggle = screen.getByLabelText('Show axis labels') as HTMLInputElement;
@@ -120,8 +123,6 @@ describe('SettingsDialog privacy copy', () => {
     const viewcubeToggle = screen.getByLabelText('Show viewcube') as HTMLInputElement;
     const snapToggle = screen.getByLabelText('Snap 3D measurements') as HTMLInputElement;
     const inspectionHudToggle = screen.getByLabelText('Show inspection HUD') as HTMLInputElement;
-    const gridToggle = screen.getByLabelText('Show 2D grid') as HTMLInputElement;
-    const twoDAxesToggle = screen.getByLabelText('Show 2D axes') as HTMLInputElement;
 
     expect(axesToggle.checked).toBe(false);
     expect(axisLabelsToggle.checked).toBe(false);
@@ -131,6 +132,9 @@ describe('SettingsDialog privacy copy', () => {
     expect(viewcubeToggle.checked).toBe(false);
     expect(snapToggle.checked).toBe(false);
     expect(inspectionHudToggle.checked).toBe(false);
+
+    const gridToggle = screen.getByLabelText('Show 2D grid') as HTMLInputElement;
+    const twoDAxesToggle = screen.getByLabelText('Show 2D axes') as HTMLInputElement;
     expect(gridToggle.checked).toBe(false);
     expect(twoDAxesToggle.checked).toBe(false);
   });

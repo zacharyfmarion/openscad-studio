@@ -53,6 +53,7 @@ import { TbSettings, TbBox, TbRuler2, TbDownload, TbShare3 } from 'react-icons/t
 import { Toaster } from 'sonner';
 import type { AiDraft } from './types/aiChat';
 import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTypes';
+import { CONTROL_RADIUS_CLASS } from './components/ui/controlStyles';
 
 const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
 
@@ -1298,12 +1299,7 @@ function App() {
         typeof window !== 'undefined' && window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY).matches
           ? 'mobile'
           : 'desktop';
-      const sharePreset =
-        isShareEntry && shareContext
-          ? shareContext.mode === 'customizer'
-            ? 'customizer-first'
-            : 'default'
-          : null;
+      const sharePreset = isShareEntry && shareContext ? shareContext.mode : null;
 
       if (!sharePreset) {
         clearSavedLayout();
@@ -1448,21 +1444,23 @@ function App() {
       style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
     >
       <div
-        className="w-full max-w-md rounded-2xl p-6 text-center"
+        className="flex w-full max-w-md flex-col items-center text-center rounded-2xl"
         style={{
           backgroundColor: 'var(--bg-secondary)',
           border: '1px solid var(--border-primary)',
+          gap: 'var(--space-helper-gap)',
+          padding: `var(--space-dialog-padding-y) var(--space-dialog-padding-x)`,
         }}
       >
         <div
-          className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2"
+          className="h-8 w-8 animate-spin rounded-full border-2"
           style={{
             borderColor: 'var(--border-primary)',
             borderTopColor: 'var(--accent-primary)',
           }}
         />
         <div className="text-lg font-semibold">Opening shared design...</div>
-        <div className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           Loading the shared model, preview, and layout.
         </div>
       </div>
@@ -1476,17 +1474,22 @@ function App() {
       style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
     >
       <div
-        className="w-full max-w-md rounded-2xl p-6"
+        className="flex w-full max-w-md flex-col rounded-2xl"
         style={{
           backgroundColor: 'var(--bg-secondary)',
           border: '1px solid var(--border-primary)',
+          gap: 'var(--space-section-gap)',
+          padding: `var(--space-dialog-padding-y) var(--space-dialog-padding-x)`,
         }}
       >
         <div className="text-lg font-semibold">Couldn&apos;t open this shared design</div>
-        <div className="mt-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
+        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           {shareLoadError}
         </div>
-        <div className="mt-5 flex items-center justify-end gap-2">
+        <div
+          className="flex items-center justify-end"
+          style={{ gap: 'var(--space-dialog-footer-gap)' }}
+        >
           <Button variant="secondary" onClick={skipShareEntry}>
             Go to Editor
           </Button>
@@ -1585,7 +1588,7 @@ function App() {
 
         {!capabilities.hasNativeMenu && <DownloadForMacLink />}
 
-        <div className="flex items-center gap-1.5 px-3 shrink-0">
+        <div className="flex items-center gap-1.5 px-3 py-1 shrink-0">
           {isRendering && (
             <div
               data-testid="render-spinner"
@@ -1605,7 +1608,7 @@ function App() {
 
           <div
             data-testid="dimension-mode"
-            className="flex items-center gap-1 text-xs px-2 py-1 rounded border"
+            className={`flex items-center gap-1 h-7 px-2.5 text-xs ${CONTROL_RADIUS_CLASS} border`}
             style={{
               color: 'var(--text-secondary)',
               backgroundColor: 'var(--bg-elevated)',
@@ -1634,6 +1637,7 @@ function App() {
             variant="primary"
             onClick={manualRender}
             disabled={isRendering || !ready}
+            size="sm"
             className="text-xs px-2 py-1"
           >
             Render (⌘↵)
@@ -1642,6 +1646,7 @@ function App() {
             data-testid="export-button"
             variant="secondary"
             onClick={() => setShowExportDialog(true)}
+            size="sm"
             disabled={isRendering || !ready}
             className="text-xs px-2 py-1"
           >
@@ -1655,6 +1660,7 @@ function App() {
               data-testid="share-button"
               variant="secondary"
               onClick={handleOpenShareDialog}
+              size="sm"
               disabled={isRendering || !ready}
               className="text-xs px-2 py-1"
             >

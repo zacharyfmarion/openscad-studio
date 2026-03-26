@@ -1,4 +1,5 @@
 import { ButtonHTMLAttributes, forwardRef } from 'react';
+import { CONTROL_RADIUS_CLASS, CONTROL_SIZE_CLASSES } from './controlStyles';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'ghost';
@@ -7,8 +8,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = 'secondary', size = 'md', className = '', disabled, style, ...props }, ref) => {
-    const baseStyles =
-      'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2';
+    const baseStyles = `inline-flex items-center justify-center ${CONTROL_RADIUS_CLASS} font-medium transition-colors focus:outline-none focus:ring-2`;
     const disabledStyles = {
       backgroundColor: 'var(--bg-secondary)',
       color: 'var(--text-secondary)',
@@ -16,12 +16,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       opacity: 0.65,
       border: '1px solid var(--border-primary)',
     } as const;
-
-    const sizeStyles = {
-      sm: 'h-7 px-2.5 text-xs',
-      md: 'h-8 px-3 text-sm',
-      lg: 'h-9 px-4 text-base',
-    };
 
     const variantStyles = {
       primary: disabled
@@ -59,7 +53,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
-        className={`${baseStyles} ${sizeStyles[size]} ${className}`}
+        className={`${baseStyles} ${CONTROL_SIZE_CLASSES[size]} ${className}`}
         style={{ ...variantStyles[variant], ...style }}
         disabled={disabled}
         {...props}

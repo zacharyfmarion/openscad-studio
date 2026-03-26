@@ -1,4 +1,6 @@
-export type ShareMode = 'customizer' | 'editor';
+import type { WorkspacePreset } from '../stores/layoutStore';
+
+export type ShareMode = Extract<WorkspacePreset, 'default' | 'ai-first' | 'customizer-first'>;
 export type ShareEntryPhase =
   | 'idle'
   | 'fetching'

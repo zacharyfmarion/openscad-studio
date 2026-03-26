@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { TbCheck, TbCopy, TbExternalLink, TbLink, TbX } from 'react-icons/tb';
+import { TbCopy, TbLink, TbX } from 'react-icons/tb';
 import { useAnalytics } from '../analytics/runtime';
 import type { RenderKind } from '../hooks/useOpenScad';
 import { captureOffscreen } from '../services/offscreenRenderer';
@@ -11,7 +11,7 @@ import {
   uploadThumbnail,
 } from '../services/shareService';
 import type { ShareMode } from '../types/share';
-import { Button, IconButton, Input, Label, Text } from './ui';
+import { Button, IconButton, Input, Label, SegmentedControl, Text } from './ui';
 
 interface ShareDialogProps {
   isOpen: boolean;
@@ -23,6 +23,32 @@ interface ShareDialogProps {
   stlBlobUrl: string | null;
   previewKind: RenderKind | null;
 }
+
+const SHARE_MODE_OPTIONS: Array<{
+  value: ShareMode;
+  label: string;
+  title: string;
+  testId: string;
+}> = [
+  {
+    value: 'default',
+    label: 'Editor First',
+    title: 'Open the shared design in the full editor by default',
+    testId: 'share-mode-default',
+  },
+  {
+    value: 'ai-first',
+    label: 'AI First',
+    title: 'Open the shared design with AI front and center',
+    testId: 'share-mode-ai-first',
+  },
+  {
+    value: 'customizer-first',
+    label: 'Customizer First',
+    title: 'Open the shared design in the customizer by default',
+    testId: 'share-mode-customizer-first',
+  },
+];
 
 function getDefaultShareTitle(tabName: string): string {
   const trimmed = tabName.trim();
@@ -72,12 +98,11 @@ export function ShareDialog({
 }: ShareDialogProps) {
   const analytics = useAnalytics();
   const [title, setTitle] = useState(getDefaultShareTitle(tabName));
-  const [shareMode, setShareMode] = useState<ShareMode>('customizer');
+  const [shareMode, setShareMode] = useState<ShareMode>('customizer-first');
   const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState<string>('');
   const [shareId, setShareId] = useState<string | null>(null);
   const [baseShareUrl, setBaseShareUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [includeAttribution, setIncludeAttribution] = useState(Boolean(forkedFrom));
   const linkInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -87,17 +112,17 @@ export function ShareDialog({
     }
 
     setTitle(getDefaultShareTitle(tabName));
-    setShareMode('customizer');
+    setShareMode('customizer-first');
     setIsSharing(false);
     setError('');
     setShareId(null);
     setBaseShareUrl(null);
-    setCopied(false);
     setIncludeAttribution(Boolean(forkedFrom));
   }, [forkedFrom, isOpen, tabName]);
 
   const codeSize = useMemo(() => new TextEncoder().encode(source).length, [source]);
-  const canShare = source.trim().length > 0 && codeSize <= 51_200 && !isSharing;
+  const shareLimitBytes = 51_200;
+  const canShare = source.trim().length > 0 && codeSize <= shareLimitBytes && !isSharing;
   const currentShareUrl =
     shareId && baseShareUrl ? buildShareUrl(baseShareUrl, shareId, shareMode) : '';
 
@@ -134,7 +159,6 @@ export function ShareDialog({
   const handleCreateShare = async () => {
     setError('');
     setIsSharing(true);
-    setCopied(false);
 
     try {
       const result = await createShare({
@@ -164,14 +188,12 @@ export function ShareDialog({
 
     try {
       await navigator.clipboard.writeText(currentShareUrl);
-      setCopied(true);
       analytics.track('share_link_copied', {
         mode: shareMode,
       });
     } catch {
       linkInputRef.current?.focus();
       linkInputRef.current?.select();
-      setCopied(false);
       setError('Copy the link above');
     }
   };
@@ -192,8 +214,12 @@ export function ShareDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <div
-          className="flex items-center justify-between px-6 py-4"
-          style={{ borderBottom: '1px solid var(--border-primary)' }}
+          className="flex items-center justify-between"
+          style={{
+            borderBottom: '1px solid var(--border-primary)',
+            padding: `var(--space-4) var(--space-dialog-padding-x)`,
+            gap: 'var(--space-control-gap)',
+          }}
         >
           <div className="flex items-center gap-2">
             <TbLink size={16} style={{ color: 'var(--accent-primary)' }} />
@@ -206,9 +232,17 @@ export function ShareDialog({
           </IconButton>
         </div>
 
-        <div className="space-y-4 px-6 py-5">
-          <div>
-            <Label htmlFor="share-title">Title</Label>
+        <div
+          className="flex flex-col"
+          style={{
+            gap: 'var(--space-section-gap)',
+            padding: `var(--space-dialog-padding-y) var(--space-dialog-padding-x)`,
+          }}
+        >
+          <div className="flex flex-col" style={{ gap: 'var(--space-label-gap)' }}>
+            <Label htmlFor="share-title" className="mb-0">
+              Title
+            </Label>
             <Input
               id="share-title"
               value={title}
@@ -217,24 +251,19 @@ export function ShareDialog({
             />
           </div>
 
-          <div
-            className="flex items-center justify-between rounded-lg px-3 py-2 text-sm"
-            style={{
-              backgroundColor: 'var(--bg-elevated)',
-              border: '1px solid var(--border-primary)',
-              color: codeSize > 51_200 ? 'var(--color-error)' : 'var(--text-secondary)',
-            }}
-          >
-            <span>Size</span>
-            <span>
-              {formatBytes(codeSize)} / {formatBytes(51_200)} max
-            </span>
-          </div>
-
-          <Text variant="caption" style={{ color: 'var(--text-secondary)' }}>
-            Anyone with this link will be able to view the design. They will open their own editable
-            copy, so they cannot change your original.
-          </Text>
+          {codeSize > shareLimitBytes ? (
+            <div
+              className="rounded-lg px-4 py-3 text-sm"
+              style={{
+                backgroundColor: 'rgba(220, 50, 47, 0.1)',
+                border: '1px solid rgba(220, 50, 47, 0.3)',
+                color: 'var(--color-error)',
+              }}
+            >
+              This design is too large to share right now. Reduce it below{' '}
+              {formatBytes(shareLimitBytes)}.
+            </div>
+          ) : null}
 
           {forkedFrom && (
             <div
@@ -245,7 +274,10 @@ export function ShareDialog({
                 color: 'var(--text-secondary)',
               }}
             >
-              <label className="flex items-center justify-between gap-3">
+              <label
+                className="flex items-center justify-between"
+                style={{ gap: 'var(--space-control-gap)' }}
+              >
                 <span>Attribute this share to the design you remixed</span>
                 <input
                   type="checkbox"
@@ -270,20 +302,38 @@ export function ShareDialog({
           )}
 
           {!shareId ? (
-            <Button
-              data-testid="share-create-button"
-              variant="primary"
-              onClick={handleCreateShare}
-              disabled={!canShare}
-              className="w-full"
-            >
-              {isSharing ? 'Creating link...' : 'Create Share Link'}
-            </Button>
+            <div className="flex flex-col" style={{ gap: 'var(--space-label-gap)' }}>
+              <Text variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                Anyone with this link will be able to view the design. They will open their own
+                editable copy, so they cannot change your original.
+              </Text>
+              <Button
+                data-testid="share-create-button"
+                variant="primary"
+                onClick={handleCreateShare}
+                disabled={!canShare}
+                className="w-full"
+              >
+                {isSharing ? 'Creating link...' : 'Create Share Link'}
+              </Button>
+            </div>
           ) : (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="share-link">Link</Label>
-                <div className="flex items-center gap-2">
+            <div className="flex flex-col" style={{ gap: 'var(--space-section-gap)' }}>
+              <div className="flex flex-col" style={{ gap: 'var(--space-label-gap)' }}>
+                <Label className="mb-0">Default View</Label>
+                <SegmentedControl
+                  aria-label="Default shared design view"
+                  options={SHARE_MODE_OPTIONS}
+                  value={shareMode}
+                  onChange={setShareMode}
+                />
+              </div>
+
+              <div className="flex flex-col" style={{ gap: 'var(--space-label-gap)' }}>
+                <Label htmlFor="share-link" className="mb-0">
+                  Link
+                </Label>
+                <div className="flex items-center" style={{ gap: 'var(--space-control-gap)' }}>
                   <Input
                     id="share-link"
                     ref={linkInputRef}
@@ -300,61 +350,22 @@ export function ShareDialog({
                     <TbCopy size={16} />
                   </IconButton>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Default View</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={shareMode === 'customizer' ? 'primary' : 'secondary'}
-                    onClick={() => setShareMode('customizer')}
-                    data-testid="share-mode-customizer"
-                  >
-                    Customizer
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={shareMode === 'editor' ? 'primary' : 'secondary'}
-                    onClick={() => setShareMode('editor')}
-                    data-testid="share-mode-editor"
-                  >
-                    Full Editor
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div
-                  className="flex items-center gap-2 text-sm"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  {copied ? <TbCheck size={16} style={{ color: 'var(--color-success)' }} /> : null}
-                  <span>
-                    {copied
-                      ? 'Link copied to clipboard'
-                      : 'Anyone with the link can view a copy without changing your original'}
-                  </span>
-                </div>
-
-                <a
-                  href={currentShareUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-sm"
-                  style={{ color: 'var(--accent-primary)' }}
-                >
-                  Open
-                  <TbExternalLink size={14} />
-                </a>
+                <Text variant="caption" style={{ color: 'var(--text-secondary)' }}>
+                  Anyone with this link will be able to view the design. They will open their own
+                  editable copy, so they cannot change your original.
+                </Text>
               </div>
             </div>
           )}
         </div>
 
         <div
-          className="flex items-center justify-end gap-2 px-6 py-3"
-          style={{ borderTop: '1px solid var(--border-primary)' }}
+          className="flex items-center justify-end"
+          style={{
+            borderTop: '1px solid var(--border-primary)',
+            gap: 'var(--space-dialog-footer-gap)',
+            padding: `var(--space-3) var(--space-dialog-padding-x)`,
+          }}
         >
           <Button variant="ghost" onClick={onClose} disabled={isSharing}>
             {shareId ? 'Done' : 'Cancel'}

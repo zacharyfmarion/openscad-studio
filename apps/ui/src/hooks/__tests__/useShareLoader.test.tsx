@@ -40,12 +40,12 @@ describe('useShareLoader', () => {
       thumbnailUrl: null,
     });
 
-    window.__SHARE_CONTEXT = { shareId: 'abc12345', mode: 'customizer' };
+    window.__SHARE_CONTEXT = { shareId: 'abc12345', mode: 'customizer-first' };
     window.history.replaceState({}, '', '/s/abc12345');
 
     render(<TestComponent />);
 
-    expect(screen.getByTestId('mode').textContent).toBe('customizer');
+    expect(screen.getByTestId('mode').textContent).toBe('customizer-first');
     await waitFor(() => {
       expect(screen.getByTestId('title').textContent).toBe('Test Share');
     });
@@ -57,7 +57,7 @@ describe('useShareLoader', () => {
     error.status = 404;
     mockGetShare.mockRejectedValue(error);
 
-    window.__SHARE_CONTEXT = { shareId: 'missing', mode: 'editor' };
+    window.__SHARE_CONTEXT = { shareId: 'missing', mode: 'default' };
 
     render(<TestComponent />);
 
@@ -69,7 +69,7 @@ describe('useShareLoader', () => {
   });
 
   it('stays idle when disabled', () => {
-    window.__SHARE_CONTEXT = { shareId: 'abc12345', mode: 'customizer' };
+    window.__SHARE_CONTEXT = { shareId: 'abc12345', mode: 'customizer-first' };
 
     render(<TestComponent enabled={false} />);
 

@@ -4,11 +4,34 @@
 
 /* Theme CSS Variables - Default (Solarized Dark) */
 :root {
+  /* Numeric spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Semantic spacing aliases */
+  --space-control-gap: var(--space-2);
+  --space-label-gap: var(--space-2);
+  --space-helper-gap: var(--space-1);
+  --space-field-gap: var(--space-4);
+  --space-section-gap: var(--space-5);
+  --space-dialog-padding-x: var(--space-6);
+  --space-dialog-padding-y: var(--space-6);
+  --space-dialog-footer-gap: var(--space-2);
+
   /* Radius scale */
-  --radius-md: 8px; /* interactive controls: buttons, inputs, selects */
-  --radius-lg: 12px; /* cards & panels */
-  --radius-xl: 16px; /* dialogs & prominent empty states */
-  --radius-full: 9999px; /* pills: toggles, badges */
+  --radius-md: 8px;
+  /* interactive controls: buttons, inputs, selects */
+  --radius-lg: 12px;
+  /* cards & panels */
+  --radius-xl: 16px;
+  /* dialogs & prominent empty states */
+  --radius-full: 9999px;
+  /* pills: toggles, badges */
 
   --bg-primary: #002b36;
   --bg-secondary: #073642;
@@ -83,6 +106,7 @@
   -webkit-appearance: none;
   margin: 0;
 }
+
 .customizer-number-input {
   -moz-appearance: textfield;
 }

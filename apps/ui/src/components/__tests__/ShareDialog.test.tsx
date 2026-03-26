@@ -75,9 +75,14 @@ describe('ShareDialog', () => {
       );
     });
 
-    fireEvent.click(screen.getByTestId('share-mode-editor'));
+    fireEvent.click(screen.getByTestId('share-mode-default'));
     expect((screen.getByTestId('share-link-input') as HTMLInputElement).value).toBe(
-      'http://localhost:3000/s/abc12345?mode=editor'
+      'http://localhost:3000/s/abc12345?mode=default'
+    );
+
+    fireEvent.click(screen.getByTestId('share-mode-ai-first'));
+    expect((screen.getByTestId('share-link-input') as HTMLInputElement).value).toBe(
+      'http://localhost:3000/s/abc12345?mode=ai-first'
     );
 
     await waitFor(() => {
@@ -87,5 +92,46 @@ describe('ShareDialog', () => {
         'thumbnail-token'
       );
     });
+  });
+
+  it('shows the share ownership explanation only once after link creation', async () => {
+    mockCreateShare.mockResolvedValue({
+      id: 'abc12345',
+      url: 'http://localhost:3000/s/abc12345',
+      thumbnailUploadToken: 'thumbnail-token',
+    });
+
+    render(
+      <ThemeProvider>
+        <ShareDialog
+          isOpen
+          onClose={() => {}}
+          source={'width = 10; // [5:20]\ncube([width, 10, 5]);'}
+          tabName="Bracket"
+          forkedFrom={null}
+          capturePreview={async () => 'data:image/png;base64,AAA='}
+          stlBlobUrl={null}
+          previewKind="mesh"
+        />
+      </ThemeProvider>
+    );
+
+    expect(
+      screen.getByText(
+        /Anyone with this link will be able to view the design\. They will open their own editable copy/i
+      )
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('share-create-button'));
+
+    await waitFor(() => {
+      expect((screen.getByTestId('share-link-input') as HTMLInputElement).value).toBe(
+        'http://localhost:3000/s/abc12345'
+      );
+    });
+
+    expect(
+      screen.queryByText(/Anyone with the link can view a copy without changing your original/i)
+    ).toBeNull();
   });
 });

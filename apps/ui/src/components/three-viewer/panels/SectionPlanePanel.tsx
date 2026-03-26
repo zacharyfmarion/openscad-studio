@@ -34,6 +34,7 @@ export function SectionPlanePanel({
       <SegmentedControl
         options={AXIS_OPTIONS}
         value={sectionState.axis}
+        size="sm"
         onChange={(axis) => {
           const bounds = getSectionAxisBounds(loadedModel.bounds, axis);
           onSectionStateChange({

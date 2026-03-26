@@ -44,9 +44,9 @@ test.describe('Share links', () => {
     await expect(app.page.getByTestId('share-link-input')).toHaveValue(
       `http://localhost:3000/s/${SHARE_ID}`
     );
-    await app.page.getByTestId('share-mode-editor').click();
+    await app.page.getByTestId('share-mode-default').click();
     await expect(app.page.getByTestId('share-link-input')).toHaveValue(
-      `http://localhost:3000/s/${SHARE_ID}?mode=editor`
+      `http://localhost:3000/s/${SHARE_ID}?mode=default`
     );
   });
 

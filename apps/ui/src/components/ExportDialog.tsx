@@ -100,7 +100,7 @@ export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
 
         <div className="px-6 py-5 space-y-4">
           <div>
-            <Label>Export Format</Label>
+            <Label className="mb-2">Export Format</Label>
             <Select
               value={format}
               onChange={(e) => setFormat(e.target.value as ExportFormat)}
