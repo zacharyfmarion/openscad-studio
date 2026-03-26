@@ -1592,7 +1592,13 @@ function App() {
 
         {isMobile && (
           <div className="flex items-center gap-2 px-3 flex-1">
-            <img src="/favicon-32x32.png" alt="OpenSCAD Studio" width={20} height={20} className="rounded" />
+            <img
+              src="/favicon-32x32.png"
+              alt="OpenSCAD Studio"
+              width={20}
+              height={20}
+              className="rounded"
+            />
             <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               OpenSCAD Studio
             </span>
