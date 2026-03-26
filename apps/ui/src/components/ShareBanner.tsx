@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { TbArrowUpRight, TbGitBranch, TbX } from 'react-icons/tb';
+import { useAnalytics } from '../analytics/runtime';
 import { getShare } from '../services/shareService';
 import type { ShareOrigin } from '../types/share';
 import { Button, IconButton } from './ui';
@@ -11,6 +12,7 @@ interface ShareBannerProps {
 }
 
 export function ShareBanner({ origin, onShareRemix, onDismiss }: ShareBannerProps) {
+  const analytics = useAnalytics();
   const [parentTitle, setParentTitle] = useState<string | null>(null);
 
   useEffect(() => {
@@ -72,7 +74,10 @@ export function ShareBanner({ origin, onShareRemix, onDismiss }: ShareBannerProp
           type="button"
           variant="secondary"
           size="sm"
-          onClick={onShareRemix}
+          onClick={() => {
+            analytics.track('share remix clicked');
+            onShareRemix();
+          }}
           data-testid="share-remix-button"
         >
           <span className="inline-flex items-center" style={{ gap: 'var(--space-1)' }}>
@@ -82,7 +87,10 @@ export function ShareBanner({ origin, onShareRemix, onDismiss }: ShareBannerProp
         </Button>
         <IconButton
           size="sm"
-          onClick={onDismiss}
+          onClick={() => {
+            analytics.track('share banner dismissed');
+            onDismiss();
+          }}
           aria-label="Dismiss shared design banner"
           data-testid="share-banner-dismiss"
         >

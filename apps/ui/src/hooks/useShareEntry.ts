@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useAnalytics } from '../analytics/runtime';
 import { getShare } from '../services/shareService';
 import { parseShareContext } from '../services/shareRouting';
 import { isShareEntryBlockingPhase, useShareEntryStore } from '../stores/shareEntryStore';
@@ -63,6 +64,7 @@ export function useShareEntry({
   const retryStore = useShareEntryStore((state) => state.retry);
   const skipStore = useShareEntryStore((state) => state.skip);
   const dismissBanner = useShareEntryStore((state) => state.dismissBanner);
+  const analytics = useAnalytics();
   const fetchTokenRef = useRef(0);
 
   useEffect(() => {
@@ -84,6 +86,10 @@ export function useShareEntry({
           return;
         }
 
+        analytics.track('share loaded', {
+          share_mode: context.mode,
+          has_forked_from: Boolean(nextShare.forkedFrom),
+        });
         setShareData(nextShare);
         startApplying();
         window.history.replaceState({}, document.title, '/');
@@ -93,13 +99,16 @@ export function useShareEntry({
           return;
         }
 
-        const message =
-          err instanceof Error && 'status' in err && err.status === 404
-            ? "This design doesn't exist or has been removed."
-            : "Couldn't load this design. Check your connection.";
+        const isNotFound = err instanceof Error && 'status' in err && err.status === 404;
+        analytics.track('share load failed', {
+          is_not_found: isNotFound,
+        });
+        const message = isNotFound
+          ? "This design doesn't exist or has been removed."
+          : "Couldn't load this design. Check your connection.";
         fail(message);
       });
-  }, [context, fail, phase, setShareData, startApplying, startFetching]);
+  }, [analytics, context, fail, phase, setShareData, startApplying, startFetching]);
 
   useEffect(() => {
     if (!context || !shareData || phase !== 'applying' || !renderReady) {

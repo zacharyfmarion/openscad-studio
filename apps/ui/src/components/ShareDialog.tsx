@@ -113,6 +113,7 @@ export function ShareDialog({
       return;
     }
 
+    analytics.track('share dialog opened');
     setTitle(getDefaultShareTitle(tabName));
     setShareMode('customizer-first');
     setIsSharing(false);
@@ -124,7 +125,7 @@ export function ShareDialog({
     if (copyTimeoutRef.current) {
       clearTimeout(copyTimeoutRef.current);
     }
-  }, [forkedFrom, isOpen, tabName]);
+  }, [analytics, forkedFrom, isOpen, tabName]);
 
   const codeSize = useMemo(() => new TextEncoder().encode(source).length, [source]);
   const shareLimitBytes = 51_200;
@@ -175,9 +176,10 @@ export function ShareDialog({
 
       setShareId(result.id);
       setBaseShareUrl(new URL(result.url).origin || getShareApiBase());
-      analytics.track('design_shared', {
+      analytics.track('design shared', {
         has_forked_from: Boolean(includeAttribution && forkedFrom),
         code_size_bytes: codeSize,
+        share_mode: shareMode,
       });
       void handleUploadThumbnail(result.id, result.thumbnailUploadToken);
     } catch (shareError) {
@@ -194,7 +196,7 @@ export function ShareDialog({
 
     try {
       await navigator.clipboard.writeText(currentShareUrl);
-      analytics.track('share_link_copied', {
+      analytics.track('share link copied', {
         mode: shareMode,
       });
       if (copyTimeoutRef.current) {
@@ -337,7 +339,10 @@ export function ShareDialog({
                   aria-label="Default shared design view"
                   options={SHARE_MODE_OPTIONS}
                   value={shareMode}
-                  onChange={setShareMode}
+                  onChange={(next) => {
+                    analytics.track('share mode changed', { mode: next, previous_mode: shareMode });
+                    setShareMode(next);
+                  }}
                 />
               </div>
 
