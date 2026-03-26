@@ -1590,7 +1590,14 @@ function App() {
           </div>
         )}
 
-        {isMobile && <div className="flex-1" />}
+        {isMobile && (
+          <div className="flex items-center gap-2 px-3 flex-1">
+            <img src="/favicon-32x32.png" alt="OpenSCAD Studio" width={20} height={20} />
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              OpenSCAD Studio
+            </span>
+          </div>
+        )}
 
         {!capabilities.hasNativeMenu && !isMobile && <DownloadForMacLink />}
 
