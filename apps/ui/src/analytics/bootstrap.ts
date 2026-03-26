@@ -1,6 +1,7 @@
 import type { PlatformCapabilities } from '../platform';
 import { APP_VERSION } from '../constants/appInfo';
 import { scrubAndFilterEvent } from './sanitize';
+import { getOrCreateStableId } from './stableId';
 
 export type RuntimeSurface = 'web' | 'desktop';
 
@@ -8,6 +9,7 @@ export interface PostHogClientLike {
   init: (token: string, config: Record<string, unknown>) => void;
   capture: (eventName: string, properties?: Record<string, unknown>) => void;
   register: (properties: Record<string, unknown>) => void;
+  identify: (distinctId: string) => void;
   opt_in_capturing: (options?: Record<string, unknown>) => void;
   opt_out_capturing: () => void;
 }
@@ -101,6 +103,7 @@ export function initializePostHog(
   client.register(getBootstrapSharedProperties(options));
   if (options.analyticsEnabled) {
     client.opt_in_capturing({ captureEventName: false });
+    client.identify(getOrCreateStableId());
   } else {
     client.opt_out_capturing();
   }

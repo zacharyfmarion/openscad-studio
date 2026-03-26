@@ -6,6 +6,8 @@ import { createAnalyticsApi, resetAnalyticsErrorDedupeForTests } from '../runtim
 function createClient() {
   return {
     capture: jest.fn(),
+    identify: jest.fn(),
+    reset: jest.fn(),
     opt_in_capturing: jest.fn(),
     opt_out_capturing: jest.fn(),
     register: jest.fn(),

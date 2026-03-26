@@ -14,6 +14,7 @@ import { useHasApiKey } from '../stores/apiKeyStore';
 import { useSettings } from '../stores/settingsStore';
 import { type RuntimeSurface } from './bootstrap';
 import { sanitizeAnalyticsProperties } from './sanitize';
+import { clearStableId, getOrCreateStableId } from './stableId';
 
 export type RenderTrigger =
   | 'initial'
@@ -58,6 +59,8 @@ export interface AnalyticsApi {
 
 interface PostHogCaptureClient {
   capture: (eventName: string, properties?: Record<string, unknown>) => void;
+  identify: (distinctId: string) => void;
+  reset: () => void;
   opt_in_capturing: (options?: Record<string, unknown>) => void;
   opt_out_capturing: () => void;
   register: (properties: Record<string, unknown>) => void;
@@ -227,6 +230,7 @@ export function createAnalyticsApi(options: {
 
       if (enabled) {
         client.opt_in_capturing({ captureEventName: false });
+        client.identify(getOrCreateStableId());
         if (runtimeOptions?.capturePreferenceChange) {
           client.capture(
             'analytics preference changed',
@@ -248,6 +252,8 @@ export function createAnalyticsApi(options: {
             })
           );
         }
+        clearStableId();
+        client.reset();
         client.opt_out_capturing();
       }
 
