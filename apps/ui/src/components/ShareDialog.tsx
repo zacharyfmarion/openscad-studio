@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { TbCopy, TbLink, TbX } from 'react-icons/tb';
+import { TbCheck, TbCopy, TbLink, TbX } from 'react-icons/tb';
 import { useAnalytics } from '../analytics/runtime';
 import type { RenderKind } from '../hooks/useOpenScad';
 import { captureOffscreen } from '../services/offscreenRenderer';
@@ -104,6 +104,8 @@ export function ShareDialog({
   const [shareId, setShareId] = useState<string | null>(null);
   const [baseShareUrl, setBaseShareUrl] = useState<string | null>(null);
   const [includeAttribution, setIncludeAttribution] = useState(Boolean(forkedFrom));
+  const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const linkInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -118,6 +120,10 @@ export function ShareDialog({
     setShareId(null);
     setBaseShareUrl(null);
     setIncludeAttribution(Boolean(forkedFrom));
+    setCopied(false);
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current);
+    }
   }, [forkedFrom, isOpen, tabName]);
 
   const codeSize = useMemo(() => new TextEncoder().encode(source).length, [source]);
@@ -191,6 +197,11 @@ export function ShareDialog({
       analytics.track('share_link_copied', {
         mode: shareMode,
       });
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+      setCopied(true);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       linkInputRef.current?.focus();
       linkInputRef.current?.select();
@@ -302,7 +313,7 @@ export function ShareDialog({
           )}
 
           {!shareId ? (
-            <div className="flex flex-col" style={{ gap: 'var(--space-label-gap)' }}>
+            <div className="flex flex-col" style={{ gap: 'var(--space-4)' }}>
               <Text variant="caption" style={{ color: 'var(--text-secondary)' }}>
                 Anyone with this link will be able to view the design. They will open their own
                 editable copy, so they cannot change your original.
@@ -310,6 +321,7 @@ export function ShareDialog({
               <Button
                 data-testid="share-create-button"
                 variant="primary"
+                size="lg"
                 onClick={handleCreateShare}
                 disabled={!canShare}
                 className="w-full"
@@ -329,26 +341,41 @@ export function ShareDialog({
                 />
               </div>
 
-              <div className="flex flex-col" style={{ gap: 'var(--space-label-gap)' }}>
-                <Label htmlFor="share-link" className="mb-0">
-                  Link
-                </Label>
-                <div className="flex items-center" style={{ gap: 'var(--space-control-gap)' }}>
-                  <Input
-                    id="share-link"
-                    ref={linkInputRef}
-                    readOnly
-                    value={currentShareUrl}
-                    data-testid="share-link-input"
-                  />
-                  <IconButton
-                    data-testid="share-copy-button"
-                    size="sm"
-                    onClick={handleCopyLink}
-                    title="Copy link"
-                  >
-                    <TbCopy size={16} />
-                  </IconButton>
+              <div className="flex flex-col" style={{ gap: 'var(--space-4)' }}>
+                <div className="flex flex-col" style={{ gap: 'var(--space-label-gap)' }}>
+                  <Label htmlFor="share-link" className="mb-0">
+                    Link
+                  </Label>
+                  <div className="flex items-center" style={{ gap: 'var(--space-control-gap)' }}>
+                    <Input
+                      id="share-link"
+                      ref={linkInputRef}
+                      readOnly
+                      value={currentShareUrl}
+                      data-testid="share-link-input"
+                    />
+                    <IconButton
+                      data-testid="share-copy-button"
+                      size="sm"
+                      onClick={handleCopyLink}
+                      title={copied ? 'Copied!' : 'Copy link'}
+                      style={
+                        copied
+                          ? { color: 'var(--accent-primary)', transition: 'color 0.3s' }
+                          : { transition: 'color 0.3s' }
+                      }
+                    >
+                      <span
+                        key={copied ? 'check' : 'copy'}
+                        style={{
+                          display: 'flex',
+                          animation: 'scaleIn 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                        }}
+                      >
+                        {copied ? <TbCheck size={16} /> : <TbCopy size={16} />}
+                      </span>
+                    </IconButton>
+                  </div>
                 </div>
                 <Text variant="caption" style={{ color: 'var(--text-secondary)' }}>
                   Anyone with this link will be able to view the design. They will open their own
