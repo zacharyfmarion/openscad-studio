@@ -116,6 +116,7 @@ export function EditorSettings({
             <Toggle
               checked={settings.editor.vimMode}
               onChange={(e) => onEditorChange('vimMode', e.target.checked)}
+              data-testid="vim-mode-toggle"
             />
           }
         />
