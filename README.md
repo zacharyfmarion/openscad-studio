@@ -62,68 +62,11 @@ Or download the latest DMG from [GitHub Releases](https://github.com/zacharyfmar
 
 ### Development
 
-```bash
-# Install dependencies
-pnpm install
-
-# Run web version in development mode
-pnpm web:dev
-
-# Run desktop version in development mode (requires Rust toolchain)
-pnpm tauri:dev
-
-# Build for production
-pnpm web:build    # Web
-pnpm tauri:build  # Desktop
-```
-
-Desktop development requires the [Rust toolchain](https://rustup.rs/). Web development only needs Node.js 18+ and pnpm.
-
-## 🏗️ Project Structure
-
-```
-openscad-studio/
-├── apps/
-│   ├── ui/                      # Desktop app (Tauri + React)
-│   │   ├── src/                 # Shared React frontend
-│   │   │   ├── components/      # React components
-│   │   │   ├── hooks/           # Custom React hooks
-│   │   │   ├── platform/        # Platform abstraction layer
-│   │   │   │   ├── types.ts     # PlatformBridge interface
-│   │   │   │   ├── tauriBridge.ts # Desktop implementation
-│   │   │   │   └── webBridge.ts # Web implementation
-│   │   │   ├── services/        # OpenSCAD WASM worker, render service, AI service
-│   │   │   ├── stores/          # Zustand state management
-│   │   │   └── themes/          # 22+ editor themes
-│   │   └── src-tauri/           # Rust backend (desktop only)
-│   └── web/                     # Web app entry point (Vite)
-└── packages/
-    └── shared/                  # Shared TypeScript types
-```
-
-## 🤖 AI Copilot Setup
-
-The AI copilot uses the [Vercel AI SDK](https://sdk.vercel.ai/) with streaming support. AI requests are made client-side in both the web app and the Tauri desktop app, and API keys are currently stored in local storage state inside the browser/webview. This is a convenience tradeoff, not backend-style secret isolation.
-
-1. Open Settings (⌘,)
-2. Navigate to "AI" tab
-3. Enter your Anthropic / OpenAI API key
-
-**Supported Providers:**
-All models from the following providers are supported:
-
-- Anthropic
-- OpenAI
-
-The AI can:
-
-- View your current code and preview
-- Make targeted code changes
-- Check for compilation errors
-- Generate new OpenSCAD designs from natural language
+Local setup, share-feature testing, project structure, AI setup, and contributor-facing references now live in [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## 📚 Documentation
 
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Local setup, share testing, project structure, and contributor references
 - **[CLAUDE.md](CLAUDE.md)** - Comprehensive guide for AI assistants and contributors
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Web + desktop architecture design
 - **[engineering-roadmap.md](engineering-roadmap.md)** - Detailed development roadmap with phases

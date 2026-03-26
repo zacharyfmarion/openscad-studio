@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "share:build": "VITE_ENABLE_PROD_SHARE_DEV=true VITE_SHARE_API_URL=http://localhost:8788 pnpm build",
+    "share:dev": "pnpm share:build && npx -y wrangler@3 pages dev dist --port 8788 --kv SHARE_KV --r2 SHARE_R2 --persist-to .wrangler/state/share-dev",
     "preview": "vite preview"
   },
   "dependencies": {

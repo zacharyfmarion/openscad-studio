@@ -50,6 +50,7 @@ export interface WorkspaceStoreActions {
   ) => void;
   closeTabLocal: (id: TabId) => void;
   replaceWelcomeTab: (args: { filePath: string | null; name: string; content: string }) => TabId;
+  openSharedDocument: (args: { name: string; content: string }) => TabId;
   reorderTabs: (tabIdsInOrder: TabId[]) => void;
   beginTabRender: (id: TabId, args?: { preferredDimension?: WorkspaceDimensionMode }) => number;
   commitTabRenderResult: (

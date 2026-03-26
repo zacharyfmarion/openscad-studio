@@ -29,6 +29,7 @@ export interface WorkspaceState {
   isRendering: boolean;
   error: string | undefined;
   renderReady: boolean;
+  onPreviewVisualReady?: () => void;
 
   // AI
   isStreaming: boolean;

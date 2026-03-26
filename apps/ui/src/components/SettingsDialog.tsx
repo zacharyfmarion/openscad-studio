@@ -1,21 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  loadSettings,
-  saveSettings,
-  getDefaultVimConfig,
-  type Settings,
-} from '../stores/settingsStore';
-import { getAvailableThemes, getTheme } from '../themes';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { loadSettings, saveSettings, type Settings } from '../stores/settingsStore';
 import { useTheme } from '../contexts/ThemeContext';
 import {
   useAnalytics,
   type LayoutSelectionSource,
   type ViewerPreferenceKey,
 } from '../analytics/runtime';
-import { Button, IconButton, Input, Select, Label, Toggle, Text } from './ui';
-import { Editor as MonacoEditor } from '@monaco-editor/react';
-import type * as Monaco from 'monaco-editor';
-import { registerVimConfigLanguage } from '../languages/vimConfigLanguage';
+import { Button, IconButton, Text } from './ui';
 import {
   TbPalette,
   TbBox,
@@ -23,41 +14,22 @@ import {
   TbSparkles,
   TbX,
   TbBooks,
-  TbPlus,
-  TbTrash,
-  TbFolderOpen,
   TbShield,
-  TbRefresh,
   TbRuler,
 } from 'react-icons/tb';
-import {
-  storeApiKey as storeApiKeyToStorage,
-  clearApiKey as clearApiKeyFromStorage,
-  hasApiKeyForProvider,
-  getAvailableProviders as getAvailableProvidersFromStore,
-} from '../stores/apiKeyStore';
 import { getPlatform } from '../platform';
 import { applyWorkspacePreset } from '../stores/layoutStore';
-import { notifyError, notifySuccess } from '../utils/notifications';
-
-interface SettingsDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  initialTab?: SettingsSection;
-}
-
-function saveVimConfigIfChanged(localVimConfig: string, currentSettings: Settings) {
-  if (localVimConfig !== currentSettings.editor.vimConfig) {
-    const updated = {
-      ...currentSettings,
-      editor: {
-        ...currentSettings.editor,
-        vimConfig: localVimConfig,
-      },
-    };
-    saveSettings(updated);
-  }
-}
+import { notifyError } from '../utils/notifications';
+import {
+  AppearanceSettings,
+  ViewerSettings,
+  ProjectSettings,
+  EditorSettings,
+  PrivacySettings,
+  LibrariesSettings,
+  AiSettings,
+} from './settings';
+import type { AiSettingsHandle } from './settings/AiSettings';
 
 export type SettingsSection =
   | 'appearance'
@@ -67,171 +39,142 @@ export type SettingsSection =
   | 'ai'
   | 'libraries'
   | 'project';
-type EditorSubTab = 'general' | 'vim';
+
+interface SettingsDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialTab?: SettingsSection;
+}
+
+function saveVimConfig(localVimConfig: string, currentSettings: Settings) {
+  if (localVimConfig !== currentSettings.editor.vimConfig) {
+    const updated = {
+      ...currentSettings,
+      editor: { ...currentSettings.editor, vimConfig: localVimConfig },
+    };
+    saveSettings(updated);
+  }
+}
 
 export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialTab ?? 'appearance');
-  const [editorSubTab, setEditorSubTab] = useState<EditorSubTab>('general');
   const [settings, setSettings] = useState<Settings>(loadSettings());
   const [autoDiscoveredPaths, setAutoDiscoveredPaths] = useState<string[]>([]);
-  const { updateTheme } = useTheme();
-  const availableThemes = getAvailableThemes();
-  const vimEditorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
-
-  // Local vim config state (not saved to settings until dialog closes)
   const [localVimConfig, setLocalVimConfig] = useState<string>(settings.editor.vimConfig);
 
-  // AI Settings
-  const [provider, setProvider] = useState<'anthropic' | 'openai'>('anthropic');
-  const [apiKey, setApiKey] = useState('');
-  const [hasAnthropicKey, setHasAnthropicKey] = useState(false);
-  const [hasOpenAIKey, setHasOpenAIKey] = useState(false);
-  const [isLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showKey, setShowKey] = useState(false);
-  const lastTrackedSectionRef = useRef<SettingsSection | null>(null);
+  const [aiCanSave, setAiCanSave] = useState(false);
+  const aiRef = useRef<AiSettingsHandle>(null);
+
+  const { updateTheme } = useTheme();
   const analytics = useAnalytics();
-
-  const loadAISettings = useCallback(() => {
-    const availableProviders = getAvailableProvidersFromStore();
-    setHasAnthropicKey(availableProviders.includes('anthropic'));
-    setHasOpenAIKey(availableProviders.includes('openai'));
-
-    const hasCurrentKey = hasApiKeyForProvider(provider);
-    if (hasCurrentKey) {
-      setApiKey('••••••••••••••••••••••••••••••••••••••••••••');
-    } else {
-      setApiKey('');
-    }
-  }, [provider]);
+  const lastTrackedSectionRef = { current: null as SettingsSection | null };
 
   useEffect(() => {
     if (isOpen) {
-      const loadedSettings = loadSettings();
-      setSettings(loadedSettings);
-      setLocalVimConfig(loadedSettings.editor.vimConfig);
-      loadAISettings();
+      const loaded = loadSettings();
+      setSettings(loaded);
+      setLocalVimConfig(loaded.editor.vimConfig);
       if (initialTab) setActiveSection(initialTab);
       getPlatform().getLibraryPaths().then(setAutoDiscoveredPaths);
       lastTrackedSectionRef.current = null;
     }
-  }, [isOpen, initialTab, loadAISettings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialTab]);
 
   useEffect(() => {
-    if (!isOpen) {
-      lastTrackedSectionRef.current = null;
-      return;
-    }
-
+    if (!isOpen) return;
     if (activeSection === 'ai' && lastTrackedSectionRef.current !== 'ai') {
       analytics.track('ai settings opened', {
         source_surface: initialTab === 'ai' ? 'unknown' : 'ai_panel',
       });
     }
-
     lastTrackedSectionRef.current = activeSection;
-  }, [activeSection, analytics, initialTab, isOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection, isOpen]);
 
-  const handleAppearanceSettingChange = <K extends keyof Settings['appearance']>(
-    key: K,
-    value: Settings['appearance'][K]
-  ) => {
-    const updated = {
-      ...settings,
-      appearance: {
-        ...settings.appearance,
-        [key]: value,
-      },
-    };
-    setSettings(updated);
-    saveSettings(updated);
+  const handleAppearanceChange = useCallback(
+    <K extends keyof Settings['appearance']>(key: K, value: Settings['appearance'][K]) => {
+      const updated = { ...settings, appearance: { ...settings.appearance, [key]: value } };
+      setSettings(updated);
+      saveSettings(updated);
+      if (key === 'theme') updateTheme(value as string);
+    },
+    [settings, updateTheme]
+  );
 
-    if (key === 'theme') {
-      updateTheme(value as string);
-    }
-  };
+  const handleEditorChange = useCallback(
+    <K extends keyof Settings['editor']>(key: K, value: Settings['editor'][K]) => {
+      const updated = { ...settings, editor: { ...settings.editor, [key]: value } };
+      setSettings(updated);
+      saveSettings(updated);
+    },
+    [settings]
+  );
 
-  const handleEditorSettingChange = <K extends keyof Settings['editor']>(
-    key: K,
-    value: Settings['editor'][K]
-  ) => {
-    const updated = {
-      ...settings,
-      editor: {
-        ...settings.editor,
-        [key]: value,
-      },
-    };
-    setSettings(updated);
-    saveSettings(updated);
-  };
+  const handleViewerChange = useCallback(
+    <K extends keyof Settings['viewer']>(key: K, value: Settings['viewer'][K]) => {
+      const updated = { ...settings, viewer: { ...settings.viewer, [key]: value } };
+      setSettings(updated);
+      saveSettings(updated);
 
-  const handleViewerSettingChange = <K extends keyof Settings['viewer']>(
-    key: K,
-    value: Settings['viewer'][K]
-  ) => {
-    const updated = {
-      ...settings,
-      viewer: {
-        ...settings.viewer,
-        [key]: value,
-      },
-    };
-    setSettings(updated);
-    saveSettings(updated);
+      if (key === 'measurementUnit') {
+        analytics.track('viewer preference changed', {
+          setting: 'measurement_unit' satisfies ViewerPreferenceKey,
+          value,
+        });
+      }
+      if (key === 'measurementSnapEnabled') {
+        analytics.track('viewer preference changed', {
+          setting: 'measurement_snap_enabled' satisfies ViewerPreferenceKey,
+          enabled: value,
+        });
+      }
+    },
+    [settings, analytics]
+  );
 
-    if (key === 'measurementUnit') {
-      analytics.track('viewer preference changed', {
-        setting: 'measurement_unit' satisfies ViewerPreferenceKey,
-        value,
-      });
-    }
+  const handleDefaultLayoutChange = useCallback(
+    (preset: Settings['ui']['defaultLayoutPreset']) => {
+      const changed = settings.ui.defaultLayoutPreset !== preset;
+      const updated = { ...settings, ui: { ...settings.ui, defaultLayoutPreset: preset } };
+      setSettings(updated);
+      saveSettings(updated);
+      if (changed) {
+        analytics.track('workspace layout selected', {
+          preset,
+          source: 'settings' satisfies LayoutSelectionSource,
+          is_first_run: false,
+        });
+      }
+      applyWorkspacePreset(preset);
+    },
+    [settings, analytics]
+  );
 
-    if (key === 'measurementSnapEnabled') {
-      analytics.track('viewer preference changed', {
-        setting: 'measurement_snap_enabled' satisfies ViewerPreferenceKey,
-        enabled: value,
-      });
-    }
-  };
+  const handlePrivacyChange = useCallback(
+    <K extends keyof Settings['privacy']>(key: K, value: Settings['privacy'][K]) => {
+      const updated = { ...settings, privacy: { ...settings.privacy, [key]: value } };
+      setSettings(updated);
+      saveSettings(updated);
+    },
+    [settings]
+  );
 
-  const handleLibrarySettingChange = <K extends keyof Settings['library']>(
-    key: K,
-    value: Settings['library'][K]
-  ) => {
-    const updated = {
-      ...settings,
-      library: {
-        ...settings.library,
-        [key]: value,
-      },
-    };
-    setSettings(updated);
-    saveSettings(updated);
-  };
+  const handleLibraryChange = useCallback(
+    <K extends keyof Settings['library']>(key: K, value: Settings['library'][K]) => {
+      const updated = { ...settings, library: { ...settings.library, [key]: value } };
+      setSettings(updated);
+      saveSettings(updated);
+    },
+    [settings]
+  );
 
-  const handlePrivacySettingChange = <K extends keyof Settings['privacy']>(
-    key: K,
-    value: Settings['privacy'][K]
-  ) => {
-    const updated = {
-      ...settings,
-      privacy: {
-        ...settings.privacy,
-        [key]: value,
-      },
-    };
-    setSettings(updated);
-    saveSettings(updated);
-  };
-
-  const handleAddLibraryPath = async () => {
+  const handleAddLibraryPath = useCallback(async () => {
     try {
       const path = await getPlatform().pickDirectory();
       if (path) {
         if (settings.library.customPaths.includes(path)) return;
-        const updatedPaths = [...settings.library.customPaths, path];
-        handleLibrarySettingChange('customPaths', updatedPaths);
+        handleLibraryChange('customPaths', [...settings.library.customPaths, path]);
       }
     } catch (err) {
       notifyError({
@@ -242,90 +185,22 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
         logLabel: '[SettingsDialog] Failed to add library path',
       });
     }
-  };
+  }, [settings, handleLibraryChange]);
 
-  const handleRemoveLibraryPath = (pathToRemove: string) => {
-    const updatedPaths = settings.library.customPaths.filter((p) => p !== pathToRemove);
-    handleLibrarySettingChange('customPaths', updatedPaths);
-  };
+  const handleRemoveLibraryPath = useCallback(
+    (pathToRemove: string) => {
+      handleLibraryChange(
+        'customPaths',
+        settings.library.customPaths.filter((p) => p !== pathToRemove)
+      );
+    },
+    [settings, handleLibraryChange]
+  );
 
-  const handleSave = () => {
-    if (!apiKey.trim() || apiKey.startsWith('•')) {
-      setError('Please enter a valid API key');
-      return;
-    }
-
-    setError(null);
-
-    try {
-      storeApiKeyToStorage(provider, apiKey);
-      analytics.track('api key saved', {
-        provider,
-      });
-      notifySuccess(`${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key saved`, {
-        toastId: `save-api-key-${provider}`,
-      });
-
-      if (provider === 'anthropic') {
-        setHasAnthropicKey(true);
-      } else {
-        setHasOpenAIKey(true);
-      }
-
-      setApiKey('••••••••••••••••••••••••••••••••••••••••••••');
-      setShowKey(false);
-    } catch (err) {
-      notifyError({
-        operation: 'save-api-key',
-        error: err,
-        fallbackMessage: 'Failed to save API key',
-        toastId: `save-api-key-error-${provider}`,
-        logLabel: '[SettingsDialog] Failed to save API key',
-      });
-    }
-  };
-
-  const handleClear = async () => {
-    const confirmed = await getPlatform().confirm(
-      `Are you sure you want to remove your ${provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key?`,
-      { title: 'Remove API Key', kind: 'warning', okLabel: 'Remove', cancelLabel: 'Cancel' }
-    );
-    if (!confirmed) return;
-
-    setError(null);
-
-    try {
-      clearApiKeyFromStorage(provider);
-      analytics.track('api key cleared', {
-        provider,
-      });
-      notifySuccess('API key cleared', {
-        toastId: `clear-api-key-${provider}`,
-      });
-
-      if (provider === 'anthropic') {
-        setHasAnthropicKey(false);
-      } else {
-        setHasOpenAIKey(false);
-      }
-
-      setApiKey('');
-    } catch (err) {
-      notifyError({
-        operation: 'clear-api-key',
-        error: err,
-        fallbackMessage: 'Failed to clear API key',
-        toastId: `clear-api-key-error-${provider}`,
-        logLabel: '[SettingsDialog] Failed to clear API key',
-      });
-    }
-  };
-
-  const handleClose = () => {
-    // Save vim config changes before closing
-    saveVimConfigIfChanged(localVimConfig, settings);
+  const handleClose = useCallback(() => {
+    saveVimConfig(localVimConfig, settings);
     onClose();
-  };
+  }, [localVimConfig, settings, onClose]);
 
   if (!isOpen) return null;
 
@@ -342,6 +217,16 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
       : []),
     { key: 'ai', label: 'AI Assistant', icon: <TbSparkles size={16} /> },
   ];
+
+  const sectionTitle: Record<SettingsSection, string> = {
+    appearance: 'Appearance',
+    viewer: 'Viewer',
+    editor: 'Editor',
+    project: 'Project',
+    privacy: 'Privacy',
+    libraries: 'Libraries',
+    ai: 'AI Assistant',
+  };
 
   return (
     <div
@@ -365,7 +250,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
             borderRight: '1px solid var(--border-primary)',
           }}
         >
-          <div className="px-5 py-5">
+          <div style={{ padding: 'var(--space-dialog-padding-y) var(--space-5)' }}>
             <Text
               variant="section-heading"
               as="h2"
@@ -375,12 +260,13 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
               Settings
             </Text>
           </div>
-          <nav className="flex-1 px-3 space-y-1">
+          <nav className="flex-1 px-3 flex flex-col" style={{ gap: 'var(--space-1)' }}>
             {/* eslint-disable no-restricted-syntax -- nav items need imperative onMouseEnter/Leave to swap bg/color without extra state; <Button> doesn't expose those overrides cleanly */}
             {navItems.map((item) => (
               <button
                 key={item.key}
                 type="button"
+                data-testid={`settings-nav-${item.key}`}
                 onClick={() => setActiveSection(item.key)}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150"
                 style={{
@@ -415,23 +301,14 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
           <div
-            className="flex items-center justify-between px-6 py-4 shrink-0"
-            style={{ borderBottom: '1px solid var(--border-primary)' }}
+            className="flex items-center justify-between shrink-0"
+            style={{
+              borderBottom: '1px solid var(--border-primary)',
+              padding: `var(--space-4) var(--space-dialog-padding-x)`,
+            }}
           >
             <Text variant="section-heading" weight="medium" color="tertiary">
-              {activeSection === 'appearance'
-                ? 'Appearance'
-                : activeSection === 'viewer'
-                  ? 'Viewer'
-                  : activeSection === 'editor'
-                    ? 'Editor'
-                    : activeSection === 'project'
-                      ? 'Project'
-                      : activeSection === 'privacy'
-                        ? 'Privacy'
-                        : activeSection === 'libraries'
-                          ? 'Libraries'
-                          : 'AI Assistant'}
+              {sectionTitle[activeSection]}
             </Text>
             <IconButton
               size="sm"
@@ -444,1367 +321,63 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div
+            className="flex-1 overflow-y-auto"
+            style={{ padding: `var(--space-dialog-padding-y) var(--space-dialog-padding-x)` }}
+          >
             {activeSection === 'appearance' && (
-              <div className="space-y-6">
-                <div>
-                  <Label>Default Layout</Label>
-                  <Text variant="caption" color="tertiary" className="mb-4">
-                    Choose which panel arrangement to use as your default workspace
-                  </Text>
-                  {/* eslint-disable no-restricted-syntax -- layout preset cards need imperative onMouseEnter/Leave hover-lift; <Button> doesn't support the translateY style mutation needed here */}
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {[
-                      { preset: 'default' as const, label: 'Editor First' },
-                      { preset: 'ai-first' as const, label: 'AI First' },
-                      { preset: 'customizer-first' as const, label: 'Customizer First' },
-                    ].map(({ preset, label }) => {
-                      const isActive = settings.ui.defaultLayoutPreset === preset;
-                      return (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => {
-                            const changed = settings.ui.defaultLayoutPreset !== preset;
-                            const updated = {
-                              ...settings,
-                              ui: { ...settings.ui, defaultLayoutPreset: preset },
-                            };
-                            setSettings(updated);
-                            saveSettings(updated);
-                            if (changed) {
-                              analytics.track('workspace layout selected', {
-                                preset,
-                                source: 'settings' satisfies LayoutSelectionSource,
-                                is_first_run: false,
-                              });
-                            }
-                            applyWorkspacePreset(preset);
-                          }}
-                          className="rounded-lg p-3 text-left transition-all duration-150"
-                          style={{
-                            backgroundColor: 'var(--bg-primary)',
-                            border: isActive
-                              ? '2px solid var(--accent-primary)'
-                              : '1px solid var(--border-primary)',
-                            padding: isActive ? 'calc(0.75rem - 1px)' : undefined,
-                            boxShadow: isActive ? '0 0 0 1px var(--accent-primary)' : undefined,
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isActive) {
-                              e.currentTarget.style.transform = 'translateY(-1px)';
-                              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isActive) {
-                              e.currentTarget.style.transform = 'none';
-                              e.currentTarget.style.boxShadow = 'none';
-                            }
-                          }}
-                        >
-                          <span
-                            className="text-sm"
-                            style={{
-                              color: 'var(--text-primary)',
-                              fontWeight: isActive ? 600 : 400,
-                            }}
-                          >
-                            {label}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {/* eslint-enable no-restricted-syntax */}
-                  <div className="mt-3 flex items-center justify-between">
-                    <Text variant="caption" color="tertiary">
-                      Restore the current workspace to its default panel arrangement
-                    </Text>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => {
-                        analytics.track('workspace layout selected', {
-                          preset: settings.ui.defaultLayoutPreset,
-                          source: 'layout_reset' satisfies LayoutSelectionSource,
-                          is_first_run: false,
-                        });
-                        applyWorkspacePreset(settings.ui.defaultLayoutPreset);
-                      }}
-                      className="ml-4 shrink-0 inline-flex items-center gap-1.5 text-xs"
-                    >
-                      <TbRefresh size={14} />
-                      Reset layout
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Theme</Label>
-                  <Text variant="caption" color="tertiary" className="mb-4">
-                    Choose a color theme for the entire application
-                  </Text>
-                  {availableThemes.map((section) => (
-                    <div key={section.category} className="mb-4">
-                      <div
-                        className="text-xs font-semibold uppercase tracking-wider mb-2"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
-                        {section.category}
-                      </div>
-                      {/* eslint-disable no-restricted-syntax -- theme picker cards need onMouseEnter/Leave hover-lift effect; <Button> doesn't support imperative hover style mutations */}
-                      <div className="grid grid-cols-2 gap-2">
-                        {section.themes.map((t) => {
-                          const themeData = getTheme(t.id);
-                          const isSelected = settings.appearance.theme === t.id;
-                          return (
-                            <button
-                              key={t.id}
-                              type="button"
-                              onClick={() => handleAppearanceSettingChange('theme', t.id)}
-                              className="flex flex-col rounded-lg p-2.5 text-left transition-all duration-150"
-                              style={{
-                                backgroundColor: 'var(--bg-primary)',
-                                border: isSelected
-                                  ? '2px solid var(--accent-primary)'
-                                  : '1px solid var(--border-primary)',
-                                padding: isSelected ? 'calc(0.625rem - 1px)' : undefined,
-                                boxShadow: isSelected
-                                  ? '0 0 0 1px var(--accent-primary)'
-                                  : undefined,
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!isSelected) {
-                                  e.currentTarget.style.transform = 'translateY(-1px)';
-                                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!isSelected) {
-                                  e.currentTarget.style.transform = 'none';
-                                  e.currentTarget.style.boxShadow = 'none';
-                                }
-                              }}
-                            >
-                              <span
-                                className="text-xs mb-1.5 truncate w-full"
-                                style={{
-                                  color: 'var(--text-primary)',
-                                  fontWeight: isSelected ? 600 : 400,
-                                }}
-                              >
-                                {t.name}
-                              </span>
-                              <div className="flex h-3 rounded-sm overflow-hidden w-full">
-                                <div
-                                  className="flex-1"
-                                  style={{ background: themeData.colors.bg.primary }}
-                                />
-                                <div
-                                  className="flex-1"
-                                  style={{ background: themeData.colors.accent.primary }}
-                                />
-                                <div
-                                  className="flex-1"
-                                  style={{ background: themeData.colors.text.primary }}
-                                />
-                                <div
-                                  className="flex-1"
-                                  style={{ background: themeData.colors.bg.secondary }}
-                                />
-                                <div
-                                  className="flex-1"
-                                  style={{ background: themeData.colors.semantic.error }}
-                                />
-                                <div
-                                  className="flex-1"
-                                  style={{ background: themeData.colors.semantic.success }}
-                                />
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {/* eslint-enable no-restricted-syntax */}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <AppearanceSettings
+                settings={settings}
+                onAppearanceChange={handleAppearanceChange}
+                onDefaultLayoutChange={handleDefaultLayoutChange}
+              />
             )}
-
             {activeSection === 'viewer' && (
-              <div className="space-y-5">
-                <div
-                  className="rounded-xl"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                  }}
-                >
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderBottom: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Text variant="body" weight="medium" color="primary">
-                        3D viewer
-                      </Text>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Configure reference overlays and labels used by the 3D preview.
-                      </Text>
-                    </div>
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-show-axes" className="mb-0">
-                        Show axes
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Show the X, Y, and Z reference axes in the 3D viewer
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-show-axes"
-                      data-testid="settings-viewer-show-axes"
-                      checked={settings.viewer.showAxes}
-                      onChange={(event) =>
-                        handleViewerSettingChange('showAxes', event.target.checked)
-                      }
-                    />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-show-axis-labels" className="mb-0">
-                        Show axis labels
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Show numeric markers and X / Y / Z labels on the viewer axes
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-show-axis-labels"
-                      data-testid="settings-viewer-show-axis-labels"
-                      checked={settings.viewer.showAxisLabels}
-                      disabled={!settings.viewer.showAxes}
-                      onChange={(event) =>
-                        handleViewerSettingChange('showAxisLabels', event.target.checked)
-                      }
-                    />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-show-3d-grid" className="mb-0">
-                        Show 3D grid
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Show the floor reference grid in the 3D viewer.
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-show-3d-grid"
-                      checked={settings.viewer.show3DGrid}
-                      onChange={(event) =>
-                        handleViewerSettingChange('show3DGrid', event.target.checked)
-                      }
-                    />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-show-shadows" className="mb-0">
-                        Show shadows
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Keep contact shadows enabled in the 3D viewer.
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-show-shadows"
-                      checked={settings.viewer.showShadows}
-                      onChange={(event) =>
-                        handleViewerSettingChange('showShadows', event.target.checked)
-                      }
-                    />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-show-viewcube" className="mb-0">
-                        Show viewcube
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Show the orientation cube in the bottom-left corner of the 3D viewer.
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-show-viewcube"
-                      checked={settings.viewer.showViewcube}
-                      onChange={(event) =>
-                        handleViewerSettingChange('showViewcube', event.target.checked)
-                      }
-                    />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-measurement-snap-enabled" className="mb-0">
-                        Snap 3D measurements
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Snap picks to nearby vertices and edge midpoints when measuring.
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-measurement-snap-enabled"
-                      checked={settings.viewer.measurementSnapEnabled}
-                      onChange={(event) =>
-                        handleViewerSettingChange('measurementSnapEnabled', event.target.checked)
-                      }
-                    />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-show-selection-info" className="mb-0">
-                        Show inspection HUD
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Show picked point, bounds, and tool status while inspecting 3D geometry.
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-show-selection-info"
-                      checked={settings.viewer.showSelectionInfo}
-                      onChange={(event) =>
-                        handleViewerSettingChange('showSelectionInfo', event.target.checked)
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div
-                  className="rounded-xl"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                  }}
-                >
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderBottom: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Text variant="body" weight="medium" color="primary">
-                        2D viewer
-                      </Text>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Configure overlays and interaction aids used by the SVG preview.
-                      </Text>
-                    </div>
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-show-2d-grid" className="mb-0">
-                        Show 2D grid
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Show an adaptive grid in the SVG preview for layout and measurement.
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-show-2d-grid"
-                      checked={settings.viewer.show2DGrid}
-                      onChange={(event) =>
-                        handleViewerSettingChange('show2DGrid', event.target.checked)
-                      }
-                    />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-show-2d-axes" className="mb-0">
-                        Show 2D axes
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Show horizontal and vertical reference axes through the origin.
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-show-2d-axes"
-                      checked={settings.viewer.show2DAxes}
-                      onChange={(event) =>
-                        handleViewerSettingChange('show2DAxes', event.target.checked)
-                      }
-                    />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-show-2d-origin" className="mb-0">
-                        Show origin marker
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Show a highlighted marker at the SVG origin.
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-show-2d-origin"
-                      checked={settings.viewer.show2DOrigin}
-                      onChange={(event) =>
-                        handleViewerSettingChange('show2DOrigin', event.target.checked)
-                      }
-                    />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-show-2d-bounds" className="mb-0">
-                        Show drawing bounds
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Show the drawing extents with width and height labels.
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-show-2d-bounds"
-                      checked={settings.viewer.show2DBounds}
-                      onChange={(event) =>
-                        handleViewerSettingChange('show2DBounds', event.target.checked)
-                      }
-                    />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-show-2d-cursor-coords" className="mb-0">
-                        Show cursor coordinates
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Show live SVG coordinates for the current pointer location.
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-show-2d-cursor-coords"
-                      checked={settings.viewer.show2DCursorCoords}
-                      onChange={(event) =>
-                        handleViewerSettingChange('show2DCursorCoords', event.target.checked)
-                      }
-                    />
-                  </div>
-
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderTop: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label htmlFor="viewer-enable-2d-grid-snap" className="mb-0">
-                        Snap measurement to grid
-                      </Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Snap measurement points to the origin, bounds corners, and grid when close.
-                      </Text>
-                    </div>
-                    <Toggle
-                      id="viewer-enable-2d-grid-snap"
-                      checked={settings.viewer.enable2DGridSnap}
-                      onChange={(event) =>
-                        handleViewerSettingChange('enable2DGridSnap', event.target.checked)
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
+              <ViewerSettings settings={settings} onViewerChange={handleViewerChange} />
             )}
-
             {activeSection === 'project' && (
-              <div className="space-y-5">
-                <div
-                  className="rounded-xl"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                  }}
-                >
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderBottom: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Text variant="body" weight="medium" color="primary">
-                        Measurements
-                      </Text>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Configure how measurements are displayed across all viewers.
-                      </Text>
-                    </div>
-                  </div>
-
-                  <div className="p-4">
-                    <Label htmlFor="project-measurement-unit">Measurement Unit</Label>
-                    <Select
-                      id="project-measurement-unit"
-                      value={settings.viewer.measurementUnit}
-                      onChange={(e) =>
-                        handleViewerSettingChange(
-                          'measurementUnit',
-                          e.target.value as import('../stores/settingsStore').MeasurementUnit
-                        )
-                      }
-                    >
-                      <option value="mm">mm (millimeters)</option>
-                      <option value="cm">cm (centimeters)</option>
-                      <option value="in">in (inches)</option>
-                      <option value="units">units (dimensionless)</option>
-                    </Select>
-                  </div>
-                </div>
-              </div>
+              <ProjectSettings settings={settings} onViewerChange={handleViewerChange} />
             )}
-
             {activeSection === 'editor' && (
-              <div className="space-y-5">
-                {/* Subtabs */}
-                <div
-                  className="inline-flex rounded-lg p-1"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                  }}
-                >
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => setEditorSubTab('general')}
-                    style={{
-                      backgroundColor:
-                        editorSubTab === 'general' ? 'var(--accent-primary)' : 'transparent',
-                      color:
-                        editorSubTab === 'general'
-                          ? 'var(--text-inverse)'
-                          : 'var(--text-secondary)',
-                      fontWeight: editorSubTab === 'general' ? '500' : 'normal',
-                      border: 'none',
-                    }}
-                  >
-                    General
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => setEditorSubTab('vim')}
-                    style={{
-                      backgroundColor:
-                        editorSubTab === 'vim' ? 'var(--accent-primary)' : 'transparent',
-                      color:
-                        editorSubTab === 'vim' ? 'var(--text-inverse)' : 'var(--text-secondary)',
-                      fontWeight: editorSubTab === 'vim' ? '500' : 'normal',
-                      border: 'none',
-                    }}
-                  >
-                    Vim
-                  </Button>
-                </div>
-
-                {/* General Settings */}
-                {editorSubTab === 'general' && (
-                  <div
-                    className="rounded-xl"
-                    style={{
-                      backgroundColor: 'var(--bg-primary)',
-                      border: '1px solid var(--border-primary)',
-                    }}
-                  >
-                    <div
-                      className="flex items-center justify-between p-4"
-                      style={{ borderBottom: '1px solid var(--border-primary)' }}
-                    >
-                      <div>
-                        <Label className="mb-0">Format on Save</Label>
-                        <Text variant="caption" color="tertiary" className="mt-1">
-                          Automatically format OpenSCAD code when saving files
-                        </Text>
-                      </div>
-                      <Toggle
-                        checked={settings.editor.formatOnSave}
-                        onChange={(e) =>
-                          handleEditorSettingChange('formatOnSave', e.target.checked)
-                        }
-                      />
-                    </div>
-
-                    <div
-                      className="p-4"
-                      style={{ borderBottom: '1px solid var(--border-primary)' }}
-                    >
-                      <Label>Indent Size</Label>
-                      <Select
-                        value={settings.editor.indentSize}
-                        onChange={(e) =>
-                          handleEditorSettingChange('indentSize', Number(e.target.value))
-                        }
-                      >
-                        <option value={2}>2 spaces</option>
-                        <option value={4}>4 spaces</option>
-                        <option value={8}>8 spaces</option>
-                      </Select>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4">
-                      <div>
-                        <Label className="mb-0">Use Tabs</Label>
-                        <Text variant="caption" color="tertiary" className="mt-1">
-                          Use tab characters instead of spaces for indentation
-                        </Text>
-                      </div>
-                      <Toggle
-                        checked={settings.editor.useTabs}
-                        onChange={(e) => handleEditorSettingChange('useTabs', e.target.checked)}
-                      />
-                    </div>
-
-                    <div
-                      className="flex items-center justify-between p-4"
-                      style={{ borderBottom: '1px solid var(--border-primary)' }}
-                    >
-                      <div>
-                        <Label className="mb-0">Auto-Render on Idle</Label>
-                        <Text variant="caption" color="tertiary" className="mt-1">
-                          Automatically render preview after you stop typing
-                        </Text>
-                      </div>
-                      <Toggle
-                        checked={settings.editor.autoRenderOnIdle}
-                        onChange={(e) =>
-                          handleEditorSettingChange('autoRenderOnIdle', e.target.checked)
-                        }
-                      />
-                    </div>
-
-                    {settings.editor.autoRenderOnIdle && (
-                      <div
-                        className="p-4"
-                        style={{ borderBottom: '1px solid var(--border-primary)' }}
-                      >
-                        <Label>Render Delay</Label>
-                        <Select
-                          value={settings.editor.autoRenderDelayMs}
-                          onChange={(e) =>
-                            handleEditorSettingChange('autoRenderDelayMs', Number(e.target.value))
-                          }
-                        >
-                          <option value={300}>300ms (fast)</option>
-                          <option value={500}>500ms (default)</option>
-                          <option value={1000}>1 second</option>
-                          <option value={2000}>2 seconds</option>
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Vim Settings */}
-                {editorSubTab === 'vim' && (
-                  <div className="space-y-4">
-                    {/* Vim Mode Toggle */}
-                    <div
-                      className="flex items-center justify-between p-4 rounded-xl"
-                      style={{
-                        backgroundColor: 'var(--bg-primary)',
-                        border: '1px solid var(--border-primary)',
-                      }}
-                    >
-                      <div>
-                        <Label className="mb-0">Enable Vim Mode</Label>
-                        <Text variant="caption" color="tertiary" className="mt-1">
-                          Enable vim keybindings and modal editing in the editor
-                        </Text>
-                      </div>
-                      <Toggle
-                        checked={settings.editor.vimMode}
-                        onChange={(e) => handleEditorSettingChange('vimMode', e.target.checked)}
-                      />
-                    </div>
-
-                    {/* Vim Configuration Editor */}
-                    {settings.editor.vimMode && (
-                      <div
-                        className="rounded-xl p-4 space-y-3"
-                        style={{
-                          backgroundColor: 'var(--bg-primary)',
-                          border: '1px solid var(--border-primary)',
-                        }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <Label className="mb-0">Vim Configuration</Label>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setLocalVimConfig(getDefaultVimConfig())}
-                            style={{
-                              color: 'var(--accent-primary)',
-                              border: '1px solid var(--border-primary)',
-                            }}
-                          >
-                            Reset to Defaults
-                          </Button>
-                        </div>
-                        <Text variant="caption" color="tertiary">
-                          Customize vim keybindings using vim-style commands. Lines starting with #
-                          are comments.
-                        </Text>
-                        <div
-                          style={{
-                            height: '260px',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-md)',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          <MonacoEditor
-                            key={`vim-config-editor-${settings.editor.vimMode}`}
-                            height="100%"
-                            defaultLanguage="vimconfig"
-                            theme={getTheme(settings.appearance.theme).monaco}
-                            value={localVimConfig}
-                            onChange={(val) => setLocalVimConfig(val ?? '')}
-                            beforeMount={(monaco) => {
-                              // Register vim config language before mounting
-                              registerVimConfigLanguage(monaco);
-
-                              // Register all custom themes
-                              const themeIds = [
-                                'solarized-dark',
-                                'solarized-light',
-                                'monokai',
-                                'dracula',
-                                'one-dark-pro',
-                                'github-dark',
-                                'github-light',
-                                'nord',
-                                'tokyo-night',
-                                'gruvbox-dark',
-                                'gruvbox-light',
-                              ];
-
-                              themeIds.forEach((id) => {
-                                const theme = getTheme(id);
-                                if (theme.monacoTheme) {
-                                  try {
-                                    monaco.editor.defineTheme(id, theme.monacoTheme);
-                                  } catch {
-                                    // Theme might already be registered, ignore error
-                                  }
-                                }
-                              });
-                            }}
-                            onMount={(editor) => {
-                              vimEditorRef.current = editor;
-
-                              // Ensure this editor is completely independent
-                              editor.updateOptions({
-                                readOnly: false,
-                                domReadOnly: false,
-                              });
-
-                              // Focus the editor to ensure it's active
-                              editor.focus();
-                            }}
-                            options={{
-                              minimap: { enabled: false },
-                              fontSize: 13,
-                              lineNumbers: 'on',
-                              scrollBeyondLastLine: false,
-                              automaticLayout: true,
-                              wordWrap: 'on',
-                              tabSize: 2,
-                              renderLineHighlight: 'line',
-                              contextmenu: true,
-                              // Ensure the editor captures all keyboard events
-                              quickSuggestions: false,
-                              parameterHints: { enabled: false },
-                            }}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between pt-1">
-                          <Text variant="caption" color="tertiary">
-                            Supported: <code style={{ color: 'var(--text-primary)' }}>map</code>,{' '}
-                            <code style={{ color: 'var(--text-primary)' }}>imap</code>,{' '}
-                            <code style={{ color: 'var(--text-primary)' }}>nmap</code>,{' '}
-                            <code style={{ color: 'var(--text-primary)' }}>vmap</code>
-                            {' • '}
-                            Example:{' '}
-                            <code style={{ color: 'var(--text-primary)' }}>
-                              map kj &lt;Esc&gt; insert
-                            </code>
-                          </Text>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={
-                              localVimConfig !== settings.editor.vimConfig ? 'primary' : 'ghost'
-                            }
-                            onClick={() => {
-                              handleEditorSettingChange('vimConfig', localVimConfig);
-                            }}
-                            disabled={localVimConfig === settings.editor.vimConfig}
-                            className="shrink-0 ml-3"
-                          >
-                            Apply
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              <EditorSettings
+                settings={settings}
+                onEditorChange={handleEditorChange}
+                localVimConfig={localVimConfig}
+                onLocalVimConfigChange={setLocalVimConfig}
+              />
             )}
-
             {activeSection === 'privacy' && (
-              <div className="space-y-5">
-                <div
-                  className="rounded-xl"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                  }}
-                >
-                  <div
-                    className="flex items-center justify-between gap-4 p-4"
-                    style={{ borderBottom: '1px solid var(--border-primary)' }}
-                  >
-                    <div className="pr-4">
-                      <Label className="mb-0">Share anonymous product analytics</Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Anonymous product journeys help us understand how the app is used. Session
-                        recording stays disabled.
-                      </Text>
-                    </div>
-                    <Toggle
-                      checked={settings.privacy.analyticsEnabled}
-                      onChange={(event) => {
-                        const nextValue = event.target.checked;
-                        handlePrivacySettingChange('analyticsEnabled', nextValue);
-                        analytics.setAnalyticsEnabled(nextValue, {
-                          capturePreferenceChange: true,
-                        });
-                      }}
-                    />
-                  </div>
-                  <div className="grid gap-3 p-4 md:grid-cols-2">
-                    <div
-                      className="rounded-lg p-3"
-                      style={{
-                        backgroundColor: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-primary)',
-                      }}
-                    >
-                      <Text
-                        variant="caption"
-                        color="tertiary"
-                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
-                      >
-                        What we collect
-                      </Text>
-                      <Text variant="caption" className="mt-2 leading-5">
-                        OpenSCAD Studio uses a persistent anonymous identifier on this
-                        device/browser to understand product journeys over time. Product
-                        interactions may be autocaptured.
-                      </Text>
-                    </div>
-                    <div
-                      className="rounded-lg p-3"
-                      style={{
-                        backgroundColor: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-primary)',
-                      }}
-                    >
-                      <Text
-                        variant="caption"
-                        color="tertiary"
-                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
-                      >
-                        What stays out
-                      </Text>
-                      <Text variant="caption" className="mt-2 leading-5">
-                        We do not intentionally send OpenSCAD code, AI prompt text, attachment
-                        contents, API keys, diagnostics text, stack traces, or absolute file paths.
-                      </Text>
-                    </div>
-                    <div
-                      className="rounded-lg p-3"
-                      style={{
-                        backgroundColor: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-primary)',
-                      }}
-                    >
-                      <Text
-                        variant="caption"
-                        color="tertiary"
-                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
-                      >
-                        Turning it off
-                      </Text>
-                      <Text variant="caption" className="mt-2 leading-5">
-                        Turning this off stops future analytics capture on this device/browser
-                        immediately. It does not delete data already collected.
-                      </Text>
-                    </div>
-                    <div
-                      className="rounded-lg p-3"
-                      style={{
-                        backgroundColor: 'var(--bg-secondary)',
-                        border: '1px solid var(--border-primary)',
-                      }}
-                    >
-                      <Text
-                        variant="caption"
-                        color="tertiary"
-                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
-                      >
-                        Where it applies
-                      </Text>
-                      <Text variant="caption" className="mt-2 leading-5">
-                        This preference is stored locally and does not sync across devices or
-                        accounts. On the web it applies per browser/profile. On desktop it applies
-                        per installed app profile/webview storage.
-                      </Text>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <PrivacySettings settings={settings} onPrivacyChange={handlePrivacyChange} />
             )}
-
             {activeSection === 'libraries' && (
-              <div className="space-y-6">
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <Label className="mb-0">Auto-discover System Libraries</Label>
-                      <Text variant="caption" color="tertiary" className="mt-1">
-                        Automatically find OpenSCAD libraries in standard system locations
-                      </Text>
-                    </div>
-                    <Toggle
-                      checked={settings.library.autoDiscoverSystem}
-                      onChange={(e) =>
-                        handleLibrarySettingChange('autoDiscoverSystem', e.target.checked)
-                      }
-                    />
-                  </div>
-
-                  {settings.library.autoDiscoverSystem && (
-                    <div className="space-y-2">
-                      <Text
-                        variant="caption"
-                        color="tertiary"
-                        className="font-semibold uppercase tracking-wider mb-2"
-                      >
-                        System Paths
-                      </Text>
-                      {autoDiscoveredPaths.length === 0 ? (
-                        <div className="text-sm italic" style={{ color: 'var(--text-tertiary)' }}>
-                          No system libraries found
-                        </div>
-                      ) : (
-                        autoDiscoveredPaths.map((path) => (
-                          <div
-                            key={path}
-                            className="flex items-center gap-2 text-sm p-2 rounded-lg"
-                            style={{
-                              backgroundColor: 'var(--bg-primary)',
-                              border: '1px solid var(--border-primary)',
-                              opacity: 0.8,
-                            }}
-                          >
-                            <span style={{ color: 'var(--color-success)' }}>✓</span>
-                            <span
-                              className="font-mono text-xs truncate"
-                              style={{ color: 'var(--text-secondary)' }}
-                            >
-                              {path}
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <Text
-                      variant="caption"
-                      color="tertiary"
-                      className="font-semibold uppercase tracking-wider"
-                    >
-                      Custom Paths
-                    </Text>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={handleAddLibraryPath}
-                      className="flex items-center gap-1"
-                      style={{
-                        color: 'var(--accent-primary)',
-                        border: '1px solid var(--border-primary)',
-                      }}
-                    >
-                      <TbPlus size={14} /> Add Path
-                    </Button>
-                  </div>
-
-                  <div className="space-y-2">
-                    {settings.library.customPaths.length === 0 ? (
-                      <div
-                        className="text-sm italic p-4 text-center rounded-lg border border-dashed"
-                        style={{
-                          color: 'var(--text-tertiary)',
-                          borderColor: 'var(--border-primary)',
-                        }}
-                      >
-                        No custom library paths added
-                      </div>
-                    ) : (
-                      settings.library.customPaths.map((path) => (
-                        <div
-                          key={path}
-                          className="flex items-center justify-between gap-2 p-2 rounded-lg group"
-                          style={{
-                            backgroundColor: 'var(--bg-primary)',
-                            border: '1px solid var(--border-primary)',
-                          }}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <TbFolderOpen size={16} style={{ color: 'var(--text-tertiary)' }} />
-                            <span
-                              className="font-mono text-xs truncate"
-                              style={{ color: 'var(--text-primary)' }}
-                            >
-                              {path}
-                            </span>
-                          </div>
-                          <IconButton
-                            size="sm"
-                            onClick={() => handleRemoveLibraryPath(path)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            style={{ color: 'var(--text-tertiary)' }}
-                            title="Remove path"
-                          >
-                            <TbTrash size={14} />
-                          </IconButton>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
+              <LibrariesSettings
+                settings={settings}
+                autoDiscoveredPaths={autoDiscoveredPaths}
+                onLibraryChange={handleLibraryChange}
+                onAddPath={handleAddLibraryPath}
+                onRemovePath={handleRemoveLibraryPath}
+              />
             )}
-
             {activeSection === 'ai' && (
-              <div className="space-y-5 ph-no-capture">
-                <Text variant="body">
-                  Add your API keys to enable AI assistant features. Model selection is available in
-                  the chat interface.
-                </Text>
-
-                {/* Anthropic Section */}
-                <div
-                  className="rounded-xl p-4 space-y-3 ph-no-capture"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Label className="mb-0">Anthropic API Key</Label>
-                    <span
-                      className="text-xs px-2 py-0.5 rounded-full font-medium"
-                      style={{
-                        backgroundColor: hasAnthropicKey
-                          ? 'rgba(133, 153, 0, 0.15)'
-                          : 'rgba(128, 128, 128, 0.1)',
-                        color: hasAnthropicKey ? 'var(--color-success)' : 'var(--text-tertiary)',
-                      }}
-                    >
-                      {hasAnthropicKey ? 'Configured' : 'Not configured'}
-                    </span>
-                  </div>
-                  <Text variant="caption" color="tertiary">
-                    Required for Claude models. Your key is stored locally on this device/browser
-                    profile and used for direct requests to Anthropic from the app. It is not sent
-                    to our analytics.
-                  </Text>
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        type={showKey && provider === 'anthropic' ? 'text' : 'password'}
-                        value={provider === 'anthropic' ? apiKey : ''}
-                        onChange={(e) => {
-                          setProvider('anthropic');
-                          setApiKey(e.target.value);
-                        }}
-                        onFocus={() => {
-                          setProvider('anthropic');
-                          if (provider !== 'anthropic') {
-                            setApiKey('');
-                            setShowKey(false);
-                          }
-                        }}
-                        placeholder="sk-ant-..."
-                        className="pr-20 font-mono text-sm ph-no-capture"
-                        disabled={isLoading}
-                      />
-                      {provider === 'anthropic' && apiKey && !apiKey.startsWith('•') && (
-                        // eslint-disable-next-line no-restricted-syntax -- absolute-positioned inline toggle overlay on a password input; no Button size fits the 20px height in this context
-                        <button
-                          type="button"
-                          onClick={() => setShowKey(!showKey)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded-lg transition-colors"
-                          style={{ color: 'var(--text-secondary)' }}
-                        >
-                          {showKey ? 'Hide' : 'Show'}
-                        </button>
-                      )}
-                    </div>
-                    <IconButton
-                      type="button"
-                      size="md"
-                      onClick={() => {
-                        setProvider('anthropic');
-                        if (hasAnthropicKey) {
-                          handleClear();
-                        }
-                      }}
-                      disabled={isLoading || !hasAnthropicKey}
-                      className="shrink-0"
-                      style={{
-                        border: '1px solid var(--border-primary)',
-                        color:
-                          hasAnthropicKey && !isLoading
-                            ? 'var(--color-error)'
-                            : 'var(--text-tertiary)',
-                        opacity: hasAnthropicKey && !isLoading ? 1 : 0.4,
-                      }}
-                      title={hasAnthropicKey ? 'Remove API key' : 'No API key to remove'}
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <title>Delete</title>
-                        <path
-                          d="M2 4h12M5.333 4V2.667a.667.667 0 01.667-.667h4a.667.667 0 01.667.667V4m2 0v9.333a.667.667 0 01-.667.667H4a.667.667 0 01-.667-.667V4h9.334z"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </IconButton>
-                  </div>
-                  <Text variant="caption" color="tertiary">
-                    Don't have a key?{' '}
-                    <a
-                      href="https://console.anthropic.com/settings/keys"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline"
-                      style={{ color: 'var(--accent-primary)' }}
-                    >
-                      Get one from Anthropic
-                    </a>
-                  </Text>
-                </div>
-
-                {/* OpenAI Section */}
-                <div
-                  className="rounded-xl p-4 space-y-3 ph-no-capture"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border-primary)',
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Label className="mb-0">OpenAI API Key</Label>
-                    <span
-                      className="text-xs px-2 py-0.5 rounded-full font-medium"
-                      style={{
-                        backgroundColor: hasOpenAIKey
-                          ? 'rgba(133, 153, 0, 0.15)'
-                          : 'rgba(128, 128, 128, 0.1)',
-                        color: hasOpenAIKey ? 'var(--color-success)' : 'var(--text-tertiary)',
-                      }}
-                    >
-                      {hasOpenAIKey ? 'Configured' : 'Not configured'}
-                    </span>
-                  </div>
-                  <Text variant="caption" color="tertiary">
-                    Required for GPT models. Your key is stored locally on this device/browser
-                    profile and used for direct requests to OpenAI from the app. It is not sent to
-                    our analytics.
-                  </Text>
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        type={showKey && provider === 'openai' ? 'text' : 'password'}
-                        value={provider === 'openai' ? apiKey : ''}
-                        onChange={(e) => {
-                          setProvider('openai');
-                          setApiKey(e.target.value);
-                        }}
-                        onFocus={() => {
-                          setProvider('openai');
-                          if (provider !== 'openai') {
-                            setApiKey('');
-                            setShowKey(false);
-                          }
-                        }}
-                        placeholder="sk-..."
-                        className="pr-20 font-mono text-sm ph-no-capture"
-                        disabled={isLoading}
-                      />
-                      {provider === 'openai' && apiKey && !apiKey.startsWith('•') && (
-                        // eslint-disable-next-line no-restricted-syntax -- absolute-positioned inline toggle overlay on a password input; no Button size fits the 20px height in this context
-                        <button
-                          type="button"
-                          onClick={() => setShowKey(!showKey)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded-lg transition-colors"
-                          style={{ color: 'var(--text-secondary)' }}
-                        >
-                          {showKey ? 'Hide' : 'Show'}
-                        </button>
-                      )}
-                    </div>
-                    <IconButton
-                      type="button"
-                      size="md"
-                      onClick={() => {
-                        setProvider('openai');
-                        if (hasOpenAIKey) {
-                          handleClear();
-                        }
-                      }}
-                      disabled={isLoading || !hasOpenAIKey}
-                      className="shrink-0"
-                      style={{
-                        border: '1px solid var(--border-primary)',
-                        color:
-                          hasOpenAIKey && !isLoading
-                            ? 'var(--color-error)'
-                            : 'var(--text-tertiary)',
-                        opacity: hasOpenAIKey && !isLoading ? 1 : 0.4,
-                      }}
-                      title={hasOpenAIKey ? 'Remove API key' : 'No API key to remove'}
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <title>Delete</title>
-                        <path
-                          d="M2 4h12M5.333 4V2.667a.667.667 0 01.667-.667h4a.667.667 0 01.667.667V4m2 0v9.333a.667.667 0 01-.667.667H4a.667.667 0 01-.667-.667V4h9.334z"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </IconButton>
-                  </div>
-                  <Text variant="caption" color="tertiary">
-                    Don't have a key?{' '}
-                    <a
-                      href="https://platform.openai.com/api-keys"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline"
-                      style={{ color: 'var(--accent-primary)' }}
-                    >
-                      Get one from OpenAI
-                    </a>
-                  </Text>
-                </div>
-
-                {error && (
-                  <div
-                    className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm"
-                    style={{
-                      backgroundColor: 'rgba(220, 50, 47, 0.1)',
-                      border: '1px solid rgba(220, 50, 47, 0.3)',
-                      color: 'var(--color-error)',
-                    }}
-                  >
-                    {error}
-                  </div>
-                )}
-              </div>
+              <AiSettings ref={aiRef} isOpen={isOpen} onCanSaveChange={setAiCanSave} />
             )}
           </div>
 
           {/* Footer */}
           <div
-            className="flex items-center justify-end gap-2 px-6 py-3 shrink-0"
-            style={{ borderTop: '1px solid var(--border-primary)' }}
+            className="flex items-center justify-end shrink-0"
+            style={{
+              borderTop: '1px solid var(--border-primary)',
+              gap: 'var(--space-dialog-footer-gap)',
+              padding: `var(--space-3) var(--space-dialog-padding-x)`,
+            }}
           >
             {activeSection === 'ai' && (
-              <Button
-                variant="primary"
-                onClick={handleSave}
-                disabled={isLoading || !apiKey.trim() || apiKey.startsWith('•')}
-              >
-                {isLoading ? 'Saving...' : 'Save Key'}
+              <Button variant="primary" onClick={() => aiRef.current?.save()} disabled={!aiCanSave}>
+                Save Key
               </Button>
             )}
-            <Button variant="ghost" onClick={handleClose} disabled={isLoading}>
+            <Button variant="ghost" onClick={handleClose}>
               {activeSection === 'ai' ? 'Cancel' : 'Close'}
             </Button>
           </div>

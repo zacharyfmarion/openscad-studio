@@ -52,7 +52,7 @@ test('can toggle format on save', async ({ app }) => {
   await openSettings(app.page);
   await app.page.getByRole('button', { name: 'Editor', exact: true }).click();
 
-  const formatRow = app.page.getByText('Format on Save').locator('..').locator('..');
+  const formatRow = app.page.getByTestId('settings-format-on-save');
   const toggle = formatRow.locator('input[type="checkbox"]');
   await expect(toggle).toBeAttached();
   const before = await toggle.isChecked();
@@ -82,7 +82,7 @@ test('theme change applies immediately', async ({ app }) => {
   await openSettings(app.page);
   await app.page.getByRole('button', { name: 'Appearance', exact: true }).click();
 
-  const themeSection = app.page.getByText('Theme', { exact: true }).locator('..');
+  const themeSection = app.page.getByTestId('settings-theme-picker');
   const themeButtons = themeSection.getByRole('button');
   await expect(themeButtons.first()).toBeVisible();
 

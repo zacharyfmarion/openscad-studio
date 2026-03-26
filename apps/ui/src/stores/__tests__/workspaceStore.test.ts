@@ -111,6 +111,21 @@ describe('workspaceStore', () => {
     expect(replacedTab.render).toEqual(createEmptyRenderState());
   });
 
+  it('opens a shared document into the welcome slot and exits welcome mode', () => {
+    const store = createWorkspaceStore();
+    const openedId = store.getState().openSharedDocument({
+      name: 'shared-part',
+      content: 'cube([8, 8, 8]);',
+    });
+
+    const openedTab = store.getState().tabs.find((tab) => tab.id === openedId)!;
+    expect(store.getState().showWelcome).toBe(false);
+    expect(store.getState().activeTabId).toBe(openedId);
+    expect(openedTab.name).toBe('shared-part');
+    expect(openedTab.content).toBe('cube([8, 8, 8]);');
+    expect(openedTab.render).toEqual(createEmptyRenderState());
+  });
+
   it('ignores stale render results by request id', () => {
     const store = createWorkspaceStore();
     const tabId = store.getState().activeTabId!;

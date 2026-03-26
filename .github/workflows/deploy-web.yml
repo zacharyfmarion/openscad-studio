@@ -50,7 +50,8 @@ jobs:
         run: pnpm web:build
 
       - name: Deploy to Cloudflare Pages
-        run: npx wrangler@3 pages deploy apps/web/dist --project-name=openscad-studio
+        working-directory: apps/web
+        run: npx wrangler@3 pages deploy dist --project-name=openscad-studio
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

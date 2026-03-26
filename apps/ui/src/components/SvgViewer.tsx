@@ -36,6 +36,7 @@ import type {
 
 interface SvgViewerProps {
   src: string;
+  onVisualReady?: () => void;
 }
 
 type DocumentStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
@@ -365,7 +366,7 @@ function StatusCard({
   );
 }
 
-export function SvgViewer({ src }: SvgViewerProps) {
+export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
   const { theme } = useTheme();
   const [settings] = useSettings();
   const [documentState, setDocumentState] = useState<DocumentState>(INITIAL_DOCUMENT_STATE);
@@ -379,6 +380,7 @@ export function SvgViewer({ src }: SvgViewerProps) {
   const [selectedMeasurementId, setSelectedMeasurementId] = useState<string | null>(null);
   const [liveMessage, setLiveMessage] = useState('');
   const [cursorPoint, setCursorPoint] = useState<SvgPoint | null>(null);
+  const lastVisualReadySrcRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const lastPointerClientRef = useRef<SvgPoint | null>(null);
   const suppressClickRef = useRef(false);
@@ -545,6 +547,19 @@ export function SvgViewer({ src }: SvgViewerProps) {
       cancelled = true;
     };
   }, [src]);
+
+  useEffect(() => {
+    if (!src || !loadedDocument || documentState.status === 'loading') {
+      return;
+    }
+
+    if (lastVisualReadySrcRef.current === src) {
+      return;
+    }
+
+    lastVisualReadySrcRef.current = src;
+    onVisualReady?.();
+  }, [documentState.status, loadedDocument, onVisualReady, src]);
 
   useEffect(() => {
     const element = containerRef.current;

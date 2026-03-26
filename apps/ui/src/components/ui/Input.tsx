@@ -6,7 +6,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ error, className = '', disabled, ...props }, ref) => {
-    const baseStyles = 'w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2';
+    const baseStyles = 'w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2';
 
     const styles = {
       backgroundColor: disabled ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',

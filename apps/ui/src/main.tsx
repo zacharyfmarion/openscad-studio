@@ -97,6 +97,9 @@ function renderBootstrapError(error: unknown) {
 }
 
 const analyticsEnabled = loadSettings().privacy.analyticsEnabled;
+window.__SHARE_API_BASE = import.meta.env.VITE_SHARE_API_URL || 'https://openscad-studio.pages.dev';
+window.__SHARE_ENABLED =
+  import.meta.env.PROD || import.meta.env.VITE_ENABLE_PROD_SHARE_DEV === 'true';
 const posthogReady = initializePostHog(posthog, { analyticsEnabled });
 const shouldCaptureBootstrapEvents = shouldCaptureBootstrapAnalytics(
   posthogReady,

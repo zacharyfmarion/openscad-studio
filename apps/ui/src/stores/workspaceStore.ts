@@ -169,6 +169,47 @@ export function createWorkspaceStore(
       return firstTab.id;
     },
 
+    openSharedDocument: (args) => {
+      const state = get();
+      const firstTab = state.tabs[0];
+      const shouldReplaceFirstTab =
+        state.showWelcome &&
+        state.tabs.length === 1 &&
+        firstTab &&
+        !firstTab.filePath &&
+        !firstTab.isDirty;
+
+      if (shouldReplaceFirstTab) {
+        const nextTabId = get().replaceWelcomeTab({
+          filePath: null,
+          name: args.name,
+          content: args.content,
+        });
+
+        set((current) => ({
+          ...current,
+          activeTabId: nextTabId,
+          showWelcome: false,
+        }));
+
+        return nextTabId;
+      }
+
+      const nextTabId = get().createTab({
+        filePath: null,
+        name: args.name,
+        content: args.content,
+      });
+
+      set((current) => ({
+        ...current,
+        activeTabId: nextTabId,
+        showWelcome: false,
+      }));
+
+      return nextTabId;
+    },
+
     reorderTabs: (tabIdsInOrder) => {
       set((state) => ({
         ...state,

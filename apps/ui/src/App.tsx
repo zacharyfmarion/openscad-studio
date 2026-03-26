@@ -3,6 +3,8 @@ import { DockviewReact } from 'dockview';
 import type { DockviewReadyEvent } from 'dockview';
 import 'dockview/dist/styles/dockview.css';
 import { ExportDialog } from './components/ExportDialog';
+import { ShareDialog } from './components/ShareDialog';
+import { ShareBanner } from './components/ShareBanner';
 import type { AiPromptPanelRef } from './components/AiPromptPanel';
 import { SettingsDialog, type SettingsSection } from './components/SettingsDialog';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -31,6 +33,7 @@ import { useHistory } from './hooks/useHistory';
 import { getPlatform, eventBus, type ExportFormat } from './platform';
 import { RenderService } from './services/renderService';
 import { getPreviewSceneStyle } from './services/previewSceneConfig';
+import { isShareEnabled } from './services/shareService';
 import { useSettings, loadSettings, updateSetting } from './stores/settingsStore';
 import {
   selectActiveRender,
@@ -43,11 +46,14 @@ import {
 import { useWorkspaceStore, getWorkspaceState } from './stores/workspaceStore';
 import { formatOpenScadCode } from './utils/formatter';
 import { addRecentFile, removeRecentFile } from './utils/recentFiles';
+import { captureCurrentPreview } from './utils/capturePreview';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
-import { TbSettings, TbBox, TbRuler2, TbDownload } from 'react-icons/tb';
+import { useShareEntry } from './hooks/useShareEntry';
+import { TbSettings, TbBox, TbRuler2, TbDownload, TbShare3 } from 'react-icons/tb';
 import { Toaster } from 'sonner';
 import type { AiDraft } from './types/aiChat';
 import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTypes';
+import { CONTROL_RADIUS_CLASS } from './components/ui/controlStyles';
 
 const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
 
@@ -217,6 +223,7 @@ function App() {
   const markTabSaved = useWorkspaceStore((state) => state.markTabSaved);
   const closeTabLocal = useWorkspaceStore((state) => state.closeTabLocal);
   const replaceWelcomeTab = useWorkspaceStore((state) => state.replaceWelcomeTab);
+  const openSharedDocument = useWorkspaceStore((state) => state.openSharedDocument);
   const reorderWorkspaceTabs = useWorkspaceStore((state) => state.reorderTabs);
   const beginTabRender = useWorkspaceStore((state) => state.beginTabRender);
   const commitTabRenderResult = useWorkspaceStore((state) => state.commitTabRenderResult);
@@ -232,6 +239,7 @@ function App() {
   const tabsRef = useRef<WorkspaceDocumentTab[]>(tabs);
 
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsSection | undefined>(
     undefined
@@ -241,6 +249,10 @@ function App() {
   const previewSceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
   const { capabilities } = getPlatform();
   const { undo, redo } = useHistory();
+  const initialShareContext = useMemo(
+    () => (typeof window === 'undefined' ? null : (window.__SHARE_CONTEXT ?? null)),
+    []
+  );
 
   const {
     source,
@@ -257,6 +269,7 @@ function App() {
     renderWithTrigger,
     auxiliaryFiles,
   } = useOpenScad({
+    suppressInitialRender: Boolean(initialShareContext),
     workingDir,
     autoRenderOnIdle: settings.editor.autoRenderOnIdle,
     autoRenderDelayMs: settings.editor.autoRenderDelayMs,
@@ -311,6 +324,56 @@ function App() {
   const activeDiagnostics = activeRender?.diagnostics ?? diagnostics;
   const activeError = activeRender?.error ?? error;
   const activeDimensionMode = activeRender?.dimensionMode ?? dimensionMode;
+
+  const handleOpenFallbackEditor = useCallback(() => {
+    setShowNux(false);
+    hideWelcomeScreen();
+    window.history.replaceState({}, document.title, '/');
+
+    if (!activeRender?.lastRenderedContent && ready) {
+      void renderWithTrigger('initial');
+    }
+  }, [activeRender?.lastRenderedContent, hideWelcomeScreen, ready, renderWithTrigger]);
+
+  const handleOpenSharedDocument = useCallback(
+    (share: { title: string; code: string }) => {
+      setShowNux(false);
+      return openSharedDocument({
+        name: share.title,
+        content: share.code,
+      });
+    },
+    [openSharedDocument]
+  );
+
+  const handleRenderSharedDocument = useCallback(
+    ({ tabId, code }: { tabId: string; code: string }) => {
+      updateWorkspaceTabContent(tabId, code);
+      setTabCustomizerBase(tabId, code);
+      return updateSourceAndRender(code, 'file_open');
+    },
+    [setTabCustomizerBase, updateSourceAndRender, updateWorkspaceTabContent]
+  );
+
+  const {
+    context: shareContext,
+    origin: shareOrigin,
+    error: shareLoadError,
+    phase: sharePhase,
+    shouldBlockUi: shouldBlockShareUi,
+    shouldShowError: shouldShowShareError,
+    isActive: isShareEntry,
+    retry: retryShareLoad,
+    skip: skipShareEntry,
+    dismissBanner: dismissShareBanner,
+    markVisualReady: markSharePreviewReady,
+    isBannerDismissed: isShareBannerDismissed,
+  } = useShareEntry({
+    renderReady: ready,
+    openSharedDocument: handleOpenSharedDocument,
+    renderSharedDocument: handleRenderSharedDocument,
+    openFallbackEditor: handleOpenFallbackEditor,
+  });
 
   const handleUndo = useCallback(async () => {
     const checkpoint = await undo();
@@ -507,54 +570,15 @@ function App() {
     updateStlBlobUrl(activePreviewKind === 'mesh' && activePreviewSrc ? activePreviewSrc : null);
   }, [activePreviewKind, activePreviewSrc, updateStlBlobUrl]);
   useEffect(() => {
-    updateCapturePreview(async () => {
-      // Try to capture the Three.js WebGL canvas (3D preview)
-      const canvas = document.querySelector('canvas[data-engine]') as HTMLCanvasElement | null;
-      if (canvas) {
-        try {
-          return canvas.toDataURL('image/png');
-        } catch (e) {
-          if (import.meta.env.DEV) console.warn('[App] Failed to capture 3D canvas:', e);
-        }
-      }
-
-      const svgElement = document.querySelector('[data-preview-svg] svg') as SVGSVGElement | null;
-      if (svgElement) {
-        try {
-          const serializer = new XMLSerializer();
-          const svgString = serializer.serializeToString(svgElement);
-          const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-          const url = URL.createObjectURL(svgBlob);
-          const img = new Image();
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            img.onload = () => {
-              const c = document.createElement('canvas');
-              c.width = img.naturalWidth || 800;
-              c.height = img.naturalHeight || 600;
-              const ctx = c.getContext('2d');
-              if (ctx) {
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, c.width, c.height);
-                ctx.drawImage(img, 0, 0);
-                resolve(c.toDataURL('image/png'));
-              } else {
-                reject(new Error('Could not get 2d context'));
-              }
-            };
-            img.onerror = () => reject(new Error('Failed to load SVG image'));
-            img.src = url;
-          });
-          URL.revokeObjectURL(url);
-          return dataUrl;
-        } catch (e) {
-          if (import.meta.env.DEV) console.warn('[App] Failed to capture SVG preview:', e);
-        }
-      }
-
-      return null;
-    });
+    updateCapturePreview(() =>
+      captureCurrentPreview({
+        svgSourceUrl: activePreviewKind === 'svg' ? activePreviewSrc : null,
+        targetWidth: 1200,
+        targetHeight: 630,
+      })
+    );
     return () => updateCapturePreview(null);
-  }, [updateCapturePreview]);
+  }, [activePreviewKind, activePreviewSrc, updateCapturePreview]);
 
   useEffect(() => {
     workingDirRef.current = workingDir;
@@ -588,6 +612,12 @@ function App() {
   useEffect(() => {
     updateSourceAndRenderRef.current = updateSourceAndRender;
   }, [updateSourceAndRender]);
+
+  useEffect(() => {
+    if (isShareEntry) {
+      setShowNux(false);
+    }
+  }, [isShareEntry]);
 
   // Centralized render-on-tab-change effect
   // This ensures ANY tab switch triggers a render, regardless of how it happened
@@ -780,6 +810,13 @@ function App() {
 
   const handleOpenExportDialog = useCallback(() => {
     setShowExportDialog(true);
+  }, []);
+
+  const handleOpenShareDialog = useCallback(() => {
+    if (!isShareEnabled()) {
+      return;
+    }
+    setShowShareDialog(true);
   }, []);
 
   const handleOpenRecent = useCallback(
@@ -1252,26 +1289,36 @@ function App() {
     };
   }, []);
 
-  const onDockviewReady = useCallback((event: DockviewReadyEvent) => {
-    const { api } = event;
-    setDockviewApi(api);
+  const onDockviewReady = useCallback(
+    (event: DockviewReadyEvent) => {
+      const { api } = event;
+      setDockviewApi(api);
 
-    clearSavedLayout();
-    const savedPreset = loadSettings().ui.defaultLayoutPreset;
-    const layoutMode =
-      typeof window !== 'undefined' && window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY).matches
-        ? 'mobile'
-        : 'desktop';
-    addPresetPanels(api, savedPreset, layoutMode);
+      const savedPreset = loadSettings().ui.defaultLayoutPreset;
+      const layoutMode =
+        typeof window !== 'undefined' && window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY).matches
+          ? 'mobile'
+          : 'desktop';
+      const sharePreset = isShareEntry && shareContext ? shareContext.mode : null;
 
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    api.onDidLayoutChange(() => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        saveLayout();
-      }, 300);
-    });
-  }, []);
+      if (!sharePreset) {
+        clearSavedLayout();
+      }
+
+      addPresetPanels(api, sharePreset ?? savedPreset, layoutMode);
+
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      if (!sharePreset) {
+        api.onDidLayoutChange(() => {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => {
+            saveLayout();
+          }, 300);
+        });
+      }
+    },
+    [isShareEntry, shareContext]
+  );
 
   const workspaceState: WorkspaceState = useMemo(
     () => ({
@@ -1291,6 +1338,7 @@ function App() {
       isRendering,
       error: activeError,
       renderReady: ready,
+      onPreviewVisualReady: isShareEntry ? markSharePreviewReady : undefined,
       isStreaming,
       streamingResponse,
       proposedDiff,
@@ -1347,6 +1395,8 @@ function App() {
       isRendering,
       activeError,
       ready,
+      isShareEntry,
+      markSharePreviewReady,
       isStreaming,
       streamingResponse,
       proposedDiff,
@@ -1381,7 +1431,75 @@ function App() {
     ]
   );
 
-  const content = showWelcome ? (
+  const shouldShowWelcome = showWelcome && !isShareEntry;
+  const canUseShare = !capabilities.hasNativeMenu && isShareEnabled();
+  const shouldShowShareBanner = Boolean(
+    shareOrigin && sharePhase === 'ready' && !isShareBannerDismissed
+  );
+
+  const shareBlockingOverlay = shouldBlockShareUi ? (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center"
+      data-testid="share-loading-screen"
+      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+    >
+      <div
+        className="flex w-full max-w-md flex-col items-center text-center rounded-2xl"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border-primary)',
+          gap: 'var(--space-helper-gap)',
+          padding: `var(--space-dialog-padding-y) var(--space-dialog-padding-x)`,
+        }}
+      >
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-2"
+          style={{
+            borderColor: 'var(--border-primary)',
+            borderTopColor: 'var(--accent-primary)',
+          }}
+        />
+        <div className="text-lg font-semibold">Opening shared design...</div>
+        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          Loading the shared model, preview, and layout.
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const content = shouldShowShareError ? (
+    <div
+      className="flex h-screen items-center justify-center"
+      data-testid="share-error-screen"
+      style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+    >
+      <div
+        className="flex w-full max-w-md flex-col rounded-2xl"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border-primary)',
+          gap: 'var(--space-section-gap)',
+          padding: `var(--space-dialog-padding-y) var(--space-dialog-padding-x)`,
+        }}
+      >
+        <div className="text-lg font-semibold">Couldn&apos;t open this shared design</div>
+        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          {shareLoadError}
+        </div>
+        <div
+          className="flex items-center justify-end"
+          style={{ gap: 'var(--space-dialog-footer-gap)' }}
+        >
+          <Button variant="secondary" onClick={skipShareEntry}>
+            Go to Editor
+          </Button>
+          <Button variant="primary" onClick={retryShareLoad}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    </div>
+  ) : shouldShowWelcome ? (
     <div
       className="h-screen"
       data-testid="welcome-container"
@@ -1440,6 +1558,7 @@ function App() {
         {!capabilities.hasNativeMenu && (
           <WebMenuBar
             onExport={() => setShowExportDialog(true)}
+            onShare={canUseShare ? handleOpenShareDialog : undefined}
             onSettings={() => setShowSettingsDialog(true)}
             onUndo={handleUndo}
             onRedo={handleRedo}
@@ -1469,7 +1588,7 @@ function App() {
 
         {!capabilities.hasNativeMenu && <DownloadForMacLink />}
 
-        <div className="flex items-center gap-1.5 px-3 shrink-0">
+        <div className="flex items-center gap-1.5 px-3 py-1 shrink-0">
           {isRendering && (
             <div
               data-testid="render-spinner"
@@ -1489,7 +1608,7 @@ function App() {
 
           <div
             data-testid="dimension-mode"
-            className="flex items-center gap-1 text-xs px-2 py-1 rounded border"
+            className={`flex items-center gap-1 h-7 px-2.5 text-xs ${CONTROL_RADIUS_CLASS} border`}
             style={{
               color: 'var(--text-secondary)',
               backgroundColor: 'var(--bg-elevated)',
@@ -1518,6 +1637,7 @@ function App() {
             variant="primary"
             onClick={manualRender}
             disabled={isRendering || !ready}
+            size="sm"
             className="text-xs px-2 py-1"
           >
             Render (⌘↵)
@@ -1526,11 +1646,30 @@ function App() {
             data-testid="export-button"
             variant="secondary"
             onClick={() => setShowExportDialog(true)}
+            size="sm"
             disabled={isRendering || !ready}
             className="text-xs px-2 py-1"
           >
-            Export
+            <span className="inline-flex items-center gap-1.5">
+              <TbDownload size={14} />
+              <span>Export</span>
+            </span>
           </Button>
+          {canUseShare && (
+            <Button
+              data-testid="share-button"
+              variant="secondary"
+              onClick={handleOpenShareDialog}
+              size="sm"
+              disabled={isRendering || !ready}
+              className="text-xs px-2 py-1"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <TbShare3 size={14} />
+                <span>Share</span>
+              </span>
+            </Button>
+          )}
 
           <div
             style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }}
@@ -1547,6 +1686,14 @@ function App() {
           </IconButton>
         </div>
       </header>
+
+      {shouldShowShareBanner && shareOrigin && (
+        <ShareBanner
+          origin={shareOrigin}
+          onShareRemix={handleOpenShareDialog}
+          onDismiss={dismissShareBanner}
+        />
+      )}
 
       <div className="flex-1 overflow-hidden">
         <WorkspaceProvider value={workspaceState}>
@@ -1567,6 +1714,22 @@ function App() {
         source={source}
         workingDir={workingDir}
       />
+      <ShareDialog
+        isOpen={showShareDialog}
+        onClose={() => setShowShareDialog(false)}
+        source={source}
+        tabName={activeTab.name}
+        forkedFrom={shareOrigin?.shareId ?? null}
+        capturePreview={() =>
+          captureCurrentPreview({
+            svgSourceUrl: activePreviewKind === 'svg' ? activePreviewSrc : null,
+            targetWidth: 1200,
+            targetHeight: 630,
+          })
+        }
+        stlBlobUrl={activePreviewKind === 'mesh' ? activePreviewSrc : null}
+        previewKind={activePreviewKind}
+      />
 
       <SettingsDialog
         isOpen={showSettingsDialog}
@@ -1583,6 +1746,7 @@ function App() {
   return (
     <>
       {content}
+      {shareBlockingOverlay}
       <Toaster
         richColors
         position="bottom-right"
