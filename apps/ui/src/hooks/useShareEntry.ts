@@ -87,7 +87,6 @@ export function useShareEntry({
         }
 
         analytics.track('share loaded', {
-          share_id: context.shareId,
           share_mode: context.mode,
           has_forked_from: Boolean(nextShare.forkedFrom),
         });
@@ -102,7 +101,6 @@ export function useShareEntry({
 
         const isNotFound = err instanceof Error && 'status' in err && err.status === 404;
         analytics.track('share load failed', {
-          share_id: context.shareId,
           is_not_found: isNotFound,
         });
         const message = isNotFound
