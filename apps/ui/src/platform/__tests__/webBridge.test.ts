@@ -87,7 +87,11 @@ describe('WebBridge.fileExport', () => {
   it('uses the anchor fallback when File System Access API is unavailable', async () => {
     // Temporarily remove showOpenFilePicker to simulate an unsupported browser
     const originalWindow = global.window;
-    const { showOpenFilePicker: _omit, ...windowWithoutFSA } = originalWindow as Record<string, unknown>;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { showOpenFilePicker: _omit, ...windowWithoutFSA } = originalWindow as Record<
+      string,
+      unknown
+    >;
     Object.defineProperty(global, 'window', { value: windowWithoutFSA, writable: true });
 
     await new WebBridge().fileExport(data, filename, filters);
