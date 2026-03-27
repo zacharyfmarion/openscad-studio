@@ -42,28 +42,27 @@ export function ShareBanner({ origin, onShareRemix, onDismiss }: ShareBannerProp
   return (
     <div
       data-testid="share-banner"
-      className="flex items-center justify-between text-sm"
+      className="flex items-center justify-between text-sm py-1.5 px-3 sm:py-[var(--space-3)] sm:px-[var(--space-4)]"
       style={{
         background:
           'linear-gradient(90deg, color-mix(in srgb, var(--accent-primary) 18%, var(--bg-secondary)), var(--bg-secondary))',
         borderBottom: '1px solid var(--border-primary)',
         color: 'var(--text-primary)',
         gap: 'var(--space-3)',
-        padding: `var(--space-3) var(--space-4)`,
       }}
     >
       <div className="min-w-0">
         <div className="font-medium">Shared design: &quot;{origin.title}&quot;</div>
         {origin.forkedFrom ? (
           <div
-            className="flex items-center text-xs"
+            className="hidden sm:flex items-center text-xs"
             style={{ gap: 'var(--space-1)', color: 'var(--text-secondary)' }}
           >
             <TbGitBranch size={12} />
             <span>Remixed from {parentTitle ? `"${parentTitle}"` : 'another shared design'}</span>
           </div>
         ) : (
-          <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+          <div className="hidden sm:block text-xs" style={{ color: 'var(--text-secondary)' }}>
             You can edit this copy and share your remix.
           </div>
         )}
@@ -71,6 +70,7 @@ export function ShareBanner({ origin, onShareRemix, onDismiss }: ShareBannerProp
 
       <div className="flex items-center" style={{ gap: 'var(--space-control-gap)' }}>
         <Button
+          className="hidden sm:inline-flex"
           type="button"
           variant="secondary"
           size="sm"
