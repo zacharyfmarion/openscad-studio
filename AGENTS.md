@@ -11,6 +11,8 @@ OpenSCAD Studio runs the AI copilot entirely on the client side.
 - Model requests are made from the frontend with the Vercel AI SDK.
 - OpenSCAD rendering remains client-side through `openscad-wasm` in a Web Worker.
 
+The top-level `README.md` is user-facing. Keep it focused on product-level information and avoid turning it into an engineering index; architecture, roadmap, analytics, and implementation details should live in assistant/developer docs instead.
+
 ## Design Context
 
 ### Users

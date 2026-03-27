@@ -34,7 +34,7 @@ As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precis
 
 - 🌐 **Web app** - Use directly in your browser at [openscad-studio.pages.dev](https://openscad-studio.pages.dev) — no install needed
 - 🤖 **AI copilot** - Chat with Claude/GPT to generate and fix code (bring your own API key)
-- 🎨 **Modern editor** - OpenSCAD syntax highlighting, multi-tab editing, formatter support, vim mode, and diff review
+- 🎨 **Modern editor** - OpenSCAD syntax highlighting, multi-tab editing, formatter support, and vim mode
 - 📐 **2D mode** - Dedicated SVG viewer for laser cutting and engraving
 - 🖼️ **Live 3D preview** - Interactive mesh viewer with orbit controls, section planes, measurements, and content-hash caching
 - 🔍 **Real-time diagnostics** - Inline error markers with line/column precision
@@ -64,24 +64,6 @@ Or download the latest DMG from [GitHub Releases](https://github.com/zacharyfmar
 ### Development
 
 Local setup, share-feature testing, project structure, AI setup, and contributor-facing references now live in [DEVELOPMENT.md](DEVELOPMENT.md).
-
-## 📚 Documentation
-
-- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Local setup, share testing, project structure, and contributor references
-- **[CLAUDE.md](CLAUDE.md)** - Comprehensive guide for AI assistants and contributors
-- **[AGENTS.md](AGENTS.md)** - Current AI architecture and agent-specific project guidance
-- **[engineering-roadmap.md](engineering-roadmap.md)** - Detailed development roadmap with phases
-- **[docs/analytics.md](docs/analytics.md)** - Product analytics contract and privacy safeguards
-- **[docs/coordinate-system.md](docs/coordinate-system.md)** - 3D coordinate conversion notes for viewer and measurement work
-
-## 🗺️ Roadmap
-
-- ✅ **Phase 1-2**: Monaco editor, live preview, 3D viewer, export, caching
-- ✅ **Phase 3**: AI copilot
-- ✅ **Phase 4 (Partial)**: Production polish, customizer, themes, CI/CD, library management
-- ✅ **Phase 5+**: Web app, sharing, formatter, analytics/privacy hardening, and advanced viewer tooling
-
-See [engineering-roadmap.md](engineering-roadmap.md) for detailed breakdown.
 
 ## 🤝 Contributing
 

@@ -6,6 +6,8 @@ This document helps AI assistants (like Claude) understand the OpenSCAD Studio c
 
 **OpenSCAD Studio** is a modern OpenSCAD editor with live preview and AI copilot capabilities. It runs both as a **web app** (at [openscad-studio.pages.dev](https://openscad-studio.pages.dev)) and as a **macOS desktop app** (via Tauri). Both platforms share the same React codebase and use openscad-wasm for rendering.
 
+The top-level `README.md` is user-facing. Keep it focused on product overview, installation, and contribution entry points. Engineering details, architecture notes, analytics contracts, and roadmap material belong in files like `CLAUDE.md`, `AGENTS.md`, `DEVELOPMENT.md`, `engineering-roadmap.md`, and `docs/`.
+
 **Tech Stack:**
 
 - **Frontend**: React 18 + TypeScript + Vite + Monaco Editor
