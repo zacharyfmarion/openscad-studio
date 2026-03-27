@@ -23,19 +23,41 @@ test('export dialog opens', async ({ app }) => {
   await expect(dialog.getByRole('heading', { name: 'Export Model' })).toBeVisible();
 });
 
-test('export dialog shows format options', async ({ app }) => {
+test('export dialog shows 3D format options for a 3D design', async ({ app }) => {
+  await setMonacoValue(app.page, cubeCode);
+  await app.triggerRender();
+  await app.waitForRender();
+
   await app.openExportDialog();
 
   const trigger = app.page.getByTestId('export-format-select');
   await expect(trigger).toBeVisible();
 
-  // Open the dropdown to reveal the portaled options, then check key formats
+  // Open the dropdown — only 3D formats should be shown for a 3D design
   await trigger.click();
   await expect(app.page.getByTestId('format-option-stl')).toBeVisible();
   await expect(app.page.getByTestId('format-option-obj')).toBeVisible();
-  await expect(app.page.getByTestId('format-option-svg')).toBeVisible();
+  await expect(app.page.getByTestId('format-option-svg')).not.toBeVisible();
 
-  // Close without selecting
+  await app.page.keyboard.press('Escape');
+});
+
+test('export dialog shows 2D format options for a 2D design', async ({ app }) => {
+  await setMonacoValue(app.page, svgCode);
+  await app.triggerRender();
+  await app.waitForRender();
+
+  await app.openExportDialog();
+
+  const trigger = app.page.getByTestId('export-format-select');
+  await expect(trigger).toBeVisible();
+
+  // Open the dropdown — only 2D formats should be shown for a 2D design
+  await trigger.click();
+  await expect(app.page.getByTestId('format-option-svg')).toBeVisible();
+  await expect(app.page.getByTestId('format-option-dxf')).toBeVisible();
+  await expect(app.page.getByTestId('format-option-stl')).not.toBeVisible();
+
   await app.page.keyboard.press('Escape');
 });
 
