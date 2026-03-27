@@ -5,15 +5,15 @@
 <h1 align="center">OpenSCAD Studio</h1>
 
 <p align="center">
-  <strong>A modern OpenSCAD editor with live preview and AI copilot — runs in your browser or as a desktop app</strong>
+  <strong>A modern OpenSCAD editor with live preview and AI copilot for the web and macOS desktop</strong>
 </p>
 
 <p align="center">
   <a href="https://openscad-studio.pages.dev"><img src="https://img.shields.io/badge/Web-Try_Now-brightgreen.svg" alt="Try Now"></a>
-  <img src="https://img.shields.io/badge/version-0.7.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/github/v/release/zacharyfmarion/openscad-studio?display_name=tag" alt="Latest Release">
   <img src="https://img.shields.io/badge/license-GPL--2.0-blue.svg" alt="License">
   <img src="https://img.shields.io/badge/Tauri-2.0-24C8DB.svg" alt="Tauri">
-  <img src="https://img.shields.io/badge/React-19-61DAFB.svg" alt="React">
+  <img src="https://img.shields.io/badge/React-18-61DAFB.svg" alt="React">
 </p>
 
 > **🌐 Try it now** — OpenSCAD Studio is available as a [web app](https://openscad-studio.pages.dev) (no install needed) or as a [macOS desktop app](#desktop-macos). The web version runs entirely in your browser using WebAssembly.
@@ -34,12 +34,13 @@ As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precis
 
 - 🌐 **Web app** - Use directly in your browser at [openscad-studio.pages.dev](https://openscad-studio.pages.dev) — no install needed
 - 🤖 **AI copilot** - Chat with Claude/GPT to generate and fix code (bring your own API key)
-- 🎨 **Modern editor** - OpenSCAD syntax highlighting, multi-tab editing, format on save, vim mode support
+- 🎨 **Modern editor** - OpenSCAD syntax highlighting, multi-tab editing, formatter support, vim mode, and diff review
 - 📐 **2D mode** - Dedicated SVG viewer for laser cutting and engraving
-- 🖼️ **Live 3D preview** - Interactive mesh viewer with orbit controls and content-hash caching
+- 🖼️ **Live 3D preview** - Interactive mesh viewer with orbit controls, section planes, measurements, and content-hash caching
 - 🔍 **Real-time diagnostics** - Inline error markers with line/column precision
 - ⚙️ **Customizer panel** - Interactive controls for OpenSCAD parameters with auto-rendering
-- 🌈 **22+ themes** - Popular themes like Catppuccin, Dracula, One Dark Pro, GitHub, Nord, Tokyo Night, and more
+- 🔗 **Share links** - Publish browser-based share links with thumbnail support for remixable examples
+- 🌈 **Theme library** - 27 built-in themes including Solarized, Dracula, GitHub, Nord, Tokyo Night, Catppuccin, and more
 
 **Limitations:** Special operators (!, #, %, \*) preview not yet implemented
 
@@ -68,15 +69,17 @@ Local setup, share-feature testing, project structure, AI setup, and contributor
 
 - **[DEVELOPMENT.md](DEVELOPMENT.md)** - Local setup, share testing, project structure, and contributor references
 - **[CLAUDE.md](CLAUDE.md)** - Comprehensive guide for AI assistants and contributors
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Web + desktop architecture design
+- **[AGENTS.md](AGENTS.md)** - Current AI architecture and agent-specific project guidance
 - **[engineering-roadmap.md](engineering-roadmap.md)** - Detailed development roadmap with phases
+- **[docs/analytics.md](docs/analytics.md)** - Product analytics contract and privacy safeguards
+- **[docs/coordinate-system.md](docs/coordinate-system.md)** - 3D coordinate conversion notes for viewer and measurement work
 
 ## 🗺️ Roadmap
 
 - ✅ **Phase 1-2**: Monaco editor, live preview, 3D viewer, export, caching
 - ✅ **Phase 3**: AI copilot
 - ✅ **Phase 4 (Partial)**: Production polish, customizer, themes, CI/CD, library management
-- ✅ **Phase 5 (v0.7)**: Web version with openscad-wasm
+- ✅ **Phase 5+**: Web app, sharing, formatter, analytics/privacy hardening, and advanced viewer tooling
 
 See [engineering-roadmap.md](engineering-roadmap.md) for detailed breakdown.
 

@@ -140,6 +140,6 @@ The AI can:
 
 ## Contributor References
 
-- [CLAUDE.md](/Users/zacharymarion/Documents/code/openscad-studio/CLAUDE.md) - Comprehensive guide for AI assistants and contributors
-- [CONTRIBUTING.md](/Users/zacharymarion/Documents/code/openscad-studio/CONTRIBUTING.md) - Contribution guidelines
-- [engineering-roadmap.md](/Users/zacharymarion/Documents/code/openscad-studio/engineering-roadmap.md) - Detailed development roadmap
+- [CLAUDE.md](CLAUDE.md) - Comprehensive guide for AI assistants and contributors
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
+- [engineering-roadmap.md](engineering-roadmap.md) - Detailed development roadmap

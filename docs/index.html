@@ -6,7 +6,7 @@
     <title>OpenSCAD Studio - Modern OpenSCAD Editor</title>
     <meta
       name="description"
-      content="A modern cross-platform OpenSCAD editor with live preview and AI copilot. Built with Tauri, React, and Rust."
+      content="A modern cross-platform OpenSCAD editor with live preview and AI copilot. Built with Tauri, React, and openscad-wasm."
     />
 
     <!-- Tailwind CSS -->
@@ -125,9 +125,9 @@
                        onclick="plausible('Try Web', {props: {location: 'hero'}})">
                         Try in Browser
                     </a>
-                    <a href="https://github.com/zacharyfmarion/openscad-studio/releases/download/v0.7.0/OpenSCAD.Studio_0.7.0_aarch64.dmg"
+                    <a href="https://github.com/zacharyfmarion/openscad-studio/releases"
                        class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-8 py-3 rounded-lg transition text-lg"
-                       onclick="plausible('Download', {props: {platform: 'macOS', version: 'v0.7.0', location: 'hero'}})">
+                       onclick="plausible('Download', {props: {platform: 'macOS', version: 'latest', location: 'hero'}})">
                         Download for macOS
                     </a>
                 </div>
@@ -241,7 +241,7 @@
           Try in Browser
         </a>
         <p class="text-xs text-gray-600 mt-6">
-          No installation required &middot; <a href="https://github.com/zacharyfmarion/openscad-studio/releases/download/v0.7.0/OpenSCAD.Studio_0.7.0_aarch64.dmg" class="text-gray-500 hover:text-gray-400 underline" onclick="plausible('Download', {props: {platform: 'macOS', version: 'v0.7.0', location: 'cta'}})">or download for macOS</a>
+          No installation required &middot; <a href="https://github.com/zacharyfmarion/openscad-studio/releases" class="text-gray-500 hover:text-gray-400 underline" onclick="plausible('Download', {props: {platform: 'macOS', version: 'latest', location: 'cta'}})">or download for macOS</a>
         </p>
       </div>
     </section>
@@ -254,7 +254,7 @@
         </p>
         <div class="flex flex-wrap justify-center gap-x-8 gap-y-3">
           <span class="text-gray-500 text-sm font-medium">Tauri 2.0</span>
-          <span class="text-gray-500 text-sm font-medium">React 19</span>
+          <span class="text-gray-500 text-sm font-medium">React 18</span>
           <span class="text-gray-500 text-sm font-medium">openscad-wasm</span>
           <span class="text-gray-500 text-sm font-medium">Monaco Editor</span>
           <span class="text-gray-500 text-sm font-medium">Tree-sitter</span>
