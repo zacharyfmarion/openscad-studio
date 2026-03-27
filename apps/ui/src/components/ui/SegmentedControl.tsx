@@ -15,6 +15,11 @@ interface SegmentedControlProps<T extends string> {
   'aria-label'?: string;
 }
 
+const ACTIVE_BG = 'color-mix(in srgb, var(--accent-primary) 15%, var(--bg-secondary))';
+const ACTIVE_BG_HOVER = 'color-mix(in srgb, var(--accent-primary) 22%, var(--bg-secondary))';
+const INACTIVE_BG = 'var(--bg-secondary)';
+const INACTIVE_BG_HOVER = 'color-mix(in srgb, var(--accent-primary) 8%, var(--bg-secondary))';
+
 export function SegmentedControl<T extends string>({
   options,
   value,
@@ -22,8 +27,6 @@ export function SegmentedControl<T extends string>({
   size = 'md',
   'aria-label': ariaLabel,
 }: SegmentedControlProps<T>) {
-  const activeBackground = 'color-mix(in srgb, var(--accent-primary) 18%, var(--bg-elevated))';
-
   return (
     <div
       role="group"
@@ -31,7 +34,7 @@ export function SegmentedControl<T extends string>({
       className={`inline-flex w-fit ${CONTROL_RADIUS_CLASS} overflow-hidden`}
       style={{
         border: '1px solid var(--border-secondary)',
-        backgroundColor: 'var(--bg-elevated)',
+        backgroundColor: 'var(--bg-secondary)',
       }}
     >
       {options.map((option, i) => {
@@ -46,10 +49,18 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(option.value)}
             className={`${CONTROL_SIZE_CLASSES[size]} whitespace-nowrap font-medium transition-colors`}
             style={{
-              backgroundColor: active ? activeBackground : 'var(--bg-elevated)',
+              backgroundColor: active ? ACTIVE_BG : INACTIVE_BG,
               color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
               boxShadow: active ? 'inset 0 1px 0 rgba(255,255,255,0.05)' : undefined,
               borderLeft: i > 0 ? '1px solid var(--border-secondary)' : undefined,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = active ? ACTIVE_BG_HOVER : INACTIVE_BG_HOVER;
+              if (!active) e.currentTarget.style.color = 'var(--text-primary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = active ? ACTIVE_BG : INACTIVE_BG;
+              if (!active) e.currentTarget.style.color = 'var(--text-secondary)';
             }}
           >
             {option.label}
