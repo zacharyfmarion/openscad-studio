@@ -6,10 +6,12 @@ This document helps AI assistants (like Claude) understand the OpenSCAD Studio c
 
 **OpenSCAD Studio** is a modern OpenSCAD editor with live preview and AI copilot capabilities. It runs both as a **web app** (at [openscad-studio.pages.dev](https://openscad-studio.pages.dev)) and as a **macOS desktop app** (via Tauri). Both platforms share the same React codebase and use openscad-wasm for rendering.
 
+The top-level `README.md` is user-facing. Keep it focused on product overview, installation, and contribution entry points. Engineering details, architecture notes, analytics contracts, and roadmap material belong in files like `CLAUDE.md`, `AGENTS.md`, `DEVELOPMENT.md`, `engineering-roadmap.md`, and `docs/`.
+
 **Tech Stack:**
 
-- **Frontend**: React 19 + TypeScript + Vite + Monaco Editor
-- **Desktop Backend**: Rust + Tauri (IPC-based architecture)
+- **Frontend**: React 18 + TypeScript + Vite + Monaco Editor
+- **Desktop Runtime**: Rust + Tauri for native shell features, packaging, and filesystem access
 - **Rendering**: openscad-wasm via Web Worker (both platforms)
 - **AI Agent**: TypeScript with Vercel AI SDK (`streamText`)
 - **Web Deployment**: Cloudflare Pages
@@ -204,7 +206,7 @@ pnpm format             # Format all code
 
 ### Adding or Modifying Themes
 
-**Current Themes (22 total):**
+**Current Themes (27 total):**
 
 - Classic: Solarized Dark/Light
 - Popular Dark: Monokai, Dracula, One Dark Pro, GitHub Dark, Tokyo Night, Ayu Dark, Material Palenight, Night Owl
@@ -243,14 +245,14 @@ pnpm format             # Format all code
 
 ## Testing Strategy
 
-- **Manual testing**: Primary method during development (Phase 1-3)
-- **Golden tests**: Planned for Rust render pipeline (Phase 4)
-- **E2E tests**: Playwright tests planned (Phase 4)
-- **Unit tests**: Planned for React components (Phase 4)
+- **Unit and component tests**: Jest + React Testing Library under `apps/ui/src/**/__tests__`
+- **Formatter regression tests**: Dedicated Jest config and fixture-driven expectations in `apps/ui/src/utils/formatter/__tests__`
+- **E2E tests**: Playwright coverage in CI for web and Tauri desktop flows
+- **Manual testing**: Still important for rendering, AI flows, and platform-specific behavior
 
 ## Current Status
 
-### Completed (v0.7.0)
+### Current Capabilities (v0.13.1)
 
 ✅ Monaco editor with OpenSCAD syntax highlighting
 ✅ Live STL/SVG preview via openscad-wasm
@@ -262,10 +264,10 @@ pnpm format             # Format all code
 ✅ AI copilot with Vercel AI SDK (streaming, tool calls)
 ✅ Diff-based code editing
 ✅ Tool call visualization
-✅ Conversation history and management
+✅ Multi-turn AI chat with draft and attachment state
 ✅ Customizer panel with interactive parameter controls
 ✅ Tree-sitter based parameter parsing
-✅ 22+ editor themes with categorized dropdown
+✅ 27 editor themes with categorized dropdown
 ✅ Vim mode with configurable keybindings
 ✅ Web version (openscad-studio.pages.dev)
 ✅ Platform abstraction (PlatformBridge interface)
@@ -274,12 +276,14 @@ pnpm format             # Format all code
 ✅ CI/CD pipeline (GitHub Actions)
 ✅ Homebrew distribution for macOS
 ✅ Cloudflare Pages deployment for web
+✅ Share links with Cloudflare Pages Functions, KV, and R2-backed thumbnails
+✅ PostHog analytics controls and Sentry error reporting
+✅ 2D and 3D measurement tools plus 3D section planes
 
 ### Planned
 
 - Special operators preview (`#`, `%`, `*`, `!`)
-- Configurable preview resolution
-- Advanced 3D viewer features (measurement, section planes)
+- Additional preview/render polish
 - Cross-platform desktop testing (Windows/Linux)
 - Code signing for macOS
 - Auto-update mechanism
@@ -329,10 +333,10 @@ pnpm format             # Format all code
 
 - Check `engineering-roadmap.md` for planned features and current phase
 - Review `README.md` for high-level overview
-- Examine test fixtures in `apps/ui/src-tauri/tests/` (when added)
+- Review tests under `apps/ui/src/**/__tests__` and formatter fixtures under `apps/ui/src/utils/formatter/__tests__`
 - Consult inline code comments for complex logic
 
 ---
 
-**Last Updated**: 2026-02-19
-**Current Version**: v0.7.0 — Web + Desktop
+**Last Updated**: 2026-03-27
+**Current Version**: v0.13.1 — Web + Desktop

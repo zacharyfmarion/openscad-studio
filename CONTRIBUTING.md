@@ -56,14 +56,20 @@ pnpm tauri:dev
    # Lint
    pnpm lint
 
-   # Build (web)
+   # Check formatting
+   pnpm format:check
+
+   # Build the web app
    pnpm web:build
 
-   # Run web app
+   # Run the web app locally
    pnpm web:dev
 
-   # Run desktop app (requires Rust)
+   # Run the desktop app locally (requires Rust)
    pnpm tauri:dev
+
+   # Run the UI test suite when your change touches app behavior
+   cd apps/ui && pnpm test
    ```
 
 4. **Commit your changes** using conventional commits:
@@ -136,21 +142,29 @@ refactor: extract render caching logic to separate module
 
 ## 🧪 Testing Guidelines
 
-Currently, the project uses manual testing. When contributing:
+The project uses a mix of automated and manual testing. When contributing:
 
-1. **Test your changes manually** with the checklist:
+1. **Run the relevant automated checks**:
+   - `pnpm type-check`
+   - `pnpm lint`
+   - `pnpm format:check`
+   - `pnpm web:build`
+   - `cd apps/ui && pnpm test` for UI logic and component behavior
+   - `npx playwright test` when your change affects end-to-end flows or desktop/web integration
+
+2. **Test your changes manually** with the checklist:
    - [ ] Feature works as expected
    - [ ] No console errors
    - [ ] No TypeScript errors
    - [ ] Works on your target platform (macOS/Windows/Linux)
 
-2. **Test edge cases**:
+3. **Test edge cases**:
    - [ ] Empty files
    - [ ] Large files (>1000 lines)
    - [ ] OpenSCAD errors
    - [ ] Invalid user input
 
-3. **When adding automated tests** (future):
+4. **When adding automated tests**:
    - Place unit tests next to source files
    - Place integration tests in `tests/` directory
    - Use descriptive test names
@@ -207,6 +221,7 @@ All submissions require review. When reviewing:
 
 - **Documentation**: [CLAUDE.md](CLAUDE.md) - Comprehensive codebase guide
 - **Architecture**: [AGENTS.md](AGENTS.md) - AI agent system design
+- **Development**: [DEVELOPMENT.md](DEVELOPMENT.md) - Local setup and share-feature workflows
 - **Roadmap**: [engineering-roadmap.md](engineering-roadmap.md) - Development phases
 - **OpenSCAD Docs**: https://openscad.org/documentation.html
 - **Tauri Docs**: https://tauri.app/

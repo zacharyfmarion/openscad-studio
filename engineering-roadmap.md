@@ -1,6 +1,6 @@
 # OpenSCAD Studio — Engineering Roadmap
 
-> Current version: **v0.7.1** (Phases 1–3 complete, Phase 4A complete, Phase 4B partially complete, Phase 4C complete, Phase 9 web version complete)
+> Current app version: **v0.13.1**. This roadmap mixes historical milestone notes with future planning, so older phase sections may reference the version they originally shipped in rather than the current release.
 >
 > A modern OpenSCAD editor with live preview and AI copilot capabilities, available as both a web app and a macOS desktop app. The application uses openscad-wasm for rendering and provides a superior editing experience with real-time feedback and AI-assisted code generation.
 
@@ -11,7 +11,7 @@
 1. **Quick wins first.** Small changes that dramatically improve perceived quality ship before large features.
 2. **AI is the moat.** The AI copilot is the reason someone chooses this over the stock OpenSCAD editor. Every phase deepens that advantage.
 3. **Architecture before features.** Structural debt (App.tsx size, error handling, missing tests) is addressed early so later features don't compound the mess.
-4. **Desktop-first, web-ready.** ARCHITECTURE.md defines a platform abstraction layer. Refactors in this roadmap move toward that interface without blocking desktop progress.
+4. **Desktop-first, web-ready.** `AGENTS.md` documents the current platform split and client-side AI architecture. Refactors in this roadmap move toward that interface without blocking desktop progress.
 
 ---
 
@@ -51,12 +51,12 @@
 
 ## ✅ Phase 3: AI Copilot Integration (COMPLETED)
 
-**Goal:** Cursor-like AI experience with native Rust AI agent and diff-based code editing
+**Goal:** Cursor-like AI experience with diff-based code editing and a strong model/tooling workflow
 
-> **Note:** The native Rust AI agent described here was later replaced with a TypeScript implementation using Vercel AI SDK in v0.7.0.
+> **Note:** Some bullets in this phase are historical. The current app uses a client-side TypeScript AI agent built on the Vercel AI SDK, and API keys are stored client-side as described in `AGENTS.md`.
 
-- ✅ Native Rust AI Agent with direct Anthropic/OpenAI API integration (historical)
-- ✅ API keys in encrypted Tauri store, never exposed to renderer
+- ✅ Native Rust AI agent exploration (historical)
+- ✅ Current production AI flow uses the shared frontend TypeScript agent and direct provider requests
 - ✅ Diff-based editing: exact string replacement, max 120 lines, validated before apply
 - ✅ Tools: get code, screenshot, apply diff, diagnostics, render
 - ✅ SSE streaming with incremental text deltas
@@ -429,7 +429,7 @@
 
 ## ✅ Phase 9: Web Version (COMPLETED)
 
-**Goal:** Run OpenSCAD Studio in the browser with openscad-wasm. Full spec in `ARCHITECTURE.md`.
+**Goal:** Run OpenSCAD Studio in the browser with openscad-wasm. See `AGENTS.md` for the current architecture summary.
 
 ### ✅ 9.1: Web Platform Implementation
 
@@ -582,6 +582,6 @@ Decisions made during roadmap planning that affect ordering:
 
 ---
 
-**Last Updated:** 2026-03-06
-**Current Phase:** v0.7.1 — Library management shipped, E2E test suite complete
+**Last Updated:** 2026-03-27
+**Current Phase:** v0.13.1 — web + desktop app shipping with sharing, analytics/privacy controls, formatter coverage, and advanced viewer tooling
 **Next Milestone:** Phase 4B.1/4B.3 (App.tsx decomposition, centralized state) or Phase 5 (AI experience) based on user feedback
