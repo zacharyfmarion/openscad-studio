@@ -147,6 +147,15 @@ export const SelectItem = forwardRef<
           'color-mix(in srgb, var(--accent-primary) 15%, var(--bg-elevated))';
       }}
       onMouseLeave={(e) => {
+        if (!e.currentTarget.hasAttribute('data-highlighted')) {
+          (e.currentTarget as HTMLDivElement).style.backgroundColor = '';
+        }
+      }}
+      onFocus={(e) => {
+        (e.currentTarget as HTMLDivElement).style.backgroundColor =
+          'color-mix(in srgb, var(--accent-primary) 15%, var(--bg-elevated))';
+      }}
+      onBlur={(e) => {
         (e.currentTarget as HTMLDivElement).style.backgroundColor = '';
       }}
       {...props}
