@@ -1,8 +1,17 @@
 import { test, expect } from '../../fixtures/app.fixture';
-import { setMonacoValue, getMonacoValue } from '../../helpers/editor';
+import { setMonacoValue } from '../../helpers/editor';
 
 const cubeCode = 'cube([10, 10, 10]);';
 const svgCode = 'square([10, 10]);';
+
+/**
+ * Open the Radix Select dropdown in the export dialog and pick a format.
+ * Uses stable data-testid attributes on the trigger and each option item.
+ */
+async function selectExportFormat(page: import('@playwright/test').Page, value: string) {
+  await page.getByTestId('export-format-select').click();
+  await page.getByTestId(`format-option-${value}`).click();
+}
 
 test('export dialog opens', async ({ app }) => {
   await setMonacoValue(app.page, cubeCode);
@@ -17,11 +26,17 @@ test('export dialog opens', async ({ app }) => {
 test('export dialog shows format options', async ({ app }) => {
   await app.openExportDialog();
 
-  const dialog = app.page.locator('[data-testid="export-dialog"]');
-  const formatSelect = dialog.getByRole('combobox');
+  const trigger = app.page.getByTestId('export-format-select');
+  await expect(trigger).toBeVisible();
 
-  await expect(formatSelect).toBeVisible();
-  await expect(formatSelect.locator('option')).toContainText(['STL', 'OBJ', 'SVG']);
+  // Open the dropdown to reveal the portaled options, then check key formats
+  await trigger.click();
+  await expect(app.page.getByTestId('format-option-stl')).toBeVisible();
+  await expect(app.page.getByTestId('format-option-obj')).toBeVisible();
+  await expect(app.page.getByTestId('format-option-svg')).toBeVisible();
+
+  // Close without selecting
+  await app.page.keyboard.press('Escape');
 });
 
 test('export dialog can be closed', async ({ app }) => {
@@ -37,10 +52,7 @@ test('export STL triggers download', async ({ app }) => {
   await app.waitForRender();
 
   await app.openExportDialog();
-
-  const dialog = app.page.locator('[data-testid="export-dialog"]');
-  const formatSelect = dialog.getByRole('combobox');
-  await formatSelect.selectOption('stl');
+  await selectExportFormat(app.page, 'stl');
 
   // showSaveFilePicker opens a native OS dialog Playwright cannot drive.
   // Remove it so fileExport falls back to the programmatic a.click() path,
@@ -50,6 +62,7 @@ test('export STL triggers download', async ({ app }) => {
     delete (window as any).showOpenFilePicker;
   });
 
+  const dialog = app.page.locator('[data-testid="export-dialog"]');
   const downloadPromise = app.page.waitForEvent('download');
   await dialog.getByRole('button', { name: /export/i }).click();
   const download = await downloadPromise;
@@ -73,15 +86,14 @@ test('export SVG format', async ({ app }) => {
   await app.waitForRender();
 
   await app.openExportDialog();
-  const dialog = app.page.locator('[data-testid="export-dialog"]');
-  const formatSelect = dialog.getByRole('combobox');
-  await formatSelect.selectOption('svg');
+  await selectExportFormat(app.page, 'svg');
 
   await app.page.evaluate(() => {
     delete (window as any).showSaveFilePicker;
     delete (window as any).showOpenFilePicker;
   });
 
+  const dialog = app.page.locator('[data-testid="export-dialog"]');
   const downloadPromise = app.page.waitForEvent('download');
   await dialog.getByRole('button', { name: /export/i }).click();
   await downloadPromise;
@@ -93,15 +105,14 @@ test('export OBJ format', async ({ app }) => {
   await app.waitForRender();
 
   await app.openExportDialog();
-  const dialog = app.page.locator('[data-testid="export-dialog"]');
-  const formatSelect = dialog.getByRole('combobox');
-  await formatSelect.selectOption('obj');
+  await selectExportFormat(app.page, 'obj');
 
   await app.page.evaluate(() => {
     delete (window as any).showSaveFilePicker;
     delete (window as any).showOpenFilePicker;
   });
 
+  const dialog = app.page.locator('[data-testid="export-dialog"]');
   const downloadPromise = app.page.waitForEvent('download');
   await dialog.getByRole('button', { name: /export/i }).click();
   await downloadPromise;

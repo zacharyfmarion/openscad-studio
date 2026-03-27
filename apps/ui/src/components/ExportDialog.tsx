@@ -116,12 +116,16 @@ export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
               onValueChange={(v) => setFormat(v as ExportFormat)}
               disabled={isExporting}
             >
-              <SelectTrigger>
+              <SelectTrigger data-testid="export-format-select">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {FORMAT_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
+                  <SelectItem
+                    key={opt.value}
+                    value={opt.value}
+                    data-testid={`format-option-${opt.value}`}
+                  >
                     {opt.label}
                   </SelectItem>
                 ))}
