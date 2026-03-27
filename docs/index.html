@@ -46,6 +46,44 @@
       plausible.init();
     </script>
 
+    <script>
+      const RELEASE_BASE =
+        'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
+      const RELEASE_ASSETS = {
+        aarch64: 'OpenSCAD.Studio_latest_aarch64.dmg',
+        x64: 'OpenSCAD.Studio_latest_x64.dmg',
+      };
+
+      async function detectMacArch() {
+        const uaData = navigator.userAgentData;
+        if (uaData?.getHighEntropyValues) {
+          try {
+            const values = await uaData.getHighEntropyValues(['architecture']);
+            if (values.architecture === 'x86') {
+              return 'x64';
+            }
+          } catch {
+            // Fall back to Apple Silicon below.
+          }
+        }
+
+        return 'aarch64';
+      }
+
+      async function applyReleaseLinks() {
+        const arch = await detectMacArch();
+        const href = `${RELEASE_BASE}/${RELEASE_ASSETS[arch]}`;
+        document.querySelectorAll('[data-release-link]').forEach((el) => {
+          el.setAttribute('href', href);
+          el.setAttribute('data-release-arch', arch);
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        void applyReleaseLinks();
+      });
+    </script>
+
     <style>
       .glow-box {
         box-shadow: 0 0 40px rgba(36, 200, 219, 0.1);
@@ -125,7 +163,8 @@
                        onclick="plausible('Try Web', {props: {location: 'hero'}})">
                         Try in Browser
                     </a>
-                    <a href="https://github.com/zacharyfmarion/openscad-studio/releases"
+                    <a href="https://github.com/zacharyfmarion/openscad-studio/releases/latest/download/OpenSCAD.Studio_latest_aarch64.dmg"
+                       data-release-link
                        class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-8 py-3 rounded-lg transition text-lg"
                        onclick="plausible('Download', {props: {platform: 'macOS', version: 'latest', location: 'hero'}})">
                         Download for macOS
@@ -241,7 +280,7 @@
           Try in Browser
         </a>
         <p class="text-xs text-gray-600 mt-6">
-          No installation required &middot; <a href="https://github.com/zacharyfmarion/openscad-studio/releases" class="text-gray-500 hover:text-gray-400 underline" onclick="plausible('Download', {props: {platform: 'macOS', version: 'latest', location: 'cta'}})">or download for macOS</a>
+          No installation required &middot; <a href="https://github.com/zacharyfmarion/openscad-studio/releases/latest/download/OpenSCAD.Studio_latest_aarch64.dmg" data-release-link class="text-gray-500 hover:text-gray-400 underline" onclick="plausible('Download', {props: {platform: 'macOS', version: 'latest', location: 'cta'}})">or download for macOS</a>
         </p>
       </div>
     </section>
