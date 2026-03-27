@@ -2,7 +2,17 @@ import { useState } from 'react';
 import { useAnalytics } from '../analytics/runtime';
 import { getPlatform, type ExportFormat } from '../platform';
 import { RenderService, type ExportFormat as WasmExportFormat } from '../services/renderService';
-import { Button, IconButton, Select, Label, Text } from './ui';
+import {
+  Button,
+  IconButton,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+  Label,
+  Text,
+} from './ui';
 import { TbX } from 'react-icons/tb';
 import { normalizeAppError, notifyError, notifySuccess } from '../utils/notifications';
 
@@ -103,14 +113,23 @@ export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
             <Label className="mb-2">Export Format</Label>
             <Select
               value={format}
-              onChange={(e) => setFormat(e.target.value as ExportFormat)}
+              onValueChange={(v) => setFormat(v as ExportFormat)}
               disabled={isExporting}
             >
-              {FORMAT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
+              <SelectTrigger data-testid="export-format-select">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FORMAT_OPTIONS.map((opt) => (
+                  <SelectItem
+                    key={opt.value}
+                    value={opt.value}
+                    data-testid={`format-option-${opt.value}`}
+                  >
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
 

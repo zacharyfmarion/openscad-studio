@@ -1,4 +1,4 @@
-import { Label, Select } from '../ui';
+import { Label, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui';
 import type { Settings, MeasurementUnit } from '../../stores/settingsStore';
 import { SettingsCard, SettingsCardHeader, SettingsCardSection } from './SettingsPrimitives';
 
@@ -21,14 +21,18 @@ export function ProjectSettings({ settings, onViewerChange }: ProjectSettingsPro
         <SettingsCardSection className="flex flex-col" style={{ gap: 'var(--space-label-gap)' }}>
           <Label htmlFor="project-measurement-unit">Measurement Unit</Label>
           <Select
-            id="project-measurement-unit"
             value={settings.viewer.measurementUnit}
-            onChange={(e) => onViewerChange('measurementUnit', e.target.value as MeasurementUnit)}
+            onValueChange={(v) => onViewerChange('measurementUnit', v as MeasurementUnit)}
           >
-            <option value="mm">mm (millimeters)</option>
-            <option value="cm">cm (centimeters)</option>
-            <option value="in">in (inches)</option>
-            <option value="units">units (dimensionless)</option>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mm">mm (millimeters)</SelectItem>
+              <SelectItem value="cm">cm (centimeters)</SelectItem>
+              <SelectItem value="in">in (inches)</SelectItem>
+              <SelectItem value="units">units (dimensionless)</SelectItem>
+            </SelectContent>
           </Select>
         </SettingsCardSection>
       </SettingsCard>

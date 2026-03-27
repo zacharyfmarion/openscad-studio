@@ -4,7 +4,17 @@
 
 import { Children, type ChangeEvent, useState, useEffect, useRef } from 'react';
 import type { CustomizerParam } from '../../utils/customizer/types';
-import { IconButton, RangeSlider, Select, Text, Toggle } from '../ui';
+import {
+  IconButton,
+  RangeSlider,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+  Text,
+  Toggle,
+} from '../ui';
 import { TbRefresh } from 'react-icons/tb';
 
 interface ParameterControlProps {
@@ -332,23 +342,24 @@ function DropdownControl({ param, onChange, isDirty, onReset }: ParameterControl
   return (
     <ControlShell param={param} isDirty={isDirty} onReset={onReset}>
       <Select
-        id={`param-${param.name}`}
         value={value}
-        onChange={(event) => {
-          const option = param.options?.find(
-            (candidate) => String(candidate.value) === event.target.value
-          );
+        onValueChange={(v) => {
+          const option = param.options?.find((candidate) => String(candidate.value) === v);
           if (option) {
             onChange(option.value);
           }
         }}
-        size="sm"
       >
-        {param.options?.map((option) => (
-          <option key={String(option.value)} value={String(option.value)}>
-            {option.label}
-          </option>
-        ))}
+        <SelectTrigger size="sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {param.options?.map((option) => (
+            <SelectItem key={String(option.value)} value={String(option.value)}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </Select>
     </ControlShell>
   );
