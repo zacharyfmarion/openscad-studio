@@ -234,6 +234,10 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
     PANEL_TYPES.find((t) => t.id === panelId) ?? PANEL_TYPES.find((t) => panelId.startsWith(t.id));
   const Icon = currentType?.icon;
 
+  const { previewKind } = useWorkspace();
+  const isPreviewPanel = currentType?.id === 'preview';
+  const dimensionLabel = isPreviewPanel ? (previewKind === 'svg' ? '2D' : '3D') : null;
+
   const handleTypeChange = useCallback(
     (newTypeId: string) => {
       setMenuOpen(false);
@@ -314,6 +318,11 @@ export const WorkspaceTab: React.FC<IDockviewPanelHeaderProps> = (props) => {
         }}
       >
         {props.api.title}
+        {dimensionLabel && (
+          <span style={{ color: 'var(--text-tertiary)', marginLeft: '4px' }}>
+            ({dimensionLabel})
+          </span>
+        )}
       </span>
 
       {menuOpen && (

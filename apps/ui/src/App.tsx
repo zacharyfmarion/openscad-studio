@@ -50,11 +50,10 @@ import { addRecentFile, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview } from './utils/capturePreview';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { useShareEntry } from './hooks/useShareEntry';
-import { TbSettings, TbBox, TbRuler2, TbDownload, TbShare3 } from 'react-icons/tb';
+import { TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
 import { Toaster } from 'sonner';
 import type { AiDraft } from './types/aiChat';
 import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTypes';
-import { CONTROL_RADIUS_CLASS } from './components/ui/controlStyles';
 
 const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
 
@@ -265,7 +264,6 @@ function App() {
     isRendering,
     error,
     ready,
-    dimensionMode,
     manualRender,
     renderOnSave,
     renderWithTrigger,
@@ -325,7 +323,6 @@ function App() {
   const activePreviewKind = activeRender?.previewKind ?? previewKind;
   const activeDiagnostics = activeRender?.diagnostics ?? diagnostics;
   const activeError = activeRender?.error ?? error;
-  const activeDimensionMode = activeRender?.dimensionMode ?? dimensionMode;
 
   const handleOpenFallbackEditor = useCallback(() => {
     setShowNux(false);
@@ -1614,32 +1611,6 @@ function App() {
 
           {!isMobile && (
             <>
-              <div
-                data-testid="dimension-mode"
-                className={`flex items-center gap-1 h-7 px-2.5 text-xs ${CONTROL_RADIUS_CLASS} border`}
-                style={{
-                  color: 'var(--text-secondary)',
-                  backgroundColor: 'var(--bg-elevated)',
-                  borderColor: 'var(--border-secondary)',
-                }}
-              >
-                {activeDimensionMode === '2d' ? (
-                  <>
-                    <TbRuler2 size={12} />
-                    <span className="font-medium">2D</span>
-                  </>
-                ) : (
-                  <>
-                    <TbBox size={12} />
-                    <span className="font-medium">3D</span>
-                  </>
-                )}
-              </div>
-
-              <div
-                style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }}
-              />
-
               <Button
                 data-testid="render-button"
                 variant="primary"
