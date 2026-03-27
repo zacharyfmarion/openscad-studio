@@ -56,6 +56,9 @@ pnpm tauri:dev
    # Lint
    pnpm lint
 
+   # Check formatting
+   pnpm format:check
+
    # Build the web app
    pnpm web:build
 
@@ -144,6 +147,7 @@ The project uses a mix of automated and manual testing. When contributing:
 1. **Run the relevant automated checks**:
    - `pnpm type-check`
    - `pnpm lint`
+   - `pnpm format:check`
    - `pnpm web:build`
    - `cd apps/ui && pnpm test` for UI logic and component behavior
    - `npx playwright test` when your change affects end-to-end flows or desktop/web integration
