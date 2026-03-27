@@ -1,5 +1,11 @@
 import { Page } from '@playwright/test';
 
+const EDITOR_TEXTAREA_SELECTOR = '[data-testid="code-editor"] textarea.inputarea';
+
+async function waitForTestEditor(page: Page, timeout = 5_000): Promise<void> {
+  await page.waitForFunction(() => !!(window as any).__TEST_EDITOR__, { timeout }).catch(() => {});
+}
+
 // ---------------------------------------------------------------------------
 // Monaco Editor helpers for E2E tests
 // ---------------------------------------------------------------------------
@@ -9,6 +15,8 @@ import { Page } from '@playwright/test';
  * Uses clipboard-based extraction as a reliable fallback.
  */
 export async function getMonacoValue(page: Page): Promise<string> {
+  await waitForTestEditor(page);
+
   const value = await page.evaluate(() => {
     const editor = (window as any).__TEST_EDITOR__;
     if (editor) return editor.getValue();
@@ -18,7 +26,8 @@ export async function getMonacoValue(page: Page): Promise<string> {
   if (value !== null) return value;
 
   // Fallback: select all + copy from clipboard
-  const textarea = page.locator('.monaco-editor textarea.inputarea').first();
+  const textarea = page.locator(EDITOR_TEXTAREA_SELECTOR).first();
+  await textarea.waitFor({ state: 'visible', timeout: 5_000 });
   await textarea.click();
   await page.keyboard.press('Meta+A');
   await page.keyboard.press('Meta+C');
@@ -37,6 +46,8 @@ export async function setMonacoValue(page: Page, value: string): Promise<void> {
     (window as any).__PLAYWRIGHT__ = true;
   });
 
+  await waitForTestEditor(page);
+
   const success = await page.evaluate((text) => {
     const editor = (window as any).__TEST_EDITOR__;
     if (editor) {
@@ -46,11 +57,7 @@ export async function setMonacoValue(page: Page, value: string): Promise<void> {
         // onDidChangeModelContent and the React onChange handler.
         // This ensures the app's state (source code, diagnostics) stays in sync.
         const fullRange = model.getFullModelRange();
-        model.pushEditOperations(
-          [],
-          [{ range: fullRange, text }],
-          () => null
-        );
+        model.pushEditOperations([], [{ range: fullRange, text }], () => null);
         return true;
       }
       // Fallback: use setValue (may not trigger onChange in @monaco-editor/react)
@@ -66,7 +73,8 @@ export async function setMonacoValue(page: Page, value: string): Promise<void> {
   }
 
   // Fallback: select all, delete, then paste via clipboard
-  const textarea = page.locator('.monaco-editor textarea.inputarea').first();
+  const textarea = page.locator(EDITOR_TEXTAREA_SELECTOR).first();
+  await textarea.waitFor({ state: 'visible', timeout: 5_000 });
   await textarea.click();
   await page.keyboard.press('Meta+A');
   await page.keyboard.press('Backspace');
@@ -82,6 +90,8 @@ export async function setMonacoValueUndoable(page: Page, value: string): Promise
   await page.evaluate(() => {
     (window as any).__PLAYWRIGHT__ = true;
   });
+
+  await waitForTestEditor(page);
 
   const success = await page.evaluate((text) => {
     const editor = (window as any).__TEST_EDITOR__;
@@ -158,14 +168,18 @@ export async function getMonacoMarkers(page: Page): Promise<
  */
 export async function waitForMonacoReady(page: Page, timeout = 30_000): Promise<void> {
   // Wait for the Monaco editor container to be present in the DOM
-  await page.waitForSelector('.monaco-editor', { timeout });
+  await page.waitForSelector('[data-testid="code-editor"] .monaco-editor', { timeout });
   // Then wait for it to be fully initialized with content lines
-  await page.waitForSelector('.monaco-editor .view-lines', { timeout: 15_000 }).catch(() => {
-    // .view-lines may not appear until the editor panel has focus/size
-    // Just having .monaco-editor present is sufficient
-  });
+  await page
+    .waitForSelector('[data-testid="code-editor"] .monaco-editor .view-lines', {
+      timeout: 15_000,
+    })
+    .catch(() => {
+      // .view-lines may not appear until the editor panel has focus/size
+      // Just having .monaco-editor present is sufficient
+    });
   // Wait for the textarea (input receiver) to be available
-  await page.waitForSelector('.monaco-editor textarea.inputarea', { timeout: 10_000 });
+  await page.waitForSelector(EDITOR_TEXTAREA_SELECTOR, { timeout: 10_000 });
   await page.waitForTimeout(300);
 }
 

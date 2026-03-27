@@ -314,6 +314,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
               size="sm"
               onClick={handleClose}
               title="Close settings"
+              aria-label="Close settings"
               data-testid="settings-close-button"
             >
               <TbX size={16} />

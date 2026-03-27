@@ -48,15 +48,28 @@ export interface IconButtonProps
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
   (
-    { variant, size, isActive, className = '', type = 'button', title, tooltipSide, ...props },
+    {
+      variant,
+      size,
+      isActive,
+      className = '',
+      type = 'button',
+      title,
+      tooltipSide,
+      'aria-label': ariaLabel,
+      ...props
+    },
     ref
   ) => {
+    const accessibleLabel = ariaLabel ?? (typeof title === 'string' ? title : undefined);
+
     const button = (
       <button
         ref={ref}
         type={type}
         className={iconButton({ variant, size, className })}
         data-active={isActive || undefined}
+        aria-label={accessibleLabel}
         {...props}
       />
     );
