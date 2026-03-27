@@ -1557,7 +1557,7 @@ function App() {
           borderBottom: '1px solid var(--border-subtle)',
         }}
       >
-        {!capabilities.hasNativeMenu && !isMobile && (
+        {!capabilities.hasNativeMenu && (
           <WebMenuBar
             onExport={() => setShowExportDialog(true)}
             onShare={canUseShare ? handleOpenShareDialog : undefined}
@@ -1566,6 +1566,8 @@ function App() {
             onRedo={handleRedo}
           />
         )}
+
+        {isMobile && <div className="flex-1" />}
 
         {!isMobile && (
           <div className="flex-1 min-w-0 overflow-hidden">
@@ -1587,21 +1589,6 @@ function App() {
                 }}
               />
             )}
-          </div>
-        )}
-
-        {isMobile && (
-          <div className="flex items-center gap-2 px-3 flex-1">
-            <img
-              src="/favicon-32x32.png"
-              alt="OpenSCAD Studio"
-              width={20}
-              height={20}
-              className="rounded"
-            />
-            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-              OpenSCAD Studio
-            </span>
           </div>
         )}
 

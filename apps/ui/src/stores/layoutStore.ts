@@ -38,11 +38,33 @@ function addMobilePanels(api: DockviewApi) {
     return;
   }
 
+  const groupId = previewPanel.group.id;
   api.addPanel({
     id: 'customizer',
     component: 'customizer',
     title: 'Customizer',
-    position: { referenceGroup: previewPanel.group.id },
+    position: { referenceGroup: groupId },
+    inactive: true,
+  });
+  api.addPanel({
+    id: 'editor',
+    component: 'editor',
+    title: 'Editor',
+    position: { referenceGroup: groupId },
+    inactive: true,
+  });
+  api.addPanel({
+    id: 'ai-chat',
+    component: 'ai-chat',
+    title: 'AI',
+    position: { referenceGroup: groupId },
+    inactive: true,
+  });
+  api.addPanel({
+    id: 'console',
+    component: 'console',
+    title: 'Console',
+    position: { referenceGroup: groupId },
     inactive: true,
   });
 }
