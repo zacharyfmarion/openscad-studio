@@ -21,6 +21,7 @@ interface ExportDialogProps {
   onClose: () => void;
   source: string;
   workingDir?: string | null;
+  previewKind?: 'mesh' | 'svg';
 }
 
 const FORMAT_OPTIONS: { value: ExportFormat; label: string; ext: string }[] = [
@@ -32,9 +33,9 @@ const FORMAT_OPTIONS: { value: ExportFormat; label: string; ext: string }[] = [
   { value: 'dxf', label: 'DXF (2D CAD)', ext: 'dxf' },
 ];
 
-export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
+export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDialogProps) {
   const analytics = useAnalytics();
-  const [format, setFormat] = useState<ExportFormat>('stl');
+  const [format, setFormat] = useState<ExportFormat>(previewKind === 'svg' ? 'svg' : 'stl');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string>('');
 

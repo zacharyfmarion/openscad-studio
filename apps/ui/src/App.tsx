@@ -1724,6 +1724,7 @@ function App() {
         onClose={() => setShowExportDialog(false)}
         source={source}
         workingDir={workingDir}
+        previewKind={activePreviewKind}
       />
       <ShareDialog
         isOpen={showShareDialog}
