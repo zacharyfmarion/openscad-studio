@@ -33,7 +33,7 @@ export function SegmentedControl<T extends string>({
       aria-label={ariaLabel}
       className={`inline-flex w-fit ${CONTROL_RADIUS_CLASS} overflow-hidden`}
       style={{
-        border: '1px solid var(--border-primary)',
+        border: '1px solid var(--border-secondary)',
         backgroundColor: 'var(--bg-secondary)',
       }}
     >
@@ -52,7 +52,7 @@ export function SegmentedControl<T extends string>({
               backgroundColor: active ? ACTIVE_BG : INACTIVE_BG,
               color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
               boxShadow: active ? 'inset 0 1px 0 rgba(255,255,255,0.05)' : undefined,
-              borderLeft: i > 0 ? '1px solid var(--border-primary)' : undefined,
+              borderLeft: i > 0 ? '1px solid var(--border-secondary)' : undefined,
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = active ? ACTIVE_BG_HOVER : INACTIVE_BG_HOVER;
