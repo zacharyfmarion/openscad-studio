@@ -30,13 +30,13 @@ describe('ExportDialog default format', () => {
   it('defaults to STL for 3D designs', () => {
     render(<ExportDialog isOpen onClose={() => {}} source="" />);
     const trigger = screen.getByTestId('export-format-select');
-    expect(trigger.textContent).toContain('STL (3D Model)');
+    expect(trigger.textContent).toContain('STL');
   });
 
   it('defaults to SVG for 2D designs', () => {
     render(<ExportDialog isOpen onClose={() => {}} source="" previewKind="svg" />);
     const trigger = screen.getByTestId('export-format-select');
-    expect(trigger.textContent).toContain('SVG (2D Vector)');
+    expect(trigger.textContent).toContain('SVG');
   });
 
   it('defaults to SVG when dialog opens for the first time with a 2D design', async () => {
@@ -53,6 +53,6 @@ describe('ExportDialog default format', () => {
     });
 
     const trigger = screen.getByTestId('export-format-select');
-    expect(trigger.textContent).toContain('SVG (2D Vector)');
+    expect(trigger.textContent).toContain('SVG');
   });
 });

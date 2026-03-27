@@ -25,15 +25,15 @@ interface ExportDialogProps {
 }
 
 const FORMAT_OPTIONS_3D: { value: ExportFormat; label: string; ext: string }[] = [
-  { value: 'stl', label: 'STL (3D Model)', ext: 'stl' },
-  { value: 'obj', label: 'OBJ (3D Model)', ext: 'obj' },
-  { value: 'amf', label: 'AMF (3D Model)', ext: 'amf' },
-  { value: '3mf', label: '3MF (3D Model)', ext: '3mf' },
+  { value: 'stl', label: 'STL', ext: 'stl' },
+  { value: 'obj', label: 'OBJ', ext: 'obj' },
+  { value: 'amf', label: 'AMF', ext: 'amf' },
+  { value: '3mf', label: '3MF', ext: '3mf' },
 ];
 
 const FORMAT_OPTIONS_2D: { value: ExportFormat; label: string; ext: string }[] = [
-  { value: 'svg', label: 'SVG (2D Vector)', ext: 'svg' },
-  { value: 'dxf', label: 'DXF (2D CAD)', ext: 'dxf' },
+  { value: 'svg', label: 'SVG', ext: 'svg' },
+  { value: 'dxf', label: 'DXF', ext: 'dxf' },
 ];
 
 export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDialogProps) {
