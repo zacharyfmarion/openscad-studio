@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAnalytics } from '../analytics/runtime';
 import { getPlatform, type ExportFormat } from '../platform';
 import { RenderService, type ExportFormat as WasmExportFormat } from '../services/renderService';
@@ -38,6 +38,15 @@ export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDia
   const [format, setFormat] = useState<ExportFormat>(previewKind === 'svg' ? 'svg' : 'stl');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string>('');
+
+  // Reset format each time the dialog opens so the default reflects the current preview kind.
+  // useState only runs once at mount, but this component stays mounted with isOpen=false.
+  useEffect(() => {
+    if (isOpen) {
+      setFormat(previewKind === 'svg' ? 'svg' : 'stl');
+      setError('');
+    }
+  }, [isOpen, previewKind]);
 
   if (!isOpen) return null;
 
