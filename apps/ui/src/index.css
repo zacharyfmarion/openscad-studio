@@ -82,6 +82,12 @@
   --dv-drag-over-border-color: var(--accent-primary);
 }
 
+@media (max-width: 767px) {
+  .dockview-theme-openscad {
+    --dv-tabs-and-actions-container-height: 44px;
+  }
+}
+
 .dockview-theme-openscad .dv-tabs-and-actions-container {
   border-bottom: 1px solid var(--border-subtle);
 }

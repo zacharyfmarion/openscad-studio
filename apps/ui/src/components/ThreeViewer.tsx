@@ -74,6 +74,7 @@ import { TbBox, TbBoxModel, TbFocus2, TbSun, TbX } from 'react-icons/tb';
 import type { ToolContextPanelProps } from './three-viewer/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
 import { Text } from './ui';
+import { useMobileLayout } from '../hooks/useMobileLayout';
 
 interface ThreeViewerProps {
   stlPath: string;
@@ -959,6 +960,7 @@ function EnvironmentWithFallback({ preset }: { preset: string }) {
 export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: ThreeViewerProps) {
   const { theme } = useTheme();
   const [settings] = useSettings();
+  const { isMobile } = useMobileLayout();
   const sceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
   const animateInitialFrameRef = useRef(viewerId ? !introAnimatedViewerIds.has(viewerId) : true);
   const materialManagerRef = useRef(new ViewerMaterialManager());
@@ -1336,11 +1338,13 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
       )}
 
       <div className="flex flex-row flex-1 min-h-0">
-        <ViewerToolPalette
-          mode={interactionMode}
-          onModeChange={(mode) => handleModeChange(mode, 'toolbar')}
-          loadedModel={loadedModel}
-        />
+        {!isMobile && (
+          <ViewerToolPalette
+            mode={interactionMode}
+            onModeChange={(mode) => handleModeChange(mode, 'toolbar')}
+            loadedModel={loadedModel}
+          />
+        )}
         <div className="relative flex-1 min-w-0">
           <div
             className="absolute top-2 right-2 z-10 flex gap-2"
@@ -1642,7 +1646,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
         </div>
       </div>
 
-      <ViewerContextBar mode={interactionMode} {...contextPanelProps} />
+      {!isMobile && <ViewerContextBar mode={interactionMode} {...contextPanelProps} />}
     </div>
   );
 }

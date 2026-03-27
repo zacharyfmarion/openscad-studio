@@ -5,6 +5,7 @@ import { getPreviewSceneStyle } from '../services/previewSceneConfig';
 import { Button, IconButton, Text } from './ui';
 import type { MeasurementListItemData } from './viewer-measurements/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
+import { useMobileLayout } from '../hooks/useMobileLayout';
 import { buildOverlayModel } from './svg-viewer/overlayModel';
 import { useSvgViewerAnalytics } from './svg-viewer/useSvgViewerAnalytics';
 import {
@@ -369,6 +370,7 @@ function StatusCard({
 export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
   const { theme } = useTheme();
   const [settings] = useSettings();
+  const { isMobile } = useMobileLayout();
   const [documentState, setDocumentState] = useState<DocumentState>(INITIAL_DOCUMENT_STATE);
   const [loadedDocument, setLoadedDocument] = useState<ParsedSvgDocument | null>(null);
   const [viewport, setViewport] = useState<SvgViewportState>(INITIAL_VIEWPORT);
@@ -392,6 +394,8 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
     originTranslateY: number;
     moved: boolean;
   } | null>(null);
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const lastPinchDistRef = useRef<number | null>(null);
   const sceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
 
   const themeColors = useMemo(
@@ -718,7 +722,18 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     containerRef.current?.focus();
+    activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    event.currentTarget.setPointerCapture(event.pointerId);
+
     if (documentState.status === 'loading' || !loadedDocument) {
+      return;
+    }
+
+    if (activePointersRef.current.size >= 2) {
+      // Second finger down — cancel any pan drag and initialize pinch tracking
+      dragRef.current = null;
+      const pts = [...activePointersRef.current.values()];
+      lastPinchDistRef.current = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
       return;
     }
 
@@ -735,10 +750,28 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
       moved: false,
     };
     suppressClickRef.current = false;
-    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    // Pinch-to-zoom: two active pointers
+    if (activePointersRef.current.size >= 2 && lastPinchDistRef.current !== null) {
+      const pts = [...activePointersRef.current.values()];
+      const newDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      const scaleFactor = newDist / lastPinchDistRef.current;
+      lastPinchDistRef.current = newDist;
+      const midX = (pts[0].x + pts[1].x) / 2;
+      const midY = (pts[0].y + pts[1].y) / 2;
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setViewport((prev) =>
+          zoomAroundClientPoint(prev, clampScale(prev.scale * scaleFactor), midX, midY, rect)
+        );
+      }
+      return;
+    }
+
     updateCursorAndDraftFromEvent(event.clientX, event.clientY, event.shiftKey);
 
     if (!dragRef.current) {
@@ -768,6 +801,11 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    activePointersRef.current.delete(event.pointerId);
+    if (activePointersRef.current.size < 2) {
+      lastPinchDistRef.current = null;
+    }
+
     if (dragRef.current?.pointerId === event.pointerId) {
       suppressClickRef.current = dragRef.current.moved;
       dragRef.current = null;
@@ -991,15 +1029,17 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
   return (
     <div className="flex flex-col h-full w-full" data-testid="preview-2d-root">
       <div className="flex flex-row flex-1 min-h-0">
-        <Svg2DToolPalette
-          mode={viewMode}
-          onModeChange={(mode) => handleViewModeChange(mode, 'toolbar')}
-          canInteract={canInteract}
-        />
+        {!isMobile && (
+          <Svg2DToolPalette
+            mode={viewMode}
+            onModeChange={(mode) => handleViewModeChange(mode, 'toolbar')}
+            canInteract={canInteract}
+          />
+        )}
         <div
           ref={containerRef}
           className="relative flex-1 min-w-0 outline-none"
-          style={{ backgroundColor: themeColors.background }}
+          style={{ backgroundColor: themeColors.background, touchAction: 'none' }}
           tabIndex={0}
           onKeyDown={handleKeyDown}
           onKeyUp={handleKeyUp}
@@ -1440,21 +1480,23 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
           ) : null}
         </div>
       </div>
-      <Svg2DContextBar
-        mode={viewMode}
-        draftMeasurement={draftMeasurement}
-        measureSummary={measureSummary}
-        measurementItems={measurementItems}
-        onMeasurementSelect={selectMeasurement}
-        onMeasurementDelete={(id) => {
-          setMeasurements((existing) => existing.filter((item) => item.id !== id));
-          if (selectedMeasurementId === id) {
-            setSelectedMeasurementId(null);
-          }
-          setLiveMessage('Measurement deleted');
-        }}
-        onMeasurementsClear={clearAllMeasurements}
-      />
+      {!isMobile && (
+        <Svg2DContextBar
+          mode={viewMode}
+          draftMeasurement={draftMeasurement}
+          measureSummary={measureSummary}
+          measurementItems={measurementItems}
+          onMeasurementSelect={selectMeasurement}
+          onMeasurementDelete={(id) => {
+            setMeasurements((existing) => existing.filter((item) => item.id !== id));
+            if (selectedMeasurementId === id) {
+              setSelectedMeasurementId(null);
+            }
+            setLiveMessage('Measurement deleted');
+          }}
+          onMeasurementsClear={clearAllMeasurements}
+        />
+      )}
     </div>
   );
 }

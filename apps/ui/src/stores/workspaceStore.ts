@@ -353,7 +353,13 @@ export function createWorkspaceStore(
   }));
 }
 
-export const workspaceStore = createWorkspaceStore();
+const isMobileAtStartup =
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
+
+export const workspaceStore = createWorkspaceStore({
+  ...createInitialWorkspaceState(),
+  showWelcome: isMobileAtStartup ? false : true,
+});
 
 export function useWorkspaceStore<T>(selector: (state: WorkspaceStore) => T): T {
   return useStore(workspaceStore, selector);
