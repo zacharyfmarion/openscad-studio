@@ -751,11 +751,16 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
       dragRef.current.moved = true;
     }
 
+    // Capture before setViewport — Safari can fire pointercancel between the null
+    // guard above and when the React updater callback runs, setting dragRef.current
+    // to null and causing a crash.
+    const { originTranslateX, originTranslateY } = dragRef.current;
+
     setViewport((current) =>
       sanitizeViewport({
         ...current,
-        translateX: dragRef.current!.originTranslateX + deltaX,
-        translateY: dragRef.current!.originTranslateY + deltaY,
+        translateX: originTranslateX + deltaX,
+        translateY: originTranslateY + deltaY,
         fitMode: 'custom',
         interactionSource: 'pan',
       })
