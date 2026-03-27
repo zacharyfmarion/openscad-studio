@@ -32,6 +32,7 @@ export function ViewerToolPalette({ mode, onModeChange, loadedModel }: ViewerToo
           <IconButton
             key={tool.id}
             title={`${tool.label}${shortcutLabel}`}
+            tooltipSide="right"
             aria-label={`${tool.label}${shortcutLabel}`}
             disabled={isDisabled}
             isActive={isActive}

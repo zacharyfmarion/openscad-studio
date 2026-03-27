@@ -1355,6 +1355,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
               variant="toolbar"
               onClick={fitCurrentModelToView}
               title="Fit to View"
+              tooltipSide="bottom"
               data-testid="preview-fit-view"
             >
               <TbFocus2 size={18} />
@@ -1365,6 +1366,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
               onClick={() => setOrthographic(!orthographic)}
               isActive={orthographic}
               title="Orthographic Projection"
+              tooltipSide="bottom"
               data-testid="preview-toggle-orthographic"
             >
               <TbBox size={18} />
@@ -1375,6 +1377,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
               onClick={() => setWireframe(!wireframe)}
               isActive={wireframe}
               title="Wireframe Mode"
+              tooltipSide="bottom"
             >
               {wireframe ? <TbBox size={18} /> : <TbBoxModel size={18} />}
             </IconButton>
@@ -1384,6 +1387,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
               onClick={() => updateSetting('viewer', { showShadows: !showShadows })}
               isActive={showShadows}
               title="Toggle Shadows"
+              tooltipSide="bottom"
             >
               <TbSun size={18} />
             </IconButton>

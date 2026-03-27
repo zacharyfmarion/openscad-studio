@@ -12,7 +12,7 @@ import { NuxLayoutPicker } from './components/NuxLayoutPicker';
 import { TabBar } from './components/TabBar';
 import { WebMenuBar } from './components/WebMenuBar';
 import { EditableFileName } from './components/EditableFileName';
-import { Button, IconButton } from './components/ui';
+import { Button, IconButton, TooltipProvider } from './components/ui';
 import { panelComponents, tabComponents, WorkspaceTab } from './components/panels/PanelComponents';
 import { useTheme } from './contexts/ThemeContext';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
@@ -1755,7 +1755,7 @@ function App() {
   );
 
   return (
-    <>
+    <TooltipProvider>
       {content}
       {shareBlockingOverlay}
       <Toaster
@@ -1769,7 +1769,7 @@ function App() {
           },
         }}
       />
-    </>
+    </TooltipProvider>
   );
 }
 
