@@ -3,9 +3,7 @@ import * as RadixTooltip from '@radix-ui/react-tooltip';
 
 // ─── Provider ────────────────────────────────────────────────────────────────
 
-export interface TooltipProviderProps extends ComponentPropsWithoutRef<
-  typeof RadixTooltip.Provider
-> {}
+export type TooltipProviderProps = ComponentPropsWithoutRef<typeof RadixTooltip.Provider>;
 
 export const TooltipProvider = ({ delayDuration = 600, ...props }: TooltipProviderProps) => (
   <RadixTooltip.Provider delayDuration={delayDuration} {...props} />
