@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAnalytics } from '../analytics/runtime';
 import { getPlatform, type ExportFormat } from '../platform';
 import { RenderService, type ExportFormat as WasmExportFormat } from '../services/renderService';
@@ -21,31 +21,46 @@ interface ExportDialogProps {
   onClose: () => void;
   source: string;
   workingDir?: string | null;
+  previewKind?: 'mesh' | 'svg';
 }
 
-const FORMAT_OPTIONS: { value: ExportFormat; label: string; ext: string }[] = [
-  { value: 'stl', label: 'STL (3D Model)', ext: 'stl' },
-  { value: 'obj', label: 'OBJ (3D Model)', ext: 'obj' },
-  { value: 'amf', label: 'AMF (3D Model)', ext: 'amf' },
-  { value: '3mf', label: '3MF (3D Model)', ext: '3mf' },
-  { value: 'svg', label: 'SVG (2D Vector)', ext: 'svg' },
-  { value: 'dxf', label: 'DXF (2D CAD)', ext: 'dxf' },
+const FORMAT_OPTIONS_3D: { value: ExportFormat; label: string; ext: string }[] = [
+  { value: 'stl', label: 'STL', ext: 'stl' },
+  { value: 'obj', label: 'OBJ', ext: 'obj' },
+  { value: 'amf', label: 'AMF', ext: 'amf' },
+  { value: '3mf', label: '3MF', ext: '3mf' },
 ];
 
-export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
+const FORMAT_OPTIONS_2D: { value: ExportFormat; label: string; ext: string }[] = [
+  { value: 'svg', label: 'SVG', ext: 'svg' },
+  { value: 'dxf', label: 'DXF', ext: 'dxf' },
+];
+
+export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDialogProps) {
   const analytics = useAnalytics();
-  const [format, setFormat] = useState<ExportFormat>('stl');
+  const [format, setFormat] = useState<ExportFormat>(previewKind === 'svg' ? 'svg' : 'stl');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string>('');
 
+  // Reset format each time the dialog opens so the default reflects the current preview kind.
+  // useState only runs once at mount, but this component stays mounted with isOpen=false.
+  useEffect(() => {
+    if (isOpen) {
+      setFormat(previewKind === 'svg' ? 'svg' : 'stl');
+      setError('');
+    }
+  }, [isOpen, previewKind]);
+
   if (!isOpen) return null;
+
+  const formatOptions = previewKind === 'svg' ? FORMAT_OPTIONS_2D : FORMAT_OPTIONS_3D;
 
   const handleExport = async () => {
     setError('');
     setIsExporting(true);
 
     try {
-      const selectedFormat = FORMAT_OPTIONS.find((f) => f.value === format);
+      const selectedFormat = formatOptions.find((f) => f.value === format);
       if (!selectedFormat) return;
 
       const exportBytes = await RenderService.getInstance().exportModel(
@@ -120,7 +135,7 @@ export function ExportDialog({ isOpen, onClose, source }: ExportDialogProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {FORMAT_OPTIONS.map((opt) => (
+                {formatOptions.map((opt) => (
                   <SelectItem
                     key={opt.value}
                     value={opt.value}
