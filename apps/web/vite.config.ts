@@ -23,6 +23,9 @@ export default defineConfig({
             release: {
               name: sentryRelease,
             },
+            sourcemaps: {
+              filesToDeleteAfterUpload: ['dist/**/*.map'],
+            },
           }),
         ]
       : []),
