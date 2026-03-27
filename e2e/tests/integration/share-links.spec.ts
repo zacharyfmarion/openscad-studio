@@ -50,6 +50,31 @@ test.describe('Share links', () => {
     );
   });
 
+  test('loads shared design on mobile viewport without hanging', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await page.route(`**/api/share/${SHARE_ID}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: SHARE_ID,
+          code: SHARE_CODE,
+          title: 'Mobile Test Share',
+          createdAt: '2026-03-24T00:00:00.000Z',
+          forkedFrom: null,
+          thumbnailUrl: null,
+        }),
+      });
+    });
+
+    await page.goto(`/s/${SHARE_ID}`, { waitUntil: 'domcontentloaded' });
+
+    // Loading overlay must clear — previously it hung forever on mobile viewports
+    await expect(page.getByTestId('share-loading-screen')).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByTestId('share-banner')).toBeVisible({ timeout: 5_000 });
+  });
+
   test('opens shared links without onboarding and keeps saved layout preference unchanged', async ({
     page,
   }) => {

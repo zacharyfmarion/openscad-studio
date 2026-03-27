@@ -133,11 +133,7 @@ export function createWorkspaceStore(
       const state = get();
       const firstTab = state.tabs[0];
       const shouldReplaceFirstTab =
-        state.showWelcome &&
-        state.tabs.length === 1 &&
-        firstTab &&
-        !firstTab.filePath &&
-        !firstTab.isDirty;
+        state.tabs.length === 1 && firstTab && !firstTab.filePath && !firstTab.isDirty;
 
       if (!shouldReplaceFirstTab) {
         return get().createTab({
@@ -173,11 +169,7 @@ export function createWorkspaceStore(
       const state = get();
       const firstTab = state.tabs[0];
       const shouldReplaceFirstTab =
-        state.showWelcome &&
-        state.tabs.length === 1 &&
-        firstTab &&
-        !firstTab.filePath &&
-        !firstTab.isDirty;
+        state.tabs.length === 1 && firstTab && !firstTab.filePath && !firstTab.isDirty;
 
       if (shouldReplaceFirstTab) {
         const nextTabId = get().replaceWelcomeTab({

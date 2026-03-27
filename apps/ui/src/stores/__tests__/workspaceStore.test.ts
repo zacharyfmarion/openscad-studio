@@ -126,6 +126,30 @@ describe('workspaceStore', () => {
     expect(openedTab.render).toEqual(createEmptyRenderState());
   });
 
+  it('replaces the initial tab even when showWelcome is already false (mobile regression)', () => {
+    // On mobile, useMobileLayout calls hideWelcomeScreen() before openSharedDocument runs.
+    // Previously this caused openSharedDocument to create a new tab instead of replacing
+    // the initial one, so the render result landed on the wrong tab and onVisualReady
+    // never fired — leaving the "Opening shared design…" overlay stuck forever.
+    const store = createWorkspaceStore();
+    const initialTabId = store.getState().activeTabId!;
+
+    // Simulate mobile: welcome screen dismissed before share loads
+    store.getState().hideWelcomeScreen();
+    expect(store.getState().showWelcome).toBe(false);
+
+    const returnedTabId = store.getState().openSharedDocument({
+      name: 'My Design',
+      content: 'cube(10);',
+    });
+
+    // Must replace (same ID), not create a new tab
+    expect(returnedTabId).toBe(initialTabId);
+    expect(store.getState().tabs).toHaveLength(1);
+    expect(store.getState().activeTabId).toBe(initialTabId);
+    expect(store.getState().tabs[0].content).toBe('cube(10);');
+  });
+
   it('ignores stale render results by request id', () => {
     const store = createWorkspaceStore();
     const tabId = store.getState().activeTabId!;
