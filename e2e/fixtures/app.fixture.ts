@@ -471,11 +471,12 @@ export const test = base.extend<AppFixtures>({
 
   app: [
     async ({ page, isTauri }, use) => {
+      await page.addInitScript(() => {
+        (window as Window & { __PLAYWRIGHT__?: boolean }).__PLAYWRIGHT__ = true;
+      });
+
       // Navigate to app and wait for initial load
       await gotoAppWithRetry(page);
-      await page.evaluate(() => {
-        (window as any).__PLAYWRIGHT__ = true;
-      });
       // Wait for React to mount (the app root should have content)
       await page.waitForTimeout(2000);
 

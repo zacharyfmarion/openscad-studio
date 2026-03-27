@@ -264,6 +264,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
             variant="secondary"
             onClick={onNewConversation}
             title="Start new conversation"
+            data-testid="ai-new-conversation-button"
             disabled={isStreaming}
             className="absolute top-3 right-3 z-10 shadow-sm"
           >

@@ -28,7 +28,7 @@ async function setAutoRender(page: Page, enabled: boolean) {
   }
 
   // Close settings
-  await page.getByRole('button', { name: 'Close settings', exact: true }).click();
+  await page.getByTestId('settings-close-button').click();
   await page.waitForTimeout(300);
 }
 

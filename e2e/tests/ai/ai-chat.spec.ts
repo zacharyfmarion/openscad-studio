@@ -12,7 +12,10 @@ test.describe('AI Chat Panel', () => {
     await clearAiMocks(app.page);
   });
 
-  async function openConfiguredAi(app: { configureAnthropicApiKey: () => Promise<void>; openAiPanel: () => Promise<void> }) {
+  async function openConfiguredAi(app: {
+    configureAnthropicApiKey: () => Promise<void>;
+    openAiPanel: () => Promise<void>;
+  }) {
     await app.configureAnthropicApiKey();
     await app.openAiPanel();
   }
@@ -37,11 +40,13 @@ test.describe('AI Chat Panel', () => {
       .catch(() => false);
 
     if (hasApiKeyPrompt) {
-      await expect(app.page.getByTitle('Start new conversation')).not.toBeAttached();
+      await expect(app.page.getByTestId('ai-new-conversation-button')).not.toBeAttached();
       return;
     }
 
-    await expect(app.page.getByTitle('Start new conversation')).toBeAttached({ timeout: 5000 });
+    await expect(app.page.getByTestId('ai-new-conversation-button')).toBeAttached({
+      timeout: 5000,
+    });
   });
 
   test('open settings button exists when no API key', async ({ app }) => {
@@ -88,7 +93,9 @@ test.describe('AI Chat Panel', () => {
     await expect(app.aiCancelButton).not.toBeAttached();
   });
 
-  test('persists text before and after tool activity without empty assistant bubbles', async ({ app }) => {
+  test('persists text before and after tool activity without empty assistant bubbles', async ({
+    app,
+  }) => {
     await openConfiguredAi(app);
     await mockAiWithToolCall(app.page, {
       thinkingText: 'Checking the current file.',
@@ -116,13 +123,25 @@ test.describe('AI Chat Panel', () => {
       { type: 'tool-input-start', id: 'tool-1', toolName: 'read_file' },
       { type: 'tool-input-end', id: 'tool-1' },
       { type: 'tool-call', toolCallId: 'tool-1', toolName: 'read_file', input: { path: 'a.scad' } },
-      { type: 'tool-result', toolCallId: 'tool-1', toolName: 'read_file', input: { path: 'a.scad' }, output: 'cube(10);' },
+      {
+        type: 'tool-result',
+        toolCallId: 'tool-1',
+        toolName: 'read_file',
+        input: { path: 'a.scad' },
+        output: 'cube(10);',
+      },
       { type: 'finish-step' },
       { type: 'start-step' },
       { type: 'tool-input-start', id: 'tool-2', toolName: 'read_file' },
       { type: 'tool-input-end', id: 'tool-2' },
       { type: 'tool-call', toolCallId: 'tool-2', toolName: 'read_file', input: { path: 'b.scad' } },
-      { type: 'tool-result', toolCallId: 'tool-2', toolName: 'read_file', input: { path: 'b.scad' }, output: 'sphere(5);' },
+      {
+        type: 'tool-result',
+        toolCallId: 'tool-2',
+        toolName: 'read_file',
+        input: { path: 'b.scad' },
+        output: 'sphere(5);',
+      },
       { type: 'finish-step' },
       { type: 'start-step' },
       { type: 'text-start', id: 'text-1' },

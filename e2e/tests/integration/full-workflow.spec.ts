@@ -84,7 +84,7 @@ test.describe('Full workflow integration', () => {
     await app.page.waitForTimeout(300);
 
     // Close settings
-    await app.page.getByRole('button', { name: 'Close settings', exact: true }).click();
+    await app.page.getByTestId('settings-close-button').click();
     await app.page.waitForTimeout(300);
 
     // Reopen settings and verify change persisted
@@ -101,6 +101,6 @@ test.describe('Full workflow integration', () => {
 
     // Restore original state
     await newRow.locator('label').last().click({ force: true });
-    await app.page.getByRole('button', { name: 'Close settings', exact: true }).click();
+    await app.page.getByTestId('settings-close-button').click();
   });
 });
