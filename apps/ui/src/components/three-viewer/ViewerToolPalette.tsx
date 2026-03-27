@@ -1,5 +1,6 @@
 import { VIEWER_TOOLS } from './viewerToolRegistry';
 import type { InteractionMode, LoadedPreviewModel } from './types';
+import { IconButton } from '../ui';
 
 interface ViewerToolPaletteProps {
   mode: InteractionMode;
@@ -28,33 +29,17 @@ export function ViewerToolPalette({ mode, onModeChange, loadedModel }: ViewerToo
         const shortcutLabel = tool.shortcut ? ` (${tool.shortcut})` : '';
 
         return (
-          // eslint-disable-next-line no-restricted-syntax -- palette tool buttons carry a full set of imperative inline styles (size, color, border, cursor, opacity) driven by active+disabled state; <IconButton> doesn't expose these overrides without full className fights
-          <button
+          <IconButton
             key={tool.id}
-            type="button"
             title={`${tool.label}${shortcutLabel}`}
             aria-label={`${tool.label}${shortcutLabel}`}
             disabled={isDisabled}
+            isActive={isActive}
             onClick={() => onModeChange(tool.id)}
             data-testid={`preview-toggle-${tool.id === 'orbit' ? 'orbit' : tool.id === 'measure-distance' ? 'measure' : tool.id === 'measure-bbox' ? 'bbox' : 'section'}`}
-            style={{
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: isActive ? 'var(--bg-tertiary, var(--bg-elevated))' : 'transparent',
-              color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-              opacity: isDisabled ? 0.35 : 1,
-              border: isActive ? '1px solid var(--border-primary)' : '1px solid transparent',
-              borderRadius: 'var(--radius-md)',
-              cursor: isDisabled ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.15s, color 0.15s, border-color 0.15s',
-              flexShrink: 0,
-            }}
           >
             <Icon size={17} />
-          </button>
+          </IconButton>
         );
       })}
     </div>

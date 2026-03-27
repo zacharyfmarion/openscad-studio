@@ -1,42 +1,57 @@
 import { ButtonHTMLAttributes, forwardRef } from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
 
-export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  size?: 'sm' | 'md';
+const iconButton = cva(
+  [
+    'inline-flex items-center justify-center rounded-lg transition-colors',
+    'focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]',
+    'disabled:opacity-65 disabled:cursor-not-allowed',
+  ].join(' '),
+  {
+    variants: {
+      variant: {
+        // Transparent base — for palette/sidebar icon buttons
+        default: [
+          'border border-transparent bg-transparent text-[var(--text-secondary)]',
+          'hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]',
+          'disabled:hover:bg-transparent disabled:hover:text-[var(--text-secondary)]',
+          'data-[active]:bg-[var(--bg-tertiary)] data-[active]:text-[var(--accent-primary)] data-[active]:border-[var(--accent-primary)]',
+          'data-[active]:hover:bg-[var(--bg-tertiary)]',
+        ].join(' '),
+        // Elevated base — for toolbar buttons floating over the 3D canvas
+        toolbar: [
+          'border border-[var(--border-primary)] bg-[var(--bg-elevated)] text-[var(--text-secondary)]',
+          'hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]',
+          'disabled:hover:bg-[var(--bg-elevated)] disabled:hover:text-[var(--text-secondary)]',
+          'data-[active]:bg-[var(--bg-tertiary)] data-[active]:text-[var(--accent-primary)] data-[active]:border-[var(--accent-primary)]',
+          'data-[active]:hover:bg-[var(--bg-tertiary)]',
+        ].join(' '),
+      },
+      size: {
+        sm: 'h-7 w-7',
+        md: 'h-8 w-8',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+      size: 'md',
+    },
+  }
+);
+
+export interface IconButtonProps
+  extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof iconButton> {
+  isActive?: boolean;
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
-  ({ size = 'md', className = '', disabled, style, type = 'button', ...props }, ref) => {
-    const baseStyles = `
-      inline-flex items-center justify-center rounded-lg border border-transparent
-      bg-transparent transition-colors
-      hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]
-      focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]
-      disabled:cursor-not-allowed disabled:hover:bg-transparent
-    `
-      .trim()
-      .replace(/\s+/g, ' ');
-
-    const sizeStyles = {
-      sm: 'h-7 w-7',
-      md: 'h-8 w-8',
-    };
-
-    const iconStyles = disabled
-      ? {
-          color: 'var(--text-tertiary)',
-          opacity: 0.65,
-        }
-      : {
-          color: 'var(--text-secondary)',
-        };
-
+  ({ variant, size, isActive, className = '', type = 'button', ...props }, ref) => {
     return (
       <button
         ref={ref}
         type={type}
-        className={`${baseStyles} ${sizeStyles[size]} ${className}`}
-        style={{ ...iconStyles, ...style }}
-        disabled={disabled}
+        className={iconButton({ variant, size, className })}
+        data-active={isActive || undefined}
         {...props}
       />
     );

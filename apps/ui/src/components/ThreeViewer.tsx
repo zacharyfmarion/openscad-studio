@@ -73,7 +73,7 @@ import type {
 import { TbBox, TbBoxModel, TbFocus2, TbSun, TbX } from 'react-icons/tb';
 import type { ToolContextPanelProps } from './three-viewer/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
-import { Text } from './ui';
+import { IconButton, Text } from './ui';
 import { useMobileLayout } from '../hooks/useMobileLayout';
 
 interface ThreeViewerProps {
@@ -1351,61 +1351,42 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
             onClick={(event) => event.stopPropagation()}
             onPointerDown={(event) => event.stopPropagation()}
           >
-            {/* eslint-disable no-restricted-syntax -- these four toolbar buttons float over the 3D canvas as Pattern A toggles with bg-elevated base; <IconButton> doesn't carry active-state border/bg variants needed here */}
-            <button
+            <IconButton
+              variant="toolbar"
               onClick={fitCurrentModelToView}
-              className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
-              style={{
-                backgroundColor: 'var(--bg-elevated)',
-                border: '1px solid var(--border-primary)',
-                color: 'var(--text-secondary)',
-              }}
               title="Fit to View"
               data-testid="preview-fit-view"
             >
               <TbFocus2 size={18} />
-            </button>
+            </IconButton>
 
-            <button
+            <IconButton
+              variant="toolbar"
               onClick={() => setOrthographic(!orthographic)}
-              className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
-              style={{
-                backgroundColor: orthographic ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-                border: `1px solid ${orthographic ? 'var(--border-primary)' : 'var(--border-primary)'}`,
-                color: orthographic ? 'var(--text-primary)' : 'var(--text-secondary)',
-              }}
+              isActive={orthographic}
               title="Orthographic Projection"
               data-testid="preview-toggle-orthographic"
             >
               <TbBox size={18} />
-            </button>
+            </IconButton>
 
-            <button
+            <IconButton
+              variant="toolbar"
               onClick={() => setWireframe(!wireframe)}
-              className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
-              style={{
-                backgroundColor: wireframe ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-                border: '1px solid var(--border-primary)',
-                color: wireframe ? 'var(--text-primary)' : 'var(--text-secondary)',
-              }}
+              isActive={wireframe}
               title="Wireframe Mode"
             >
               {wireframe ? <TbBox size={18} /> : <TbBoxModel size={18} />}
-            </button>
+            </IconButton>
 
-            <button
+            <IconButton
+              variant="toolbar"
               onClick={() => updateSetting('viewer', { showShadows: !showShadows })}
-              className="h-8 w-8 rounded-lg transition-colors flex items-center justify-center"
-              style={{
-                backgroundColor: showShadows ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-                border: '1px solid var(--border-primary)',
-                color: showShadows ? 'var(--text-primary)' : 'var(--text-secondary)',
-              }}
+              isActive={showShadows}
               title="Toggle Shadows"
             >
               <TbSun size={18} />
-            </button>
-            {/* eslint-enable no-restricted-syntax */}
+            </IconButton>
           </div>
 
           <div aria-live="polite" className="sr-only">

@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.45",
-    "@radix-ui/react-select": "^2.1.6",
     "@ai-sdk/openai": "^3.0.29",
     "@ai-sdk/react": "^3.0.93",
     "@dnd-kit/core": "^6.3.1",
@@ -26,6 +25,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@monaco-editor/react": "^4.6.0",
     "@posthog/react": "^1.8.2",
+    "@radix-ui/react-select": "^2.1.6",
     "@react-three/drei": "^9.114.3",
     "@react-three/fiber": "^8.17.10",
     "@sentry/react": "^10.44.0",
@@ -36,6 +36,7 @@
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-store": "^2",
     "ai": "^6.0.91",
+    "class-variance-authority": "^0.7.1",
     "diff": "^7.0.0",
     "dockview": "^4.13.1",
     "monaco-editor": "^0.52.0",
