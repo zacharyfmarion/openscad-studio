@@ -19,11 +19,24 @@ interface ApiKeySnapshot {
 }
 
 // ============================================================================
-// API Key Storage (localStorage-based)
+// API Key Storage (localStorage-based, obfuscated)
 // ============================================================================
 
+function obfuscate(key: string): string {
+  return btoa(key.split('').reverse().join(''));
+}
+
+function deobfuscate(stored: string): string | null {
+  try {
+    return atob(stored).split('').reverse().join('');
+  } catch {
+    // Not valid base64 — this is a legacy plaintext value
+    return null;
+  }
+}
+
 export function storeApiKey(provider: AiProvider, key: string): void {
-  localStorage.setItem(STORAGE_KEYS[provider], key);
+  localStorage.setItem(STORAGE_KEYS[provider], obfuscate(key));
   notify();
 }
 
@@ -33,7 +46,15 @@ export function clearApiKey(provider: AiProvider): void {
 }
 
 export function getApiKey(provider: AiProvider): string | null {
-  return localStorage.getItem(STORAGE_KEYS[provider]);
+  const stored = localStorage.getItem(STORAGE_KEYS[provider]);
+  if (stored === null) return null;
+
+  const decoded = deobfuscate(stored);
+  if (decoded !== null) return decoded;
+
+  // Legacy plaintext value — re-encode so storage is clean going forward
+  localStorage.setItem(STORAGE_KEYS[provider], obfuscate(stored));
+  return stored;
 }
 
 export function hasApiKeyForProvider(provider: AiProvider): boolean {
