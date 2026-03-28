@@ -19,11 +19,26 @@ interface ApiKeySnapshot {
 }
 
 // ============================================================================
-// API Key Storage (localStorage-based)
+// API Key Storage (localStorage-based, obfuscated)
 // ============================================================================
 
+const OBF_PREFIX = 'obf1:';
+
+function obfuscate(key: string): string {
+  return OBF_PREFIX + btoa(key.split('').reverse().join(''));
+}
+
+function deobfuscate(stored: string): string | null {
+  if (!stored.startsWith(OBF_PREFIX)) return null; // Legacy plaintext value
+  try {
+    return atob(stored.slice(OBF_PREFIX.length)).split('').reverse().join('');
+  } catch {
+    return null; // Corrupt stored value
+  }
+}
+
 export function storeApiKey(provider: AiProvider, key: string): void {
-  localStorage.setItem(STORAGE_KEYS[provider], key);
+  localStorage.setItem(STORAGE_KEYS[provider], obfuscate(key));
   notify();
 }
 
@@ -33,7 +48,15 @@ export function clearApiKey(provider: AiProvider): void {
 }
 
 export function getApiKey(provider: AiProvider): string | null {
-  return localStorage.getItem(STORAGE_KEYS[provider]);
+  const stored = localStorage.getItem(STORAGE_KEYS[provider]);
+  if (stored === null) return null;
+
+  const decoded = deobfuscate(stored);
+  if (decoded !== null) return decoded;
+
+  // Legacy plaintext value — re-encode so storage is clean going forward
+  localStorage.setItem(STORAGE_KEYS[provider], obfuscate(stored));
+  return stored;
 }
 
 export function hasApiKeyForProvider(provider: AiProvider): boolean {
