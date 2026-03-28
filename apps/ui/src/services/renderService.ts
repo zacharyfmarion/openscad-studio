@@ -4,6 +4,7 @@ import type {
   WorkerRenderResult,
   WorkerErrorResult,
 } from './openscad-worker';
+import { createExportValidationError, isImplicitOpenScadError } from './exportErrors';
 import { notifyError } from '../utils/notifications';
 
 // ============================================================================
@@ -50,25 +51,29 @@ export function parseOpenScadStderr(stderr: string): Diagnostic[] {
     if (!line) continue;
 
     const match = ERROR_REGEX.exec(line);
-    if (!match) continue;
-
-    const severityStr = match[1].toLowerCase();
+    const severityStr = match?.[1].toLowerCase();
     let severity: Diagnostic['severity'];
-    switch (severityStr) {
-      case 'error':
-        severity = 'error';
-        break;
-      case 'warning':
-        severity = 'warning';
-        break;
-      case 'echo':
-        severity = 'info';
-        break;
-      default:
-        continue;
+    if (severityStr) {
+      switch (severityStr) {
+        case 'error':
+          severity = 'error';
+          break;
+        case 'warning':
+          severity = 'warning';
+          break;
+        case 'echo':
+          severity = 'info';
+          break;
+        default:
+          continue;
+      }
+    } else if (isImplicitOpenScadError(line)) {
+      severity = 'error';
+    } else {
+      continue;
     }
 
-    const message = match[2] || '';
+    const message = match?.[2] || line;
     const lineMatch = LINE_NUMBER_REGEX.exec(message);
     const lineNumber = lineMatch ? parseInt(lineMatch[1], 10) : undefined;
 
@@ -393,7 +398,7 @@ export class RenderService {
       const diagnostics = parseOpenScadStderr(result.stderr);
       const errors = diagnostics.filter((d) => d.severity === 'error');
       if (errors.length > 0) {
-        throw new Error(`Export failed:\n${errors.map((e) => e.message).join('\n')}`);
+        throw createExportValidationError(errors.map((e) => e.message));
       }
       throw new Error('Export produced no output');
     }

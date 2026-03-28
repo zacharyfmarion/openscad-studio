@@ -12,6 +12,7 @@ import { PanelErrorBoundary } from '../ErrorBoundary';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { selectActiveTab } from '../../stores/workspaceSelectors';
+import { isExportValidationError } from '../../services/exportErrors';
 import { RenderService } from '../../services/renderService';
 import { getPlatform } from '../../platform';
 import { notifyError } from '../../utils/notifications';
@@ -142,6 +143,7 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
       notifyError({
         operation: 'export-file',
         error: err,
+        capture: !isExportValidationError(err),
         fallbackMessage: 'STL export failed',
         toastId: 'export-error',
         logLabel: 'STL export failed',
@@ -165,6 +167,7 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
       notifyError({
         operation: 'export-file',
         error: err,
+        capture: !isExportValidationError(err),
         fallbackMessage: 'SVG export failed',
         toastId: 'export-error',
         logLabel: 'SVG export failed',

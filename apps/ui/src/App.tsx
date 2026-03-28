@@ -32,6 +32,7 @@ import { useAiAgent } from './hooks/useAiAgent';
 import { useHistory } from './hooks/useHistory';
 import { useMobileLayout } from './hooks/useMobileLayout';
 import { getPlatform, eventBus, type ExportFormat } from './platform';
+import { isExportValidationError } from './services/exportErrors';
 import { RenderService } from './services/renderService';
 import { getPreviewSceneStyle } from './services/previewSceneConfig';
 import { isShareEnabled } from './services/shareService';
@@ -1127,6 +1128,7 @@ function App() {
           notifyError({
             operation: 'export-file',
             error: err,
+            capture: !isExportValidationError(err),
             fallbackMessage: 'Export failed',
             toastId: 'export-error',
             logLabel: 'Export failed',

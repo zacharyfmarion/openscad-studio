@@ -14,6 +14,7 @@ export interface NormalizedAppError {
 export interface UiErrorContext {
   operation: string;
   error?: unknown;
+  capture?: boolean;
   fallbackMessage?: string;
   displayMessage?: string;
   toastId?: string;
@@ -69,6 +70,7 @@ export function normalizeAppError(
 export function notifyError({
   operation,
   error,
+  capture = true,
   fallbackMessage,
   displayMessage,
   toastId,
@@ -83,17 +85,19 @@ export function notifyError({
 
   if (error !== undefined) {
     console.error(logLabel ?? `[${operation}]`, error);
-    captureSentryException(error, {
-      tags: {
-        operation,
-        error_domain: errorDomain ?? inferErrorDomain(operation),
-      },
-      extra: {
-        source_component: sourceComponent ?? logLabel ?? operation,
-        handled: handled ?? true,
-        ...analyticsProperties,
-      },
-    });
+    if (capture) {
+      captureSentryException(error, {
+        tags: {
+          operation,
+          error_domain: errorDomain ?? inferErrorDomain(operation),
+        },
+        extra: {
+          source_component: sourceComponent ?? logLabel ?? operation,
+          handled: handled ?? true,
+          ...analyticsProperties,
+        },
+      });
+    }
   }
 
   toast.error(displayMessage ?? normalized.message, {
