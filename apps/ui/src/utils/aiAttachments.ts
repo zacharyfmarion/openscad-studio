@@ -1,4 +1,5 @@
 import type { AiDraft, AttachmentRecord, AttachmentStore } from '../types/aiChat';
+import { createRandomId } from './randomId';
 
 export const MAX_ATTACHMENTS_PER_MESSAGE = 4;
 export const MAX_SOURCE_FILE_BYTES = 8 * 1024 * 1024;
@@ -165,7 +166,7 @@ function buildErrorAttachment(
   errorMessage: string
 ): AttachmentRecord {
   return {
-    id: crypto.randomUUID(),
+    id: createRandomId(),
     filename: file.name,
     sourceMimeType: file.type,
     sizeBytes: file.size,
@@ -201,7 +202,7 @@ async function normalizeImageFile(file: File, dedupeKey: string): Promise<Attach
     const previewBlob = await createPreviewBlob(canvas, hasAlpha);
 
     return {
-      id: crypto.randomUUID(),
+      id: createRandomId(),
       filename: file.name,
       sourceMimeType: file.type,
       normalizedMimeType,

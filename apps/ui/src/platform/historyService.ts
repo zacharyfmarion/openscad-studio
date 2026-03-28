@@ -1,3 +1,5 @@
+import { createRandomId } from '../utils/randomId';
+
 export interface Diagnostic {
   severity: 'error' | 'warning' | 'info';
   line?: number;
@@ -37,7 +39,7 @@ class HistoryService {
     changeType: ChangeType
   ): string {
     const checkpoint: EditorCheckpoint = {
-      id: crypto.randomUUID(),
+      id: createRandomId(),
       timestamp: Date.now(),
       code,
       diagnostics,

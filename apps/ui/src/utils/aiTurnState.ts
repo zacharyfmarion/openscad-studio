@@ -7,6 +7,7 @@ import type {
   ToolCall,
   ToolCallMessage,
 } from '../types/aiChat';
+import { createRandomId } from './randomId';
 
 type StreamChunk = TextStreamPart<ToolSet>;
 
@@ -69,7 +70,7 @@ function createAssistantMessage(
 
   return {
     type: 'assistant',
-    id: crypto.randomUUID(),
+    id: createRandomId(),
     turnId,
     content: trimmed,
     state,
@@ -80,7 +81,7 @@ function createAssistantMessage(
 function createToolMessage(toolCall: ToolCall, toolName?: string): ToolCallMessage {
   return {
     type: 'tool-call',
-    id: crypto.randomUUID(),
+    id: createRandomId(),
     toolCallId: toolCall.toolCallId,
     toolName: toolName ?? toolCall.name,
     args: toolCall.args,
