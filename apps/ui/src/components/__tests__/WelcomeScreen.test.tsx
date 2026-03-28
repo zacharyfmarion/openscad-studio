@@ -1,9 +1,10 @@
 /** @jest-environment jsdom */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { WelcomeScreen } from '../WelcomeScreen';
 import { clearApiKey, storeApiKey } from '../../stores/apiKeyStore';
+import { renderWithProviders } from './test-utils';
 
 const mockGetPlatform = jest.fn();
 
@@ -52,7 +53,7 @@ describe('WelcomeScreen', () => {
   });
 
   it('shows the model selector inline with the welcome composer actions when an API key is configured', async () => {
-    render(
+    renderWithProviders(
       <WelcomeScreen
         draft={{ text: '', attachmentIds: [] }}
         attachments={{}}
@@ -94,7 +95,7 @@ describe('WelcomeScreen', () => {
       fileExists: jest.fn(async (path: string) => path === '/tmp/exists.scad'),
     });
 
-    render(
+    renderWithProviders(
       <WelcomeScreen
         draft={{ text: '', attachmentIds: [] }}
         attachments={{}}

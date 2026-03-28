@@ -1,8 +1,9 @@
 /** @jest-environment jsdom */
 
-import { act, render, screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { ExportDialog } from '../ExportDialog';
+import { renderWithProviders } from './test-utils';
 
 jest.mock('../../analytics/runtime', () => ({
   useAnalytics: () => ({ track: jest.fn() }),
@@ -28,13 +29,13 @@ describe('ExportDialog default format', () => {
   });
 
   it('defaults to STL for 3D designs', () => {
-    render(<ExportDialog isOpen onClose={() => {}} source="" />);
+    renderWithProviders(<ExportDialog isOpen onClose={() => {}} source="" />);
     const trigger = screen.getByTestId('export-format-select');
     expect(trigger.textContent).toContain('STL');
   });
 
   it('defaults to SVG for 2D designs', () => {
-    render(<ExportDialog isOpen onClose={() => {}} source="" previewKind="svg" />);
+    renderWithProviders(<ExportDialog isOpen onClose={() => {}} source="" previewKind="svg" />);
     const trigger = screen.getByTestId('export-format-select');
     expect(trigger.textContent).toContain('SVG');
   });
@@ -44,7 +45,7 @@ describe('ExportDialog default format', () => {
     // then opens later with previewKind="svg". The useState initializer runs at
     // mount time (when isOpen is false), so the useEffect is what actually resets
     // the format when the dialog opens.
-    const { rerender } = render(
+    const { rerender } = renderWithProviders(
       <ExportDialog isOpen={false} onClose={() => {}} source="" previewKind="svg" />
     );
 

@@ -24,7 +24,9 @@ interface StudioMetadata {
   prominence?: ParameterProminence;
 }
 
-const isDev = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+const isDev =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ===
+  'development';
 
 /**
  * Parse comment text to extract customizer configuration

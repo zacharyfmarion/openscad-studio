@@ -1,10 +1,11 @@
 /** @jest-environment jsdom */
 
 import { TransformStream } from 'node:stream/web';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { ModelSelector } from '../ModelSelector';
 import { clearApiKey, storeApiKey } from '../../stores/apiKeyStore';
+import { renderWithProviders } from './test-utils';
 
 if (!globalThis.TransformStream) {
   Object.defineProperty(globalThis, 'TransformStream', {
@@ -104,7 +105,7 @@ describe('ModelSelector provider refresh', () => {
   }
 
   it('refreshes a mounted selector when an OpenAI key is added after mount', async () => {
-    render(<ModelSelectorHarness />);
+    renderWithProviders(<ModelSelectorHarness />);
 
     expect(screen.getByText('No API keys')).toBeTruthy();
 
@@ -127,7 +128,7 @@ describe('ModelSelector provider refresh', () => {
       storeApiKey('anthropic', 'anthropic-test-key');
     });
 
-    render(<ModelSelectorHarness />);
+    renderWithProviders(<ModelSelectorHarness />);
 
     await screen.findByRole('combobox');
     await waitFor(() => {
@@ -151,7 +152,7 @@ describe('ModelSelector provider refresh', () => {
       storeApiKey('openai', 'openai-test-key');
     });
 
-    render(<ModelSelectorHarness />);
+    renderWithProviders(<ModelSelectorHarness />);
 
     await screen.findByRole('combobox');
     await waitFor(() => {

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { loadSettings, saveSettings, type Settings } from '../stores/settingsStore';
 import { getTheme, applyTheme, type Theme } from '../themes';
+import { TooltipProvider } from '../components/ui';
 
 interface ThemeContextValue {
   theme: Theme;
@@ -46,7 +47,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   return (
     <ThemeContext.Provider value={{ theme, themeId, updateTheme }}>
-      {children}
+      <TooltipProvider>{children}</TooltipProvider>
     </ThemeContext.Provider>
   );
 }

@@ -10,7 +10,9 @@ let parser: TreeSitter.Parser | null = null;
 let language: TreeSitter.Language | null = null;
 let initPromise: Promise<void> | null = null;
 let parserReadyCallbacks: Array<() => void> = [];
-const isDev = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+const isDev =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ===
+  'development';
 
 /**
  * Initialize the parser (call once at startup)
