@@ -22,16 +22,18 @@ interface ApiKeySnapshot {
 // API Key Storage (localStorage-based, obfuscated)
 // ============================================================================
 
+const OBF_PREFIX = 'obf1:';
+
 function obfuscate(key: string): string {
-  return btoa(key.split('').reverse().join(''));
+  return OBF_PREFIX + btoa(key.split('').reverse().join(''));
 }
 
 function deobfuscate(stored: string): string | null {
+  if (!stored.startsWith(OBF_PREFIX)) return null; // Legacy plaintext value
   try {
-    return atob(stored).split('').reverse().join('');
+    return atob(stored.slice(OBF_PREFIX.length)).split('').reverse().join('');
   } catch {
-    // Not valid base64 — this is a legacy plaintext value
-    return null;
+    return null; // Corrupt stored value
   }
 }
 
