@@ -12,6 +12,7 @@ const mockIsParserReady = jest.fn(() => true);
 const mockOnParserReady = jest.fn(() => () => {});
 const mockEmit = jest.fn();
 const mockTrack = jest.fn();
+let mockElementWidth = 960;
 
 jest.mock('../../utils/customizer/parser', () => ({
   parseCustomizerParams: (code: string) => mockParseCustomizerParams(code),
@@ -49,9 +50,36 @@ describe('CustomizerPanel', () => {
     jest.clearAllMocks();
     jest.useRealTimers();
     localStorage.clear();
+    mockElementWidth = 960;
     updateSetting('ui', { defaultLayoutPreset: 'default' });
     mockIsParserReady.mockReturnValue(true);
     mockOnParserReady.mockReturnValue(() => {});
+
+    class ResizeObserverMock {
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    }
+
+    Object.defineProperty(global, 'ResizeObserver', {
+      writable: true,
+      value: ResizeObserverMock,
+    });
+
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: jest.fn(() => ({
+        x: 0,
+        y: 0,
+        left: 0,
+        top: 0,
+        right: mockElementWidth,
+        bottom: 80,
+        width: mockElementWidth,
+        height: 80,
+        toJSON: () => ({}),
+      })),
+    });
   });
 
   it('renders grouped polished controls and hides advanced params by default', () => {
@@ -202,6 +230,46 @@ describe('CustomizerPanel', () => {
     expect((screen.getByTestId('customizer-download-button') as HTMLButtonElement).disabled).toBe(
       false
     );
+  });
+
+  it('switches customizer-first header actions to icon buttons when the panel is narrow', () => {
+    mockElementWidth = 400;
+    mockParseCustomizerParams.mockReturnValue([
+      {
+        name: 'Parameters',
+        params: [
+          {
+            name: 'width',
+            type: 'number',
+            value: 10,
+            rawValue: '10',
+            line: 1,
+            tab: 'Parameters',
+          },
+        ],
+      },
+    ]);
+
+    renderWithProviders(
+      <CustomizerPanel
+        code="width = 10;"
+        baselineCode="width = 8;"
+        onChange={() => {}}
+        isCustomizerFirstMode
+        previewKind="mesh"
+        previewAvailable
+        renderReady
+        onRefineWithAi={() => {}}
+        onDownloadStl={() => {}}
+      />
+    );
+
+    expect(screen.queryByText('Refine')).toBeNull();
+    expect(screen.queryByText('Download STL')).toBeNull();
+    expect(screen.queryByText('Reset')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Refine with AI' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Download STL' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reset to defaults' })).toBeTruthy();
   });
 
   it('tracks customizer render and export actions with bounded properties', () => {
