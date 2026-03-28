@@ -106,7 +106,9 @@ describe('svg viewer helpers', () => {
     const svgPoint = { x: 3, y: 4 };
 
     const clientPoint = svgToClientPoint(svgPoint, rect, viewport);
-    expect(clientToSvgPoint(clientPoint.x, clientPoint.y, rect, viewport)).toEqual(svgPoint);
+    const roundTripped = clientToSvgPoint(clientPoint.x, clientPoint.y, rect, viewport);
+    expect(roundTripped.x).toBeCloseTo(svgPoint.x, 10);
+    expect(roundTripped.y).toBeCloseTo(svgPoint.y, 10);
   });
 
   it('computes visible document bounds from the corrected document-space viewport', () => {

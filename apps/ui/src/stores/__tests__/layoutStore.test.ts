@@ -99,13 +99,25 @@ describe('layoutStore addPresetPanels', () => {
     addPresetPanels(api, 'default', 'mobile');
 
     expect(api.groups).toHaveLength(1);
-    expect(api.addPanelCalls.map((call) => call.id)).toEqual(['preview', 'customizer']);
+    expect(api.addPanelCalls.map((call) => call.id)).toEqual([
+      'preview',
+      'customizer',
+      'editor',
+      'ai-chat',
+      'console',
+    ]);
 
     const previewGroupId = api.getPanel('preview')?.group.id;
     expect(api.getPanel('customizer')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('editor')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('ai-chat')?.group.id).toBe(previewGroupId);
+    expect(api.getPanel('console')?.group.id).toBe(previewGroupId);
 
     expect(api.addPanelCalls[0]?.inactive).toBeUndefined();
     expect(api.addPanelCalls[1]?.inactive).toBe(true);
+    expect(api.addPanelCalls[2]?.inactive).toBe(true);
+    expect(api.addPanelCalls[3]?.inactive).toBe(true);
+    expect(api.addPanelCalls[4]?.inactive).toBe(true);
   });
 
   it('creates a preview-led customizer-first desktop layout', () => {

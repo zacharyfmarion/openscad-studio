@@ -1,9 +1,10 @@
 /** @jest-environment jsdom */
 
-import { render, screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { WelcomeScreen } from '../WelcomeScreen';
 import { clearApiKey, storeApiKey } from '../../stores/apiKeyStore';
+import { renderWithProviders } from './test-utils';
 
 const mockGetPlatform = jest.fn();
 
@@ -52,7 +53,7 @@ describe('WelcomeScreen', () => {
   });
 
   it('shows the model selector inline with the welcome composer actions when an API key is configured', async () => {
-    render(
+    renderWithProviders(
       <WelcomeScreen
         draft={{ text: '', attachmentIds: [] }}
         attachments={{}}
@@ -73,8 +74,11 @@ describe('WelcomeScreen', () => {
     );
 
     expect(screen.getByTestId('welcome-ai-entry').className).toContain('ph-no-capture');
-    expect(await screen.findByRole('combobox')).toBeTruthy();
-    expect(await screen.findByRole('option', { name: 'GPT-5.4' })).toBeTruthy();
+    const combobox = await screen.findByRole('combobox');
+    expect(combobox).toBeTruthy();
+    await waitFor(() => {
+      expect(combobox.textContent).toContain('GPT-5.4');
+    });
   });
 
   it('prunes missing recent files before rendering them', async () => {
@@ -91,7 +95,7 @@ describe('WelcomeScreen', () => {
       fileExists: jest.fn(async (path: string) => path === '/tmp/exists.scad'),
     });
 
-    render(
+    renderWithProviders(
       <WelcomeScreen
         draft={{ text: '', attachmentIds: [] }}
         attachments={{}}

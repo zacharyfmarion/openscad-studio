@@ -1,10 +1,11 @@
 /** @jest-environment jsdom */
 
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { CustomizerPanel } from '../CustomizerPanel';
 import type { CustomizerTab } from '../../utils/customizer/types';
 import { updateSetting } from '../../stores/settingsStore';
+import { renderWithProviders } from './test-utils';
 
 const mockParseCustomizerParams = jest.fn<(code: string) => CustomizerTab[]>();
 const mockIsParserReady = jest.fn(() => true);
@@ -89,7 +90,7 @@ describe('CustomizerPanel', () => {
       },
     ]);
 
-    render(
+    renderWithProviders(
       <CustomizerPanel
         code="width = 60;"
         baselineCode="width = 60;"
@@ -131,7 +132,7 @@ describe('CustomizerPanel', () => {
     const handleRefine = jest.fn();
     mockParseCustomizerParams.mockReturnValue([]);
 
-    render(
+    renderWithProviders(
       <CustomizerPanel
         code="cube(10);"
         baselineCode="cube(10);"
@@ -160,7 +161,9 @@ describe('CustomizerPanel', () => {
     mockIsParserReady.mockReturnValue(false);
     mockParseCustomizerParams.mockReturnValue([]);
 
-    render(<CustomizerPanel code="cube(10);" baselineCode="cube(10);" onChange={() => {}} />);
+    renderWithProviders(
+      <CustomizerPanel code="cube(10);" baselineCode="cube(10);" onChange={() => {}} />
+    );
 
     expect(screen.getByLabelText('Loading customizer')).toBeTruthy();
     expect(screen.queryByText('This model is not customizable yet')).toBeNull();
@@ -183,7 +186,7 @@ describe('CustomizerPanel', () => {
       },
     ]);
 
-    render(
+    renderWithProviders(
       <CustomizerPanel
         code="width = 10;"
         baselineCode="width = 10;"
@@ -238,7 +241,7 @@ describe('CustomizerPanel', () => {
 
     updateSetting('ui', { defaultLayoutPreset: 'customizer-first' });
 
-    render(
+    renderWithProviders(
       <CustomizerPanel
         code="width = 60;\nheight = 30;"
         baselineCode="width = 60;\nheight = 30;"
@@ -294,7 +297,7 @@ describe('CustomizerPanel', () => {
       },
     ]);
 
-    const { rerender } = render(
+    const { rerender } = renderWithProviders(
       <CustomizerPanel code="width = 60;" baselineCode="width = 60;" onChange={handleChange} />
     );
 
@@ -332,7 +335,7 @@ describe('CustomizerPanel', () => {
       },
     ]);
 
-    const { rerender } = render(
+    const { rerender } = renderWithProviders(
       <CustomizerPanel code="width = 60;" baselineCode="width = 60;" onChange={handleChange} />
     );
 

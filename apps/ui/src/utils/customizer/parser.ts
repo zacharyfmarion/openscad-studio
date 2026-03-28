@@ -24,7 +24,9 @@ interface StudioMetadata {
   prominence?: ParameterProminence;
 }
 
-const isDev = import.meta.env.DEV;
+const isDev =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ===
+  'development';
 
 /**
  * Parse comment text to extract customizer configuration

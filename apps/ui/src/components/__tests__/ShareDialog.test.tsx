@@ -6,17 +6,19 @@ import { TextEncoder } from 'util';
 import { ShareDialog } from '../ShareDialog';
 import { ThemeProvider } from '../../contexts/ThemeContext';
 
-const mockTrack = jest.fn();
 const mockCreateShare = jest.fn();
 const mockUploadThumbnail = jest.fn();
 
-jest.mock('../../analytics/runtime', () => ({
-  useAnalytics: () => ({
-    track: (...args: unknown[]) => mockTrack(...args),
+// Return a stable object so that components with `analytics` in useEffect deps don't
+// re-run the effect on every render (the real useAnalytics is memoized).
+jest.mock('../../analytics/runtime', () => {
+  const stableAnalytics = {
+    track: jest.fn(),
     trackError: jest.fn(),
     setAnalyticsEnabled: jest.fn(),
-  }),
-}));
+  };
+  return { useAnalytics: () => stableAnalytics };
+});
 
 jest.mock('../../services/offscreenRenderer', () => ({
   captureOffscreen: jest.fn(async () => 'data:image/png;base64,AAA='),

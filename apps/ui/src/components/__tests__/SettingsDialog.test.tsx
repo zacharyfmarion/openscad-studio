@@ -189,7 +189,8 @@ describe('SettingsDialog privacy copy', () => {
     await screen.findByText('Show axes');
     fireEvent.click(screen.getByLabelText('Snap 3D measurements'));
     fireEvent.click(screen.getByRole('button', { name: 'Project' }));
-    fireEvent.change(screen.getByLabelText('Measurement Unit'), { target: { value: 'in' } });
+    fireEvent.click(screen.getByLabelText('Measurement Unit'));
+    fireEvent.click(await screen.findByRole('option', { name: /in \(inches\)/i }));
 
     expect(mockTrack).toHaveBeenCalledWith(
       'viewer preference changed',
