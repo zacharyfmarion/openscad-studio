@@ -38,7 +38,10 @@ export function extractErrorText(error: unknown): string {
       }
     }
 
-    if ('statusText' in error && typeof (error as { statusText?: unknown }).statusText === 'string') {
+    if (
+      'statusText' in error &&
+      typeof (error as { statusText?: unknown }).statusText === 'string'
+    ) {
       const statusText = (error as { statusText: string }).statusText.trim();
       if (statusText) {
         return statusText;
