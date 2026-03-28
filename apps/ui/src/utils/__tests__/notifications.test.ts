@@ -1,3 +1,5 @@
+/** @jest-environment jsdom */
+
 import { jest } from '@jest/globals';
 
 jest.mock('sonner', () => ({
@@ -8,7 +10,12 @@ jest.mock('sonner', () => ({
   },
 }));
 
+jest.mock('../../sentry', () => ({
+  captureSentryException: jest.fn(),
+}));
+
 import { toast } from 'sonner';
+import { captureSentryException } from '../../sentry';
 import { normalizeAppError, notifyError, notifyPromise, notifySuccess } from '../notifications';
 
 describe('notifications', () => {
@@ -39,6 +46,21 @@ describe('notifications', () => {
 
     expect(toast.error).toHaveBeenCalledWith('No such file or directory', {
       id: 'open-file-error',
+      description: undefined,
+    });
+  });
+
+  it('can skip Sentry capture for handled UI validation errors', () => {
+    notifyError({
+      operation: 'export-file',
+      error: new Error('Current top level object is not a 2D object.'),
+      capture: false,
+      fallbackMessage: 'Export failed',
+    });
+
+    expect(captureSentryException).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith('Current top level object is not a 2D object.', {
+      id: undefined,
       description: undefined,
     });
   });

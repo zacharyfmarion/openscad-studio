@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAnalytics } from '../analytics/runtime';
 import { getPlatform, type ExportFormat } from '../platform';
+import { isExportValidationError } from '../services/exportErrors';
 import { RenderService, type ExportFormat as WasmExportFormat } from '../services/renderService';
 import {
   Button,
@@ -86,6 +87,7 @@ export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDia
       notifyError({
         operation: 'export-file',
         error: err,
+        capture: !isExportValidationError(err),
         fallbackMessage: 'Export failed',
         toastId: 'export-error',
         logLabel: '[ExportDialog] Export failed',

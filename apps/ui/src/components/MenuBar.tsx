@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { getPlatform, type ExportFormat } from '../platform';
 import { RenderService } from '../services/renderService';
+import { normalizeAppError } from '../utils/notifications';
 
 interface MenuBarProps {
   source: string;
@@ -95,7 +96,7 @@ export function MenuBar({
       toast.success('Exported successfully');
     } catch (err) {
       console.error('Export failed:', err);
-      toast.error(`Export failed: ${err}`);
+      toast.error(normalizeAppError(err, 'Export failed').message);
     }
   };
 
