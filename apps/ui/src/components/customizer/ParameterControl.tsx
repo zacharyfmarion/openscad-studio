@@ -4,6 +4,8 @@
 
 import { Children, type ChangeEvent, useState, useEffect, useRef } from 'react';
 import type { CustomizerParam } from '../../utils/customizer/types';
+import { useSettings } from '../../stores/settingsStore';
+import { UNIT_LABELS } from '../../utils/measurementUnits';
 import {
   IconButton,
   RangeSlider,
@@ -25,6 +27,7 @@ interface ParameterControlProps {
 }
 
 const VECTOR_AXIS_LABELS = ['X', 'Y', 'Z', 'W'];
+type ControlLayout = 'stacked' | 'inline';
 
 function titleCaseName(name: string): string {
   return name
@@ -39,25 +42,59 @@ function getDisplayLabel(param: CustomizerParam): string {
   return param.label?.trim() || titleCaseName(param.name);
 }
 
+function getControlLayout(param: CustomizerParam): ControlLayout {
+  if (param.source === 'hybrid' || param.description) {
+    return 'stacked';
+  }
+
+  switch (param.type) {
+    case 'number':
+    case 'string':
+    case 'dropdown':
+    case 'boolean':
+      return 'inline';
+    default:
+      return 'stacked';
+  }
+}
+
+function getDisplayUnit(param: CustomizerParam, measurementUnit: keyof typeof UNIT_LABELS): string {
+  if (param.unit) {
+    return param.unit;
+  }
+
+  switch (param.type) {
+    case 'number':
+    case 'slider':
+    case 'vector':
+      return UNIT_LABELS[measurementUnit];
+    default:
+      return '';
+  }
+}
+
 function ControlShell({
   param,
   children,
   inlineMeta,
   isDirty = false,
   onReset,
+  layout = 'stacked',
 }: {
   param: CustomizerParam;
   children?: React.ReactNode;
   inlineMeta?: React.ReactNode;
   isDirty?: boolean;
   onReset?: () => void;
+  layout?: ControlLayout;
 }) {
   const displayLabel = getDisplayLabel(param);
   const hasChildren = Children.count(children) > 0;
+  const hasDescription = Boolean(param.description);
 
   return (
     <div
-      className="rounded-xl border p-2.5"
+      className={`rounded-xl border ${layout === 'inline' ? 'px-2.5 py-2' : 'p-2.5'}`}
       style={{
         backgroundColor: 'var(--bg-primary)',
         borderColor: isDirty ? 'var(--accent-primary)' : 'var(--border-primary)',
@@ -66,63 +103,116 @@ function ControlShell({
           : undefined,
       }}
       data-testid={`customizer-control-${param.name}`}
+      data-layout={layout}
     >
-      <div className={`flex items-start justify-between gap-3 ${hasChildren ? 'mb-2' : ''}`}>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <label
-              htmlFor={`param-${param.name}`}
-              className="text-sm font-medium"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              {displayLabel}
-            </label>
-            {isDirty && (
-              <span
-                className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                style={{
-                  backgroundColor: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
-                  color: 'var(--accent-primary)',
-                }}
-              >
-                Edited
-              </span>
-            )}
+      {layout === 'inline' ? (
+        <>
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <label
+                  htmlFor={`param-${param.name}`}
+                  className="block min-w-0 flex-1 truncate text-sm font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                  title={displayLabel}
+                >
+                  {displayLabel}
+                </label>
+                {isDirty && (
+                  <span
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                    style={{
+                      backgroundColor: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+                      color: 'var(--accent-primary)',
+                    }}
+                  >
+                    Edited
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1" data-slot="inline-meta">
+              {inlineMeta}
+              {isDirty && onReset && (
+                <IconButton
+                  size="sm"
+                  onClick={onReset}
+                  aria-label={`Reset ${displayLabel}`}
+                  title={`Reset ${displayLabel}`}
+                >
+                  <TbRefresh size={14} />
+                </IconButton>
+              )}
+            </div>
           </div>
 
-          {param.description && (
-            <Text
-              variant="caption"
-              className="mt-0.5"
-              style={{
-                display: '-webkit-box',
-                WebkitBoxOrient: 'vertical',
-                WebkitLineClamp: 2,
-                overflow: 'hidden',
-              }}
-              title={param.description}
-            >
-              {param.description}
-            </Text>
+          {hasChildren && (
+            <div className="mt-2" data-slot="control-body">
+              {children}
+            </div>
           )}
-        </div>
+        </>
+      ) : (
+        <>
+          <div className={`flex items-start justify-between gap-3 ${hasChildren ? 'mb-2' : ''}`}>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <label
+                  htmlFor={`param-${param.name}`}
+                  className="text-sm font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {displayLabel}
+                </label>
+                {isDirty && (
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                    style={{
+                      backgroundColor: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+                      color: 'var(--accent-primary)',
+                    }}
+                  >
+                    Edited
+                  </span>
+                )}
+              </div>
 
-        <div className="flex shrink-0 items-center gap-1">
-          {inlineMeta}
-          {isDirty && onReset && (
-            <IconButton
-              size="sm"
-              onClick={onReset}
-              aria-label={`Reset ${displayLabel}`}
-              title={`Reset ${displayLabel}`}
-            >
-              <TbRefresh size={14} />
-            </IconButton>
-          )}
-        </div>
-      </div>
+              {hasDescription && (
+                <Text
+                  variant="caption"
+                  className="mt-0.5"
+                  style={{
+                    display: '-webkit-box',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: 2,
+                    overflow: 'hidden',
+                  }}
+                  title={param.description}
+                >
+                  {param.description}
+                </Text>
+              )}
+            </div>
 
-      {children}
+            <div className="flex shrink-0 items-center gap-1" data-slot="inline-meta">
+              {inlineMeta}
+              {isDirty && onReset && (
+                <IconButton
+                  size="sm"
+                  onClick={onReset}
+                  aria-label={`Reset ${displayLabel}`}
+                  title={`Reset ${displayLabel}`}
+                >
+                  <TbRefresh size={14} />
+                </IconButton>
+              )}
+            </div>
+          </div>
+
+          {hasChildren && <div data-slot="control-body">{children}</div>}
+        </>
+      )}
     </div>
   );
 }
@@ -167,6 +257,9 @@ export function ParameterControl({
   isDirty = false,
   onReset,
 }: ParameterControlProps) {
+  const [settings] = useSettings();
+  const displayUnit = getDisplayUnit(param, settings.viewer.measurementUnit);
+
   switch (param.type) {
     case 'boolean':
       return (
@@ -174,7 +267,13 @@ export function ParameterControl({
       );
     case 'slider':
       return (
-        <SliderControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />
+        <SliderControl
+          param={param}
+          displayUnit={displayUnit}
+          onChange={onChange}
+          isDirty={isDirty}
+          onReset={onReset}
+        />
       );
     case 'dropdown':
       return (
@@ -182,7 +281,13 @@ export function ParameterControl({
       );
     case 'vector':
       return (
-        <VectorControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />
+        <VectorControl
+          param={param}
+          displayUnit={displayUnit}
+          onChange={onChange}
+          isDirty={isDirty}
+          onReset={onReset}
+        />
       );
     case 'string':
       return (
@@ -191,7 +296,13 @@ export function ParameterControl({
     case 'number':
     default:
       return (
-        <NumberControl param={param} onChange={onChange} isDirty={isDirty} onReset={onReset} />
+        <NumberControl
+          param={param}
+          displayUnit={displayUnit}
+          onChange={onChange}
+          isDirty={isDirty}
+          onReset={onReset}
+        />
       );
   }
 }
@@ -199,12 +310,14 @@ export function ParameterControl({
 function BooleanControl({ param, onChange, isDirty, onReset }: ParameterControlProps) {
   const checked = Boolean(param.value);
   const displayLabel = getDisplayLabel(param);
+  const layout = getControlLayout(param);
 
   return (
     <ControlShell
       param={param}
       isDirty={isDirty}
       onReset={onReset}
+      layout={layout}
       inlineMeta={
         <Toggle
           id={`param-${param.name}`}
@@ -218,7 +331,13 @@ function BooleanControl({ param, onChange, isDirty, onReset }: ParameterControlP
   );
 }
 
-function SliderControl({ param, onChange, isDirty, onReset }: ParameterControlProps) {
+function SliderControl({
+  param,
+  displayUnit,
+  onChange,
+  isDirty,
+  onReset,
+}: ParameterControlProps & { displayUnit: string }) {
   const min = param.min ?? 0;
   const max = param.max ?? 100;
   const step = param.step ?? 1;
@@ -290,7 +409,7 @@ function SliderControl({ param, onChange, isDirty, onReset }: ParameterControlPr
         className="customizer-number-input bg-transparent text-sm text-right outline-none"
         style={{ color: 'var(--text-primary)', width: '52px', padding: '2px 6px' }}
       />
-      {param.unit && (
+      {displayUnit && (
         <span
           className="px-1.5 text-xs shrink-0"
           style={{
@@ -300,14 +419,20 @@ function SliderControl({ param, onChange, isDirty, onReset }: ParameterControlPr
             padding: '3px 6px',
           }}
         >
-          {param.unit}
+          {displayUnit}
         </span>
       )}
     </div>
   );
 
   return (
-    <ControlShell param={param} isDirty={isDirty} onReset={onReset} inlineMeta={inlineValueInput}>
+    <ControlShell
+      param={param}
+      isDirty={isDirty}
+      onReset={onReset}
+      layout="stacked"
+      inlineMeta={inlineValueInput}
+    >
       <div className="flex items-center gap-2 mt-0.5">
         <span
           className="text-[11px] shrink-0 tabular-nums"
@@ -338,35 +463,52 @@ function SliderControl({ param, onChange, isDirty, onReset }: ParameterControlPr
 
 function DropdownControl({ param, onChange, isDirty, onReset }: ParameterControlProps) {
   const value = String(param.value);
+  const layout = getControlLayout(param);
+  const control = (
+    <Select
+      value={value}
+      onValueChange={(v) => {
+        const option = param.options?.find((candidate) => String(candidate.value) === v);
+        if (option) {
+          onChange(option.value);
+        }
+      }}
+    >
+      <SelectTrigger size="sm" className={layout === 'inline' ? 'w-36 shrink-0' : undefined}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {param.options?.map((option) => (
+          <SelectItem key={String(option.value)} value={String(option.value)}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 
   return (
-    <ControlShell param={param} isDirty={isDirty} onReset={onReset}>
-      <Select
-        value={value}
-        onValueChange={(v) => {
-          const option = param.options?.find((candidate) => String(candidate.value) === v);
-          if (option) {
-            onChange(option.value);
-          }
-        }}
-      >
-        <SelectTrigger size="sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {param.options?.map((option) => (
-            <SelectItem key={String(option.value)} value={String(option.value)}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <ControlShell
+      param={param}
+      isDirty={isDirty}
+      onReset={onReset}
+      layout={layout}
+      inlineMeta={layout === 'inline' ? control : undefined}
+    >
+      {layout === 'stacked' ? control : undefined}
     </ControlShell>
   );
 }
 
-function NumberControl({ param, onChange, isDirty, onReset }: ParameterControlProps) {
+function NumberControl({
+  param,
+  displayUnit,
+  onChange,
+  isDirty,
+  onReset,
+}: ParameterControlProps & { displayUnit: string }) {
   const [localValue, setLocalValue] = useState(String(param.value));
+  const layout = getControlLayout(param);
 
   useEffect(() => {
     setLocalValue(String(param.value));
@@ -383,35 +525,46 @@ function NumberControl({ param, onChange, isDirty, onReset }: ParameterControlPr
     }
   };
 
+  const control = (
+    <ValueWithUnit
+      unit={displayUnit}
+      className={layout === 'inline' ? 'w-28 shrink-0' : 'w-36'}
+      value={
+        <input
+          type="number"
+          id={`param-${param.name}`}
+          value={localValue}
+          onChange={(event) => setLocalValue(event.target.value)}
+          onBlur={handleCommit}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              handleCommit();
+              event.currentTarget.blur();
+            }
+          }}
+          className="customizer-number-input w-full bg-transparent px-3 py-2 text-sm outline-none"
+          style={{ color: 'var(--text-primary)' }}
+        />
+      }
+    />
+  );
+
   return (
-    <ControlShell param={param} isDirty={isDirty} onReset={onReset}>
-      <ValueWithUnit
-        unit={param.unit}
-        className="w-36"
-        value={
-          <input
-            type="number"
-            id={`param-${param.name}`}
-            value={localValue}
-            onChange={(event) => setLocalValue(event.target.value)}
-            onBlur={handleCommit}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                handleCommit();
-                event.currentTarget.blur();
-              }
-            }}
-            className="customizer-number-input w-full bg-transparent px-3 py-2 text-sm outline-none"
-            style={{ color: 'var(--text-primary)' }}
-          />
-        }
-      />
+    <ControlShell
+      param={param}
+      isDirty={isDirty}
+      onReset={onReset}
+      layout={layout}
+      inlineMeta={layout === 'inline' ? control : undefined}
+    >
+      {layout === 'stacked' ? control : undefined}
     </ControlShell>
   );
 }
 
 function StringControl({ param, onChange, isDirty, onReset }: ParameterControlProps) {
   const [localValue, setLocalValue] = useState(String(param.value));
+  const layout = getControlLayout(param);
 
   useEffect(() => {
     setLocalValue(String(param.value));
@@ -423,33 +576,50 @@ function StringControl({ param, onChange, isDirty, onReset }: ParameterControlPr
     }
   };
 
+  const control = (
+    <ValueWithUnit
+      unit={param.unit}
+      className={layout === 'inline' ? 'w-40 shrink-0' : undefined}
+      value={
+        <input
+          type="text"
+          id={`param-${param.name}`}
+          value={localValue}
+          onChange={(event) => setLocalValue(event.target.value)}
+          onBlur={handleCommit}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              handleCommit();
+              event.currentTarget.blur();
+            }
+          }}
+          className="w-full bg-transparent px-3 py-2 text-sm outline-none"
+          style={{ color: 'var(--text-primary)' }}
+        />
+      }
+    />
+  );
+
   return (
-    <ControlShell param={param} isDirty={isDirty} onReset={onReset}>
-      <ValueWithUnit
-        unit={param.unit}
-        value={
-          <input
-            type="text"
-            id={`param-${param.name}`}
-            value={localValue}
-            onChange={(event) => setLocalValue(event.target.value)}
-            onBlur={handleCommit}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                handleCommit();
-                event.currentTarget.blur();
-              }
-            }}
-            className="w-full bg-transparent px-3 py-2 text-sm outline-none"
-            style={{ color: 'var(--text-primary)' }}
-          />
-        }
-      />
+    <ControlShell
+      param={param}
+      isDirty={isDirty}
+      onReset={onReset}
+      layout={layout}
+      inlineMeta={layout === 'inline' ? control : undefined}
+    >
+      {layout === 'stacked' ? control : undefined}
     </ControlShell>
   );
 }
 
-function VectorControl({ param, onChange, isDirty, onReset }: ParameterControlProps) {
+function VectorControl({
+  param,
+  displayUnit,
+  onChange,
+  isDirty,
+  onReset,
+}: ParameterControlProps & { displayUnit: string }) {
   const values = Array.isArray(param.value) ? param.value : [];
   const [localValues, setLocalValues] = useState(values.map(String));
 
@@ -478,7 +648,7 @@ function VectorControl({ param, onChange, isDirty, onReset }: ParameterControlPr
   };
 
   return (
-    <ControlShell param={param} isDirty={isDirty} onReset={onReset}>
+    <ControlShell param={param} isDirty={isDirty} onReset={onReset} layout="stacked">
       <div className="grid gap-2 sm:grid-cols-2">
         {values.map((_value, index) => {
           const axisLabel = VECTOR_AXIS_LABELS[index] ?? `[${index}]`;
@@ -492,7 +662,7 @@ function VectorControl({ param, onChange, isDirty, onReset }: ParameterControlPr
                 {axisLabel}
               </label>
               <ValueWithUnit
-                unit={param.unit}
+                unit={displayUnit}
                 value={
                   <input
                     type="number"
