@@ -13,7 +13,7 @@ import { replaceParamValue } from '../utils/customizer/replaceParamValue';
 import { isParserReady, onParserReady } from '../utils/formatter/parser';
 import type { CustomizerParam, ParameterProminence } from '../utils/customizer/types';
 import { ParameterControl } from './customizer/ParameterControl';
-import { Button, Text, Toggle } from './ui';
+import { Button, IconButton, Text, Toggle } from './ui';
 import { TbAdjustmentsHorizontal, TbRefresh, TbSparkles, TbCode, TbDownload } from 'react-icons/tb';
 import { eventBus } from '../platform';
 import { useSettings } from '../stores/settingsStore';
@@ -47,6 +47,7 @@ const PROMINENCE_ORDER: Record<ParameterProminence, number> = {
   secondary: 1,
   advanced: 2,
 };
+const COMPACT_HEADER_ACTIONS_BREAKPOINT = 420;
 
 function getParamKey(param: CustomizerParam): string {
   return `${param.line}:${param.name}`;
@@ -160,6 +161,8 @@ export function CustomizerPanel({
 }: CustomizerPanelProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [parserReady, setParserReady] = useState(isParserReady);
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const [headerWidth, setHeaderWidth] = useState(0);
   const analytics = useAnalytics();
   const [settings] = useSettings();
   const lastRenderedSignatureRef = useRef<string | null>(null);
@@ -168,6 +171,32 @@ export function CustomizerPanel({
     if (parserReady) return;
     return onParserReady(() => setParserReady(true));
   }, [parserReady]);
+
+  useEffect(() => {
+    const element = headerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const updateWidth = () => {
+      setHeaderWidth(element.getBoundingClientRect().width);
+    };
+
+    updateWidth();
+
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      updateWidth();
+    });
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   const tabs = useMemo(() => {
     if (!parserReady) return [];
@@ -216,6 +245,8 @@ export function CustomizerPanel({
   const showTabHeaders =
     groupedTabs.length > 1 || groupedTabs.some((tab) => tab.name !== 'Parameters');
   const analyticsSummary = useMemo(() => getCustomizerAnalyticsSummary(tabs), [tabs]);
+  const useCompactHeaderActions =
+    isCustomizerFirstMode && headerWidth > 0 && headerWidth <= COMPACT_HEADER_ACTIONS_BREAKPOINT;
 
   const hasChanges = useMemo(() => {
     if (!baselineParams.size) return false;
@@ -444,6 +475,7 @@ export function CustomizerPanel({
   return (
     <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div
+        ref={headerRef}
         className="sticky top-0 z-10 border-b border-l backdrop-blur"
         style={{
           backgroundColor: 'color-mix(in srgb, var(--bg-primary) 92%, transparent)',
@@ -470,30 +502,121 @@ export function CustomizerPanel({
                 </div>
               )}
               <div className="flex items-center gap-1.5 ml-auto">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleRefineWithAi}
-                  className="inline-flex items-center gap-1"
-                  data-testid="customizer-refine-button"
-                >
-                  <TbSparkles size={12} />
-                  Refine
-                </Button>
-                {previewKind === 'svg' ? (
+                {useCompactHeaderActions ? (
+                  <IconButton
+                    variant="toolbar"
+                    size="md"
+                    onClick={handleRefineWithAi}
+                    title="Refine with AI"
+                    aria-label="Refine with AI"
+                    tooltipSide="bottom"
+                    data-testid="customizer-refine-button"
+                  >
+                    <TbSparkles size={14} />
+                  </IconButton>
+                ) : (
                   <Button
                     type="button"
+                    variant="secondary"
                     size="sm"
-                    onClick={handleDownloadSvg}
-                    disabled={Boolean(downloadDisabledReason) || isDownloadingSvg}
+                    onClick={handleRefineWithAi}
                     className="inline-flex items-center gap-1"
+                    data-testid="customizer-refine-button"
+                  >
+                    <TbSparkles size={12} />
+                    Refine
+                  </Button>
+                )}
+                {previewKind === 'svg' ? (
+                  useCompactHeaderActions ? (
+                    <IconButton
+                      variant="toolbar"
+                      size="md"
+                      onClick={handleDownloadSvg}
+                      disabled={Boolean(downloadDisabledReason) || isDownloadingSvg}
+                      title="Download SVG"
+                      aria-label="Download SVG"
+                      tooltipSide="bottom"
+                      data-testid="customizer-download-button"
+                    >
+                      {isDownloadingSvg ? (
+                        <svg
+                          className="animate-spin"
+                          style={{ width: 14, height: 14 }}
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                      ) : (
+                        <TbDownload size={14} />
+                      )}
+                    </IconButton>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleDownloadSvg}
+                      disabled={Boolean(downloadDisabledReason) || isDownloadingSvg}
+                      className="inline-flex items-center gap-1"
+                      data-testid="customizer-download-button"
+                    >
+                      {isDownloadingSvg ? (
+                        <svg
+                          className="animate-spin"
+                          style={{ width: 12, height: 12 }}
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                      ) : (
+                        <TbDownload size={12} />
+                      )}
+                      Download SVG
+                    </Button>
+                  )
+                ) : useCompactHeaderActions ? (
+                  <IconButton
+                    variant="toolbar"
+                    size="md"
+                    onClick={handleDownloadStl}
+                    disabled={Boolean(downloadDisabledReason) || isDownloadingStl}
+                    title="Download STL"
+                    aria-label="Download STL"
+                    tooltipSide="bottom"
                     data-testid="customizer-download-button"
                   >
-                    {isDownloadingSvg ? (
+                    {isDownloadingStl ? (
                       <svg
                         className="animate-spin"
-                        style={{ width: 12, height: 12 }}
+                        style={{ width: 14, height: 14 }}
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
                         viewBox="0 0 24 24"
@@ -513,10 +636,9 @@ export function CustomizerPanel({
                         />
                       </svg>
                     ) : (
-                      <TbDownload size={12} />
+                      <TbDownload size={14} />
                     )}
-                    Download SVG
-                  </Button>
+                  </IconButton>
                 ) : (
                   <Button
                     type="button"
@@ -554,17 +676,31 @@ export function CustomizerPanel({
                     Download STL
                   </Button>
                 )}
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleResetDefaults}
-                  disabled={!hasChanges}
-                  className="inline-flex items-center gap-1"
-                >
-                  <TbRefresh size={12} />
-                  Reset
-                </Button>
+                {useCompactHeaderActions ? (
+                  <IconButton
+                    variant="toolbar"
+                    size="md"
+                    onClick={handleResetDefaults}
+                    disabled={!hasChanges}
+                    title="Reset to defaults"
+                    aria-label="Reset to defaults"
+                    tooltipSide="bottom"
+                  >
+                    <TbRefresh size={14} />
+                  </IconButton>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleResetDefaults}
+                    disabled={!hasChanges}
+                    className="inline-flex items-center gap-1"
+                  >
+                    <TbRefresh size={12} />
+                    Reset
+                  </Button>
+                )}
               </div>
             </div>
             {downloadDisabledReason && (
