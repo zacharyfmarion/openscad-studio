@@ -50,11 +50,15 @@ test.describe('Keyboard shortcuts', () => {
     // Redefine File System Access APIs as configurable so we can delete them.
     await app.page.evaluate(() => {
       Object.defineProperty(window, 'showOpenFilePicker', {
-        value: undefined, configurable: true, writable: true,
+        value: undefined,
+        configurable: true,
+        writable: true,
       });
       delete (window as any).showOpenFilePicker;
       Object.defineProperty(window, 'showSaveFilePicker', {
-        value: undefined, configurable: true, writable: true,
+        value: undefined,
+        configurable: true,
+        writable: true,
       });
       delete (window as any).showSaveFilePicker;
 
@@ -82,10 +86,9 @@ test.describe('Keyboard shortcuts', () => {
     await app.page.getByText('File').first().click();
     await app.page.getByText('Save As').click();
 
-    await app.page.waitForFunction(
-      () => (window as any).__downloadCalled__ !== null,
-      { timeout: 10_000 },
-    );
+    await app.page.waitForFunction(() => (window as any).__downloadCalled__ !== null, {
+      timeout: 10_000,
+    });
     const result = await app.page.evaluate(() => (window as any).__downloadCalled__);
     expect(result.filename).toMatch(/\.scad$/);
   });
@@ -152,7 +155,7 @@ test.describe('Keyboard shortcuts', () => {
       .isVisible()
       .catch(() => false);
     if (stillOpen) {
-      await app.page.getByRole('button', { name: 'Close settings', exact: true }).click();
+      await app.page.getByTestId('settings-close-button').click();
     }
 
     // Settings should be closed

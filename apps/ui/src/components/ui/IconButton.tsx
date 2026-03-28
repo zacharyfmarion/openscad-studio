@@ -1,5 +1,6 @@
 import { ButtonHTMLAttributes, forwardRef } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { Tooltip, TooltipContent, TooltipTrigger } from './Tooltip';
 
 const iconButton = cva(
   [
@@ -42,18 +43,44 @@ const iconButton = cva(
 export interface IconButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof iconButton> {
   isActive?: boolean;
+  tooltipSide?: 'top' | 'right' | 'bottom' | 'left';
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
-  ({ variant, size, isActive, className = '', type = 'button', ...props }, ref) => {
-    return (
+  (
+    {
+      variant,
+      size,
+      isActive,
+      className = '',
+      type = 'button',
+      title,
+      tooltipSide,
+      'aria-label': ariaLabel,
+      ...props
+    },
+    ref
+  ) => {
+    const accessibleLabel = ariaLabel ?? (typeof title === 'string' ? title : undefined);
+
+    const button = (
       <button
         ref={ref}
         type={type}
         className={iconButton({ variant, size, className })}
         data-active={isActive || undefined}
+        aria-label={accessibleLabel}
         {...props}
       />
+    );
+
+    if (!title) return button;
+
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side={tooltipSide}>{title}</TooltipContent>
+      </Tooltip>
     );
   }
 );

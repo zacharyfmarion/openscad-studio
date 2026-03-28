@@ -30,3 +30,6 @@ export type { ToggleProps } from './Toggle';
 
 export { SegmentedControl } from './SegmentedControl';
 export { RangeSlider } from './RangeSlider';
+
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './Tooltip';
+export type { TooltipProviderProps } from './Tooltip';
