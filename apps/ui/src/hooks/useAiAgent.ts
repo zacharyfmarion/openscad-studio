@@ -50,6 +50,7 @@ import {
   type PreviewSceneStyle,
 } from '../services/previewSceneConfig';
 import { getRelativeProjectPath, normalizeProjectRelativePath } from '../utils/projectFilePaths';
+import { createRandomId } from '../utils/randomId';
 import { updateSetting, loadSettings, type MeasurementUnit } from '../stores/settingsStore';
 
 function extractErrorText(error: unknown): string {
@@ -405,7 +406,7 @@ export function useAiAgent() {
               ...nextConversation.messages,
               {
                 type: 'assistant' as const,
-                id: crypto.randomUUID(),
+                id: createRandomId(),
                 turnId: activeTurn.turnId,
                 content: options.completionNotice,
                 state: 'complete' as const,
@@ -637,7 +638,7 @@ export function useAiAgent() {
 
       const userMessage: UserMessage = {
         type: 'user',
-        id: crypto.randomUUID(),
+        id: createRandomId(),
         parts: draftParts,
         timestamp: Date.now(),
       };
@@ -645,7 +646,7 @@ export function useAiAgent() {
       const updatedMessages = [...currentState.messages, userMessage];
       const submittedDraft = draft;
       const submittedReadyIds = getReadyAttachmentIds(draft, currentState.attachments);
-      const turnId = crypto.randomUUID();
+      const turnId = createRandomId();
       const activeTurn = createActiveTurnState(turnId, userMessage.id);
 
       committedMessagesRef.current = updatedMessages;
