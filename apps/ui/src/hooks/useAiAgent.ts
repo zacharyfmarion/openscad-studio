@@ -49,23 +49,9 @@ import {
   FALLBACK_PREVIEW_SCENE_STYLE,
   type PreviewSceneStyle,
 } from '../services/previewSceneConfig';
+import { extractErrorText, humanizeStreamError } from '../utils/errorText';
 import { getRelativeProjectPath, normalizeProjectRelativePath } from '../utils/projectFilePaths';
 import { updateSetting, loadSettings, type MeasurementUnit } from '../stores/settingsStore';
-
-function extractErrorText(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return String(error);
-}
-
-function humanizeStreamError(errorText: string): string {
-  if (/failed to fetch/i.test(errorText)) {
-    return 'Could not reach the AI service — check your internet connection.';
-  }
-  return `Failed: ${errorText}`;
-}
 
 const EMPTY_DRAFT: AiDraft = {
   text: '',
