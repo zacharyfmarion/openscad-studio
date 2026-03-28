@@ -24,7 +24,7 @@ export function ProjectSettings({ settings, onViewerChange }: ProjectSettingsPro
             value={settings.viewer.measurementUnit}
             onValueChange={(v) => onViewerChange('measurementUnit', v as MeasurementUnit)}
           >
-            <SelectTrigger>
+            <SelectTrigger id="project-measurement-unit">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

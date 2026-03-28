@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { WelcomeScreen } from '../WelcomeScreen';
 import { clearApiKey, storeApiKey } from '../../stores/apiKeyStore';
@@ -73,8 +73,11 @@ describe('WelcomeScreen', () => {
     );
 
     expect(screen.getByTestId('welcome-ai-entry').className).toContain('ph-no-capture');
-    expect(await screen.findByRole('combobox')).toBeTruthy();
-    expect(await screen.findByRole('option', { name: 'GPT-5.4' })).toBeTruthy();
+    const combobox = await screen.findByRole('combobox');
+    expect(combobox).toBeTruthy();
+    await waitFor(() => {
+      expect(combobox.textContent).toContain('GPT-5.4');
+    });
   });
 
   it('prunes missing recent files before rendering them', async () => {

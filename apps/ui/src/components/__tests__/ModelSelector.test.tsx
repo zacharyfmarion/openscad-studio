@@ -65,12 +65,15 @@ function createFetchMock() {
 function ModelSelectorHarness() {
   const { currentModel, availableProviders, setCurrentModel } = useAiAgent();
 
+  // Wrap in <form> so Radix Select renders its hidden native <select> for option assertions
   return (
-    <ModelSelector
-      currentModel={currentModel}
-      availableProviders={availableProviders}
-      onChange={setCurrentModel}
-    />
+    <form>
+      <ModelSelector
+        currentModel={currentModel}
+        availableProviders={availableProviders}
+        onChange={setCurrentModel}
+      />
+    </form>
   );
 }
 
@@ -94,6 +97,12 @@ describe('ModelSelector provider refresh', () => {
     localStorage.clear();
   });
 
+  // Helper: get option labels from Radix Select's hidden native <select>
+  function getNativeSelectOptionLabels(): string[] {
+    const options = document.querySelectorAll('select option');
+    return Array.from(options).map((o) => o.textContent ?? '');
+  }
+
   it('refreshes a mounted selector when an OpenAI key is added after mount', async () => {
     render(<ModelSelectorHarness />);
 
@@ -104,8 +113,10 @@ describe('ModelSelector provider refresh', () => {
     });
 
     await screen.findByRole('combobox');
-    expect(await screen.findByRole('option', { name: 'GPT-5.4' })).toBeTruthy();
 
+    await waitFor(() => {
+      expect(getNativeSelectOptionLabels()).toContain('GPT-5.4');
+    });
     await waitFor(() => {
       expect(screen.queryByText('No API keys')).toBeNull();
     });
@@ -118,14 +129,20 @@ describe('ModelSelector provider refresh', () => {
 
     render(<ModelSelectorHarness />);
 
-    expect(await screen.findByRole('option', { name: 'Claude Sonnet 4.5 (Latest)' })).toBeTruthy();
+    await screen.findByRole('combobox');
+    await waitFor(() => {
+      expect(getNativeSelectOptionLabels()).toContain('Claude Sonnet 4.5 (Latest)');
+    });
 
     act(() => {
       storeApiKey('openai', 'openai-test-key');
     });
 
-    expect(await screen.findByRole('option', { name: 'GPT-5.4' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Claude Sonnet 4.5 (Latest)' })).toBeTruthy();
+    await waitFor(() => {
+      const labels = getNativeSelectOptionLabels();
+      expect(labels).toContain('GPT-5.4');
+      expect(labels).toContain('Claude Sonnet 4.5 (Latest)');
+    });
   });
 
   it('falls back to GPT-5.4 when the selected Anthropic provider is removed', async () => {
@@ -136,16 +153,24 @@ describe('ModelSelector provider refresh', () => {
 
     render(<ModelSelectorHarness />);
 
-    const select = await screen.findByRole('combobox');
-    expect(await screen.findByRole('option', { name: 'GPT-5.4' })).toBeTruthy();
+    await screen.findByRole('combobox');
+    await waitFor(() => {
+      expect(getNativeSelectOptionLabels()).toContain('GPT-5.4');
+    });
 
     act(() => {
       clearApiKey('anthropic');
     });
 
     await waitFor(() => {
-      expect((select as HTMLSelectElement).value).toBe('gpt-5.4');
+      const labels = getNativeSelectOptionLabels();
+      expect(labels).not.toContain('Claude Sonnet 4.5 (Latest)');
+      expect(labels).toContain('GPT-5.4');
     });
-    expect(screen.queryByRole('option', { name: 'Claude Sonnet 4.5 (Latest)' })).toBeNull();
+
+    const nativeSelect = document.querySelector('select') as HTMLSelectElement | null;
+    await waitFor(() => {
+      expect(nativeSelect?.value).toBe('gpt-5.4');
+    });
   });
 });

@@ -24,7 +24,7 @@ interface StudioMetadata {
   prominence?: ParameterProminence;
 }
 
-const isDev = import.meta.env.DEV;
+const isDev = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
 
 /**
  * Parse comment text to extract customizer configuration

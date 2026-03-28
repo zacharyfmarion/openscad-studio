@@ -22,7 +22,7 @@ import type {
 let _bridge: PlatformBridge | null = null;
 
 function isTauri(): boolean {
-  return '__TAURI_INTERNALS__' in window;
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
 function createBootstrapCapabilities(): PlatformCapabilities {

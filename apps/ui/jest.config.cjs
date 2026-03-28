@@ -15,7 +15,9 @@ module.exports = {
   ],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^.*/sentry$': '<rootDir>/src/__mocks__/sentry.ts',
   },
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   transform: {
     '^.+\\.(ts|tsx)$': [
       'ts-jest',
