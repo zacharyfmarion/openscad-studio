@@ -68,7 +68,11 @@ export function robustRaycastLoadedModel(args: {
   if (primary) return primary;
 
   for (const [dx, dy] of ROBUST_OFFSETS_PX) {
-    const result = raycastLoadedModel({ ...args, clientX: args.clientX + dx, clientY: args.clientY + dy });
+    const result = raycastLoadedModel({
+      ...args,
+      clientX: args.clientX + dx,
+      clientY: args.clientY + dy,
+    });
     if (result) return result;
   }
 

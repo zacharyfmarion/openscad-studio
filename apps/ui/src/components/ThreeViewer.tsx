@@ -1200,6 +1200,41 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
     setLiveMessage('Measurements cleared');
   }, [measurements.length, trackMeasurementsCleared]);
 
+  const handleSectionReset = useCallback(() => {
+    if (loadedModel) {
+      setSectionState(createDefaultSectionPlaneState(loadedModel.bounds));
+    }
+  }, [loadedModel]);
+
+  const handleMeasurementDelete = useCallback(
+    (id: string) => {
+      setMeasurements((existing) => existing.filter((m) => m.id !== id));
+      setSelectedMeasurementId((current) => (current === id ? null : current));
+      setLiveMessage('Measurement deleted');
+    },
+    [setLiveMessage]
+  );
+
+  const handleSelectionChange = useCallback(
+    (next: SelectionState) => {
+      setSelection(next);
+      if (next.objectUuid) {
+        setLiveMessage('Selection updated');
+      }
+    },
+    [setLiveMessage]
+  );
+
+  const handleCommitMeasurement = useCallback(
+    (measurement: MeasurementRecord3D) => {
+      setMeasurements((existing) => [measurement, ...existing]);
+      setSelectedMeasurementId(measurement.id);
+      setLiveMessage('Measurement added');
+      trackDistanceMeasurementCommitted(measurements.length + 1);
+    },
+    [measurements.length, trackDistanceMeasurementCommitted, setLiveMessage]
+  );
+
   const updateSectionAxis = (axis: SectionAxis) => {
     if (!loadedModel || !sectionState) {
       return;
@@ -1223,19 +1258,9 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
       draftMeasurement,
       selection,
       onSectionStateChange: setSectionState,
-      onSectionReset: () => {
-        if (loadedModel) {
-          setSectionState(createDefaultSectionPlaneState(loadedModel.bounds));
-        }
-      },
+      onSectionReset: handleSectionReset,
       onMeasurementSelect: setSelectedMeasurementId,
-      onMeasurementDelete: (id) => {
-        setMeasurements((existing) => existing.filter((m) => m.id !== id));
-        if (selectedMeasurementId === id) {
-          setSelectedMeasurementId(null);
-        }
-        setLiveMessage('Measurement deleted');
-      },
+      onMeasurementDelete: handleMeasurementDelete,
       onMeasurementsClear: clearAllMeasurements,
     }),
     [
@@ -1245,6 +1270,8 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
       sectionState,
       draftMeasurement,
       selection,
+      handleSectionReset,
+      handleMeasurementDelete,
       clearAllMeasurements,
     ]
   );
@@ -1665,19 +1692,9 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
               snapEnabled={snapEnabled}
               draft={draftMeasurement}
               onHoverChange={setHoverSelection}
-              onSelectionChange={(next) => {
-                setSelection(next);
-                if (next.objectUuid) {
-                  setLiveMessage('Selection updated');
-                }
-              }}
+              onSelectionChange={handleSelectionChange}
               onDraftChange={setDraftMeasurement}
-              onCommitMeasurement={(measurement) => {
-                setMeasurements((existing) => [measurement, ...existing]);
-                setSelectedMeasurementId(measurement.id);
-                setLiveMessage('Measurement added');
-                trackDistanceMeasurementCommitted(measurements.length + 1);
-              }}
+              onCommitMeasurement={handleCommitMeasurement}
             />
 
             <CameraControls

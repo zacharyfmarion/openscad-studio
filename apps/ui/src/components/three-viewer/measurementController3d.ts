@@ -136,6 +136,57 @@ function getSnappedCandidates(
   return candidates;
 }
 
+/**
+ * For each triangle edge, projects both endpoints to screen space and finds
+ * the nearest point on the segment to the cursor. This lets snapping activate
+ * anywhere along an edge, not just at the midpoint.
+ */
+function getEdgeProximityCandidates(
+  intersection: THREE.Intersection<THREE.Object3D>,
+  camera: THREE.Camera,
+  rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>,
+  clientX: number,
+  clientY: number
+): Array<{ point: THREE.Vector3; kind: MeasurementSnapKind }> {
+  if (!intersection.face || !(intersection.object instanceof THREE.Mesh)) {
+    return [];
+  }
+
+  const geometry = intersection.object.geometry;
+  const position = geometry.getAttribute('position');
+  if (!position) return [];
+
+  const localVertices = [intersection.face.a, intersection.face.b, intersection.face.c].map(
+    (index) => new THREE.Vector3().fromBufferAttribute(position, index)
+  );
+  const worldVertices = localVertices.map((v) => v.applyMatrix4(intersection.object.matrixWorld));
+
+  const edges: [THREE.Vector3, THREE.Vector3][] = [
+    [worldVertices[0], worldVertices[1]],
+    [worldVertices[1], worldVertices[2]],
+    [worldVertices[2], worldVertices[0]],
+  ];
+
+  return edges.map(([a, b]) => {
+    const aScreen = projectToScreen(a, camera, rect);
+    const bScreen = projectToScreen(b, camera, rect);
+
+    const abx = bScreen.x - aScreen.x;
+    const aby = bScreen.y - aScreen.y;
+    const lenSq = abx * abx + aby * aby;
+
+    const t =
+      lenSq < 0.0001
+        ? 0
+        : Math.max(
+            0,
+            Math.min(1, ((clientX - aScreen.x) * abx + (clientY - aScreen.y) * aby) / lenSq)
+          );
+
+    return { point: a.clone().lerp(b, t), kind: 'edge' as MeasurementSnapKind };
+  });
+}
+
 export function resolveMeasurementPick3D(args: {
   intersection: THREE.Intersection<THREE.Object3D>;
   camera: THREE.Camera;
@@ -159,7 +210,10 @@ export function resolveMeasurementPick3D(args: {
     preferredAxis = null,
   } = args;
 
-  const rankedCandidates = getSnappedCandidates(intersection)
+  const rankedCandidates = [
+    ...getSnappedCandidates(intersection),
+    ...getEdgeProximityCandidates(intersection, camera, rect, clientX, clientY),
+  ]
     .map((candidate) => ({
       ...candidate,
       screenDistance: screenDistance(candidate.point, camera, rect, clientX, clientY),
