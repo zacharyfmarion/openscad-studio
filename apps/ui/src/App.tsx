@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from 'react';
 import { DockviewReact } from 'dockview';
 import type { DockviewReadyEvent } from 'dockview';
 import 'dockview/dist/styles/dockview.css';
@@ -16,7 +16,14 @@ import {
 import { TabBar } from './components/TabBar';
 import { WebMenuBar } from './components/WebMenuBar';
 import { EditableFileName } from './components/EditableFileName';
-import { Button, IconButton, TooltipProvider } from './components/ui';
+import {
+  Button,
+  IconButton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './components/ui';
 import { panelComponents, tabComponents, WorkspaceTab } from './components/panels/PanelComponents';
 import { useTheme } from './contexts/ThemeContext';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
@@ -56,12 +63,13 @@ import { addRecentFile, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview } from './utils/capturePreview';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { useShareEntry } from './hooks/useShareEntry';
-import { TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
+import { TbBrandGithub, TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
 import { Toaster } from 'sonner';
 import type { AiDraft } from './types/aiChat';
 import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTypes';
 
 const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
+const REPOSITORY_URL = 'https://github.com/zacharyfmarion/openscad-studio';
 
 const RELEASE_ASSETS: Record<MacArch, string> = {
   aarch64: 'OpenSCAD.Studio_latest_aarch64.dmg',
@@ -138,6 +146,40 @@ function useMacDownloadUrl() {
   }, []);
 
   return `${RELEASE_BASE}/${RELEASE_ASSETS[arch]}`;
+}
+
+interface HeaderIconLinkProps {
+  href: string;
+  title: string;
+  ariaLabel: string;
+  children: ReactNode;
+  openInNewTab?: boolean;
+}
+
+function HeaderIconLink({
+  href,
+  title,
+  ariaLabel,
+  children,
+  openInNewTab = false,
+}: HeaderIconLinkProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <a
+          href={href}
+          aria-label={ariaLabel}
+          title={title}
+          target={openInNewTab ? '_blank' : undefined}
+          rel={openInNewTab ? 'noreferrer' : undefined}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-transparent bg-transparent text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
+        >
+          {children}
+        </a>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{title}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 function App() {
@@ -1505,7 +1547,7 @@ function App() {
       style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
     >
       <header
-        className={`flex items-center gap-1.5 shrink-0 ${capabilities.multiFile ? '' : 'py-1'}`}
+        className={`relative flex items-center gap-1.5 shrink-0 ${capabilities.multiFile ? '' : 'py-1'}`}
         style={{
           backgroundColor: 'var(--bg-secondary)',
           borderBottom: '1px solid var(--border-subtle)',
@@ -1547,11 +1589,12 @@ function App() {
         )}
 
         {!capabilities.hasNativeMenu && !isMobile && (
-          <HeaderWorkspaceControls
-            layoutPreset={settings.ui.defaultLayoutPreset}
-            onLayoutPresetChange={handleHeaderLayoutSelect}
-            downloadUrl={macDownloadUrl}
-          />
+          <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
+            <HeaderWorkspaceControls
+              layoutPreset={settings.ui.defaultLayoutPreset}
+              onLayoutPresetChange={handleHeaderLayoutSelect}
+            />
+          </div>
         )}
 
         <div className="flex items-center gap-1.5 px-3 py-1 shrink-0">
@@ -1619,6 +1662,26 @@ function App() {
           <div
             style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }}
           />
+
+          {!capabilities.hasNativeMenu && !isMobile && (
+            <>
+              <HeaderIconLink
+                href={REPOSITORY_URL}
+                title="View GitHub Repository"
+                ariaLabel="View GitHub Repository"
+                openInNewTab
+              >
+                <TbBrandGithub size={15} />
+              </HeaderIconLink>
+              <HeaderIconLink
+                href={macDownloadUrl}
+                title="Download for Mac"
+                ariaLabel="Download for Mac"
+              >
+                <TbDownload size={15} />
+              </HeaderIconLink>
+            </>
+          )}
 
           <IconButton
             data-testid="settings-button"

@@ -13,33 +13,18 @@ describe('HeaderWorkspaceControls', () => {
       <HeaderWorkspaceControls
         layoutPreset="default"
         onLayoutPresetChange={handleLayoutPresetChange}
-        downloadUrl="https://example.com/OpenSCAD.Studio_latest_aarch64.dmg"
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Edit' }).getAttribute('aria-pressed')).toBe('true');
+    const editButton = screen.getByRole('button', { name: 'Edit' });
+
+    expect(editButton.getAttribute('aria-pressed')).toBe('true');
+    expect(editButton.style.height).toBe('26px');
 
     fireEvent.click(screen.getByRole('button', { name: 'AI' }));
     fireEvent.click(screen.getByRole('button', { name: 'Customize' }));
 
     expect(handleLayoutPresetChange).toHaveBeenNthCalledWith(1, 'ai-first');
     expect(handleLayoutPresetChange).toHaveBeenNthCalledWith(2, 'customizer-first');
-  });
-
-  it('renders the Mac download action as an icon link with tooltip copy', () => {
-    renderWithProviders(
-      <HeaderWorkspaceControls
-        layoutPreset="ai-first"
-        onLayoutPresetChange={() => {}}
-        downloadUrl="https://example.com/OpenSCAD.Studio_latest_x64.dmg"
-      />
-    );
-
-    const downloadLink = screen.getByRole('link', { name: 'Download for Mac' });
-
-    expect(downloadLink.getAttribute('href')).toBe(
-      'https://example.com/OpenSCAD.Studio_latest_x64.dmg'
-    );
-    expect(downloadLink.getAttribute('title')).toBe('Download for Mac');
   });
 });

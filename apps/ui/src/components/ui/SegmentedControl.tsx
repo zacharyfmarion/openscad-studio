@@ -22,6 +22,11 @@ const ACTIVE_BG = 'color-mix(in srgb, var(--accent-primary) 15%, var(--bg-second
 const ACTIVE_BG_HOVER = 'color-mix(in srgb, var(--accent-primary) 22%, var(--bg-secondary))';
 const INACTIVE_BG = 'var(--bg-secondary)';
 const INACTIVE_BG_HOVER = 'color-mix(in srgb, var(--accent-primary) 8%, var(--bg-secondary))';
+const OPTION_HEIGHTS = {
+  sm: '26px',
+  md: '30px',
+  lg: '34px',
+} as const;
 
 export function SegmentedControl<T extends string>({
   options,
@@ -51,8 +56,9 @@ export function SegmentedControl<T extends string>({
             aria-pressed={active}
             data-testid={option.testId}
             onClick={() => onChange(option.value)}
-            className={`${CONTROL_SIZE_CLASSES[size]} ${density === 'compact' ? 'px-2' : ''} whitespace-nowrap font-medium transition-colors`}
+            className={`${CONTROL_SIZE_CLASSES[size]} ${density === 'compact' ? 'px-2' : ''} inline-flex items-center justify-center whitespace-nowrap font-medium leading-none transition-colors`}
             style={{
+              height: OPTION_HEIGHTS[size],
               backgroundColor: active ? ACTIVE_BG : INACTIVE_BG,
               color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
               boxShadow: active ? 'inset 0 1px 0 rgba(255,255,255,0.05)' : undefined,
@@ -67,7 +73,9 @@ export function SegmentedControl<T extends string>({
               if (!active) e.currentTarget.style.color = 'var(--text-secondary)';
             }}
           >
-            <span className={`inline-flex items-center ${option.icon ? 'gap-1.5' : ''}`}>
+            <span
+              className={`inline-flex items-center justify-center leading-none ${option.icon ? 'gap-1.5' : ''}`}
+            >
               {option.icon}
               <span>{option.label}</span>
             </span>
