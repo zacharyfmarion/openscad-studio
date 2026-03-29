@@ -202,72 +202,72 @@ function Svg2DMeasurePanel({
             data-testid="preview-2d-measurements-tray"
           >
             {measurementItems.map((item) => {
-                  const selected = item.selected;
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center rounded-lg overflow-hidden text-xs"
-                      style={{
-                        backgroundColor: selected ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
-                        border: `1px solid ${selected ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
-                      }}
-                    >
-                      {/* eslint-disable-next-line no-restricted-syntax -- left half of a split chip; matches MeasurePanel chip pattern */}
-                      <button
-                        type="button"
-                        data-testid="preview-2d-measurement-list-item"
-                        aria-pressed={selected}
-                        onClick={() => onMeasurementSelect(item.id)}
-                        className="flex-1 px-2 py-1.5 text-left"
-                        style={{
-                          color: selected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        }}
-                      >
-                        {item.summary}
-                      </button>
-                      {/* eslint-disable-next-line no-restricted-syntax -- right half of the chip delete action; matches MeasurePanel chip pattern */}
-                      <button
-                        type="button"
-                        aria-label="Delete measurement"
-                        data-testid="preview-2d-delete-measurement"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMeasurementDelete(item.id);
-                        }}
-                        className="flex items-center justify-center px-2 py-1.5 transition-colors"
-                        style={{
-                          borderLeft: `1px solid ${selected ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
-                          color: 'var(--text-secondary)',
-                          backgroundColor: 'transparent',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor =
-                            'color-mix(in srgb, var(--bg-primary) 60%, transparent)';
-                          e.currentTarget.style.color = 'var(--text-primary)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                          e.currentTarget.style.color = 'var(--text-secondary)';
-                        }}
-                      >
-                        <TbX size={12} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                data-testid="preview-2d-clear-measurements"
-                onClick={onMeasurementsClear}
-                className="shrink-0"
-              >
-                Clear all
-              </Button>
-            </>
-          ) : null}
+              const selected = item.selected;
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-center rounded-lg overflow-hidden text-xs"
+                  style={{
+                    backgroundColor: selected ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+                    border: `1px solid ${selected ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
+                  }}
+                >
+                  {/* eslint-disable-next-line no-restricted-syntax -- left half of a split chip; matches MeasurePanel chip pattern */}
+                  <button
+                    type="button"
+                    data-testid="preview-2d-measurement-list-item"
+                    aria-pressed={selected}
+                    onClick={() => onMeasurementSelect(item.id)}
+                    className="flex-1 px-2 py-1.5 text-left"
+                    style={{
+                      color: selected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {item.summary}
+                  </button>
+                  {/* eslint-disable-next-line no-restricted-syntax -- right half of the chip delete action; matches MeasurePanel chip pattern */}
+                  <button
+                    type="button"
+                    aria-label="Delete measurement"
+                    data-testid="preview-2d-delete-measurement"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMeasurementDelete(item.id);
+                    }}
+                    className="flex items-center justify-center px-2 py-1.5 transition-colors"
+                    style={{
+                      borderLeft: `1px solid ${selected ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
+                      color: 'var(--text-secondary)',
+                      backgroundColor: 'transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        'color-mix(in srgb, var(--bg-primary) 60%, transparent)';
+                      e.currentTarget.style.color = 'var(--text-primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                    }}
+                  >
+                    <TbX size={12} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            data-testid="preview-2d-clear-measurements"
+            onClick={onMeasurementsClear}
+            className="shrink-0"
+          >
+            Clear all
+          </Button>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -117,8 +117,8 @@ describe('measurementController3d', () => {
     // Project edge midpoint (1,0,0) to screen to get the cursor position
     const edgeMidpoint = new THREE.Vector3(1, 0, 0);
     const projected = edgeMidpoint.clone().project(camera);
-    const clientX = (projected.x + 1) / 2 * 200;
-    const clientY = (1 - projected.y) / 2 * 200;
+    const clientX = ((projected.x + 1) / 2) * 200;
+    const clientY = ((1 - projected.y) / 2) * 200;
 
     const resolved = resolveMeasurementPick3D({
       intersection,

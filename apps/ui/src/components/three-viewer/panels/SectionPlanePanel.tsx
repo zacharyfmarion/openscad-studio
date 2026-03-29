@@ -56,7 +56,9 @@ export function SectionPlanePanel({
           type="button"
           size="sm"
           variant="secondary"
-          onClick={() => onSectionStateChange({ ...sectionState, inverted: !sectionState.inverted })}
+          onClick={() =>
+            onSectionStateChange({ ...sectionState, inverted: !sectionState.inverted })
+          }
           style={{
             color: sectionState.inverted ? 'var(--accent-primary)' : 'var(--text-secondary)',
             borderColor: sectionState.inverted ? 'var(--accent-primary)' : undefined,

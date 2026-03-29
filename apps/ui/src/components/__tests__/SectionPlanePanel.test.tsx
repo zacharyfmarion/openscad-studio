@@ -4,7 +4,11 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import * as THREE from 'three';
 import { renderWithProviders } from './test-utils';
 import { SectionPlanePanel } from '../three-viewer/panels/SectionPlanePanel';
-import type { SectionPlaneState, LoadedPreviewModel, MeasurementRecord3D } from '../three-viewer/types';
+import type {
+  SectionPlaneState,
+  LoadedPreviewModel,
+  MeasurementRecord3D,
+} from '../three-viewer/types';
 
 function makeModel(): LoadedPreviewModel {
   const bounds = new THREE.Box3(new THREE.Vector3(-5, -5, -5), new THREE.Vector3(5, 5, 5));
