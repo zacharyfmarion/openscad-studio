@@ -1,3 +1,5 @@
+import type { ModelSelectionSurface } from '../analytics/runtime';
+
 export type VisionSupport = 'yes' | 'no' | 'unknown';
 export type AssistantMessageState = 'complete' | 'cancelled' | 'error';
 export type ToolCallState = 'pending' | 'completed' | 'error' | 'denied';
@@ -74,6 +76,7 @@ export type AttachmentStatus = 'pending' | 'ready' | 'error';
 export interface AttachmentRecord {
   id: string;
   filename: string;
+  sourceSurface?: ModelSelectionSurface;
   sourceMimeType: string;
   normalizedMimeType?: string;
   sizeBytes: number;

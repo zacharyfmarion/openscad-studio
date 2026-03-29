@@ -13,7 +13,7 @@ export function ToolPanel({ label, children, defaultExpanded = true }: ToolPanel
 
   return (
     <div
-      className="absolute bottom-3 right-3 z-20 rounded-lg overflow-hidden"
+      className="absolute bottom-3 right-3 z-40 rounded-lg overflow-hidden"
       style={{
         width: '280px',
         backgroundColor: 'var(--bg-elevated)',

@@ -1,5 +1,14 @@
-import { TbBrush, TbCircle, TbSquare, TbTrash, TbArrowBackUp, TbLink } from 'react-icons/tb';
-import { Button } from '../ui';
+import {
+  TbArrowBackUp,
+  TbBrush,
+  TbCircle,
+  TbLink,
+  TbSettings,
+  TbSquare,
+  TbTrash,
+  TbX,
+} from 'react-icons/tb';
+import { Button, IconButton } from '../ui';
 import type { AnnotationTool } from './types';
 
 interface AnnotationPanelProps {
@@ -25,6 +34,16 @@ const TOOLS: Array<{
   { id: 'freehand', label: 'Freehand', icon: TbBrush },
 ];
 
+function ToolbarDivider() {
+  return (
+    <div
+      aria-hidden="true"
+      className="h-6 w-px shrink-0"
+      style={{ backgroundColor: 'var(--border-primary)' }}
+    />
+  );
+}
+
 export function AnnotationPanel({
   tool,
   onToolChange,
@@ -37,78 +56,98 @@ export function AnnotationPanel({
   canAttach,
   attachLabel = 'Attach to AI',
 }: AnnotationPanelProps) {
-  return (
-    <div className="flex flex-col gap-3" data-testid="viewer-annotation-panel">
-      <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-        Draw over the current preview, then attach the snapshot to chat.
-      </div>
+  const AttachIcon = attachLabel === 'Open AI Settings' ? TbSettings : TbLink;
 
-      <div className="grid grid-cols-3 gap-2">
+  return (
+    <div
+      className="absolute bottom-3 left-1/2 z-40 -translate-x-1/2"
+      data-testid="viewer-annotation-panel"
+    >
+      <div
+        className="flex items-center gap-2 rounded-xl px-3 py-2 shadow-lg"
+        style={{
+          backgroundColor: 'color-mix(in srgb, var(--bg-elevated) 94%, transparent)',
+          border: '1px solid var(--border-primary)',
+          backdropFilter: 'blur(12px)',
+        }}
+      >
         {TOOLS.map((entry) => {
           const Icon = entry.icon;
           const active = tool === entry.id;
           return (
-            <Button
+            <IconButton
               key={entry.id}
-              type="button"
-              onClick={() => onToolChange(entry.id)}
-              data-testid={`viewer-annotation-tool-${entry.id}`}
-              variant="secondary"
-              size="sm"
+              variant="toolbar"
+              size="md"
               isActive={active}
-              className="gap-2 text-xs"
+              onClick={() => onToolChange(entry.id)}
+              title={entry.label}
+              tooltipSide="top"
+              aria-label={entry.label}
+              data-testid={`viewer-annotation-tool-${entry.id}`}
             >
-              <Icon size={14} />
-              <span>{entry.label}</span>
-            </Button>
+              <Icon size={16} />
+            </IconButton>
           );
         })}
-      </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          type="button"
-          variant="secondary"
+        <ToolbarDivider />
+
+        <IconButton
+          variant="toolbar"
+          size="md"
           onClick={onUndo}
           disabled={!canUndo}
+          title="Undo"
+          tooltipSide="top"
+          aria-label="Undo"
           data-testid="viewer-annotation-undo"
         >
-          <TbArrowBackUp size={14} />
-          Undo
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
+          <TbArrowBackUp size={16} />
+        </IconButton>
+
+        <IconButton
+          variant="toolbar"
+          size="md"
           onClick={onClear}
           disabled={!canClear}
+          title="Clear"
+          tooltipSide="top"
+          aria-label="Clear annotations"
           data-testid="viewer-annotation-clear"
         >
-          <TbTrash size={14} />
-          Clear
+          <TbTrash size={16} />
+        </IconButton>
+
+        <ToolbarDivider />
+
+        <Button
+          type="button"
+          variant="primary"
+          size="sm"
+          onClick={() => {
+            void onAttach();
+          }}
+          disabled={!canAttach}
+          data-testid="viewer-annotation-attach"
+          className="gap-2 whitespace-nowrap px-3"
+        >
+          <AttachIcon size={16} />
+          <span>{attachLabel}</span>
         </Button>
+
+        <IconButton
+          variant="toolbar"
+          size="md"
+          onClick={onCancel}
+          title="Cancel"
+          tooltipSide="top"
+          aria-label="Cancel annotation mode"
+          data-testid="viewer-annotation-cancel"
+        >
+          <TbX size={16} />
+        </IconButton>
       </div>
-
-      <Button
-        type="button"
-        variant="primary"
-        onClick={() => {
-          void onAttach();
-        }}
-        disabled={!canAttach}
-        data-testid="viewer-annotation-attach"
-      >
-        <TbLink size={14} />
-        {attachLabel}
-      </Button>
-
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={onCancel}
-        data-testid="viewer-annotation-cancel"
-      >
-        Cancel
-      </Button>
     </div>
   );
 }

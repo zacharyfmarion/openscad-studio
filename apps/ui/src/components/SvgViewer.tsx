@@ -394,6 +394,7 @@ export function SvgViewer({
   const lastPinchDistRef = useRef<number | null>(null);
   const sceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
   const annotationSession = useViewerAnnotationSession();
+  const resetAnnotationSession = annotationSession.resetSession;
 
   const themeColors = useMemo(
     () => ({
@@ -481,7 +482,7 @@ export function SvgViewer({
       setMeasurements([]);
       setSelectedMeasurementId(null);
       setCursorPoint(null);
-      annotationSession.resetSession();
+      resetAnnotationSession();
       setIsAttachingAnnotation(false);
       lastPointerClientRef.current = null;
       return;
@@ -500,7 +501,7 @@ export function SvgViewer({
     resetDraftMeasurement();
     setMeasurements([]);
     setSelectedMeasurementId(null);
-    annotationSession.resetSession();
+    resetAnnotationSession();
     setIsAttachingAnnotation(false);
     suppressClickRef.current = false;
     lastPointerClientRef.current = null;
@@ -551,7 +552,7 @@ export function SvgViewer({
     return () => {
       cancelled = true;
     };
-  }, [annotationSession, src]);
+  }, [resetAnnotationSession, src]);
 
   useEffect(() => {
     if (!src || !loadedDocument || documentState.status === 'loading') {
@@ -637,7 +638,7 @@ export function SvgViewer({
   }, [viewMode]);
 
   const exitAnnotationMode = () => {
-    annotationSession.resetSession();
+    resetAnnotationSession();
     setViewMode('pan');
   };
 
@@ -1654,28 +1655,26 @@ export function SvgViewer({
           ) : null}
 
           {viewMode === 'annotate' ? (
-            <ToolPanel key="annotate" label="Annotate">
-              <AnnotationPanel
-                tool={annotationSession.tool}
-                onToolChange={annotationSession.setTool}
-                onUndo={annotationSession.undoLast}
-                onClear={annotationSession.clearAll}
-                onCancel={exitAnnotationMode}
-                onAttach={handleAnnotationAttach}
-                canUndo={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
-                canClear={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
-                canAttach={
-                  !isAttachingAnnotation && canAttachToAi && annotationSession.shapes.length > 0
-                }
-                attachLabel={
-                  !hasCurrentModelApiKey
-                    ? 'Open AI Settings'
-                    : isAttachingAnnotation
-                      ? 'Attaching...'
-                      : 'Attach to AI'
-                }
-              />
-            </ToolPanel>
+            <AnnotationPanel
+              tool={annotationSession.tool}
+              onToolChange={annotationSession.setTool}
+              onUndo={annotationSession.undoLast}
+              onClear={annotationSession.clearAll}
+              onCancel={exitAnnotationMode}
+              onAttach={handleAnnotationAttach}
+              canUndo={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
+              canClear={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
+              canAttach={
+                !isAttachingAnnotation && canAttachToAi && annotationSession.shapes.length > 0
+              }
+              attachLabel={
+                !hasCurrentModelApiKey
+                  ? 'Open AI Settings'
+                  : isAttachingAnnotation
+                    ? 'Attaching...'
+                    : 'Attach to AI'
+              }
+            />
           ) : null}
 
           {!isMobile && viewMode === 'measure-distance' && (

@@ -1088,6 +1088,7 @@ export function ThreeViewer({
   const [liveMessage, setLiveMessage] = useState('');
   const [isAttachingAnnotation, setIsAttachingAnnotation] = useState(false);
   const annotationSession = useViewerAnnotationSession();
+  const resetAnnotationSession = annotationSession.resetSession;
 
   const gridMetrics = useMemo(() => derivePreviewGridMetrics(modelFrame), [modelFrame]);
   const axisMetrics = useMemo(
@@ -1161,7 +1162,7 @@ export function ThreeViewer({
       setSelectedMeasurementId(null);
       setDraftMeasurement(INITIAL_DRAFT);
       setSectionState(null);
-      annotationSession.resetSession();
+      resetAnnotationSession();
       setIsAttachingAnnotation(false);
       return;
     }
@@ -1175,9 +1176,9 @@ export function ThreeViewer({
       status: current.status === 'idle' ? 'idle' : 'placing-start',
     }));
     setSectionState(createDefaultSectionPlaneState(loadedModel.bounds));
-    annotationSession.resetSession();
+    resetAnnotationSession();
     setIsAttachingAnnotation(false);
-  }, [annotationSession, loadedModel]);
+  }, [loadedModel, resetAnnotationSession]);
 
   useEffect(() => {
     if (interactionMode !== 'annotate') {
@@ -1273,9 +1274,9 @@ export function ThreeViewer({
   }, [loadedModel]);
 
   const exitAnnotationMode = useCallback(() => {
-    annotationSession.resetSession();
+    resetAnnotationSession();
     setInteractionMode('orbit');
-  }, [annotationSession]);
+  }, [resetAnnotationSession]);
 
   const handleAnnotationAttach = useCallback(async () => {
     if (!previewSurfaceRef.current || !annotationStageRef.current) {
@@ -1944,28 +1945,26 @@ export function ThreeViewer({
             })()}
 
           {interactionMode === 'annotate' ? (
-            <ToolPanel key="annotate" label="Annotate">
-              <AnnotationPanel
-                tool={annotationSession.tool}
-                onToolChange={annotationSession.setTool}
-                onUndo={annotationSession.undoLast}
-                onClear={annotationSession.clearAll}
-                onCancel={exitAnnotationMode}
-                onAttach={handleAnnotationAttach}
-                canUndo={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
-                canClear={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
-                canAttach={
-                  !isAttachingAnnotation && canAttachToAi && annotationSession.shapes.length > 0
-                }
-                attachLabel={
-                  !hasCurrentModelApiKey
-                    ? 'Open AI Settings'
-                    : isAttachingAnnotation
-                      ? 'Attaching...'
-                      : 'Attach to AI'
-                }
-              />
-            </ToolPanel>
+            <AnnotationPanel
+              tool={annotationSession.tool}
+              onToolChange={annotationSession.setTool}
+              onUndo={annotationSession.undoLast}
+              onClear={annotationSession.clearAll}
+              onCancel={exitAnnotationMode}
+              onAttach={handleAnnotationAttach}
+              canUndo={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
+              canClear={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
+              canAttach={
+                !isAttachingAnnotation && canAttachToAi && annotationSession.shapes.length > 0
+              }
+              attachLabel={
+                !hasCurrentModelApiKey
+                  ? 'Open AI Settings'
+                  : isAttachingAnnotation
+                    ? 'Attaching...'
+                    : 'Attach to AI'
+              }
+            />
           ) : null}
         </div>
       </div>

@@ -80,6 +80,8 @@ const IS_DEV =
   typeof window !== 'undefined' &&
   !window.navigator.userAgent.includes('jsdom') &&
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const VIEWER_ANNOTATION_GUIDANCE_TEXT =
+  'The attached viewer screenshot includes intentional user annotations. Colored boxes, ovals, circles, and freehand marks highlight the area to focus on and are not part of the OpenSCAD geometry unless the user explicitly asks about the annotations.';
 
 function revokePreviewUrlsForIds(ids: string[], attachments: AttachmentStore) {
   for (const id of ids) {
@@ -92,13 +94,21 @@ function revokePreviewUrlsForIds(ids: string[], attachments: AttachmentStore) {
 
 function draftToUserParts(draft: AiDraft, attachments: AttachmentStore) {
   const parts: Array<UserTextPart | UserImagePart> = [];
+  const readyAttachmentIds = getReadyAttachmentIds(draft, attachments);
   const trimmedText = draft.text.trim();
+  const hasViewerAnnotationAttachment = readyAttachmentIds.some(
+    (attachmentId) => attachments[attachmentId]?.sourceSurface === 'viewer_annotation'
+  );
+
+  if (hasViewerAnnotationAttachment) {
+    parts.push({ type: 'text', text: VIEWER_ANNOTATION_GUIDANCE_TEXT });
+  }
 
   if (trimmedText) {
     parts.push({ type: 'text', text: trimmedText });
   }
 
-  for (const attachmentId of getReadyAttachmentIds(draft, attachments)) {
+  for (const attachmentId of readyAttachmentIds) {
     const attachment = attachments[attachmentId];
     if (!attachment || attachment.status !== 'ready') continue;
 
@@ -561,7 +571,12 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         draftErrors: [],
       }));
 
-      const result = await processAttachmentFilesImpl(files, snapshot.draft, snapshot.attachments);
+      const result = await processAttachmentFilesImpl(
+        files,
+        snapshot.draft,
+        snapshot.attachments,
+        sourceSurface
+      );
       const readyCount = result.attachments.filter(
         (attachment) => attachment.status === 'ready'
       ).length;

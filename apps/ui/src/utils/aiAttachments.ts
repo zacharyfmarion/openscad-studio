@@ -1,3 +1,4 @@
+import type { ModelSelectionSurface } from '../analytics/runtime';
 import type { AiDraft, AttachmentRecord, AttachmentStore } from '../types/aiChat';
 import { createRandomId } from './randomId';
 
@@ -86,7 +87,8 @@ export function getFileValidationError(file: Pick<File, 'type' | 'size' | 'name'
 export async function processAttachmentFiles(
   files: File[],
   draft: AiDraft,
-  attachments: AttachmentStore
+  attachments: AttachmentStore,
+  sourceSurface: ModelSelectionSurface = 'unknown'
 ): Promise<AttachmentBatchResult> {
   const existingKeys = getExistingDraftDedupeKeys(draft, attachments);
   const queuedKeys = new Set<string>();
@@ -115,19 +117,20 @@ export async function processAttachmentFiles(
 
     const validationError = getFileValidationError(file);
     if (validationError) {
-      nextAttachments.push(buildErrorAttachment(file, dedupeKey, validationError));
+      nextAttachments.push(buildErrorAttachment(file, dedupeKey, validationError, sourceSurface));
       continue;
     }
 
     try {
-      const normalized = await normalizeImageFile(file, dedupeKey);
+      const normalized = await normalizeImageFile(file, dedupeKey, sourceSurface);
 
       if (normalized.sizeBytes > MAX_NORMALIZED_IMAGE_BYTES) {
         nextAttachments.push(
           buildErrorAttachment(
             file,
             dedupeKey,
-            `${file.name}: normalized image exceeds the 1.5 MB limit.`
+            `${file.name}: normalized image exceeds the 1.5 MB limit.`,
+            sourceSurface
           )
         );
       } else if (totalBytes + normalized.sizeBytes > MAX_TOTAL_NORMALIZED_BYTES) {
@@ -135,7 +138,8 @@ export async function processAttachmentFiles(
           buildErrorAttachment(
             file,
             dedupeKey,
-            `${file.name}: adding this image would exceed the 4 MB per-message limit.`
+            `${file.name}: adding this image would exceed the 4 MB per-message limit.`,
+            sourceSurface
           )
         );
       } else {
@@ -147,7 +151,8 @@ export async function processAttachmentFiles(
         buildErrorAttachment(
           file,
           dedupeKey,
-          `${file.name}: ${error instanceof Error ? error.message : 'failed to process image.'}`
+          `${file.name}: ${error instanceof Error ? error.message : 'failed to process image.'}`,
+          sourceSurface
         )
       );
     }
@@ -163,11 +168,13 @@ export async function processAttachmentFiles(
 function buildErrorAttachment(
   file: Pick<File, 'name' | 'type' | 'size'>,
   dedupeKey: string,
-  errorMessage: string
+  errorMessage: string,
+  sourceSurface: ModelSelectionSurface
 ): AttachmentRecord {
   return {
     id: createRandomId(),
     filename: file.name,
+    sourceSurface,
     sourceMimeType: file.type,
     sizeBytes: file.size,
     status: 'error',
@@ -176,7 +183,11 @@ function buildErrorAttachment(
   };
 }
 
-async function normalizeImageFile(file: File, dedupeKey: string): Promise<AttachmentRecord> {
+async function normalizeImageFile(
+  file: File,
+  dedupeKey: string,
+  sourceSurface: ModelSelectionSurface
+): Promise<AttachmentRecord> {
   const bitmap = await createImageBitmap(file);
 
   try {
@@ -204,6 +215,7 @@ async function normalizeImageFile(file: File, dedupeKey: string): Promise<Attach
     return {
       id: createRandomId(),
       filename: file.name,
+      sourceSurface,
       sourceMimeType: file.type,
       normalizedMimeType,
       sizeBytes: normalizedBlob.size,
