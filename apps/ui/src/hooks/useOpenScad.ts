@@ -57,6 +57,9 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     testOverrides,
   } = options;
   const analytics = testOverrides?.analytics ?? defaultAnalytics;
+  const getPlatformImpl = testOverrides?.getPlatform ?? getPlatform;
+  const resolveWorkingDirDepsImpl = testOverrides?.resolveWorkingDirDeps ?? resolveWorkingDirDeps;
+  const notifyErrorImpl = testOverrides?.notifyError ?? notifyError;
   const [source, setSource] = useState<string>(initialSource);
   const [ready, setReady] = useState(false);
   const [previewSrc, setPreviewSrc] = useState<string>('');
@@ -110,7 +113,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
   // Effect 1: Load library files (rarely changes — only when library settings change)
   useEffect(() => {
-    const platform = (testOverrides?.getPlatform ?? getPlatform)();
+    const platform = getPlatformImpl();
 
     const loadLibraryFiles = async () => {
       const files: Record<string, string> = {};
@@ -136,7 +139,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
     // Chain onto the aux files promise so doRender waits for this
     auxFilesPromiseRef.current = loadLibraryFiles();
-  }, [customPathsKey, library?.autoDiscoverSystem, mergeAndSetAuxFiles, testOverrides?.getPlatform]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [customPathsKey, getPlatformImpl, library?.autoDiscoverSystem, mergeAndSetAuxFiles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Effect 2: Resolve working directory dependencies at render time.
   // Instead of blindly scanning the working directory (which is slow for large dirs
@@ -159,7 +162,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       })
       .catch((err) => {
         setError(`Failed to initialize OpenSCAD WASM: ${err}`);
-        (testOverrides?.notifyError ?? notifyError)({
+        notifyErrorImpl({
           operation: 'openscad-init',
           error: err,
           fallbackMessage: 'Failed to initialize OpenSCAD rendering',
@@ -167,7 +170,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           logLabel: '[useOpenScad] WASM init error',
         });
       });
-  }, []);
+  }, [notifyErrorImpl]);
 
   const doRender = useCallback(
     async (code: string, dimension: '2d' | '3d' = '3d', trigger: RenderTrigger = 'manual') => {
@@ -178,9 +181,6 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
       const renderStartedAt = performance.now();
       const owner = createRenderOwner?.() ?? null;
-      const platformGetter = testOverrides?.getPlatform ?? getPlatform;
-      const resolveDeps = testOverrides?.resolveWorkingDirDeps ?? resolveWorkingDirDeps;
-      const reportError = testOverrides?.notifyError ?? notifyError;
       let cacheHit = false;
       let resolvedDimension: '2d' | '3d' = dimension;
       let switchedDimension = false;
@@ -247,8 +247,8 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         let renderAuxFiles = libraryFilesRef.current;
 
         if (workingDir) {
-          const platform = platformGetter();
-          const workingDirFiles = await resolveDeps(code, {
+          const platform = getPlatformImpl();
+          const workingDirFiles = await resolveWorkingDirDepsImpl(code, {
             workingDir,
             libraryFiles: libraryFilesRef.current,
             platform,
@@ -386,7 +386,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           error: errorMsg,
           dimensionMode: resolvedDimension,
         };
-        reportError({
+        notifyErrorImpl({
           operation: 'render-runtime',
           error: err,
           fallbackMessage: 'Rendering failed unexpectedly',
@@ -407,7 +407,15 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
       return settledSnapshot;
     },
-    [analytics, createRenderOwner, mergeAndSetAuxFiles, onRenderSettled, testOverrides]
+    [
+      analytics,
+      createRenderOwner,
+      getPlatformImpl,
+      mergeAndSetAuxFiles,
+      notifyErrorImpl,
+      onRenderSettled,
+      resolveWorkingDirDepsImpl,
+    ]
   );
 
   const updateSource = useCallback((newSource: string) => {
@@ -522,7 +530,14 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         delete window.__TEST_OPENSCAD__;
       }
     };
-  }, [dimensionMode, doRender, isDevRuntime, manualRender, renderWithTrigger, updateSourceAndRender]);
+  }, [
+    dimensionMode,
+    doRender,
+    isDevRuntime,
+    manualRender,
+    renderWithTrigger,
+    updateSourceAndRender,
+  ]);
 
   return {
     source,

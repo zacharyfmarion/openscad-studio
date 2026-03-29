@@ -3,17 +3,28 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { ThemeProvider } from '../../contexts/ThemeContext';
-import { SvgViewer } from '../SvgViewer';
 
 const mockTrack = jest.fn();
 
-jest.mock('../../analytics/runtime', () => ({
+jest.unstable_mockModule('@/analytics/runtime', () => ({
+  bucketCount: (value: number) => String(value),
+  createAnalyticsApi: () => ({
+    track: (...args: unknown[]) => mockTrack(...args),
+    trackError: jest.fn(),
+    setAnalyticsEnabled: jest.fn(),
+  }),
+  inferErrorDomain: () => 'ui',
+  setAnalyticsEnabled: jest.fn(),
+  trackAnalyticsError: jest.fn(),
+  trackAnalyticsEvent: jest.fn(),
   useAnalytics: () => ({
     track: (...args: unknown[]) => mockTrack(...args),
     trackError: jest.fn(),
     setAnalyticsEnabled: jest.fn(),
   }),
 }));
+
+let SvgViewer: typeof import('../SvgViewer').SvgViewer;
 
 const rect = {
   x: 0,
@@ -52,6 +63,10 @@ function renderViewer(src = 'blob:ready') {
 }
 
 describe('SvgViewer', () => {
+  beforeAll(async () => {
+    ({ SvgViewer } = await import('../SvgViewer'));
+  });
+
   beforeEach(() => {
     localStorage.clear();
     jest.clearAllMocks();

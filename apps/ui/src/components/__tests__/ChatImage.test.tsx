@@ -2,21 +2,28 @@
 
 import { render, screen, fireEvent } from '@testing-library/react';
 import { jest } from '@jest/globals';
-import { ChatImage, ChatImageGrid } from '../ChatImage';
 
 // Mock yet-another-react-lightbox since it relies on browser APIs not in jsdom
-jest.mock('yet-another-react-lightbox', () => ({
+jest.unstable_mockModule('yet-another-react-lightbox', () => ({
   __esModule: true,
   default: ({ open, close }: { open: boolean; close: () => void }) =>
     open ? <div data-testid="lightbox" onClick={close} /> : null,
 }));
-jest.mock('yet-another-react-lightbox/plugins/zoom', () => ({ __esModule: true, default: {} }));
-jest.mock('yet-another-react-lightbox/plugins/captions', () => ({
+jest.unstable_mockModule('yet-another-react-lightbox/plugins/zoom', () => ({
   __esModule: true,
   default: {},
 }));
-jest.mock('yet-another-react-lightbox/styles.css', () => ({}));
-jest.mock('yet-another-react-lightbox/plugins/captions.css', () => ({}));
+jest.unstable_mockModule('yet-another-react-lightbox/plugins/captions', () => ({
+  __esModule: true,
+  default: {},
+}));
+
+let ChatImage: typeof import('../ChatImage').ChatImage;
+let ChatImageGrid: typeof import('../ChatImage').ChatImageGrid;
+
+beforeAll(async () => {
+  ({ ChatImage, ChatImageGrid } = await import('../ChatImage'));
+});
 
 describe('ChatImage', () => {
   it('renders image with correct src and alt', () => {

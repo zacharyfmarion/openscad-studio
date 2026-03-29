@@ -2,7 +2,7 @@
 
 import { jest } from '@jest/globals';
 
-jest.mock('sonner', () => ({
+jest.unstable_mockModule('sonner', () => ({
   toast: {
     error: jest.fn(),
     success: jest.fn(),
@@ -10,16 +10,26 @@ jest.mock('sonner', () => ({
   },
 }));
 
-jest.mock('../../sentry', () => ({
+jest.unstable_mockModule('../../sentry', () => ({
   captureSentryException: jest.fn(),
 }));
 
-import { toast } from 'sonner';
-import { captureSentryException } from '../../sentry';
-import { normalizeAppError, notifyError, notifyPromise, notifySuccess } from '../notifications';
+let toast: typeof import('sonner').toast;
+let captureSentryException: typeof import('../../sentry').captureSentryException;
+let normalizeAppError: typeof import('../notifications').normalizeAppError;
+let notifyError: typeof import('../notifications').notifyError;
+let notifyPromise: typeof import('../notifications').notifyPromise;
+let notifySuccess: typeof import('../notifications').notifySuccess;
 
 describe('notifications', () => {
   let consoleErrorSpy: ReturnType<typeof jest.spyOn>;
+
+  beforeAll(async () => {
+    ({ toast } = await import('sonner'));
+    ({ captureSentryException } = await import('../../sentry'));
+    ({ normalizeAppError, notifyError, notifyPromise, notifySuccess } =
+      await import('../notifications'));
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();

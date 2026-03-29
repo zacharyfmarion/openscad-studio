@@ -2,18 +2,19 @@
 
 import { render, act, screen } from '@testing-library/react';
 import { jest } from '@jest/globals';
-import { useMobileLayout } from '../useMobileLayout';
-import { useWorkspaceStore } from '../../stores/workspaceStore';
 
 const mockHideWelcomeScreen = jest.fn();
+const mockUseWorkspaceStore = jest.fn();
 
-jest.mock('../../stores/workspaceStore', () => ({
-  useWorkspaceStore: jest.fn(),
+jest.unstable_mockModule('@/stores/workspaceStore', () => ({
+  useWorkspaceStore: mockUseWorkspaceStore,
 }));
 
-jest.mock('../../stores/workspaceSelectors', () => ({
+jest.unstable_mockModule('@/stores/workspaceSelectors', () => ({
   selectShowWelcome: (state: { showWelcome: boolean }) => state.showWelcome,
 }));
+
+let useMobileLayout: typeof import('../useMobileLayout').useMobileLayout;
 
 type MqListener = (e: Partial<MediaQueryListEvent>) => void;
 
@@ -45,9 +46,8 @@ function setupMatchMedia(matches: boolean) {
 }
 
 function mockWorkspaceStore(showWelcome: boolean) {
-  (useWorkspaceStore as unknown as jest.Mock).mockImplementation(
-    (selector: (s: object) => unknown) =>
-      selector({ showWelcome, hideWelcomeScreen: mockHideWelcomeScreen })
+  mockUseWorkspaceStore.mockImplementation((selector: (s: object) => unknown) =>
+    selector({ showWelcome, hideWelcomeScreen: mockHideWelcomeScreen })
   );
 }
 
@@ -57,6 +57,10 @@ function Harness() {
 }
 
 describe('useMobileLayout', () => {
+  beforeAll(async () => {
+    ({ useMobileLayout } = await import('../useMobileLayout'));
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });

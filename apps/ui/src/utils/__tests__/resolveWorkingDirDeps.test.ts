@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { normalizePath, resolveWorkingDirDeps } from '../resolveWorkingDirDeps';
 import type { PlatformBridge } from '../../platform/types';
 

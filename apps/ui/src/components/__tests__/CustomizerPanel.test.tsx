@@ -2,7 +2,6 @@
 
 import { act, fireEvent, screen } from '@testing-library/react';
 import { jest } from '@jest/globals';
-import { CustomizerPanel } from '../CustomizerPanel';
 import type { CustomizerTab } from '../../utils/customizer/types';
 import { updateSetting } from '../../stores/settingsStore';
 import { renderWithProviders } from './test-utils';
@@ -14,22 +13,31 @@ const mockEmit = jest.fn();
 const mockTrack = jest.fn();
 let mockElementWidth = 960;
 
-jest.mock('../../utils/customizer/parser', () => ({
+jest.unstable_mockModule('@/utils/customizer/parser', () => ({
   parseCustomizerParams: (code: string) => mockParseCustomizerParams(code),
 }));
 
-jest.mock('../../utils/formatter/parser', () => ({
+jest.unstable_mockModule('@/utils/formatter/parser', () => ({
   isParserReady: () => mockIsParserReady(),
   onParserReady: (callback: () => void) => mockOnParserReady(callback),
 }));
 
-jest.mock('../../platform', () => ({
+jest.unstable_mockModule('@/platform', () => ({
   eventBus: {
     emit: (...args: unknown[]) => mockEmit(...args),
   },
 }));
 
-jest.mock('../../analytics/runtime', () => ({
+jest.unstable_mockModule('@/analytics/runtime', () => ({
+  createAnalyticsApi: () => ({
+    track: (...args: unknown[]) => mockTrack(...args),
+    trackError: jest.fn(),
+    setAnalyticsEnabled: jest.fn(),
+  }),
+  inferErrorDomain: () => 'ui',
+  setAnalyticsEnabled: jest.fn(),
+  trackAnalyticsError: jest.fn(),
+  trackAnalyticsEvent: jest.fn(),
   useAnalytics: () => ({
     track: (...args: unknown[]) => mockTrack(...args),
     trackError: jest.fn(),
@@ -45,7 +53,13 @@ jest.mock('../../analytics/runtime', () => ({
   },
 }));
 
+let CustomizerPanel: typeof import('../CustomizerPanel').CustomizerPanel;
+
 describe('CustomizerPanel', () => {
+  beforeAll(async () => {
+    ({ CustomizerPanel } = await import('../CustomizerPanel'));
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useRealTimers();

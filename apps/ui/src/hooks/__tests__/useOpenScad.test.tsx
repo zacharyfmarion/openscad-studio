@@ -40,11 +40,13 @@ describe('useOpenScad', () => {
     const renderService = {
       init: jest.fn(async () => undefined),
       getCached: jest.fn(async () => null),
-      render: jest.fn(async (): Promise<MockRenderResult> => ({
-        output: new Uint8Array([1]),
-        kind: 'mesh',
-        diagnostics: [],
-      })),
+      render: jest.fn(
+        async (): Promise<MockRenderResult> => ({
+          output: new Uint8Array([1]),
+          kind: 'mesh',
+          diagnostics: [],
+        })
+      ),
     };
 
     const hook = createHarness({

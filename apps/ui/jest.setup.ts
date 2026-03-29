@@ -14,6 +14,31 @@ if (typeof globalThis.TransformStream === 'undefined') {
   globalThis.TransformStream = TransformStream;
 }
 
+if (typeof globalThis.localStorage === 'undefined') {
+  const store = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(String(key), String(value));
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    clear: () => {
+      store.clear();
+    },
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
+    get length() {
+      return store.size;
+    },
+  };
+
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: storage,
+  });
+}
+
 // Polyfill matchMedia, crypto.randomUUID, scrollIntoView, and ResizeObserver for jsdom
 if (typeof window !== 'undefined') {
   if (!window.matchMedia) {

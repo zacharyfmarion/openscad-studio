@@ -197,8 +197,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
   const processAttachmentFilesImpl = overrides?.processAttachmentFiles ?? processAttachmentFiles;
   const getVisionSupportForModelIdImpl =
     overrides?.getVisionSupportForModelId ?? getVisionSupportForModelId;
-  const messagesToModelMessagesImpl =
-    overrides?.messagesToModelMessages ?? messagesToModelMessages;
+  const messagesToModelMessagesImpl = overrides?.messagesToModelMessages ?? messagesToModelMessages;
   const getPreferredDefaultModelImpl =
     overrides?.getPreferredDefaultModel ?? getPreferredDefaultModel;
   const historyServiceImpl = overrides?.historyService ?? historyService;
@@ -555,11 +554,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         draftErrors: [],
       }));
 
-      const result = await processAttachmentFilesImpl(
-        files,
-        snapshot.draft,
-        snapshot.attachments
-      );
+      const result = await processAttachmentFilesImpl(files, snapshot.draft, snapshot.attachments);
       const readyCount = result.attachments.filter(
         (attachment) => attachment.status === 'ready'
       ).length;

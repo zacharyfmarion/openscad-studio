@@ -48,7 +48,9 @@ describe('platform bootstrap', () => {
 
     await expect(bridge.fileOpen([{ name: 'OpenSCAD', extensions: ['scad'] }])).resolves.toBeNull();
     await expect(bridge.fileRead('/tmp/model.scad')).resolves.toBeNull();
-    await expect(bridge.fileSave('cube(10);', '/tmp/model.scad', [], 'model.scad')).resolves.toBeNull();
+    await expect(
+      bridge.fileSave('cube(10);', '/tmp/model.scad', [], 'model.scad')
+    ).resolves.toBeNull();
     await expect(bridge.fileSaveAs('cube(10);', [], 'model.scad')).resolves.toBeNull();
     await expect(bridge.fileExport(new Uint8Array([1]), 'model.stl', [])).resolves.toBeUndefined();
     await expect(bridge.confirm('Continue?', { title: 'Confirm' })).resolves.toBe(true);

@@ -3,7 +3,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { TextEncoder } from 'util';
-import { ShareDialog } from '../ShareDialog';
 import { ThemeProvider } from '../../contexts/ThemeContext';
 
 const mockCreateShare = jest.fn();
@@ -11,20 +10,28 @@ const mockUploadThumbnail = jest.fn();
 
 // Return a stable object so that components with `analytics` in useEffect deps don't
 // re-run the effect on every render (the real useAnalytics is memoized).
-jest.mock('../../analytics/runtime', () => {
+jest.unstable_mockModule('@/analytics/runtime', () => {
   const stableAnalytics = {
     track: jest.fn(),
     trackError: jest.fn(),
     setAnalyticsEnabled: jest.fn(),
   };
-  return { useAnalytics: () => stableAnalytics };
+  return {
+    bucketCount: (value: number) => String(value),
+    createAnalyticsApi: () => stableAnalytics,
+    inferErrorDomain: () => 'ui',
+    setAnalyticsEnabled: jest.fn(),
+    trackAnalyticsError: jest.fn(),
+    trackAnalyticsEvent: jest.fn(),
+    useAnalytics: () => stableAnalytics,
+  };
 });
 
-jest.mock('../../services/offscreenRenderer', () => ({
+jest.unstable_mockModule('@/services/offscreenRenderer', () => ({
   captureOffscreen: jest.fn(async () => 'data:image/png;base64,AAA='),
 }));
 
-jest.mock('../../services/shareService', () => ({
+jest.unstable_mockModule('@/services/shareService', () => ({
   ShareRequestError: class ShareRequestError extends Error {
     status: number;
     constructor(options: { status: number; message: string }) {
@@ -37,7 +44,13 @@ jest.mock('../../services/shareService', () => ({
   getShareApiBase: () => 'http://localhost:3000',
 }));
 
+let ShareDialog: typeof import('../ShareDialog').ShareDialog;
+
 describe('ShareDialog', () => {
+  beforeAll(async () => {
+    ({ ShareDialog } = await import('../ShareDialog'));
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     (globalThis as typeof globalThis & { TextEncoder: typeof TextEncoder }).TextEncoder =

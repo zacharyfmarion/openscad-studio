@@ -2,7 +2,6 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
-import { SettingsDialog } from '../SettingsDialog';
 import { ThemeProvider } from '../../contexts/ThemeContext';
 
 const mockGetPlatform = jest.fn();
@@ -13,15 +12,25 @@ let platformMock: {
   capabilities: { hasFileSystem: boolean };
 };
 
-jest.mock('../../platform', () => ({
+jest.unstable_mockModule('@/platform', () => ({
   getPlatform: () => mockGetPlatform(),
 }));
 
-jest.mock('@monaco-editor/react', () => ({
+jest.unstable_mockModule('@monaco-editor/react', () => ({
   Editor: () => null,
 }));
 
-jest.mock('../../analytics/runtime', () => ({
+jest.unstable_mockModule('@/analytics/runtime', () => ({
+  bucketCount: (value: number) => String(value),
+  createAnalyticsApi: () => ({
+    track: (...args: unknown[]) => mockTrack(...args),
+    trackError: jest.fn(),
+    setAnalyticsEnabled: jest.fn(),
+  }),
+  inferErrorDomain: () => 'ui',
+  setAnalyticsEnabled: jest.fn(),
+  trackAnalyticsError: jest.fn(),
+  trackAnalyticsEvent: jest.fn(),
   useAnalytics: () => ({
     track: (...args: unknown[]) => mockTrack(...args),
     trackError: jest.fn(),
@@ -29,11 +38,17 @@ jest.mock('../../analytics/runtime', () => ({
   }),
 }));
 
-jest.mock('../../stores/layoutStore', () => ({
+jest.unstable_mockModule('@/stores/layoutStore', () => ({
   applyWorkspacePreset: (...args: unknown[]) => mockApplyWorkspacePreset(...args),
 }));
 
+let SettingsDialog: typeof import('../SettingsDialog').SettingsDialog;
+
 describe('SettingsDialog privacy copy', () => {
+  beforeAll(async () => {
+    ({ SettingsDialog } = await import('../SettingsDialog'));
+  });
+
   beforeEach(() => {
     localStorage.clear();
     jest.clearAllMocks();

@@ -3,7 +3,6 @@
 import { TransformStream } from 'node:stream/web';
 import { act, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
-import { ModelSelector } from '../ModelSelector';
 import { clearApiKey, storeApiKey } from '../../stores/apiKeyStore';
 import { renderWithProviders } from './test-utils';
 
@@ -14,19 +13,20 @@ if (!globalThis.TransformStream) {
   });
 }
 
-jest.mock('../../services/aiService', () => ({
+jest.unstable_mockModule('@/services/aiService', () => ({
   SYSTEM_PROMPT: '',
   buildTools: () => ({}),
   createModel: jest.fn(),
 }));
 
-jest.mock('../../services/aiStream', () => ({
+jest.unstable_mockModule('@/services/aiStream', () => ({
   startAiStream: jest.fn(),
 }));
 
 let useAiAgent = (() => {
   throw new Error('useAiAgent test dependency not loaded');
 }) as typeof import('../../hooks/useAiAgent').useAiAgent;
+let ModelSelector: typeof import('../ModelSelector').ModelSelector;
 
 function createJsonResponse(body: unknown) {
   return {
@@ -80,6 +80,7 @@ function ModelSelectorHarness() {
 
 describe('ModelSelector provider refresh', () => {
   beforeAll(async () => {
+    ({ ModelSelector } = await import('../ModelSelector'));
     ({ useAiAgent } = await import('../../hooks/useAiAgent'));
   });
 

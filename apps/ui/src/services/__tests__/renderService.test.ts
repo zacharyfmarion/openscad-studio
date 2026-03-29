@@ -53,18 +53,32 @@ class MockWorker {
 const workerFactory = jest.fn<() => MockWorker>();
 const mockWorkers: MockWorker[] = [];
 
+function isRenderRequest(message: unknown): message is {
+  id: string;
+  args: string[];
+  type: 'render';
+  code: string;
+} {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    'type' in message &&
+    message.type === 'render'
+  );
+}
+
 async function takeLastPostedRenderRequest() {
-  await new Promise((resolve) => setTimeout(resolve, 0));
   const worker = mockWorkers.at(-1);
   expect(worker).toBeDefined();
-  const request = worker!.postedMessages.at(-1) as {
-    id: string;
-    args: string[];
-    type: string;
-    code: string;
-  };
-  expect(request.type).toBe('render');
-  return { worker: worker!, request };
+
+  let request = [...worker!.postedMessages].reverse().find(isRenderRequest);
+  for (let attempt = 0; !request && attempt < 5; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    request = [...worker!.postedMessages].reverse().find(isRenderRequest);
+  }
+
+  expect(request).toBeDefined();
+  return { worker: worker!, request: request! };
 }
 
 beforeAll(() => {
@@ -97,12 +111,14 @@ beforeAll(() => {
 describe('parseOpenScadStderr', () => {
   it('parses explicit severities and implicit errors with line numbers', () => {
     expect(
-      parseOpenScadStderr([
-        'ERROR: Parser error in file foo.scad, line 12',
-        'WARNING: deprecated call on line 7',
-        'ECHO: "debug"',
-        'Current top level object is not a 3D object.',
-      ].join('\n'))
+      parseOpenScadStderr(
+        [
+          'ERROR: Parser error in file foo.scad, line 12',
+          'WARNING: deprecated call on line 7',
+          'ECHO: "debug"',
+          'Current top level object is not a 3D object.',
+        ].join('\n')
+      )
     ).toEqual([
       {
         severity: 'error',
@@ -198,13 +214,13 @@ describe('RenderService', () => {
     });
     await renderPromise;
 
-    await expect(service.getCached('square(10);', { view: '2d', backend: 'auto' })).resolves.toEqual(
-      {
-        output: new Uint8Array([9]),
-        kind: 'svg',
-        diagnostics: [],
-      }
-    );
+    await expect(
+      service.getCached('square(10);', { view: '2d', backend: 'auto' })
+    ).resolves.toEqual({
+      output: new Uint8Array([9]),
+      kind: 'svg',
+      diagnostics: [],
+    });
   });
 
   it('converts export validation failures into ExportValidationError and supports binary STL export', async () => {

@@ -2,7 +2,6 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
-import { useShareEntry } from '../useShareEntry';
 import { resetShareEntryStore } from '../../stores/shareEntryStore';
 import { Button } from '../../components/ui';
 
@@ -11,9 +10,11 @@ const mockOpenSharedDocument = jest.fn();
 const mockRenderSharedDocument = jest.fn();
 const mockOpenFallbackEditor = jest.fn();
 
-jest.mock('../../services/shareService', () => ({
+jest.unstable_mockModule('@/services/shareService', () => ({
   getShare: (...args: unknown[]) => mockGetShare(...args),
 }));
+
+let useShareEntry: typeof import('../useShareEntry').useShareEntry;
 
 function TestComponent() {
   const state = useShareEntry({
@@ -37,6 +38,10 @@ function TestComponent() {
 }
 
 describe('useShareEntry', () => {
+  beforeAll(async () => {
+    ({ useShareEntry } = await import('../useShareEntry'));
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockOpenSharedDocument.mockReturnValue('tab-1');
