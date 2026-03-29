@@ -1,5 +1,6 @@
 /** @jest-environment jsdom */
 
+import { jest } from '@jest/globals';
 import { render, screen, fireEvent } from '@testing-library/react';
 import * as THREE from 'three';
 import { MeasurePanel } from '../three-viewer/panels/MeasurePanel';
