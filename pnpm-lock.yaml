@@ -332,6 +332,9 @@ importers:
       '@types/diff':
         specifier: ^6.0.0
         version: 6.0.0
+      '@types/jest':
+        specifier: ^29.5.14
+        version: 29.5.14
       '@types/react':
         specifier: ^18.3.18
         version: 18.3.26
@@ -350,9 +353,18 @@ importers:
       autoprefixer:
         specifier: ^10.4.21
         version: 10.4.21(postcss@8.5.6)
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@22.18.9)
+      jest-environment-jsdom:
+        specifier: ^29.7.0
+        version: 29.7.0
       postcss:
         specifier: ^8.4.49
         version: 8.5.6
+      ts-jest:
+        specifier: ^29.3.4
+        version: 29.4.5(@babel/core@7.28.4)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.28.4))(jest-util@29.7.0)(jest@29.7.0(@types/node@22.18.9))(typescript@5.8.3)
       typescript:
         specifier: ~5.8.3
         version: 5.8.3

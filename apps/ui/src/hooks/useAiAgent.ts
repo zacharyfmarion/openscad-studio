@@ -165,9 +165,46 @@ export interface AiAgentState {
   isProcessingAttachments: boolean;
 }
 
-export function useAiAgent() {
-  const analytics = useAnalytics();
-  const availableProviders = useAvailableProviders();
+interface UseAiAgentOptions {
+  testOverrides?: {
+    analytics?: ReturnType<typeof useAnalytics>;
+    availableProviders?: ReturnType<typeof useAvailableProviders>;
+    getPlatform?: typeof getPlatform;
+    createModel?: typeof createModel;
+    buildTools?: typeof buildTools;
+    startAiStream?: typeof startAiStream;
+    processAttachmentFiles?: typeof processAttachmentFiles;
+    getVisionSupportForModelId?: typeof getVisionSupportForModelId;
+    messagesToModelMessages?: typeof messagesToModelMessages;
+    getPreferredDefaultModel?: typeof getPreferredDefaultModel;
+    historyService?: typeof historyService;
+    eventBus?: typeof eventBus;
+    updateSetting?: typeof updateSetting;
+    loadSettings?: typeof loadSettings;
+  };
+}
+
+export function useAiAgent(options: UseAiAgentOptions = {}) {
+  const defaultAnalytics = useAnalytics();
+  const defaultAvailableProviders = useAvailableProviders();
+  const overrides = options.testOverrides;
+  const analytics = overrides?.analytics ?? defaultAnalytics;
+  const availableProviders = overrides?.availableProviders ?? defaultAvailableProviders;
+  const getPlatformImpl = overrides?.getPlatform ?? getPlatform;
+  const createModelImpl = overrides?.createModel ?? createModel;
+  const buildToolsImpl = overrides?.buildTools ?? buildTools;
+  const startAiStreamImpl = overrides?.startAiStream ?? startAiStream;
+  const processAttachmentFilesImpl = overrides?.processAttachmentFiles ?? processAttachmentFiles;
+  const getVisionSupportForModelIdImpl =
+    overrides?.getVisionSupportForModelId ?? getVisionSupportForModelId;
+  const messagesToModelMessagesImpl =
+    overrides?.messagesToModelMessages ?? messagesToModelMessages;
+  const getPreferredDefaultModelImpl =
+    overrides?.getPreferredDefaultModel ?? getPreferredDefaultModel;
+  const historyServiceImpl = overrides?.historyService ?? historyService;
+  const eventBusImpl = overrides?.eventBus ?? eventBus;
+  const updateSettingImpl = overrides?.updateSetting ?? updateSetting;
+  const loadSettingsImpl = overrides?.loadSettings ?? loadSettings;
   const [state, setState] = useState<AiAgentState>({
     isStreaming: false,
     streamingResponse: null,
@@ -180,7 +217,7 @@ export function useAiAgent() {
     currentConversationId: null,
     currentToolCalls: [],
     currentModel: getStoredModel(),
-    currentModelVisionSupport: getVisionSupportForModelId(getStoredModel()),
+    currentModelVisionSupport: getVisionSupportForModelIdImpl(getStoredModel()),
     draft: EMPTY_DRAFT,
     attachments: {},
     draftErrors: [],
@@ -199,7 +236,7 @@ export function useAiAgent() {
   const currentFilePathRef = useRef<string | null>(null);
   const auxiliaryFilesRef = useRef<Record<string, string>>({});
   const previewSceneStyleRef = useRef<PreviewSceneStyle>(FALLBACK_PREVIEW_SCENE_STYLE);
-  const measurementUnitRef = useRef<MeasurementUnit>(loadSettings().viewer.measurementUnit);
+  const measurementUnitRef = useRef<MeasurementUnit>(loadSettingsImpl().viewer.measurementUnit);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeTurnRef = useRef<ActiveTurnState | null>(null);
   const committedMessagesRef = useRef<Message[]>(state.messages);
@@ -230,7 +267,7 @@ export function useAiAgent() {
       getPreviewSceneStyle: () => previewSceneStyleRef.current,
       hasProjectFileAccess: () => {
         try {
-          return Boolean(workingDirRef.current) && getPlatform().capabilities.hasFileSystem;
+          return Boolean(workingDirRef.current) && getPlatformImpl().capabilities.hasFileSystem;
         } catch {
           return false;
         }
@@ -243,7 +280,7 @@ export function useAiAgent() {
           return null;
         }
 
-        const platform = getPlatform();
+        const platform = getPlatformImpl();
         if (!platform.capabilities.hasFileSystem) {
           return null;
         }
@@ -257,7 +294,7 @@ export function useAiAgent() {
           return null;
         }
 
-        const platform = getPlatform();
+        const platform = getPlatformImpl();
         if (!platform.capabilities.hasFileSystem) {
           return null;
         }
@@ -280,13 +317,13 @@ export function useAiAgent() {
       getMeasurementUnit: () => measurementUnitRef.current,
       setMeasurementUnit: (unit: MeasurementUnit) => {
         measurementUnitRef.current = unit;
-        updateSetting('viewer', { measurementUnit: unit });
+        updateSettingImpl('viewer', { measurementUnit: unit });
       },
     }),
-    []
+    [getPlatformImpl, updateSettingImpl]
   );
 
-  const tools: ToolSet = useMemo(() => buildTools(callbacks), [callbacks]);
+  const tools: ToolSet = useMemo(() => buildToolsImpl(callbacks), [buildToolsImpl, callbacks]);
 
   const updateSourceRef = useCallback((code: string) => {
     sourceRef.current = code;
@@ -322,7 +359,7 @@ export function useAiAgent() {
       availableProviders.length === 0 ||
       availableProviders.includes(getProviderFromModel(storedModel))
         ? storedModel
-        : getPreferredDefaultModel(availableProviders);
+        : getPreferredDefaultModelImpl(availableProviders);
 
     if (resolvedModel !== storedModel) {
       setStoredModel(resolvedModel);
@@ -331,7 +368,7 @@ export function useAiAgent() {
     setState((prev) => ({
       ...prev,
       currentModel: resolvedModel,
-      currentModelVisionSupport: getVisionSupportForModelId(resolvedModel),
+      currentModelVisionSupport: getVisionSupportForModelIdImpl(resolvedModel),
     }));
     if (IS_DEV) {
       console.log(
@@ -341,7 +378,7 @@ export function useAiAgent() {
         availableProviders
       );
     }
-  }, [availableProviders]);
+  }, [availableProviders, getPreferredDefaultModelImpl, getVisionSupportForModelIdImpl]);
 
   useEffect(() => {
     loadModelAndProviders();
@@ -518,7 +555,11 @@ export function useAiAgent() {
         draftErrors: [],
       }));
 
-      const result = await processAttachmentFiles(files, snapshot.draft, snapshot.attachments);
+      const result = await processAttachmentFilesImpl(
+        files,
+        snapshot.draft,
+        snapshot.attachments
+      );
       const readyCount = result.attachments.filter(
         (attachment) => attachment.status === 'ready'
       ).length;
@@ -552,7 +593,7 @@ export function useAiAgent() {
         error_count: errorCount,
       });
     },
-    [analytics]
+    [analytics, processAttachmentFilesImpl]
   );
 
   const removeDraftAttachment = useCallback(
@@ -681,8 +722,11 @@ export function useAiAgent() {
       abortControllerRef.current = abortController;
 
       try {
-        const model = createModel(provider, apiKey, currentState.currentModel);
-        const modelMessages = messagesToModelMessages(updatedMessages, currentState.attachments);
+        const model = createModelImpl(provider, apiKey, currentState.currentModel);
+        const modelMessages = messagesToModelMessagesImpl(
+          updatedMessages,
+          currentState.attachments
+        );
 
         const measurementUnit = callbacks.getMeasurementUnit();
         const unitLabels: Record<MeasurementUnit, string> = {
@@ -693,7 +737,7 @@ export function useAiAgent() {
         };
         const dynamicSystem = `${SYSTEM_PROMPT}\n\nCurrent measurement unit: ${measurementUnit} (${unitLabels[measurementUnit]}) — all displayed dimensions use this unit`;
 
-        const result = await startAiStream({
+        const result = await startAiStreamImpl({
           model,
           system: dynamicSystem,
           messages: modelMessages,
@@ -808,7 +852,17 @@ export function useAiAgent() {
         abortControllerRef.current = null;
       }
     },
-    [analytics, callbacks, finalizeStreamTurn, logTurnWarnings, syncActiveTurnState, tools]
+    [
+      analytics,
+      callbacks,
+      createModelImpl,
+      finalizeStreamTurn,
+      logTurnWarnings,
+      messagesToModelMessagesImpl,
+      startAiStreamImpl,
+      syncActiveTurnState,
+      tools,
+    ]
   );
 
   const submitPrompt = useCallback(
@@ -850,7 +904,7 @@ export function useAiAgent() {
       setState((prev) => ({
         ...prev,
         currentModel: model,
-        currentModelVisionSupport: getVisionSupportForModelId(model),
+        currentModelVisionSupport: getVisionSupportForModelIdImpl(model),
       }));
       setStoredModel(model);
       analytics.track('model selected', {
@@ -859,7 +913,7 @@ export function useAiAgent() {
         source_surface: sourceSurface,
       });
     },
-    [analytics]
+    [analytics, getVisionSupportForModelIdImpl]
   );
 
   const newConversation = useCallback(() => {
@@ -895,9 +949,9 @@ export function useAiAgent() {
     (checkpointId: string, truncatedMessages: Message[]) => {
       if (IS_DEV) console.log('[useAiAgent] Restoring checkpoint:', checkpointId);
 
-      const checkpoint = historyService.restoreTo(checkpointId);
+      const checkpoint = historyServiceImpl.restoreTo(checkpointId);
       if (checkpoint) {
-        eventBus.emit('history:restore', { code: checkpoint.code });
+        eventBusImpl.emit('history:restore', { code: checkpoint.code });
       } else {
         console.error('[useAiAgent] Failed to restore checkpoint: not found', checkpointId);
       }
@@ -914,7 +968,7 @@ export function useAiAgent() {
         had_later_messages: stateRef.current.messages.length > truncatedMessages.length,
       });
     },
-    [analytics]
+    [analytics, eventBusImpl, historyServiceImpl]
   );
 
   return {

@@ -54,6 +54,9 @@ function withShareDebugHeaders(
     twitterCard: string | null;
   }
 ): Response {
+  const toHeaderValue = (value: string | null) =>
+    (value ?? 'missing').replace(/[^\t\x20-\x7e]/g, '?');
+
   const headers = new Headers(response.headers);
   headers.set('x-share-meta-route', 'functions/s/[[shareId]]');
   headers.set(
@@ -65,9 +68,9 @@ function withShareDebugHeaders(
   headers.set('x-share-found', debug.shareFound ? 'true' : 'false');
   headers.set('x-share-meta-applied', debug.metadataApplied ? 'true' : 'false');
   headers.set('x-share-thumbnail', debug.hasThumbnail ? 'true' : 'false');
-  headers.set('x-share-og-title', debug.ogTitle ?? 'missing');
-  headers.set('x-share-og-image', debug.ogImage ?? 'missing');
-  headers.set('x-share-twitter-card', debug.twitterCard ?? 'missing');
+  headers.set('x-share-og-title', toHeaderValue(debug.ogTitle));
+  headers.set('x-share-og-image', toHeaderValue(debug.ogImage));
+  headers.set('x-share-twitter-card', toHeaderValue(debug.twitterCard));
 
   return new Response(response.body, {
     status: response.status,
