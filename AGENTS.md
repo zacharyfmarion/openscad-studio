@@ -171,11 +171,15 @@ Multiple AI agents may be working on this repository simultaneously. If you enco
 
 Unless the user explicitly says otherwise, open pull requests against `main`. Do not target release branches or any other base branch by default.
 
+For end-to-end implementation requests such as `/create <prompt>` or "take this from plan to PR", use the repo-local `create-feature` skill under `.agents/skills/create-feature/`. That workflow should own the implementation plan, choose tests based on the changed behavior, run deterministic local validation through `scripts/validate-changes.sh`, open a draft PR against `main`, and return the PR preview URL when one applies.
+
 ## Implementation plans
 
 When starting a non-trivial feature or change, create a Markdown plan file in `implementation-plans/` (for example, `implementation-plans/ai-edit-validation.md`). The plan should outline the goal, approach, affected files, and a checklist of steps.
 
 As you work, mark off progress in the plan file using `- [x]` checkboxes. The plan file serves as a durable, human-readable record of what was done and what remains, and it persists across sessions in a way ephemeral agent state does not.
+
+The `create-feature` skill follows the same rule: for non-trivial work it must create and maintain an implementation plan before or alongside code changes, then keep the checklist updated as steps complete.
 
 Do not create an implementation plan for small maintenance-only tasks. Straightforward fixes such as formatting cleanup, lint cleanup, CI-only breakage fixes, typo/docs-only edits, or other narrow housekeeping changes should be done without adding a new file under `implementation-plans/`.
 
