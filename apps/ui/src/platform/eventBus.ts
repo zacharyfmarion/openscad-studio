@@ -8,7 +8,7 @@ interface EventMap {
   'menu:file:export': ExportFormat;
   'render-requested': void;
   'history:restore': { code: string };
-  'code-updated': { code: string; source: 'customizer' | 'editor' | 'ai' };
+  'code-updated': { code: string; source: 'customizer' | 'editor' | 'ai' | 'history' };
   'settings:changed': void;
 }
 
