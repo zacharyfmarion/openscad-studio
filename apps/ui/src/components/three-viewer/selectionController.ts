@@ -49,6 +49,32 @@ export function raycastLoadedModel(args: {
   };
 }
 
+const ROBUST_OFFSETS_PX = [
+  [-2, 0],
+  [2, 0],
+  [0, -2],
+  [0, 2],
+] as const;
+
+export function robustRaycastLoadedModel(args: {
+  clientX: number;
+  clientY: number;
+  rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>;
+  camera: THREE.Camera;
+  model: LoadedPreviewModel | null;
+  raycaster?: THREE.Raycaster;
+}): RaycastResult | null {
+  const primary = raycastLoadedModel(args);
+  if (primary) return primary;
+
+  for (const [dx, dy] of ROBUST_OFFSETS_PX) {
+    const result = raycastLoadedModel({ ...args, clientX: args.clientX + dx, clientY: args.clientY + dy });
+    if (result) return result;
+  }
+
+  return null;
+}
+
 export function getWorldNormalFromIntersection(
   intersection: THREE.Intersection<THREE.Object3D>
 ): THREE.Vector3 | null {

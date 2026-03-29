@@ -50,7 +50,7 @@ import {
 import { ViewerMaterialManager } from './three-viewer/materialManager';
 import {
   createSelectionStateFromRaycast,
-  raycastLoadedModel,
+  robustRaycastLoadedModel,
   type RaycastResult,
 } from './three-viewer/selectionController';
 import {
@@ -567,7 +567,7 @@ function ViewerInteractionController({
 
     const resolveRaycast = (event: PointerEvent): RaycastResult | null => {
       const rect = dom.getBoundingClientRect();
-      return raycastLoadedModel({
+      return robustRaycastLoadedModel({
         clientX: event.clientX,
         clientY: event.clientY,
         rect,
