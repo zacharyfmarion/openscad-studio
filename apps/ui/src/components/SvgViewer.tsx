@@ -8,6 +8,7 @@ import type { MeasurementListItemData } from './viewer-measurements/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
 import { useMobileLayout } from '../hooks/useMobileLayout';
 import { buildOverlayModel } from './svg-viewer/overlayModel';
+import { attachBrowserPinchZoomGuard } from './svg-viewer/browserPinchZoomGuard';
 import { useSvgViewerAnalytics } from './svg-viewer/useSvgViewerAnalytics';
 import {
   createCommittedMeasurement,
@@ -570,6 +571,15 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
   }, []);
 
   useEffect(() => {
+    const element = containerRef.current;
+    if (!element) {
+      return;
+    }
+
+    return attachBrowserPinchZoomGuard(element);
+  }, []);
+
+  useEffect(() => {
     if (!loadedDocument || containerSize.width <= 0 || containerSize.height <= 0) {
       return;
     }
@@ -1018,6 +1028,7 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
           ref={containerRef}
           className="relative flex-1 min-w-0 outline-none"
           style={{ backgroundColor: themeColors.background, touchAction: 'none' }}
+          data-testid="preview-2d-container"
           tabIndex={0}
           onKeyDown={handleKeyDown}
           onKeyUp={handleKeyUp}

@@ -1,5 +1,8 @@
 import type { ParsedSvgDocument, SvgBounds } from './types';
 
+const GEOMETRY_SELECTOR = 'path, circle, ellipse, rect, polygon, polyline, line, text, use';
+const PREVIEW_STROKE_WIDTH_SCALE = 1.15;
+
 function parseNumericLength(value: string | null): number | null {
   if (!value) {
     return null;
@@ -12,6 +15,25 @@ function parseNumericLength(value: string | null): number | null {
 
   const parsed = Number(match[1]);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function scaleStrokeWidth(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const match = value.trim().match(/^(-?\d+(?:\.\d+)?)(.*)$/);
+  if (!match) {
+    return null;
+  }
+
+  const numericValue = Number(match[1]);
+  if (!Number.isFinite(numericValue)) {
+    return null;
+  }
+
+  const suffix = match[2] ?? '';
+  return `${Number((numericValue * PREVIEW_STROKE_WIDTH_SCALE).toFixed(2))}${suffix}`;
 }
 
 function isValidBounds(bounds: SvgBounds | null): bounds is SvgBounds {
@@ -79,9 +101,8 @@ export function parseSvgMetrics(svgText: string): ParsedSvgDocument {
     warnings.push('SVG preview did not include a valid size; using a synthetic 100x100 viewBox.');
   }
 
-  const hasGeometry = !!svgElement.querySelector(
-    'path, circle, ellipse, rect, polygon, polyline, line, text, use'
-  );
+  const geometryElements = [...svgElement.querySelectorAll(GEOMETRY_SELECTOR)];
+  const hasGeometry = geometryElements.length > 0;
   const isEmpty = !hasGeometry;
 
   if (isEmpty) {
@@ -98,6 +119,15 @@ export function parseSvgMetrics(svgText: string): ParsedSvgDocument {
   svgElement.setAttribute('x', String(viewBox.minX));
   svgElement.setAttribute('y', String(viewBox.minY));
   svgElement.setAttribute('overflow', 'visible');
+
+  for (const geometryElement of geometryElements) {
+    if (!geometryElement.hasAttribute('vector-effect')) {
+      geometryElement.setAttribute('vector-effect', 'non-scaling-stroke');
+    }
+
+    const scaledStrokeWidth = scaleStrokeWidth(geometryElement.getAttribute('stroke-width'));
+    geometryElement.setAttribute('stroke-width', scaledStrokeWidth ?? '1.15');
+  }
 
   const contentBounds = isValidBounds(viewBox)
     ? viewBox

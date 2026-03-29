@@ -37,7 +37,7 @@ describe('svg viewer helpers', () => {
   it('parses valid SVG metrics and preserves geometry styling', () => {
     const parsed = parseSvgMetrics(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">
-        <rect x="0" y="0" width="20" height="10" fill="#123456" />
+        <rect x="0" y="0" width="20" height="10" fill="#123456" stroke="#000000" stroke-width="1" />
       </svg>
     `);
 
@@ -47,6 +47,9 @@ describe('svg viewer helpers', () => {
     expect(parsed.metrics.isEmpty).toBe(false);
     expect(parsed.markup).toContain('fill="#123456"');
     expect(parsed.markup).toContain('width="20"');
+    expect(parsed.markup).toContain('vector-effect="non-scaling-stroke"');
+    expect(parsed.markup).toContain('stroke-width="1.15"');
+    expect(parsed.markup).not.toContain('data-viewer-stroke-normalization="true"');
   });
 
   it('falls back to width and height when viewBox is missing', () => {

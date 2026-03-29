@@ -135,9 +135,13 @@ describe('SvgViewer', () => {
     fireEvent.pointerMove(scene, { clientX: 200, clientY: 150 });
 
     expect((await screen.findByTestId('preview-2d-coordinate-readout')).textContent).toMatch(/x/i);
-    expect(
-      screen.getByTestId('preview-2d-stage').querySelector('[data-preview-svg] svg')
-    ).toBeTruthy();
+    const renderedSvg = screen
+      .getByTestId('preview-2d-stage')
+      .querySelector('[data-preview-svg] svg') as SVGSVGElement | null;
+    expect(renderedSvg).toBeTruthy();
+    expect(renderedSvg?.querySelector('rect')?.getAttribute('vector-effect')).toBe(
+      'non-scaling-stroke'
+    );
   });
 
   it('starts off-origin SVG documents centered with a native SVG transform', async () => {
