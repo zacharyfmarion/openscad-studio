@@ -25,4 +25,4 @@ Make 2D preview outlines feel less visually heavy and keep macOS trackpad pinch 
 - [x] Prevent trackpad pinch gestures from zooming the full page while interacting with the 2D viewer.
 - [x] Add or update tests for the viewer rendering and gesture behavior.
 - [x] Run formatting and deterministic validation for the touched files.
-- [ ] Open a draft PR against `main` and capture the preview URL if one is published.
+- [x] Open a draft PR against `main` and capture the preview URL if one is published.
