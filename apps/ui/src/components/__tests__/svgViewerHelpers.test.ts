@@ -47,6 +47,8 @@ describe('svg viewer helpers', () => {
     expect(parsed.metrics.isEmpty).toBe(false);
     expect(parsed.markup).toContain('fill="#123456"');
     expect(parsed.markup).toContain('width="20"');
+    expect(parsed.markup).toContain('data-viewer-stroke-normalization="true"');
+    expect(parsed.markup).toContain('vector-effect: non-scaling-stroke');
   });
 
   it('falls back to width and height when viewBox is missing', () => {

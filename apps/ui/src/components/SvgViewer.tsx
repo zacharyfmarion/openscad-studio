@@ -363,6 +363,7 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
   const lastVisualReadySrcRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const lastPointerClientRef = useRef<SvgPoint | null>(null);
+  const pinchGuardActiveRef = useRef(false);
   const suppressClickRef = useRef(false);
   const dragRef = useRef<{
     pointerId: number;
@@ -566,6 +567,62 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
 
     return () => {
       observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const setGuardActive = (active: boolean) => {
+      pinchGuardActiveRef.current = active;
+    };
+
+    const preventBrowserPinchZoom = (event: Event) => {
+      const target = event.target;
+      const shouldGuard =
+        pinchGuardActiveRef.current || (target instanceof Node && element.contains(target));
+      if (!shouldGuard || !event.cancelable) {
+        return;
+      }
+
+      if (event.type === 'wheel') {
+        const wheelEvent = event as WheelEvent;
+        if (!wheelEvent.ctrlKey) {
+          return;
+        }
+      }
+
+      event.preventDefault();
+    };
+
+    const listenerOptions = { capture: true, passive: false } as const;
+    const handlePointerEnter = () => setGuardActive(true);
+    const handlePointerLeave = () => setGuardActive(false);
+    const handleFocus = () => setGuardActive(true);
+    const handleBlur = () => setGuardActive(false);
+
+    element.addEventListener('pointerenter', handlePointerEnter);
+    element.addEventListener('pointerleave', handlePointerLeave);
+    element.addEventListener('focus', handleFocus);
+    element.addEventListener('blur', handleBlur);
+    document.addEventListener('gesturestart', preventBrowserPinchZoom, listenerOptions);
+    document.addEventListener('gesturechange', preventBrowserPinchZoom, listenerOptions);
+    document.addEventListener('gestureend', preventBrowserPinchZoom, listenerOptions);
+    document.addEventListener('wheel', preventBrowserPinchZoom, listenerOptions);
+
+    return () => {
+      pinchGuardActiveRef.current = false;
+      element.removeEventListener('pointerenter', handlePointerEnter);
+      element.removeEventListener('pointerleave', handlePointerLeave);
+      element.removeEventListener('focus', handleFocus);
+      element.removeEventListener('blur', handleBlur);
+      document.removeEventListener('gesturestart', preventBrowserPinchZoom, listenerOptions);
+      document.removeEventListener('gesturechange', preventBrowserPinchZoom, listenerOptions);
+      document.removeEventListener('gestureend', preventBrowserPinchZoom, listenerOptions);
+      document.removeEventListener('wheel', preventBrowserPinchZoom, listenerOptions);
     };
   }, []);
 
@@ -1018,6 +1075,7 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
           ref={containerRef}
           className="relative flex-1 min-w-0 outline-none"
           style={{ backgroundColor: themeColors.background, touchAction: 'none' }}
+          data-testid="preview-2d-container"
           tabIndex={0}
           onKeyDown={handleKeyDown}
           onKeyUp={handleKeyUp}

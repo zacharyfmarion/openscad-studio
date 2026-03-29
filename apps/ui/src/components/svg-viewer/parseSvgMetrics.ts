@@ -1,5 +1,11 @@
 import type { ParsedSvgDocument, SvgBounds } from './types';
 
+const NON_SCALING_STROKE_STYLE = `
+  :where(path, circle, ellipse, rect, polygon, polyline, line, text, use) {
+    vector-effect: non-scaling-stroke;
+  }
+`;
+
 function parseNumericLength(value: string | null): number | null {
   if (!value) {
     return null;
@@ -98,6 +104,11 @@ export function parseSvgMetrics(svgText: string): ParsedSvgDocument {
   svgElement.setAttribute('x', String(viewBox.minX));
   svgElement.setAttribute('y', String(viewBox.minY));
   svgElement.setAttribute('overflow', 'visible');
+
+  const nonScalingStrokeStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  nonScalingStrokeStyle.setAttribute('data-viewer-stroke-normalization', 'true');
+  nonScalingStrokeStyle.textContent = NON_SCALING_STROKE_STYLE;
+  svgElement.insertBefore(nonScalingStrokeStyle, svgElement.firstChild);
 
   const contentBounds = isValidBounds(viewBox)
     ? viewBox
