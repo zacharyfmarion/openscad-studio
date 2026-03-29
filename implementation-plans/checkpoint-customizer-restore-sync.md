@@ -1,21 +1,19 @@
-# Checkpoint Customizer Restore Sync
+# AI Turn Checkpoint Restore Selection
 
 ## Goal
-Ensure restoring an AI checkpoint updates the customizer panel so controls added by the reverted turn disappear immediately.
+Ensure restoring an AI checkpoint reverts code to the state from immediately before the user submitted that AI prompt, including turns that make multiple AI edits.
 
 ## Approach
-- Trace the restore event flow through the AI, workspace, and customizer layers.
-- Route checkpoint restores through the same `code-updated` pipeline as other non-customizer edits instead of relying on a restore-only side channel.
-- Add regression coverage for restoring a checkpoint after an AI-added customizer control.
+- Capture the first successful `apply_edit` checkpoint in a turn and ignore later checkpoint tokens from the same turn.
+- Keep restore execution flowing through the normal `code-updated` path so editor and customizer state stay synchronized.
+- Add hook regression coverage for multi-edit turns, malformed later checkpoint tokens, and error-after-success turns.
 
 ## Affected Areas
 - `apps/ui/src/hooks/useAiAgent.ts`
-- `apps/ui/src/App.tsx`
-- `apps/ui/src/components/panels/PanelComponents.tsx`
-- related frontend tests
+- `apps/ui/src/hooks/__tests__/useAiAgent.test.tsx`
 
 ## Checklist
 - [x] Inspect restore and customizer sync flow
-- [x] Implement the restore/customizer panel fix
-- [x] Add regression coverage for restored-away customizer controls
+- [x] Implement first-checkpoint-wins behavior for AI turns
+- [x] Add regression coverage for multi-edit and partial-failure restore cases
 - [x] Run targeted validation

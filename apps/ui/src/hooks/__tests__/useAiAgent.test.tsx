@@ -431,6 +431,10 @@ describe('useAiAgent', () => {
     expect(hook.current().messages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          type: 'user',
+          checkpointId: 'cp-123',
+        }),
+        expect.objectContaining({
           type: 'tool-call',
           toolCallId: 'tool-1',
           toolName: 'apply_edit',
@@ -438,6 +442,290 @@ describe('useAiAgent', () => {
           result: 'Applied [CHECKPOINT:cp-123]',
         }),
       ])
+    );
+  });
+
+  it('keeps the first checkpoint id when a turn applies multiple edits', async () => {
+    storeApiKey('anthropic', 'test-key');
+
+    const hook = createHarness({
+      testOverrides: {
+        availableProviders: ['anthropic'],
+        createModel: (() => ({ id: 'model' })) as never,
+        buildTools: (() => ({})) as never,
+        messagesToModelMessages: (() => []) as never,
+        startAiStream: (async () =>
+          createStreamResult([
+            { type: 'tool-input-start', id: 'tool-1', toolName: 'apply_edit' },
+            {
+              type: 'tool-call',
+              toolCallId: 'tool-1',
+              toolName: 'apply_edit',
+              input: {},
+            } as StreamChunk,
+            {
+              type: 'tool-result',
+              toolCallId: 'tool-1',
+              toolName: 'apply_edit',
+              input: {},
+              output: 'Applied [CHECKPOINT:cp-1]',
+            } as StreamChunk,
+            { type: 'tool-input-start', id: 'tool-2', toolName: 'apply_edit' },
+            {
+              type: 'tool-call',
+              toolCallId: 'tool-2',
+              toolName: 'apply_edit',
+              input: {},
+            } as StreamChunk,
+            {
+              type: 'tool-result',
+              toolCallId: 'tool-2',
+              toolName: 'apply_edit',
+              input: {},
+              output: 'Applied [CHECKPOINT:cp-2]',
+            } as StreamChunk,
+            {
+              type: 'finish',
+              finishReason: 'stop',
+              rawFinishReason: 'stop',
+              totalUsage: {} as never,
+            },
+          ] satisfies StreamChunk[])) as never,
+      },
+    });
+
+    await act(async () => {
+      await hook.current().submitPrompt('Patch the file twice');
+    });
+
+    await waitFor(() => {
+      expect(hook.current().isStreaming).toBe(false);
+    });
+
+    expect(hook.current().messages[0]).toMatchObject({
+      type: 'user',
+      checkpointId: 'cp-1',
+    });
+  });
+
+  it('ignores malformed later checkpoint results after a valid first edit', async () => {
+    storeApiKey('anthropic', 'test-key');
+
+    const hook = createHarness({
+      testOverrides: {
+        availableProviders: ['anthropic'],
+        createModel: (() => ({ id: 'model' })) as never,
+        buildTools: (() => ({})) as never,
+        messagesToModelMessages: (() => []) as never,
+        startAiStream: (async () =>
+          createStreamResult([
+            { type: 'tool-input-start', id: 'tool-1', toolName: 'apply_edit' },
+            {
+              type: 'tool-call',
+              toolCallId: 'tool-1',
+              toolName: 'apply_edit',
+              input: {},
+            } as StreamChunk,
+            {
+              type: 'tool-result',
+              toolCallId: 'tool-1',
+              toolName: 'apply_edit',
+              input: {},
+              output: 'Applied [CHECKPOINT:cp-1]',
+            } as StreamChunk,
+            { type: 'tool-input-start', id: 'tool-2', toolName: 'apply_edit' },
+            {
+              type: 'tool-call',
+              toolCallId: 'tool-2',
+              toolName: 'apply_edit',
+              input: {},
+            } as StreamChunk,
+            {
+              type: 'tool-result',
+              toolCallId: 'tool-2',
+              toolName: 'apply_edit',
+              input: {},
+              output: 'Applied but missing checkpoint token',
+            } as StreamChunk,
+            {
+              type: 'finish',
+              finishReason: 'stop',
+              rawFinishReason: 'stop',
+              totalUsage: {} as never,
+            },
+          ] satisfies StreamChunk[])) as never,
+      },
+    });
+
+    await act(async () => {
+      await hook.current().submitPrompt('Patch the file twice');
+    });
+
+    await waitFor(() => {
+      expect(hook.current().isStreaming).toBe(false);
+    });
+
+    expect(hook.current().messages[0]).toMatchObject({
+      type: 'user',
+      checkpointId: 'cp-1',
+    });
+  });
+
+  it('preserves the first checkpoint when a later edit in the turn errors', async () => {
+    storeApiKey('anthropic', 'test-key');
+
+    const hook = createHarness({
+      testOverrides: {
+        availableProviders: ['anthropic'],
+        createModel: (() => ({ id: 'model' })) as never,
+        buildTools: (() => ({})) as never,
+        messagesToModelMessages: (() => []) as never,
+        startAiStream: (async () =>
+          createStreamResult([
+            { type: 'tool-input-start', id: 'tool-1', toolName: 'apply_edit' },
+            {
+              type: 'tool-call',
+              toolCallId: 'tool-1',
+              toolName: 'apply_edit',
+              input: {},
+            } as StreamChunk,
+            {
+              type: 'tool-result',
+              toolCallId: 'tool-1',
+              toolName: 'apply_edit',
+              input: {},
+              output: 'Applied [CHECKPOINT:cp-1]',
+            } as StreamChunk,
+            { type: 'tool-input-start', id: 'tool-2', toolName: 'apply_edit' },
+            {
+              type: 'tool-call',
+              toolCallId: 'tool-2',
+              toolName: 'apply_edit',
+              input: {},
+            } as StreamChunk,
+            {
+              type: 'tool-error',
+              toolCallId: 'tool-2',
+              toolName: 'apply_edit',
+              input: {},
+              error: { message: 'Second edit failed' },
+            } as StreamChunk,
+            {
+              type: 'error',
+              error: { message: 'Worker exploded' },
+            } as StreamChunk,
+          ] satisfies StreamChunk[])) as never,
+      },
+    });
+
+    await act(async () => {
+      await hook.current().submitPrompt('Patch the file twice');
+    });
+
+    await waitFor(() => {
+      expect(hook.current().isStreaming).toBe(false);
+    });
+
+    expect(hook.current().messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'user',
+          checkpointId: 'cp-1',
+        }),
+        expect.objectContaining({
+          type: 'tool-call',
+          toolCallId: 'tool-2',
+          toolName: 'apply_edit',
+          state: 'error',
+        }),
+      ])
+    );
+  });
+
+  it('restores the first checkpoint for multi-edit turns and truncates later conversation', async () => {
+    storeApiKey('anthropic', 'test-key');
+    const analytics = createAnalyticsSpy();
+    const history = { restoreTo: jest.fn(() => ({ code: 'cube(1);' })) };
+    const eventBus = { emit: jest.fn() };
+
+    const hook = createHarness({
+      testOverrides: {
+        analytics: analytics as never,
+        availableProviders: ['anthropic'],
+        createModel: (() => ({ id: 'model' })) as never,
+        buildTools: (() => ({})) as never,
+        messagesToModelMessages: (() => []) as never,
+        startAiStream: (async () =>
+          createStreamResult([
+            { type: 'tool-input-start', id: 'tool-1', toolName: 'apply_edit' },
+            {
+              type: 'tool-call',
+              toolCallId: 'tool-1',
+              toolName: 'apply_edit',
+              input: {},
+            } as StreamChunk,
+            {
+              type: 'tool-result',
+              toolCallId: 'tool-1',
+              toolName: 'apply_edit',
+              input: {},
+              output: 'Applied [CHECKPOINT:cp-1]',
+            } as StreamChunk,
+            { type: 'tool-input-start', id: 'tool-2', toolName: 'apply_edit' },
+            {
+              type: 'tool-call',
+              toolCallId: 'tool-2',
+              toolName: 'apply_edit',
+              input: {},
+            } as StreamChunk,
+            {
+              type: 'tool-result',
+              toolCallId: 'tool-2',
+              toolName: 'apply_edit',
+              input: {},
+              output: 'Applied [CHECKPOINT:cp-2]',
+            } as StreamChunk,
+            { type: 'text-start', id: 'text-1' },
+            { type: 'text-delta', id: 'text-1', text: 'Done.' },
+            {
+              type: 'finish',
+              finishReason: 'stop',
+              rawFinishReason: 'stop',
+              totalUsage: {} as never,
+            },
+          ] satisfies StreamChunk[])) as never,
+        historyService: history as never,
+        eventBus: eventBus as never,
+      },
+    });
+
+    await act(async () => {
+      await hook.current().submitPrompt('Create a part');
+    });
+
+    await waitFor(() => {
+      expect(hook.current().messages).toHaveLength(4);
+    });
+
+    const truncatedMessages = [hook.current().messages[0]];
+    expect(hook.current().messages[0]).toMatchObject({
+      type: 'user',
+      checkpointId: 'cp-1',
+    });
+
+    act(() => {
+      hook.current().handleRestoreCheckpoint('cp-1', truncatedMessages);
+    });
+
+    expect(history.restoreTo).toHaveBeenCalledWith('cp-1');
+    expect(eventBus.emit).toHaveBeenCalledWith('code-updated', {
+      code: 'cube(1);',
+      source: 'history',
+    });
+    expect(hook.current().messages).toEqual(truncatedMessages);
+    expect(analytics.track).toHaveBeenCalledWith(
+      'checkpoint restored',
+      expect.objectContaining({ had_later_messages: true })
     );
   });
 

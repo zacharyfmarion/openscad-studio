@@ -68,6 +68,13 @@ function humanizeStreamError(errorText: string): string {
   return `Failed: ${errorText}`;
 }
 
+function extractApplyEditCheckpointId(output: unknown): string | null {
+  if (typeof output !== 'string') return null;
+
+  const checkpointMatch = output.match(/\[CHECKPOINT:([\w-]+)\]/);
+  return checkpointMatch?.[1] ?? null;
+}
+
 const EMPTY_DRAFT: AiDraft = {
   text: '',
   attachmentIds: [],
@@ -772,13 +779,16 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
           activeTurnRef.current = turnUpdate.state;
           logTurnWarnings(turnUpdate.warnings);
 
-          if (chunk.type === 'tool-result' && chunk.toolName === 'apply_edit') {
-            const checkpointMatch =
-              typeof chunk.output === 'string'
-                ? chunk.output.match(/\[CHECKPOINT:([\w-]+)\]/)
-                : null;
-            if (checkpointMatch) {
-              pendingCheckpointIdRef.current = checkpointMatch[1];
+          if (
+            chunk.type === 'tool-result' &&
+            chunk.toolName === 'apply_edit' &&
+            pendingCheckpointIdRef.current === null
+          ) {
+            // The restore button is turn-scoped: it should return to the code
+            // from before this user request, not before the last edit in the turn.
+            const checkpointId = extractApplyEditCheckpointId(chunk.output);
+            if (checkpointId) {
+              pendingCheckpointIdRef.current = checkpointId;
             }
           }
 
