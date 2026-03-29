@@ -35,10 +35,9 @@ export function PrivacySettings({ settings, onPrivacyChange }: PrivacySettingsPr
           </div>
           <Toggle
             checked={settings.privacy.analyticsEnabled}
-            onChange={(event) => {
-              const nextValue = event.target.checked;
-              onPrivacyChange('analyticsEnabled', nextValue);
-              analytics.setAnalyticsEnabled(nextValue, { capturePreferenceChange: true });
+            onChange={(v) => {
+              onPrivacyChange('analyticsEnabled', v);
+              analytics.setAnalyticsEnabled(v, { capturePreferenceChange: true });
             }}
           />
         </div>

@@ -38,7 +38,7 @@ export function LibrariesSettings({
           control={
             <Toggle
               checked={settings.library.autoDiscoverSystem}
-              onChange={(e) => onLibraryChange('autoDiscoverSystem', e.target.checked)}
+              onChange={(v) => onLibraryChange('autoDiscoverSystem', v)}
             />
           }
         />

@@ -134,7 +134,7 @@ function ViewerCard({
               data-testid={row.testId}
               checked={settings.viewer[row.key] as boolean}
               disabled={row.disabled}
-              onChange={(event) => onViewerChange(row.key, event.target.checked)}
+              onChange={(v) => onViewerChange(row.key, v)}
             />
           }
         />

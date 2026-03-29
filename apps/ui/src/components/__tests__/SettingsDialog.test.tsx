@@ -98,8 +98,8 @@ describe('SettingsDialog privacy copy', () => {
       expect(platformMock.getLibraryPaths).toHaveBeenCalledTimes(1);
     });
 
-    const toggle = screen.getByRole('checkbox');
-    expect((toggle as HTMLInputElement).checked).toBe(false);
+    const toggle = screen.getByRole('switch');
+    expect(toggle).toHaveAttribute('data-state', 'unchecked');
   });
 
   it('shows viewer settings and disables axis labels when axes are hidden', async () => {
@@ -131,27 +131,27 @@ describe('SettingsDialog privacy copy', () => {
     expect(screen.getByText('3D Viewer')).toBeTruthy();
     expect(screen.getByText('2D Viewer')).toBeTruthy();
 
-    const axesToggle = screen.getByLabelText('Show axes') as HTMLInputElement;
-    const axisLabelsToggle = screen.getByLabelText('Show axis labels') as HTMLInputElement;
-    const threeDGridToggle = screen.getByLabelText('Show 3D grid') as HTMLInputElement;
-    const shadowsToggle = screen.getByLabelText('Show shadows') as HTMLInputElement;
-    const viewcubeToggle = screen.getByLabelText('Show viewcube') as HTMLInputElement;
-    const snapToggle = screen.getByLabelText('Snap 3D measurements') as HTMLInputElement;
-    const inspectionHudToggle = screen.getByLabelText('Show inspection HUD') as HTMLInputElement;
+    const axesToggle = screen.getByLabelText('Show axes');
+    const axisLabelsToggle = screen.getByLabelText('Show axis labels');
+    const threeDGridToggle = screen.getByLabelText('Show 3D grid');
+    const shadowsToggle = screen.getByLabelText('Show shadows');
+    const viewcubeToggle = screen.getByLabelText('Show viewcube');
+    const snapToggle = screen.getByLabelText('Snap 3D measurements');
+    const inspectionHudToggle = screen.getByLabelText('Show inspection HUD');
 
-    expect(axesToggle.checked).toBe(false);
-    expect(axisLabelsToggle.checked).toBe(false);
-    expect(axisLabelsToggle.disabled).toBe(true);
-    expect(threeDGridToggle.checked).toBe(false);
-    expect(shadowsToggle.checked).toBe(false);
-    expect(viewcubeToggle.checked).toBe(false);
-    expect(snapToggle.checked).toBe(false);
-    expect(inspectionHudToggle.checked).toBe(false);
+    expect(axesToggle).toHaveAttribute('data-state', 'unchecked');
+    expect(axisLabelsToggle).toHaveAttribute('data-state', 'unchecked');
+    expect(axisLabelsToggle).toBeDisabled();
+    expect(threeDGridToggle).toHaveAttribute('data-state', 'unchecked');
+    expect(shadowsToggle).toHaveAttribute('data-state', 'unchecked');
+    expect(viewcubeToggle).toHaveAttribute('data-state', 'unchecked');
+    expect(snapToggle).toHaveAttribute('data-state', 'unchecked');
+    expect(inspectionHudToggle).toHaveAttribute('data-state', 'unchecked');
 
-    const gridToggle = screen.getByLabelText('Show 2D grid') as HTMLInputElement;
-    const twoDAxesToggle = screen.getByLabelText('Show 2D axes') as HTMLInputElement;
-    expect(gridToggle.checked).toBe(false);
-    expect(twoDAxesToggle.checked).toBe(false);
+    const gridToggle = screen.getByLabelText('Show 2D grid');
+    const twoDAxesToggle = screen.getByLabelText('Show 2D axes');
+    expect(gridToggle).toHaveAttribute('data-state', 'unchecked');
+    expect(twoDAxesToggle).toHaveAttribute('data-state', 'unchecked');
   });
 
   it('offers Customizer First as a default layout option', async () => {

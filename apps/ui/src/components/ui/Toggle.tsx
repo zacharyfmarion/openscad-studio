@@ -1,31 +1,29 @@
-import { InputHTMLAttributes, forwardRef } from 'react';
+import * as Switch from '@radix-ui/react-switch';
+import type { ComponentPropsWithoutRef } from 'react';
 
-export interface ToggleProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
+export interface ToggleProps extends Omit<
+  ComponentPropsWithoutRef<typeof Switch.Root>,
+  'checked' | 'onCheckedChange' | 'onChange'
+> {
   checked: boolean;
+  onChange: (checked: boolean) => void;
 }
 
-export const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
-  ({ checked, className = '', ...props }, ref) => {
-    return (
-      <label className={`relative inline-flex h-6 w-11 cursor-pointer items-center ${className}`}>
-        <input
-          ref={ref}
-          type="checkbox"
-          checked={checked}
-          className="peer absolute inset-0 m-0 h-full w-full cursor-pointer opacity-0"
-          {...props}
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none h-6 w-11 rounded-full peer peer-focus:outline-none peer-focus:ring-2 peer-checked:after:translate-x-full peer-checked:after:border-white after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:bg-white after:transition-all after:content-['']"
-          style={{
-            backgroundColor: checked ? 'var(--accent-primary)' : 'var(--bg-elevated)',
-            borderColor: 'var(--border-primary)',
-          }}
-        />
-      </label>
-    );
-  }
-);
+export const Toggle = ({ checked, onChange, className = '', ...props }: ToggleProps) => {
+  return (
+    <Switch.Root
+      checked={checked}
+      onCheckedChange={onChange}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      style={{
+        backgroundColor: checked ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+        border: '1px solid var(--border-primary)',
+      }}
+      {...props}
+    >
+      <Switch.Thumb className="pointer-events-none block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-100 will-change-transform data-[state=checked]:translate-x-[22px] data-[state=unchecked]:translate-x-[1px]" />
+    </Switch.Root>
+  );
+};
 
 Toggle.displayName = 'Toggle';

@@ -98,7 +98,10 @@ describe('SectionPlanePanel', () => {
         onSectionReset={noop}
       />
     );
-    expect(screen.getByRole('checkbox', { name: /invert/i })).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: /invert/i })).toHaveAttribute(
+      'data-state',
+      'unchecked'
+    );
 
     rerender(
       <SectionPlanePanel
@@ -109,7 +112,10 @@ describe('SectionPlanePanel', () => {
         onSectionReset={noop}
       />
     );
-    expect(screen.getByRole('checkbox', { name: /invert/i })).toBeChecked();
+    expect(screen.getByRole('switch', { name: /invert/i })).toHaveAttribute(
+      'data-state',
+      'checked'
+    );
   });
 
   it('calls onSectionStateChange with toggled inverted when toggle clicked', () => {
@@ -124,7 +130,7 @@ describe('SectionPlanePanel', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('checkbox', { name: /invert/i }));
+    fireEvent.click(screen.getByRole('switch', { name: /invert/i }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ inverted: true }));
   });
 
