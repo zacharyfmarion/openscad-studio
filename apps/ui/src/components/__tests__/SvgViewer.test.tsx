@@ -139,9 +139,9 @@ describe('SvgViewer', () => {
       .getByTestId('preview-2d-stage')
       .querySelector('[data-preview-svg] svg') as SVGSVGElement | null;
     expect(renderedSvg).toBeTruthy();
-    expect(
-      renderedSvg?.querySelector('[data-viewer-stroke-normalization="true"]')?.textContent
-    ).toContain('vector-effect: non-scaling-stroke');
+    expect(renderedSvg?.querySelector('rect')?.getAttribute('vector-effect')).toBe(
+      'non-scaling-stroke'
+    );
   });
 
   it('starts off-origin SVG documents centered with a native SVG transform', async () => {

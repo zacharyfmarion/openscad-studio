@@ -1,10 +1,6 @@
 import type { ParsedSvgDocument, SvgBounds } from './types';
 
-const NON_SCALING_STROKE_STYLE = `
-  :where(path, circle, ellipse, rect, polygon, polyline, line, text, use) {
-    vector-effect: non-scaling-stroke;
-  }
-`;
+const GEOMETRY_SELECTOR = 'path, circle, ellipse, rect, polygon, polyline, line, text, use';
 
 function parseNumericLength(value: string | null): number | null {
   if (!value) {
@@ -85,9 +81,8 @@ export function parseSvgMetrics(svgText: string): ParsedSvgDocument {
     warnings.push('SVG preview did not include a valid size; using a synthetic 100x100 viewBox.');
   }
 
-  const hasGeometry = !!svgElement.querySelector(
-    'path, circle, ellipse, rect, polygon, polyline, line, text, use'
-  );
+  const geometryElements = [...svgElement.querySelectorAll(GEOMETRY_SELECTOR)];
+  const hasGeometry = geometryElements.length > 0;
   const isEmpty = !hasGeometry;
 
   if (isEmpty) {
@@ -105,10 +100,11 @@ export function parseSvgMetrics(svgText: string): ParsedSvgDocument {
   svgElement.setAttribute('y', String(viewBox.minY));
   svgElement.setAttribute('overflow', 'visible');
 
-  const nonScalingStrokeStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-  nonScalingStrokeStyle.setAttribute('data-viewer-stroke-normalization', 'true');
-  nonScalingStrokeStyle.textContent = NON_SCALING_STROKE_STYLE;
-  svgElement.insertBefore(nonScalingStrokeStyle, svgElement.firstChild);
+  for (const geometryElement of geometryElements) {
+    if (!geometryElement.hasAttribute('vector-effect')) {
+      geometryElement.setAttribute('vector-effect', 'non-scaling-stroke');
+    }
+  }
 
   const contentBounds = isValidBounds(viewBox)
     ? viewBox
