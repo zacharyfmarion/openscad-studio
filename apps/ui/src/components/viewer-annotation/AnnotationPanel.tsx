@@ -56,7 +56,7 @@ export function AnnotationPanel({
   canAttach,
   attachLabel = 'Attach to AI',
 }: AnnotationPanelProps) {
-  const AttachIcon = attachLabel === 'Open AI Settings' ? TbSettings : TbLink;
+  const AttachIcon = attachLabel === 'Add API Key' ? TbSettings : TbLink;
 
   return (
     <div

@@ -1669,7 +1669,7 @@ export function SvgViewer({
               }
               attachLabel={
                 !hasCurrentModelApiKey
-                  ? 'Open AI Settings'
+                  ? 'Add API Key'
                   : isAttachingAnnotation
                     ? 'Attaching...'
                     : 'Attach to AI'
