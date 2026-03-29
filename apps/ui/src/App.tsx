@@ -70,6 +70,7 @@ import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTyp
 
 const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
 const REPOSITORY_URL = 'https://github.com/zacharyfmarion/openscad-studio';
+const HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY = '(max-width: 1400px)';
 
 const RELEASE_ASSETS: Record<MacArch, string> = {
   aarch64: 'OpenSCAD.Studio_latest_aarch64.dmg',
@@ -184,6 +185,11 @@ function HeaderIconLink({
 
 function App() {
   const { isMobile } = useMobileLayout();
+  const [isHeaderWorkspaceSwitcherHidden, setIsHeaderWorkspaceSwitcherHidden] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia(HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY).matches
+  );
   const [showNux, setShowNux] = useState(() => !loadSettings().ui.hasCompletedNux);
   const tabs = useWorkspaceStore(selectTabs);
   const activeTabId = useWorkspaceStore(selectActiveTabId) ?? '';
@@ -230,6 +236,17 @@ function App() {
     () => (typeof window === 'undefined' ? null : (window.__SHARE_CONTEXT ?? null)),
     []
   );
+
+  useEffect(() => {
+    const mq = window.matchMedia(HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY);
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsHeaderWorkspaceSwitcherHidden(event.matches);
+    };
+
+    setIsHeaderWorkspaceSwitcherHidden(mq.matches);
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
 
   const {
     source,
@@ -1588,7 +1605,7 @@ function App() {
           </div>
         )}
 
-        {!capabilities.hasNativeMenu && !isMobile && (
+        {!capabilities.hasNativeMenu && !isMobile && !isHeaderWorkspaceSwitcherHidden && (
           <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
             <HeaderWorkspaceControls
               layoutPreset={settings.ui.defaultLayoutPreset}
