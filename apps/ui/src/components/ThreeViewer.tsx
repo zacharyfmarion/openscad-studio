@@ -334,7 +334,11 @@ function MeasurementOverlay3D({
               lineWidth={selected ? 2.5 : 1.5}
             />
             {[measurement.start, measurement.end].map((point, index) => (
-              <Html key={`${measurement.id}-${index}`} position={point.toArray()} style={{ pointerEvents: 'none' }}>
+              <Html
+                key={`${measurement.id}-${index}`}
+                position={point.toArray()}
+                style={{ pointerEvents: 'none' }}
+              >
                 <div
                   style={{
                     width: '8px',
@@ -378,7 +382,11 @@ function MeasurementOverlay3D({
             gapSize={markerRadius * 2}
           />
           {[draft.start, draft.current].map((point, index) => (
-            <Html key={`draft-${index}`} position={point.toArray()} style={{ pointerEvents: 'none' }}>
+            <Html
+              key={`draft-${index}`}
+              position={point.toArray()}
+              style={{ pointerEvents: 'none' }}
+            >
               <div
                 style={{
                   width: '8px',
@@ -551,11 +559,11 @@ function ViewerInteractionController({
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
+  const pointerDownRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const dom = gl.domElement;
     const raycaster = new THREE.Raycaster();
-    let pointerDown: { x: number; y: number } | null = null;
 
     const resolveRaycast = (event: PointerEvent): RaycastResult | null => {
       const rect = dom.getBoundingClientRect();
@@ -606,7 +614,7 @@ function ViewerInteractionController({
     };
 
     const handlePointerDown = (event: PointerEvent) => {
-      pointerDown = { x: event.clientX, y: event.clientY };
+      pointerDownRef.current = { x: event.clientX, y: event.clientY };
     };
 
     const handlePointerLeave = () => {
@@ -614,12 +622,16 @@ function ViewerInteractionController({
     };
 
     const handlePointerUp = (event: PointerEvent) => {
-      if (!pointerDown) {
+      if (!pointerDownRef.current) {
         return;
       }
 
-      const moved = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y) > 4;
-      pointerDown = null;
+      const moved =
+        Math.hypot(
+          event.clientX - pointerDownRef.current.x,
+          event.clientY - pointerDownRef.current.y
+        ) > 4;
+      pointerDownRef.current = null;
 
       if (moved) {
         return;
@@ -627,6 +639,30 @@ function ViewerInteractionController({
 
       const hit = resolveRaycast(event);
       if (!hit) {
+        // Raycast can miss at silhouette edges/vertices due to floating-point precision in
+        // Three.js triangle intersection. Fall back to the last known hover snap point so
+        // that clicks exactly on edges and corners still place a measurement.
+        if (mode === 'measure-distance' && draft.current) {
+          if (draft.status !== 'placing-end' || !draft.start) {
+            onDraftChange({
+              status: 'placing-end',
+              start: draft.current.clone(),
+              current: draft.current.clone(),
+              snapKind: draft.snapKind,
+              axisLock: null,
+            });
+          } else {
+            onCommitMeasurement(createMeasurementRecord3D(draft.start, draft.current));
+            onDraftChange({
+              status: 'placing-start',
+              start: null,
+              current: null,
+              snapKind: draft.snapKind,
+              axisLock: null,
+            });
+          }
+          return;
+        }
         if (mode === 'orbit') {
           onSelectionChange(EMPTY_SELECTION);
         }
@@ -1670,16 +1706,17 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
             ) : null}
           </Canvas>
 
-          {!isMobile && (() => {
-            const activeTool = VIEWER_TOOLS.find((t) => t.id === interactionMode);
-            const ContextPanel = activeTool?.contextPanel;
-            if (!ContextPanel) return null;
-            return (
-              <ToolPanel key={interactionMode} label={activeTool.label}>
-                <ContextPanel {...contextPanelProps} />
-              </ToolPanel>
-            );
-          })()}
+          {!isMobile &&
+            (() => {
+              const activeTool = VIEWER_TOOLS.find((t) => t.id === interactionMode);
+              const ContextPanel = activeTool?.contextPanel;
+              if (!ContextPanel) return null;
+              return (
+                <ToolPanel key={interactionMode} label={activeTool.label}>
+                  <ContextPanel {...contextPanelProps} />
+                </ToolPanel>
+              );
+            })()}
         </div>
       </div>
     </div>
