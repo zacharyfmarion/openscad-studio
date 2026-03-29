@@ -89,4 +89,70 @@ describe('measurementController3d', () => {
     expect(resolved.snapKind).toBe('surface');
     expect(resolved.point.toArray()).toEqual([0.05, 0.05, 0]);
   });
+
+  it('snaps to an edge midpoint when cursor is closest to the edge', () => {
+    // Triangle: (0,0,0), (2,0,0), (0,2,0)
+    // Edge midpoints: (1,0,0), (1,1,0), (0,1,0)
+    // We place the hit near (1,0,0) — midpoint of edge a→b
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute([0, 0, 0, 2, 0, 0, 0, 2, 0], 3)
+    );
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
+    mesh.updateMatrixWorld(true);
+
+    const intersection = {
+      point: new THREE.Vector3(1.05, 0.05, 0), // near edge midpoint (1,0,0)
+      object: mesh,
+      face: { a: 0, b: 1, c: 2, normal: new THREE.Vector3(0, 0, 1) },
+    } as unknown as THREE.Intersection<THREE.Object3D>;
+
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+    camera.position.set(0, 0, 5);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+
+    // Project edge midpoint (1,0,0) to screen to get the cursor position
+    const edgeMidpoint = new THREE.Vector3(1, 0, 0);
+    const projected = edgeMidpoint.clone().project(camera);
+    const clientX = (projected.x + 1) / 2 * 200;
+    const clientY = (1 - projected.y) / 2 * 200;
+
+    const resolved = resolveMeasurementPick3D({
+      intersection,
+      camera,
+      rect: { left: 0, top: 0, width: 200, height: 200 },
+      clientX,
+      clientY,
+      snapEnabled: true,
+    });
+
+    expect(resolved.snapKind).toBe('edge');
+    expect(resolved.point.x).toBeCloseTo(1, 5);
+    expect(resolved.point.y).toBeCloseTo(0, 5);
+    expect(resolved.point.z).toBeCloseTo(0, 5);
+  });
+
+  it('prefers vertex over edge when both are within snap threshold', () => {
+    // The vertex at (0,0,0) and the edge midpoint (0,1,0) — cursor at vertex (0,0,0)
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+    camera.position.set(0, 0, 5);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+
+    const resolved = resolveMeasurementPick3D({
+      intersection: createTestIntersection(),
+      camera,
+      rect: { left: 0, top: 0, width: 200, height: 200 },
+      clientX: 100,
+      clientY: 100,
+      snapEnabled: true,
+    });
+
+    // Vertex (0,0,0) should win over any edge candidate at this cursor position
+    expect(resolved.snapKind).toBe('vertex');
+  });
 });
