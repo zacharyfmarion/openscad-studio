@@ -583,6 +583,10 @@ describe('useAiAgent', () => {
     });
 
     expect(history.restoreTo).toHaveBeenCalledWith('checkpoint-1');
+    expect(eventBus.emit).toHaveBeenCalledWith('code-updated', {
+      code: 'cube(42);',
+      source: 'history',
+    });
     expect(eventBus.emit).toHaveBeenCalledWith('history:restore', { code: 'cube(42);' });
     expect(hook.current().messages).toEqual(truncatedMessages);
     expect(analytics.track).toHaveBeenCalledWith(

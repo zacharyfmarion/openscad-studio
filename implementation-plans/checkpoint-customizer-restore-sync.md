@@ -5,7 +5,7 @@ Ensure restoring an AI checkpoint updates the customizer panel so controls added
 
 ## Approach
 - Trace the restore event flow through the AI, workspace, and customizer layers.
-- Patch the restore/customizer integration at the narrowest point that guarantees the panel refreshes against restored code.
+- Route checkpoint restores through the same `code-updated` pipeline as other non-customizer edits instead of relying on a restore-only side channel.
 - Add regression coverage for restoring a checkpoint after an AI-added customizer control.
 
 ## Affected Areas

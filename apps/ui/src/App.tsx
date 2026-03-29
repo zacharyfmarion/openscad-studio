@@ -1181,16 +1181,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const unlisten = eventBus.on('history:restore', ({ code }) => {
-      updateSourceAndRenderRef.current(code, 'history_restore');
-      updateTabContentAndCustomizerBase(activeTabId, code);
-    });
-    return unlisten;
-  }, [activeTabId, updateTabContentAndCustomizerBase]);
-
-  useEffect(() => {
     const unlisten = eventBus.on('code-updated', ({ code, source: eventSource }) => {
-      updateSourceAndRenderRef.current(code, 'code_update');
+      updateSourceAndRenderRef.current(
+        code,
+        eventSource === 'history' ? 'history_restore' : 'code_update'
+      );
       updateWorkspaceTabContent(activeTabId, code);
       if (eventSource !== 'customizer') {
         setTabCustomizerBase(activeTabId, code);

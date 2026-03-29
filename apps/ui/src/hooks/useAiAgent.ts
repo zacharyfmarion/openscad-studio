@@ -946,6 +946,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
 
       const checkpoint = historyServiceImpl.restoreTo(checkpointId);
       if (checkpoint) {
+        eventBusImpl.emit('code-updated', { code: checkpoint.code, source: 'history' });
         eventBusImpl.emit('history:restore', { code: checkpoint.code });
       } else {
         console.error('[useAiAgent] Failed to restore checkpoint: not found', checkpointId);
