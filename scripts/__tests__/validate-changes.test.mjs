@@ -44,3 +44,10 @@ test('explicit e2e scope adds the web playwright command', () => {
   assert.match(output, /Selected scopes: baseline e2e-web/);
   assert.match(output, /pnpm test:e2e:web/);
 });
+
+test('fix mode upgrades baseline formatting from check to write', () => {
+  const output = runValidateChanges(['--fix', '--scope', 'baseline']);
+
+  assert.match(output, /pnpm format/);
+  assert.doesNotMatch(output, /pnpm format:check/);
+});

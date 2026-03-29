@@ -23,7 +23,7 @@
 
 ## Validation performed
 
-- [ ] `pnpm format`
+- [ ] `pnpm format:check`
 - [ ] `pnpm lint`
 - [ ] `pnpm type-check`
 - [ ] `pnpm test:unit`

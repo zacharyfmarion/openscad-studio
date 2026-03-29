@@ -87,13 +87,15 @@ You are responsible for choosing scopes; the script is responsible for running t
 
 Available scopes:
 
-- `baseline`: `pnpm format`, `pnpm lint`, `pnpm type-check`, `pnpm test:unit`
+- `baseline`: `pnpm format:check`, `pnpm lint`, `pnpm type-check`, `pnpm test:unit`
 - `formatter`: `pnpm test:formatter:ci`
 - `rust`: Rust formatting and static checks under `apps/ui/src-tauri`
 - `e2e-web`: `pnpm test:e2e:web`
 
 Recommended usage:
 
+- Run `pnpm format` yourself before validation if the repo needs formatting fixes.
+- Use `--fix` only when you intentionally want the helper to apply formatting before running the remaining checks.
 - Use explicit scopes when you already know what changed.
 - Use `--changed-file <path>` inputs when you want the script to infer `formatter` and `rust`.
 - Use `--dry-run` first when you want to confirm the command set before running it.
@@ -102,6 +104,8 @@ Examples:
 
 ```bash
 bash scripts/validate-changes.sh --dry-run --changed-file apps/ui/src/components/AiPromptPanel.tsx
+bash scripts/validate-changes.sh --scope baseline
+bash scripts/validate-changes.sh --fix --scope baseline
 bash scripts/validate-changes.sh --changed-file apps/ui/src/utils/formatter/printer.ts
 bash scripts/validate-changes.sh --scope baseline --scope e2e-web
 bash scripts/validate-changes.sh --scope baseline --scope rust

@@ -14,14 +14,16 @@ Options:
   --changed-file <path>
       Provide a changed file path so the script can infer extra scopes.
       Repeatable.
+  --fix
+      Apply formatting fixes before running the remaining checks.
   --dry-run
       Print the selected scopes and commands without executing them.
   --help
       Show this help output.
 
 Behavior:
-  - Baseline validation always runs unless explicit scopes are provided without
-    baseline.
+  - Baseline validation uses check-mode formatting by default.
+  - Pass --fix when you want the script to run pnpm format before other checks.
   - Formatter and Rust scopes can be inferred from --changed-file paths.
   - E2E is intentionally opt-in via --scope e2e-web.
 EOF
@@ -31,6 +33,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 dry_run=false
+fix_mode=false
 declare -a explicit_scopes=()
 declare -a changed_files=()
 
@@ -54,6 +57,10 @@ while (($# > 0)); do
       ;;
     --dry-run)
       dry_run=true
+      shift
+      ;;
+    --fix)
+      fix_mode=true
       shift
       ;;
     --help)
@@ -126,7 +133,11 @@ declare -a commands=()
 for scope in "${normalized_scopes[@]}"; do
   case "$scope" in
     baseline)
-      commands+=("pnpm format")
+      if [[ "$fix_mode" == true ]]; then
+        commands+=("pnpm format")
+      else
+        commands+=("pnpm format:check")
+      fi
       commands+=("pnpm lint")
       commands+=("pnpm type-check")
       commands+=("pnpm test:unit")
