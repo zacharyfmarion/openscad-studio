@@ -34,29 +34,25 @@ export interface NotifyOperationOptions<T> {
   logLabel?: string;
 }
 
-function coerceNestedErrorMessage(error: unknown, depth: number, seen: WeakSet<object>): string | null {
+function coerceNestedErrorMessage(
+  error: unknown,
+  depth: number,
+  seen: WeakSet<object>
+): string | null {
   if (depth <= 0) {
     return null;
   }
 
   if (error instanceof Error) {
     const cause = 'cause' in error ? (error as Error & { cause?: unknown }).cause : undefined;
-    return (
-      error.message ||
-      coerceNestedErrorMessage(cause, depth - 1, seen) ||
-      error.name ||
-      null
-    );
+    return error.message || coerceNestedErrorMessage(cause, depth - 1, seen) || error.name || null;
   }
 
   if (typeof error === 'string') {
     return error.trim() || null;
   }
 
-  if (
-    typeof error === 'object' &&
-    error !== null
-  ) {
+  if (typeof error === 'object' && error !== null) {
     if (seen.has(error)) {
       return null;
     }
@@ -83,11 +79,7 @@ function coerceNestedErrorMessage(error: unknown, depth: number, seen: WeakSet<o
   return null;
 }
 
-function toSerializableDetail(
-  value: unknown,
-  depth: number,
-  seen: WeakSet<object>
-): unknown {
+function toSerializableDetail(value: unknown, depth: number, seen: WeakSet<object>): unknown {
   if (depth <= 0) {
     return undefined;
   }
@@ -131,7 +123,9 @@ function toSerializableDetail(
 
     const serialized = Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
-        .map(([key, childValue]) => [key, toSerializableDetail(childValue, depth - 1, seen)] as const)
+        .map(
+          ([key, childValue]) => [key, toSerializableDetail(childValue, depth - 1, seen)] as const
+        )
         .filter(([, childValue]) => childValue !== undefined)
     );
 

@@ -6,8 +6,10 @@ export interface AiErrorHandling {
 }
 
 const NETWORK_ERROR_PATTERN = /failed to fetch|networkerror|load failed|network request failed/i;
-const LOW_CREDITS_PATTERN = /credit balance is too low|plans?\s*&\s*billing|insufficient.*credits?/i;
-const INVALID_KEY_PATTERN = /invalid x-api-key|authentication_error|incorrect api key|unauthorized/i;
+const LOW_CREDITS_PATTERN =
+  /credit balance is too low|plans?\s*&\s*billing|insufficient.*credits?/i;
+const INVALID_KEY_PATTERN =
+  /invalid x-api-key|authentication_error|incorrect api key|unauthorized/i;
 const MODEL_UNAVAILABLE_PATTERN =
   /(^|\b)model:\s*[\w.-]+$|model .*not found|unknown model|unsupported model|does not exist/i;
 const RATE_LIMIT_PATTERN = /rate limit|too many requests|quota exceeded/i;

@@ -1,4 +1,6 @@
-function getExceptionValues(event: unknown): Array<{ value?: string; mechanism?: { type?: string } }> {
+function getExceptionValues(
+  event: unknown
+): Array<{ value?: string; mechanism?: { type?: string } }> {
   if (!event || typeof event !== 'object') {
     return [];
   }

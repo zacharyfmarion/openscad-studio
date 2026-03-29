@@ -12,7 +12,8 @@ describe('aiErrors', () => {
         },
       })
     ).toEqual({
-      displayMessage: 'Your Anthropic account has no available credits. Update billing and try again.',
+      displayMessage:
+        'Your Anthropic account has no available credits. Update billing and try again.',
       capture: false,
     });
   });
