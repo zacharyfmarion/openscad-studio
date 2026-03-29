@@ -1,0 +1,189 @@
+name: Deploy PR Preview
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+
+concurrency:
+  group: deploy-pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  classify:
+    name: Classify Preview Requirement
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.classify.outputs.should_deploy }}
+      preview_url: ${{ steps.classify.outputs.preview_url }}
+      skip_reason: ${{ steps.classify.outputs.skip_reason }}
+      changed_files: ${{ steps.classify.outputs.changed_files }}
+    steps:
+      - name: Classify changed files
+        id: classify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pull_number = context.payload.pull_request.number;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number,
+              per_page: 100,
+            });
+
+            const changedFiles = files.map((file) => file.filename);
+            const previewUrl = `https://pr-${pull_number}.openscad-studio.pages.dev`;
+
+            const isDocsOnly = (filename) =>
+              filename === 'README.md' ||
+              filename === 'CLAUDE.md' ||
+              filename === 'AGENTS.md' ||
+              filename.startsWith('implementation-plans/') ||
+              filename.startsWith('apps/docs/');
+
+            const isDesktopOnly = (filename) =>
+              filename.startsWith('apps/ui/src-tauri/') ||
+              filename.endsWith('.tauri.spec.ts');
+
+            let shouldDeploy = false;
+            let skipReason = 'No web preview-relevant files changed.';
+
+            if (context.payload.pull_request.head.repo.fork) {
+              skipReason = 'Preview deployment is skipped for forked pull requests because required secrets are unavailable.';
+            } else if (changedFiles.length === 0) {
+              skipReason = 'No changed files were reported on this pull request.';
+            } else if (changedFiles.every((filename) => isDocsOnly(filename))) {
+              skipReason = 'This pull request only changes docs or implementation plans, so no web preview was deployed.';
+            } else if (changedFiles.every((filename) => isDocsOnly(filename) || isDesktopOnly(filename))) {
+              skipReason = 'This pull request is desktop-only, so no web preview was deployed.';
+            } else {
+              shouldDeploy = true;
+              skipReason = '';
+            }
+
+            core.setOutput('should_deploy', shouldDeploy ? 'true' : 'false');
+            core.setOutput('preview_url', previewUrl);
+            core.setOutput('skip_reason', skipReason);
+            core.setOutput('changed_files', JSON.stringify(changedFiles));
+
+  deploy:
+    name: Deploy Cloudflare PR Preview
+    runs-on: ubuntu-latest
+    needs: classify
+    if: needs.classify.outputs.should_deploy == 'true'
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}
+      VITE_PUBLIC_POSTHOG_HOST: ${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}
+      VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+      VITE_SENTRY_ENVIRONMENT: preview
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web app
+        run: pnpm web:build
+
+      - name: Deploy preview to Cloudflare Pages
+        working-directory: apps/web
+        run: npx wrangler@3 pages deploy dist --project-name=openscad-studio --branch=pr-${{ github.event.pull_request.number }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  comment:
+    name: Publish Preview Comment
+    runs-on: ubuntu-latest
+    needs: [classify, deploy]
+    if: ${{ always() && !cancelled() }}
+    steps:
+      - name: Create or update sticky comment
+        uses: actions/github-script@v7
+        env:
+          SHOULD_DEPLOY: ${{ needs.classify.outputs.should_deploy }}
+          PREVIEW_URL: ${{ needs.classify.outputs.preview_url }}
+          SKIP_REASON: ${{ needs.classify.outputs.skip_reason }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          CHANGED_FILES: ${{ needs.classify.outputs.changed_files }}
+        with:
+          script: |
+            const marker = '<!-- codex-pr-preview -->';
+            const issue_number = context.payload.pull_request.number;
+            const sha = context.payload.pull_request.head.sha;
+            const shouldDeploy = process.env.SHOULD_DEPLOY === 'true';
+            const previewUrl = process.env.PREVIEW_URL;
+            const skipReason = process.env.SKIP_REASON;
+            const deployResult = process.env.DEPLOY_RESULT || 'skipped';
+            const changedFiles = JSON.parse(process.env.CHANGED_FILES || '[]');
+
+            const lines = [marker, '## PR Preview', ''];
+
+            if (shouldDeploy && deployResult === 'success') {
+              lines.push('Status: deployed', '', `Preview URL: ${previewUrl}`, `Commit: \`${sha}\``);
+            } else if (!shouldDeploy) {
+              lines.push('Status: skipped', '', skipReason, `Commit: \`${sha}\``);
+            } else {
+              lines.push(
+                'Status: failed',
+                '',
+                `Preview deployment did not complete successfully for commit \`${sha}\`.`,
+                `Expected preview URL: ${previewUrl}`
+              );
+            }
+
+            if (changedFiles.length > 0) {
+              lines.push('', 'Changed files considered:');
+              for (const file of changedFiles) {
+                lines.push(`- \`${file}\``);
+              }
+            }
+
+            const body = lines.join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              per_page: 100,
+            });
+
+            const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                body,
+              });
+            }

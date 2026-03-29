@@ -187,7 +187,17 @@ pnpm tauri:build        # Build production desktop app
 pnpm lint               # Lint all workspaces
 pnpm type-check         # Type check all workspaces
 pnpm format             # Format all code
+pnpm test:e2e:web       # Run web Playwright coverage
+pnpm test:scripts       # Run repo workflow helper tests
+pnpm validate:changes   # Run the shared validation helper
 ```
+
+### `/create` Workflow
+
+- The repo-local `create-feature` skill under `.agents/skills/create-feature/` is the entry point for requests like `/create <prompt>` or "take this from plan to PR".
+- The skill should inspect checkout readiness, create and maintain an implementation plan for non-trivial work, implement the change, add the right tests, run deterministic validation through `scripts/validate-changes.sh`, open a draft PR against `main`, and return the preview URL when one exists.
+- The skill must not create worktrees. If it is already inside a worktree, it should make sure that checkout is ready and then proceed there.
+- PR previews are published through the `Deploy PR Preview` GitHub Actions workflow to `https://pr-<number>.openscad-studio.pages.dev` for web-relevant pull requests.
 
 ## Common Tasks
 
