@@ -3,6 +3,7 @@ import { SvgViewer } from './SvgViewer';
 import { InlineErrorBoundary } from './ErrorBoundary';
 import { Text } from './ui';
 import type { RenderKind } from '../hooks/useOpenScad';
+import type { ViewerAnnotationAttachResult } from './viewer-annotation';
 
 interface PreviewProps {
   src: string;
@@ -11,9 +12,22 @@ interface PreviewProps {
   error?: string;
   viewerId?: string;
   onVisualReady?: () => void;
+  hasCurrentModelApiKey: boolean;
+  canAttachViewerAnnotation: boolean;
+  onAttachViewerAnnotationFile: (file: File) => Promise<ViewerAnnotationAttachResult>;
 }
 
-export function Preview({ src, kind, isRendering, error, viewerId, onVisualReady }: PreviewProps) {
+export function Preview({
+  src,
+  kind,
+  isRendering,
+  error,
+  viewerId,
+  onVisualReady,
+  hasCurrentModelApiKey,
+  canAttachViewerAnnotation,
+  onAttachViewerAnnotationFile,
+}: PreviewProps) {
   if (import.meta.env.DEV) {
     console.log('[Preview] Render:', {
       src: src?.substring(0, 80),
@@ -71,13 +85,25 @@ export function Preview({ src, kind, isRendering, error, viewerId, onVisualReady
           isLoading={isRendering}
           viewerId={viewerId}
           onVisualReady={onVisualReady}
+          hasCurrentModelApiKey={hasCurrentModelApiKey}
+          canAttachToAi={canAttachViewerAnnotation}
+          onAttachToAi={onAttachViewerAnnotationFile}
         />
       </InlineErrorBoundary>
     );
   }
 
   if (kind === 'svg') {
-    return <SvgViewer key={src} src={src} onVisualReady={onVisualReady} />;
+    return (
+      <SvgViewer
+        key={src}
+        src={src}
+        onVisualReady={onVisualReady}
+        hasCurrentModelApiKey={hasCurrentModelApiKey}
+        canAttachToAi={canAttachViewerAnnotation}
+        onAttachToAi={onAttachViewerAnnotationFile}
+      />
+    );
   }
 
   return (

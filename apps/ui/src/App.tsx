@@ -49,6 +49,7 @@ import { RenderService } from './services/renderService';
 import { getPreviewSceneStyle } from './services/previewSceneConfig';
 import { isShareEnabled } from './services/shareService';
 import { useSettings, loadSettings, updateSetting } from './stores/settingsStore';
+import { getApiKey, getProviderFromModel } from './stores/apiKeyStore';
 import {
   selectActiveRender,
   selectActiveTab,
@@ -818,6 +819,40 @@ function App() {
     }, 0);
   }, []);
 
+  const hasCurrentModelApiKey = Boolean(getApiKey(getProviderFromModel(currentModel)));
+  const canAttachViewerAnnotation = !isStreaming && !isProcessingAttachments;
+
+  const attachViewerAnnotationFile = useCallback<WorkspaceState['attachViewerAnnotationFile']>(
+    async (file) => {
+      openPanel('ai-chat', 'ai-chat', 'AI');
+
+      if (!hasCurrentModelApiKey) {
+        setSettingsInitialTab('ai');
+        setShowSettingsDialog(true);
+        return { status: 'missing-api-key' };
+      }
+
+      if (!canAttachViewerAnnotation) {
+        return { status: 'busy' };
+      }
+
+      const result = await addDraftFiles([file], 'viewer_annotation');
+      if (!result || result.readyCount < 1) {
+        return {
+          status: 'failed',
+          errors: result?.errors ?? ['Failed to add the annotation image.'],
+        };
+      }
+
+      window.setTimeout(() => {
+        aiPromptPanelRef.current?.focusPrompt();
+      }, 0);
+
+      return { status: 'attached' };
+    },
+    [addDraftFiles, canAttachViewerAnnotation, hasCurrentModelApiKey]
+  );
+
   const handleOpenEditorPanel = useCallback(() => {
     openPanel('editor', 'editor', 'Editor');
   }, []);
@@ -1375,6 +1410,9 @@ function App() {
       setDraftText,
       addDraftFiles,
       removeDraftAttachment,
+      hasCurrentModelApiKey,
+      canAttachViewerAnnotation,
+      attachViewerAnnotationFile,
       cancelStream,
       acceptDiff,
       rejectDiff,
@@ -1433,6 +1471,9 @@ function App() {
       setDraftText,
       addDraftFiles,
       removeDraftAttachment,
+      hasCurrentModelApiKey,
+      canAttachViewerAnnotation,
+      attachViewerAnnotationFile,
       cancelStream,
       acceptDiff,
       rejectDiff,

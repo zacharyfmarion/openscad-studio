@@ -7,11 +7,13 @@ const DEFAULT_SOURCE_MARGIN_RATIO = 0.05;
 export interface SvgPreviewImageOptions {
   svgSourceUrl?: string | null;
   svgMarkup?: string | null;
+  svgElement?: SVGSVGElement | null;
   targetWidth?: number;
   targetHeight?: number;
   padding?: number;
   backgroundColor?: string;
   sourceMarginRatio?: number;
+  preserveRenderedViewport?: boolean;
 }
 
 export interface ThumbnailFrame {
@@ -132,6 +134,10 @@ export function computeThumbnailFrame(
 }
 
 async function readSvgMarkup(options: SvgPreviewImageOptions): Promise<string | null> {
+  if (options.svgElement) {
+    return new XMLSerializer().serializeToString(options.svgElement);
+  }
+
   if (options.svgMarkup?.trim()) {
     return options.svgMarkup;
   }
@@ -182,7 +188,9 @@ export async function captureSvgPreviewImage(
   const padding = options.padding ?? DEFAULT_PADDING;
   const backgroundColor = options.backgroundColor ?? DEFAULT_BACKGROUND;
   const sourceMarginRatio = options.sourceMarginRatio ?? DEFAULT_SOURCE_MARGIN_RATIO;
-  const framedSvgMarkup = expandSvgViewportForThumbnail(svgMarkup, sourceMarginRatio);
+  const framedSvgMarkup = options.preserveRenderedViewport
+    ? svgMarkup
+    : expandSvgViewportForThumbnail(svgMarkup, sourceMarginRatio);
 
   const svgBlob = new Blob([framedSvgMarkup], { type: 'image/svg+xml;charset=utf-8' });
   const objectUrl = URL.createObjectURL(svgBlob);
@@ -214,4 +222,28 @@ export async function captureSvgPreviewImage(
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
+}
+
+export async function captureRenderedSvgElementImage(args: {
+  svgElement: SVGSVGElement;
+  targetWidth: number;
+  targetHeight: number;
+  backgroundColor?: string;
+}) {
+  const cloned = args.svgElement.cloneNode(true) as SVGSVGElement;
+  cloned.setAttribute('width', String(args.targetWidth));
+  cloned.setAttribute('height', String(args.targetHeight));
+  if (!cloned.getAttribute('xmlns')) {
+    cloned.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  }
+
+  return captureSvgPreviewImage({
+    svgMarkup: new XMLSerializer().serializeToString(cloned),
+    targetWidth: args.targetWidth,
+    targetHeight: args.targetHeight,
+    backgroundColor: args.backgroundColor,
+    padding: 0,
+    sourceMarginRatio: 0,
+    preserveRenderedViewport: true,
+  });
 }

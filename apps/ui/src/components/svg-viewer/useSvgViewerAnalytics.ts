@@ -5,7 +5,13 @@ import type { ViewMode } from './types';
 export type SvgViewerToolInputMethod = 'toolbar' | 'shortcut';
 
 function getViewerTool(mode: ViewMode): ViewerTool {
-  return mode === 'measure-distance' ? 'measure_distance' : 'pan';
+  if (mode === 'measure-distance') {
+    return 'measure_distance';
+  }
+  if (mode === 'annotate') {
+    return 'annotate';
+  }
+  return 'pan';
 }
 
 interface UseSvgViewerAnalyticsOptions {

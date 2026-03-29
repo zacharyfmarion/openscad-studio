@@ -37,7 +37,17 @@ export function ViewerToolPalette({ mode, onModeChange, loadedModel }: ViewerToo
             disabled={isDisabled}
             isActive={isActive}
             onClick={() => onModeChange(tool.id)}
-            data-testid={`preview-toggle-${tool.id === 'orbit' ? 'orbit' : tool.id === 'measure-distance' ? 'measure' : tool.id === 'measure-bbox' ? 'bbox' : 'section'}`}
+            data-testid={`preview-toggle-${
+              tool.id === 'orbit'
+                ? 'orbit'
+                : tool.id === 'measure-distance'
+                  ? 'measure'
+                  : tool.id === 'measure-bbox'
+                    ? 'bbox'
+                    : tool.id === 'section-plane'
+                      ? 'section'
+                      : 'annotate'
+            }`}
           >
             <Icon size={17} />
           </IconButton>

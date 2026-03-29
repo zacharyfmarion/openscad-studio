@@ -1,5 +1,5 @@
 import type React from 'react';
-import { TbPointer, TbRuler, TbBox, TbScissors } from 'react-icons/tb';
+import { TbPointer, TbRuler, TbBox, TbScissors, TbBrush } from 'react-icons/tb';
 import type { InteractionMode, ToolContextPanelProps } from './types';
 import { SectionPlanePanel } from './panels/SectionPlanePanel';
 import { MeasurePanel } from './panels/MeasurePanel';
@@ -30,4 +30,5 @@ export const VIEWER_TOOLS: ViewerToolDefinition[] = [
     shortcut: 'S',
     contextPanel: SectionPlanePanel,
   },
+  { id: 'annotate', label: 'Annotate', icon: TbBrush, shortcut: 'A' },
 ];

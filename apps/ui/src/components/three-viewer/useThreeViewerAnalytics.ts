@@ -18,6 +18,8 @@ function getViewerTool(mode: InteractionMode): ViewerTool {
       return 'measure_bbox';
     case 'section-plane':
       return 'section_plane';
+    case 'annotate':
+      return 'annotate';
     case 'orbit':
     default:
       return 'orbit';

@@ -1,5 +1,5 @@
-import { type ComponentType, useEffect, useMemo, useRef, useState } from 'react';
-import { TbFocus2, TbGrid3X3, TbPointer, TbRuler, TbX, TbZoomIn, TbZoomOut } from 'react-icons/tb';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { TbBrush, TbFocus2, TbGrid3X3, TbX, TbZoomIn, TbZoomOut } from 'react-icons/tb';
 import { useTheme } from '../contexts/ThemeContext';
 import { getPreviewSceneStyle } from '../services/previewSceneConfig';
 import { Button, IconButton, Text } from './ui';
@@ -9,6 +9,7 @@ import { updateSetting, useSettings } from '../stores/settingsStore';
 import { useMobileLayout } from '../hooks/useMobileLayout';
 import { buildOverlayModel } from './svg-viewer/overlayModel';
 import { attachBrowserPinchZoomGuard } from './svg-viewer/browserPinchZoomGuard';
+import { SVG_2D_TOOLS } from './svg-viewer/toolRegistry';
 import { useSvgViewerAnalytics } from './svg-viewer/useSvgViewerAnalytics';
 import {
   createCommittedMeasurement,
@@ -36,10 +37,26 @@ import type {
   ViewMode,
   ViewerOverlaySettings,
 } from './svg-viewer/types';
+import {
+  AnnotationOverlay,
+  AnnotationPanel,
+  composeAnnotatedImage,
+  createAnnotationAttachmentFile,
+  exportAnnotationOverlayDataUrl,
+  normalizeViewerPoint,
+  useViewerAnnotationSession,
+  type ViewerAnnotationAttachResult,
+} from './viewer-annotation';
+import { captureRenderedSvgElementImage } from '../utils/captureSvgPreviewImage';
+import { notifyError, notifySuccess } from '../utils/notifications';
+import type Konva from 'konva';
 
 interface SvgViewerProps {
   src: string;
   onVisualReady?: () => void;
+  hasCurrentModelApiKey: boolean;
+  canAttachToAi: boolean;
+  onAttachToAi: (file: File) => Promise<ViewerAnnotationAttachResult>;
 }
 
 type DocumentStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
@@ -85,16 +102,6 @@ function formatCoordinate(point: SvgPoint | null) {
   return `x ${formatValue(point.x)}  y ${formatValue(point.y)}`;
 }
 
-const SVG_2D_TOOLS: {
-  id: ViewMode;
-  label: string;
-  icon: ComponentType<{ size?: number }>;
-  shortcut: string;
-}[] = [
-  { id: 'pan', label: 'Pan', icon: TbPointer, shortcut: 'Esc' },
-  { id: 'measure-distance', label: 'Measure', icon: TbRuler, shortcut: 'M' },
-];
-
 function Svg2DToolPalette({
   mode,
   onModeChange,
@@ -130,7 +137,9 @@ function Svg2DToolPalette({
             aria-label={`${tool.label} (${tool.shortcut})`}
             disabled={isDisabled}
             onClick={() => onModeChange(tool.id)}
-            data-testid={`preview-2d-tool-${tool.id === 'pan' ? 'pan' : 'measure'}`}
+            data-testid={`preview-2d-tool-${
+              tool.id === 'pan' ? 'pan' : tool.id === 'measure-distance' ? 'measure' : 'annotate'
+            }`}
             style={{
               width: '32px',
               height: '32px',
@@ -346,7 +355,13 @@ function StatusCard({
   );
 }
 
-export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
+export function SvgViewer({
+  src,
+  onVisualReady,
+  hasCurrentModelApiKey,
+  canAttachToAi,
+  onAttachToAi,
+}: SvgViewerProps) {
   const { theme } = useTheme();
   const [settings] = useSettings();
   const { isMobile } = useMobileLayout();
@@ -361,8 +376,10 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
   const [selectedMeasurementId, setSelectedMeasurementId] = useState<string | null>(null);
   const [liveMessage, setLiveMessage] = useState('');
   const [cursorPoint, setCursorPoint] = useState<SvgPoint | null>(null);
+  const [isAttachingAnnotation, setIsAttachingAnnotation] = useState(false);
   const lastVisualReadySrcRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const annotationStageRef = useRef<Konva.Stage | null>(null);
   const lastPointerClientRef = useRef<SvgPoint | null>(null);
   const suppressClickRef = useRef(false);
   const dragRef = useRef<{
@@ -376,6 +393,7 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
   const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const lastPinchDistRef = useRef<number | null>(null);
   const sceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
+  const annotationSession = useViewerAnnotationSession();
 
   const themeColors = useMemo(
     () => ({
@@ -463,6 +481,8 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
       setMeasurements([]);
       setSelectedMeasurementId(null);
       setCursorPoint(null);
+      annotationSession.resetSession();
+      setIsAttachingAnnotation(false);
       lastPointerClientRef.current = null;
       return;
     }
@@ -480,6 +500,8 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
     resetDraftMeasurement();
     setMeasurements([]);
     setSelectedMeasurementId(null);
+    annotationSession.resetSession();
+    setIsAttachingAnnotation(false);
     suppressClickRef.current = false;
     lastPointerClientRef.current = null;
 
@@ -529,7 +551,7 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
     return () => {
       cancelled = true;
     };
-  }, [src]);
+  }, [annotationSession, src]);
 
   useEffect(() => {
     if (!src || !loadedDocument || documentState.status === 'loading') {
@@ -613,6 +635,109 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
     resetDraftMeasurement(viewMode === 'measure-distance' ? 'placing-start' : 'idle');
     setCursorPoint(null);
   }, [viewMode]);
+
+  const exitAnnotationMode = () => {
+    annotationSession.resetSession();
+    setViewMode('pan');
+  };
+
+  const handleAnnotationAttach = async () => {
+    if (!containerRef.current || !annotationStageRef.current) {
+      notifyError({
+        operation: 'viewer-annotation-export',
+        fallbackMessage: 'No preview is available to annotate.',
+        toastId: 'viewer-annotation-export-error',
+      });
+      return;
+    }
+
+    const sceneSvg = containerRef.current.querySelector(
+      '[data-testid="preview-2d-scene"]'
+    ) as SVGSVGElement | null;
+
+    if (!sceneSvg || containerSize.width <= 0 || containerSize.height <= 0) {
+      notifyError({
+        operation: 'viewer-annotation-export',
+        fallbackMessage: 'No preview is available to annotate.',
+        toastId: 'viewer-annotation-export-error',
+      });
+      return;
+    }
+
+    setIsAttachingAnnotation(true);
+    try {
+      const baseImageDataUrl = await captureRenderedSvgElementImage({
+        svgElement: sceneSvg,
+        targetWidth: containerSize.width,
+        targetHeight: containerSize.height,
+        backgroundColor: themeColors.background,
+      });
+
+      if (!baseImageDataUrl) {
+        throw new Error('The current 2D preview could not be captured.');
+      }
+
+      const overlay = await exportAnnotationOverlayDataUrl({
+        stage: annotationStageRef.current,
+        surface: containerSize,
+        pixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+      });
+
+      const composedDataUrl = await composeAnnotatedImage({
+        baseImageDataUrl,
+        overlayImageDataUrl: overlay.dataUrl,
+        width: overlay.width,
+        height: overlay.height,
+        backgroundColor: themeColors.background,
+      });
+      const attachmentFile = await createAnnotationAttachmentFile(
+        composedDataUrl,
+        'viewer-annotation-2d.png'
+      );
+
+      const result = await onAttachToAi(attachmentFile);
+      if (result.status === 'attached') {
+        notifySuccess('Annotation attached to AI', {
+          toastId: 'viewer-annotation-attached',
+        });
+        exitAnnotationMode();
+        return;
+      }
+
+      if (result.status === 'missing-api-key') {
+        notifyError({
+          operation: 'viewer-annotation-attach',
+          fallbackMessage: 'Add an AI API key in Settings to attach annotations to the chat panel.',
+          toastId: 'viewer-annotation-missing-key',
+        });
+        return;
+      }
+
+      if (result.status === 'busy') {
+        notifyError({
+          operation: 'viewer-annotation-attach',
+          fallbackMessage: 'Wait for the current AI request or attachment processing to finish.',
+          toastId: 'viewer-annotation-ai-busy',
+        });
+        return;
+      }
+
+      notifyError({
+        operation: 'viewer-annotation-attach',
+        fallbackMessage: result.errors[0] ?? 'Failed to attach the annotation image.',
+        toastId: 'viewer-annotation-attach-error',
+      });
+    } catch (error) {
+      notifyError({
+        operation: 'viewer-annotation-export',
+        error,
+        fallbackMessage: 'Failed to export the annotated preview.',
+        toastId: 'viewer-annotation-export-error',
+      });
+    } finally {
+      setIsAttachingAnnotation(false);
+    }
+  };
 
   const fitToDrawing = () => {
     if (!loadedDocument || containerSize.width <= 0 || containerSize.height <= 0) {
@@ -710,6 +835,11 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     containerRef.current?.focus();
+
+    if (viewMode === 'annotate') {
+      return;
+    }
+
     activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     event.currentTarget.setPointerCapture(event.pointerId);
 
@@ -741,6 +871,10 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (viewMode === 'annotate') {
+      return;
+    }
+
     activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
     // Pinch-to-zoom: two active pointers
@@ -814,7 +948,7 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
   };
 
   const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    if (!loadedDocument || documentState.status === 'loading') {
+    if (!loadedDocument || documentState.status === 'loading' || viewMode === 'annotate') {
       return;
     }
 
@@ -954,6 +1088,11 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
         event.preventDefault();
         toggleMeasurementMode('shortcut');
         break;
+      case 'a':
+      case 'A':
+        event.preventDefault();
+        handleViewModeChange(viewMode === 'annotate' ? 'pan' : 'annotate', 'shortcut');
+        break;
       case 'Delete':
       case 'Backspace':
         if (selectedMeasurementId) {
@@ -963,7 +1102,9 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
         break;
       case 'Escape':
         event.preventDefault();
-        if (viewMode === 'measure-distance') {
+        if (viewMode === 'annotate') {
+          exitAnnotationMode();
+        } else if (viewMode === 'measure-distance') {
           if (isDraftMeasurementActive(draftMeasurement)) {
             resetDraftMeasurement('placing-start');
           } else {
@@ -1038,7 +1179,7 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerLeave}
           onDoubleClick={() => {
-            if (viewMode !== 'measure-distance') {
+            if (viewMode === 'pan') {
               fitToDrawing();
             }
           }}
@@ -1053,7 +1194,7 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
               aria-label="Zoom in"
               title="Zoom in"
               data-testid="preview-2d-zoom-in"
-              disabled={!canInteract}
+              disabled={!canInteract || viewMode === 'annotate'}
               onClick={() => adjustZoom(1.15)}
               style={{
                 backgroundColor: 'var(--bg-elevated)',
@@ -1066,7 +1207,7 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
               aria-label="Zoom out"
               title="Zoom out"
               data-testid="preview-2d-zoom-out"
-              disabled={!canInteract}
+              disabled={!canInteract || viewMode === 'annotate'}
               onClick={() => adjustZoom(1 / 1.15)}
               style={{
                 backgroundColor: 'var(--bg-elevated)',
@@ -1079,7 +1220,7 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
               aria-label="Fit to drawing"
               title="Fit to drawing"
               data-testid="preview-2d-fit"
-              disabled={!canInteract}
+              disabled={!canInteract || viewMode === 'annotate'}
               onClick={fitToDrawing}
               style={{
                 backgroundColor: 'var(--bg-elevated)',
@@ -1092,9 +1233,27 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
               label="1:1"
               title="Reset to 100% scale"
               onClick={setActualScale}
-              disabled={!canInteract}
+              disabled={!canInteract || viewMode === 'annotate'}
               testId="preview-2d-actual-size"
             />
+            <IconButton
+              aria-label="Annotate preview"
+              title="Annotate preview"
+              data-testid="preview-2d-toggle-annotate"
+              disabled={!canInteract}
+              onClick={() =>
+                handleViewModeChange(viewMode === 'annotate' ? 'pan' : 'annotate', 'toolbar')
+              }
+              isActive={viewMode === 'annotate'}
+              style={{
+                backgroundColor:
+                  viewMode === 'annotate' ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+                border: '1px solid var(--border-secondary)',
+                color: viewMode === 'annotate' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              }}
+            >
+              <TbBrush size={18} />
+            </IconButton>
             <IconButton
               aria-label="Toggle grid"
               title="Toggle grid"
@@ -1149,7 +1308,7 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
                 overflow="hidden"
                 style={{
                   cursor:
-                    viewMode === 'measure-distance'
+                    viewMode === 'measure-distance' || viewMode === 'annotate'
                       ? 'crosshair'
                       : dragRef.current
                         ? 'grabbing'
@@ -1387,6 +1546,32 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
             </div>
           ) : null}
 
+          {loadedDocument &&
+          viewMode === 'annotate' &&
+          containerSize.width > 0 &&
+          containerSize.height > 0 ? (
+            <AnnotationOverlay
+              surface={containerSize}
+              shapes={annotationSession.shapes}
+              draft={annotationSession.draft}
+              onStageReady={(stage) => {
+                annotationStageRef.current = stage;
+              }}
+              onStart={(point) => {
+                annotationSession.beginDraft(normalizeViewerPoint(point, containerSize));
+              }}
+              onMove={(point) => {
+                if (!annotationSession.draft) {
+                  return;
+                }
+                annotationSession.updateDraft(normalizeViewerPoint(point, containerSize));
+              }}
+              onEnd={() => {
+                annotationSession.completeDraft();
+              }}
+            />
+          ) : null}
+
           {documentState.status === 'idle' ? (
             <StatusCard
               title="No 2D preview"
@@ -1466,6 +1651,31 @@ export function SvgViewer({ src, onVisualReady }: SvgViewerProps) {
             >
               {formatCoordinate(cursorPoint)}
             </div>
+          ) : null}
+
+          {viewMode === 'annotate' ? (
+            <ToolPanel key="annotate" label="Annotate">
+              <AnnotationPanel
+                tool={annotationSession.tool}
+                onToolChange={annotationSession.setTool}
+                onUndo={annotationSession.undoLast}
+                onClear={annotationSession.clearAll}
+                onCancel={exitAnnotationMode}
+                onAttach={handleAnnotationAttach}
+                canUndo={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
+                canClear={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
+                canAttach={
+                  !isAttachingAnnotation && canAttachToAi && annotationSession.shapes.length > 0
+                }
+                attachLabel={
+                  !hasCurrentModelApiKey
+                    ? 'Open AI Settings'
+                    : isAttachingAnnotation
+                      ? 'Attaching...'
+                      : 'Attach to AI'
+                }
+              />
+            </ToolPanel>
           ) : null}
 
           {!isMobile && viewMode === 'measure-distance' && (

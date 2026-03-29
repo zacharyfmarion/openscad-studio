@@ -165,6 +165,13 @@ export interface AiAgentState {
   isProcessingAttachments: boolean;
 }
 
+export interface AddDraftFilesResult {
+  readyCount: number;
+  errorCount: number;
+  attachmentIds: string[];
+  errors: string[];
+}
+
 interface UseAiAgentOptions {
   testOverrides?: {
     analytics?: ReturnType<typeof useAnalytics>;
@@ -587,6 +594,13 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         ready_count: readyCount,
         error_count: errorCount,
       });
+
+      return {
+        readyCount,
+        errorCount,
+        attachmentIds: result.attachments.map((attachment) => attachment.id),
+        errors: [...result.errors],
+      } satisfies AddDraftFilesResult;
     },
     [analytics, processAttachmentFilesImpl]
   );
