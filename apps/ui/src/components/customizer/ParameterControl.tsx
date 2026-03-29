@@ -322,7 +322,7 @@ function BooleanControl({ param, onChange, isDirty, onReset }: ParameterControlP
         <Toggle
           id={`param-${param.name}`}
           checked={checked}
-          onChange={(event) => onChange(event.target.checked)}
+          onChange={onChange}
           aria-label={displayLabel}
           className="shrink-0"
         />

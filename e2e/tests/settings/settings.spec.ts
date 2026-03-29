@@ -53,10 +53,10 @@ test('can toggle format on save', async ({ app }) => {
   await app.page.getByRole('button', { name: 'Editor', exact: true }).click();
 
   const formatRow = app.page.getByTestId('settings-format-on-save');
-  const toggle = formatRow.locator('input[type="checkbox"]');
+  const toggle = formatRow.getByRole('switch');
   await expect(toggle).toBeAttached();
   const before = await toggle.isChecked();
-  await formatRow.locator('label').last().click({ force: true });
+  await toggle.click();
   await expect(toggle).toBeChecked({ checked: !before });
 });
 

@@ -1,4 +1,5 @@
 // Jest setup file - runs after the test framework is installed
+import '@testing-library/jest-dom';
 import { jest } from '@jest/globals';
 import { ReadableStream, TransformStream, WritableStream } from 'node:stream/web';
 

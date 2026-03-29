@@ -495,7 +495,7 @@ export function CustomizerPanel({
                 >
                   <Toggle
                     checked={showAdvanced}
-                    onChange={(event) => setShowAdvanced(event.target.checked)}
+                    onChange={setShowAdvanced}
                     aria-label="Show advanced controls"
                   />
                   <span>Advanced</span>
@@ -726,7 +726,7 @@ export function CustomizerPanel({
                 >
                   <Toggle
                     checked={showAdvanced}
-                    onChange={(event) => setShowAdvanced(event.target.checked)}
+                    onChange={setShowAdvanced}
                     aria-label="Show advanced controls"
                   />
                   <span>Advanced</span>

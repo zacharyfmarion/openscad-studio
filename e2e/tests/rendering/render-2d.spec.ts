@@ -149,9 +149,11 @@ test.describe('2D Rendering', () => {
     await expect(app.page.getByTestId('preview-2d-measurements-tray')).toBeVisible();
     await expect(app.page.getByTestId('preview-2d-measurement-readout')).toBeHidden();
 
-    await viewport.click({ position: { x: box!.width * 0.45, y: box!.height * 0.35 } });
-    await viewport.hover({ position: { x: box!.width * 0.7, y: box!.height * 0.35 } });
-    await viewport.click({ position: { x: box!.width * 0.7, y: box!.height * 0.35 } });
+    // Keep the second segment in the upper-left quadrant so it stays clear of
+    // both the legacy footer tray and the floating tool panel introduced by this PR.
+    await viewport.click({ position: { x: box!.width * 0.25, y: box!.height * 0.25 } });
+    await viewport.hover({ position: { x: box!.width * 0.45, y: box!.height * 0.25 } });
+    await viewport.click({ position: { x: box!.width * 0.45, y: box!.height * 0.25 } });
 
     const measurementItems = app.page.getByTestId('preview-2d-measurement-list-item');
     const countBeforeClear = await measurementItems.count();

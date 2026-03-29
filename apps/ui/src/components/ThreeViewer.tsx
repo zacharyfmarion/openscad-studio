@@ -2,7 +2,6 @@ import { Component, useCallback, useEffect, useMemo, useRef, useState } from 're
 import type { ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
-  Billboard,
   CameraControls,
   ContactShadows,
   Environment,
@@ -40,7 +39,8 @@ import {
 import { threeToOpenScadDelta } from '../services/coordinateTransform';
 import { createViewerInteractionConfig } from './viewerInteractionConfig';
 import { ViewerToolPalette } from './three-viewer/ViewerToolPalette';
-import { ViewerContextBar } from './three-viewer/ViewerContextBar';
+import { VIEWER_TOOLS } from './three-viewer/viewerToolRegistry';
+import { ToolPanel } from './three-viewer/panels/ToolPanel';
 import {
   createMeasurementRecord3D,
   formatMeasurementSummary3D,
@@ -50,7 +50,7 @@ import {
 import { ViewerMaterialManager } from './three-viewer/materialManager';
 import {
   createSelectionStateFromRaycast,
-  raycastLoadedModel,
+  robustRaycastLoadedModel,
   type RaycastResult,
 } from './three-viewer/selectionController';
 import {
@@ -319,8 +319,6 @@ function MeasurementOverlay3D({
   unit: import('../stores/settingsStore').MeasurementUnit;
 }) {
   const markerRadius = Math.max((model?.diagonal ?? 10) * 0.008, 0.15);
-  const snapRingInner = markerRadius * 2.2;
-  const snapRingOuter = markerRadius * 3.0;
 
   return (
     <group name="overlayContainer">
@@ -336,10 +334,22 @@ function MeasurementOverlay3D({
               lineWidth={selected ? 2.5 : 1.5}
             />
             {[measurement.start, measurement.end].map((point, index) => (
-              <mesh key={`${measurement.id}-${index}`} position={point.toArray()} renderOrder={30}>
-                <sphereGeometry args={[markerRadius, 12, 12]} />
-                <meshBasicMaterial color={color} depthTest={false} />
-              </mesh>
+              <Html
+                key={`${measurement.id}-${index}`}
+                position={point.toArray()}
+                style={{ pointerEvents: 'none' }}
+              >
+                <div
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: color,
+                    transform: 'translate(-50%, -50%)',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </Html>
             ))}
             <Html position={midpoint.toArray()} center distanceFactor={12}>
               <div
@@ -372,10 +382,22 @@ function MeasurementOverlay3D({
             gapSize={markerRadius * 2}
           />
           {[draft.start, draft.current].map((point, index) => (
-            <mesh key={`draft-${index}`} position={point.toArray()} renderOrder={30}>
-              <sphereGeometry args={[markerRadius, 12, 12]} />
-              <meshBasicMaterial color={accentColor} depthTest={false} />
-            </mesh>
+            <Html
+              key={`draft-${index}`}
+              position={point.toArray()}
+              style={{ pointerEvents: 'none' }}
+            >
+              <div
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: accentColor,
+                  transform: 'translate(-50%, -50%)',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </Html>
           ))}
           <Html
             position={getMeasurementMidpoint3D({
@@ -407,12 +429,39 @@ function MeasurementOverlay3D({
       ) : null}
 
       {(draft.status === 'placing-start' || draft.status === 'placing-end') && draft.current ? (
-        <Billboard position={draft.current.toArray()} renderOrder={35}>
-          <mesh>
-            <ringGeometry args={[snapRingInner, snapRingOuter, 32]} />
-            <meshBasicMaterial color={accentColor} depthTest={false} transparent opacity={0.85} />
-          </mesh>
-        </Billboard>
+        <Html position={draft.current.toArray()} style={{ pointerEvents: 'none' }}>
+          <div style={{ position: 'relative', transform: 'translate(-50%, -50%)' }}>
+            <div
+              style={{
+                width: '14px',
+                height: '14px',
+                borderRadius: '50%',
+                border: `1.5px solid ${accentColor}`,
+                boxSizing: 'border-box',
+                opacity: 0.85,
+              }}
+            />
+            {draft.snapKind ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '100%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  color: accentColor,
+                  whiteSpace: 'nowrap',
+                  textShadow: '0 0 4px var(--bg-primary), 0 0 4px var(--bg-primary)',
+                  lineHeight: 1,
+                }}
+              >
+                Snap: {draft.snapKind}
+              </div>
+            ) : null}
+          </div>
+        </Html>
       ) : null}
     </group>
   );
@@ -510,15 +559,15 @@ function ViewerInteractionController({
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
+  const pointerDownRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const dom = gl.domElement;
     const raycaster = new THREE.Raycaster();
-    let pointerDown: { x: number; y: number } | null = null;
 
     const resolveRaycast = (event: PointerEvent): RaycastResult | null => {
       const rect = dom.getBoundingClientRect();
-      return raycastLoadedModel({
+      return robustRaycastLoadedModel({
         clientX: event.clientX,
         clientY: event.clientY,
         rect,
@@ -565,7 +614,7 @@ function ViewerInteractionController({
     };
 
     const handlePointerDown = (event: PointerEvent) => {
-      pointerDown = { x: event.clientX, y: event.clientY };
+      pointerDownRef.current = { x: event.clientX, y: event.clientY };
     };
 
     const handlePointerLeave = () => {
@@ -573,12 +622,16 @@ function ViewerInteractionController({
     };
 
     const handlePointerUp = (event: PointerEvent) => {
-      if (!pointerDown) {
+      if (!pointerDownRef.current) {
         return;
       }
 
-      const moved = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y) > 4;
-      pointerDown = null;
+      const moved =
+        Math.hypot(
+          event.clientX - pointerDownRef.current.x,
+          event.clientY - pointerDownRef.current.y
+        ) > 4;
+      pointerDownRef.current = null;
 
       if (moved) {
         return;
@@ -586,6 +639,30 @@ function ViewerInteractionController({
 
       const hit = resolveRaycast(event);
       if (!hit) {
+        // Raycast can miss at silhouette edges/vertices due to floating-point precision in
+        // Three.js triangle intersection. Fall back to the last known hover snap point so
+        // that clicks exactly on edges and corners still place a measurement.
+        if (mode === 'measure-distance' && draft.current) {
+          if (draft.status !== 'placing-end' || !draft.start) {
+            onDraftChange({
+              status: 'placing-end',
+              start: draft.current.clone(),
+              current: draft.current.clone(),
+              snapKind: draft.snapKind,
+              axisLock: null,
+            });
+          } else {
+            onCommitMeasurement(createMeasurementRecord3D(draft.start, draft.current));
+            onDraftChange({
+              status: 'placing-start',
+              start: null,
+              current: null,
+              snapKind: draft.snapKind,
+              axisLock: null,
+            });
+          }
+          return;
+        }
         if (mode === 'orbit') {
           onSelectionChange(EMPTY_SELECTION);
         }
@@ -1123,6 +1200,41 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
     setLiveMessage('Measurements cleared');
   }, [measurements.length, trackMeasurementsCleared]);
 
+  const handleSectionReset = useCallback(() => {
+    if (loadedModel) {
+      setSectionState(createDefaultSectionPlaneState(loadedModel.bounds));
+    }
+  }, [loadedModel]);
+
+  const handleMeasurementDelete = useCallback(
+    (id: string) => {
+      setMeasurements((existing) => existing.filter((m) => m.id !== id));
+      setSelectedMeasurementId((current) => (current === id ? null : current));
+      setLiveMessage('Measurement deleted');
+    },
+    [setLiveMessage]
+  );
+
+  const handleSelectionChange = useCallback(
+    (next: SelectionState) => {
+      setSelection(next);
+      if (next.objectUuid) {
+        setLiveMessage('Selection updated');
+      }
+    },
+    [setLiveMessage]
+  );
+
+  const handleCommitMeasurement = useCallback(
+    (measurement: MeasurementRecord3D) => {
+      setMeasurements((existing) => [measurement, ...existing]);
+      setSelectedMeasurementId(measurement.id);
+      setLiveMessage('Measurement added');
+      trackDistanceMeasurementCommitted(measurements.length + 1);
+    },
+    [measurements.length, trackDistanceMeasurementCommitted, setLiveMessage]
+  );
+
   const updateSectionAxis = (axis: SectionAxis) => {
     if (!loadedModel || !sectionState) {
       return;
@@ -1146,19 +1258,9 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
       draftMeasurement,
       selection,
       onSectionStateChange: setSectionState,
-      onSectionReset: () => {
-        if (loadedModel) {
-          setSectionState(createDefaultSectionPlaneState(loadedModel.bounds));
-        }
-      },
+      onSectionReset: handleSectionReset,
       onMeasurementSelect: setSelectedMeasurementId,
-      onMeasurementDelete: (id) => {
-        setMeasurements((existing) => existing.filter((m) => m.id !== id));
-        if (selectedMeasurementId === id) {
-          setSelectedMeasurementId(null);
-        }
-        setLiveMessage('Measurement deleted');
-      },
+      onMeasurementDelete: handleMeasurementDelete,
       onMeasurementsClear: clearAllMeasurements,
     }),
     [
@@ -1168,6 +1270,8 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
       sectionState,
       draftMeasurement,
       selection,
+      handleSectionReset,
+      handleMeasurementDelete,
       clearAllMeasurements,
     ]
   );
@@ -1588,19 +1692,9 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
               snapEnabled={snapEnabled}
               draft={draftMeasurement}
               onHoverChange={setHoverSelection}
-              onSelectionChange={(next) => {
-                setSelection(next);
-                if (next.objectUuid) {
-                  setLiveMessage('Selection updated');
-                }
-              }}
+              onSelectionChange={handleSelectionChange}
               onDraftChange={setDraftMeasurement}
-              onCommitMeasurement={(measurement) => {
-                setMeasurements((existing) => [measurement, ...existing]);
-                setSelectedMeasurementId(measurement.id);
-                setLiveMessage('Measurement added');
-                trackDistanceMeasurementCommitted(measurements.length + 1);
-              }}
+              onCommitMeasurement={handleCommitMeasurement}
             />
 
             <CameraControls
@@ -1628,10 +1722,20 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
               </GizmoHelper>
             ) : null}
           </Canvas>
+
+          {!isMobile &&
+            (() => {
+              const activeTool = VIEWER_TOOLS.find((t) => t.id === interactionMode);
+              const ContextPanel = activeTool?.contextPanel;
+              if (!ContextPanel) return null;
+              return (
+                <ToolPanel key={interactionMode} label={activeTool.label}>
+                  <ContextPanel {...contextPanelProps} />
+                </ToolPanel>
+              );
+            })()}
         </div>
       </div>
-
-      {!isMobile && <ViewerContextBar mode={interactionMode} {...contextPanelProps} />}
     </div>
   );
 }

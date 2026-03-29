@@ -52,7 +52,7 @@ export function EditorSettings({
           control={
             <Toggle
               checked={settings.editor.formatOnSave}
-              onChange={(e) => onEditorChange('formatOnSave', e.target.checked)}
+              onChange={(v) => onEditorChange('formatOnSave', v)}
             />
           }
         />
@@ -85,7 +85,7 @@ export function EditorSettings({
           control={
             <Toggle
               checked={settings.editor.useTabs}
-              onChange={(e) => onEditorChange('useTabs', e.target.checked)}
+              onChange={(v) => onEditorChange('useTabs', v)}
             />
           }
         />
@@ -97,7 +97,7 @@ export function EditorSettings({
           control={
             <Toggle
               checked={settings.editor.autoRenderOnIdle}
-              onChange={(e) => onEditorChange('autoRenderOnIdle', e.target.checked)}
+              onChange={(v) => onEditorChange('autoRenderOnIdle', v)}
             />
           }
         />
@@ -135,7 +135,7 @@ export function EditorSettings({
           control={
             <Toggle
               checked={settings.editor.vimMode}
-              onChange={(e) => onEditorChange('vimMode', e.target.checked)}
+              onChange={(v) => onEditorChange('vimMode', v)}
               data-testid="vim-mode-toggle"
             />
           }
