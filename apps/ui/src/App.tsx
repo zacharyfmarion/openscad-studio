@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from 'react';
 import { DockviewReact } from 'dockview';
 import type { DockviewReadyEvent } from 'dockview';
 import 'dockview/dist/styles/dockview.css';
@@ -9,10 +9,21 @@ import type { AiPromptPanelRef } from './components/AiPromptPanel';
 import { SettingsDialog, type SettingsSection } from './components/SettingsDialog';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { NuxLayoutPicker } from './components/NuxLayoutPicker';
+import {
+  HeaderWorkspaceControls,
+  type HeaderLayoutPreset,
+} from './components/HeaderWorkspaceControls';
 import { TabBar } from './components/TabBar';
 import { WebMenuBar } from './components/WebMenuBar';
 import { EditableFileName } from './components/EditableFileName';
-import { Button, IconButton, TooltipProvider } from './components/ui';
+import {
+  Button,
+  IconButton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './components/ui';
 import { panelComponents, tabComponents, WorkspaceTab } from './components/panels/PanelComponents';
 import { useTheme } from './contexts/ThemeContext';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
@@ -22,6 +33,7 @@ import {
   setDockviewApi,
   getDockviewApi,
   addPresetPanels,
+  applyWorkspacePreset,
   saveLayout,
   clearSavedLayout,
   MOBILE_LAYOUT_MEDIA_QUERY,
@@ -51,12 +63,14 @@ import { addRecentFile, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview } from './utils/capturePreview';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { useShareEntry } from './hooks/useShareEntry';
-import { TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
+import { TbBrandGithub, TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
 import { Toaster } from 'sonner';
 import type { AiDraft } from './types/aiChat';
 import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTypes';
 
 const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
+const REPOSITORY_URL = 'https://github.com/zacharyfmarion/openscad-studio';
+const HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY = '(max-width: 1400px)';
 
 const RELEASE_ASSETS: Record<MacArch, string> = {
   aarch64: 'OpenSCAD.Studio_latest_aarch64.dmg',
@@ -106,12 +120,15 @@ function revokeBlobUrl(url: string | null | undefined) {
   URL.revokeObjectURL(url);
 }
 
-function DownloadForMacLink() {
+function useMacDownloadUrl() {
   const [arch, setArch] = useState<MacArch>('aarch64');
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const platform = navigator.platform.toLowerCase();
+    if (platform.includes('intel') || platform.includes('x86_64')) {
+      setArch('x64');
+    }
+
     const uaData = (
       navigator as unknown as {
         userAgentData?: {
@@ -121,95 +138,58 @@ function DownloadForMacLink() {
     ).userAgentData;
 
     if (uaData?.getHighEntropyValues) {
-      uaData.getHighEntropyValues(['architecture']).then((values) => {
-        if (values.architecture === 'x86') setArch('x64');
+      void uaData.getHighEntropyValues(['architecture']).then((values) => {
+        if (values.architecture === 'x86') {
+          setArch('x64');
+        }
       });
     }
   }, []);
 
-  // Close dropdown on click outside or Escape key
-  useEffect(() => {
-    if (!showDropdown) return;
+  return `${RELEASE_BASE}/${RELEASE_ASSETS[arch]}`;
+}
 
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowDropdown(false);
-    };
+interface HeaderIconLinkProps {
+  href: string;
+  title: string;
+  ariaLabel: string;
+  children: ReactNode;
+  openInNewTab?: boolean;
+}
 
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [showDropdown]);
-
-  const label = arch === 'aarch64' ? 'Apple Silicon' : 'Intel';
-  const otherArch: MacArch = arch === 'aarch64' ? 'x64' : 'aarch64';
-  const otherLabel = arch === 'aarch64' ? 'Intel' : 'Apple Silicon';
-
-  const dmgUrl = `${RELEASE_BASE}/${RELEASE_ASSETS[arch]}`;
-  const otherDmgUrl = `${RELEASE_BASE}/${RELEASE_ASSETS[otherArch]}`;
-
+function HeaderIconLink({
+  href,
+  title,
+  ariaLabel,
+  children,
+  openInNewTab = false,
+}: HeaderIconLinkProps) {
   return (
-    <div className="relative shrink-0" ref={dropdownRef}>
-      <div className="flex items-center">
+    <Tooltip>
+      <TooltipTrigger asChild>
         <a
-          href={dmgUrl}
-          className="flex items-center gap-1 text-xs px-2 py-1 rounded-l-lg transition-colors"
-          style={{ color: 'var(--text-secondary)' }}
-          title={`Download for macOS (${label})`}
+          href={href}
+          aria-label={ariaLabel}
+          title={title}
+          target={openInNewTab ? '_blank' : undefined}
+          rel={openInNewTab ? 'noreferrer' : undefined}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-transparent bg-transparent text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
         >
-          <TbDownload size={13} />
-          <span>Download for Mac</span>
+          {children}
         </a>
-        {/* eslint-disable-next-line no-restricted-syntax -- right half of a split-button (rounded-r-lg only); fusing with the <a> download link means this can't be a standalone <Button> without breaking the split-button layout */}
-        <button
-          type="button"
-          onClick={() => setShowDropdown((v) => !v)}
-          className="text-xs px-1 py-1 rounded-r-lg transition-colors"
-          style={{ color: 'var(--text-tertiary)' }}
-          title="Other architectures"
-        >
-          ▾
-        </button>
-      </div>
-      {showDropdown && (
-        <div
-          className="absolute right-0 top-full mt-1 rounded-lg shadow-lg border text-xs z-50 min-w-[160px]"
-          style={{
-            backgroundColor: 'var(--bg-elevated)',
-            borderColor: 'var(--border-secondary)',
-          }}
-        >
-          <a
-            href={dmgUrl}
-            className="block px-3 py-2 transition-colors"
-            style={{ color: 'var(--text-primary)' }}
-            onClick={() => setShowDropdown(false)}
-          >
-            macOS ({label}) ✓
-          </a>
-          <a
-            href={otherDmgUrl}
-            className="block px-3 py-2 transition-colors"
-            style={{ color: 'var(--text-secondary)' }}
-            onClick={() => setShowDropdown(false)}
-          >
-            macOS ({otherLabel})
-          </a>
-        </div>
-      )}
-    </div>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{title}</TooltipContent>
+    </Tooltip>
   );
 }
 
 function App() {
   const { isMobile } = useMobileLayout();
+  const [isHeaderWorkspaceSwitcherHidden, setIsHeaderWorkspaceSwitcherHidden] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia(HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY).matches
+  );
   const [showNux, setShowNux] = useState(() => !loadSettings().ui.hasCompletedNux);
   const tabs = useWorkspaceStore(selectTabs);
   const activeTabId = useWorkspaceStore(selectActiveTabId) ?? '';
@@ -250,11 +230,23 @@ function App() {
   const { theme } = useTheme();
   const previewSceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
   const { capabilities } = getPlatform();
+  const macDownloadUrl = useMacDownloadUrl();
   const { undo, redo } = useHistory();
   const initialShareContext = useMemo(
     () => (typeof window === 'undefined' ? null : (window.__SHARE_CONTEXT ?? null)),
     []
   );
+
+  useEffect(() => {
+    const mq = window.matchMedia(HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY);
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsHeaderWorkspaceSwitcherHidden(event.matches);
+    };
+
+    setIsHeaderWorkspaceSwitcherHidden(mq.matches);
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
 
   const {
     source,
@@ -795,6 +787,28 @@ function App() {
       }
     },
     [analytics]
+  );
+
+  const handleHeaderLayoutSelect = useCallback(
+    (preset: HeaderLayoutPreset) => {
+      const changed = settings.ui.defaultLayoutPreset !== preset;
+
+      updateSetting('ui', {
+        hasCompletedNux: true,
+        defaultLayoutPreset: preset,
+      });
+
+      if (changed) {
+        analytics.track('workspace layout selected', {
+          preset,
+          source: 'header' satisfies LayoutSelectionSource,
+          is_first_run: false,
+        });
+      }
+
+      applyWorkspacePreset(preset);
+    },
+    [analytics, settings.ui.defaultLayoutPreset]
   );
 
   const handleOpenCustomizerAiRefine = useCallback(() => {
@@ -1550,7 +1564,7 @@ function App() {
       style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
     >
       <header
-        className={`flex items-center gap-1.5 shrink-0 ${capabilities.multiFile ? '' : 'py-1'}`}
+        className={`relative flex items-center gap-1.5 shrink-0 ${capabilities.multiFile ? '' : 'py-1'}`}
         style={{
           backgroundColor: 'var(--bg-secondary)',
           borderBottom: '1px solid var(--border-subtle)',
@@ -1591,7 +1605,14 @@ function App() {
           </div>
         )}
 
-        {!capabilities.hasNativeMenu && !isMobile && <DownloadForMacLink />}
+        {!capabilities.hasNativeMenu && !isMobile && !isHeaderWorkspaceSwitcherHidden && (
+          <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
+            <HeaderWorkspaceControls
+              layoutPreset={settings.ui.defaultLayoutPreset}
+              onLayoutPresetChange={handleHeaderLayoutSelect}
+            />
+          </div>
+        )}
 
         <div className="flex items-center gap-1.5 px-3 py-1 shrink-0">
           {isRendering && (
@@ -1658,6 +1679,26 @@ function App() {
           <div
             style={{ width: '1px', height: '16px', backgroundColor: 'var(--border-secondary)' }}
           />
+
+          {!capabilities.hasNativeMenu && !isMobile && (
+            <>
+              <HeaderIconLink
+                href={REPOSITORY_URL}
+                title="View GitHub Repository"
+                ariaLabel="View GitHub Repository"
+                openInNewTab
+              >
+                <TbBrandGithub size={15} />
+              </HeaderIconLink>
+              <HeaderIconLink
+                href={macDownloadUrl}
+                title="Download for Mac"
+                ariaLabel="Download for Mac"
+              >
+                <TbDownload size={15} />
+              </HeaderIconLink>
+            </>
+          )}
 
           <IconButton
             data-testid="settings-button"
