@@ -11,24 +11,20 @@ export function BBoxPanel({ selection, loadedModel }: ToolContextPanelProps) {
   const size = bounds ? threeToOpenScadSize(bounds.getSize(new THREE.Vector3())) : null;
 
   return (
-    <div className="flex flex-row items-center gap-4 px-3 w-full">
-      <span className="text-xs shrink-0" style={{ color: 'var(--text-secondary)' }}>
+    <div className="flex flex-col gap-2">
+      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
         Hover or click a face to inspect bounds.
       </span>
       {size ? (
-        <div className="flex gap-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
-          <span>
-            <span style={{ color: 'var(--text-tertiary)' }}>X: </span>
-            {formatWithUnit(size.x, unit)}
-          </span>
-          <span>
-            <span style={{ color: 'var(--text-tertiary)' }}>Y: </span>
-            {formatWithUnit(size.y, unit)}
-          </span>
-          <span>
-            <span style={{ color: 'var(--text-tertiary)' }}>Z: </span>
-            {formatWithUnit(size.z, unit)}
-          </span>
+        <div className="flex flex-col gap-1.5">
+          {(['x', 'y', 'z'] as const).map((axis) => (
+            <div key={axis} className="flex justify-between text-xs">
+              <span style={{ color: 'var(--text-tertiary)' }}>{axis.toUpperCase()}</span>
+              <span style={{ color: 'var(--text-secondary)' }}>
+                {formatWithUnit(size[axis], unit)}
+              </span>
+            </div>
+          ))}
         </div>
       ) : null}
     </div>

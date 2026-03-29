@@ -2,7 +2,6 @@ import { Component, useCallback, useEffect, useMemo, useRef, useState } from 're
 import type { ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
-  Billboard,
   CameraControls,
   ContactShadows,
   Environment,
@@ -40,7 +39,8 @@ import {
 import { threeToOpenScadDelta } from '../services/coordinateTransform';
 import { createViewerInteractionConfig } from './viewerInteractionConfig';
 import { ViewerToolPalette } from './three-viewer/ViewerToolPalette';
-import { ViewerContextBar } from './three-viewer/ViewerContextBar';
+import { VIEWER_TOOLS } from './three-viewer/viewerToolRegistry';
+import { ToolPanel } from './three-viewer/panels/ToolPanel';
 import {
   createMeasurementRecord3D,
   formatMeasurementSummary3D,
@@ -319,8 +319,6 @@ function MeasurementOverlay3D({
   unit: import('../stores/settingsStore').MeasurementUnit;
 }) {
   const markerRadius = Math.max((model?.diagonal ?? 10) * 0.008, 0.15);
-  const snapRingInner = markerRadius * 2.2;
-  const snapRingOuter = markerRadius * 3.0;
 
   return (
     <group name="overlayContainer">
@@ -336,10 +334,18 @@ function MeasurementOverlay3D({
               lineWidth={selected ? 2.5 : 1.5}
             />
             {[measurement.start, measurement.end].map((point, index) => (
-              <mesh key={`${measurement.id}-${index}`} position={point.toArray()} renderOrder={30}>
-                <sphereGeometry args={[markerRadius, 12, 12]} />
-                <meshBasicMaterial color={color} depthTest={false} />
-              </mesh>
+              <Html key={`${measurement.id}-${index}`} position={point.toArray()} style={{ pointerEvents: 'none' }}>
+                <div
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: color,
+                    transform: 'translate(-50%, -50%)',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </Html>
             ))}
             <Html position={midpoint.toArray()} center distanceFactor={12}>
               <div
@@ -372,10 +378,18 @@ function MeasurementOverlay3D({
             gapSize={markerRadius * 2}
           />
           {[draft.start, draft.current].map((point, index) => (
-            <mesh key={`draft-${index}`} position={point.toArray()} renderOrder={30}>
-              <sphereGeometry args={[markerRadius, 12, 12]} />
-              <meshBasicMaterial color={accentColor} depthTest={false} />
-            </mesh>
+            <Html key={`draft-${index}`} position={point.toArray()} style={{ pointerEvents: 'none' }}>
+              <div
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: accentColor,
+                  transform: 'translate(-50%, -50%)',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </Html>
           ))}
           <Html
             position={getMeasurementMidpoint3D({
@@ -407,12 +421,39 @@ function MeasurementOverlay3D({
       ) : null}
 
       {(draft.status === 'placing-start' || draft.status === 'placing-end') && draft.current ? (
-        <Billboard position={draft.current.toArray()} renderOrder={35}>
-          <mesh>
-            <ringGeometry args={[snapRingInner, snapRingOuter, 32]} />
-            <meshBasicMaterial color={accentColor} depthTest={false} transparent opacity={0.85} />
-          </mesh>
-        </Billboard>
+        <Html position={draft.current.toArray()} style={{ pointerEvents: 'none' }}>
+          <div style={{ position: 'relative', transform: 'translate(-50%, -50%)' }}>
+            <div
+              style={{
+                width: '14px',
+                height: '14px',
+                borderRadius: '50%',
+                border: `1.5px solid ${accentColor}`,
+                boxSizing: 'border-box',
+                opacity: 0.85,
+              }}
+            />
+            {draft.snapKind ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '100%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  color: accentColor,
+                  whiteSpace: 'nowrap',
+                  textShadow: '0 0 4px var(--bg-primary), 0 0 4px var(--bg-primary)',
+                  lineHeight: 1,
+                }}
+              >
+                Snap: {draft.snapKind}
+              </div>
+            ) : null}
+          </div>
+        </Html>
       ) : null}
     </group>
   );
@@ -1628,10 +1669,19 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
               </GizmoHelper>
             ) : null}
           </Canvas>
+
+          {!isMobile && (() => {
+            const activeTool = VIEWER_TOOLS.find((t) => t.id === interactionMode);
+            const ContextPanel = activeTool?.contextPanel;
+            if (!ContextPanel) return null;
+            return (
+              <ToolPanel key={interactionMode} label={activeTool.label}>
+                <ContextPanel {...contextPanelProps} />
+              </ToolPanel>
+            );
+          })()}
         </div>
       </div>
-
-      {!isMobile && <ViewerContextBar mode={interactionMode} {...contextPanelProps} />}
     </div>
   );
 }
