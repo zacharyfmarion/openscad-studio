@@ -1,4 +1,4 @@
-import { Button, SegmentedControl, RangeSlider } from '../../ui';
+import { Button, SegmentedControl, RangeSlider, Toggle } from '../../ui';
 import { clampSectionOffset, getSectionAxisBounds } from '../sectionPlaneController';
 import type { SectionAxis, ToolContextPanelProps } from '../types';
 
@@ -52,20 +52,13 @@ export function SectionPlanePanel({
         <span className={LABEL} style={{ color: 'var(--text-tertiary)' }}>
           Invert
         </span>
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={() =>
+        <Toggle
+          checked={sectionState.inverted}
+          onChange={() =>
             onSectionStateChange({ ...sectionState, inverted: !sectionState.inverted })
           }
-          style={{
-            color: sectionState.inverted ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            borderColor: sectionState.inverted ? 'var(--accent-primary)' : undefined,
-          }}
-        >
-          {sectionState.inverted ? 'On' : 'Off'}
-        </Button>
+          aria-label="Invert section plane"
+        />
       </div>
 
       {/* Offset */}

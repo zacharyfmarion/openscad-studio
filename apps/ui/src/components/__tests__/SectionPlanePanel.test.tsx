@@ -88,7 +88,7 @@ describe('SectionPlanePanel', () => {
     expect(screen.getByTestId('preview-3d-section-reset')).toBeInTheDocument();
   });
 
-  it('shows "Off" when not inverted and "On" when inverted', () => {
+  it('reflects inverted state on the toggle', () => {
     const { rerender } = renderWithProviders(
       <SectionPlanePanel
         {...emptyProps}
@@ -98,7 +98,7 @@ describe('SectionPlanePanel', () => {
         onSectionReset={noop}
       />
     );
-    expect(screen.getByText('Off')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /invert/i })).not.toBeChecked();
 
     rerender(
       <SectionPlanePanel
@@ -109,10 +109,10 @@ describe('SectionPlanePanel', () => {
         onSectionReset={noop}
       />
     );
-    expect(screen.getByText('On')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /invert/i })).toBeChecked();
   });
 
-  it('calls onSectionStateChange with toggled inverted when Invert button clicked', () => {
+  it('calls onSectionStateChange with toggled inverted when toggle clicked', () => {
     const onChange = jest.fn();
     renderWithProviders(
       <SectionPlanePanel
@@ -124,7 +124,7 @@ describe('SectionPlanePanel', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Off'));
+    fireEvent.click(screen.getByRole('checkbox', { name: /invert/i }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ inverted: true }));
   });
 
