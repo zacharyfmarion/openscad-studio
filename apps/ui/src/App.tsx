@@ -9,6 +9,10 @@ import type { AiPromptPanelRef } from './components/AiPromptPanel';
 import { SettingsDialog, type SettingsSection } from './components/SettingsDialog';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { NuxLayoutPicker } from './components/NuxLayoutPicker';
+import {
+  HeaderWorkspaceControls,
+  type HeaderLayoutPreset,
+} from './components/HeaderWorkspaceControls';
 import { TabBar } from './components/TabBar';
 import { WebMenuBar } from './components/WebMenuBar';
 import { EditableFileName } from './components/EditableFileName';
@@ -22,6 +26,7 @@ import {
   setDockviewApi,
   getDockviewApi,
   addPresetPanels,
+  applyWorkspacePreset,
   saveLayout,
   clearSavedLayout,
   MOBILE_LAYOUT_MEDIA_QUERY,
@@ -106,12 +111,15 @@ function revokeBlobUrl(url: string | null | undefined) {
   URL.revokeObjectURL(url);
 }
 
-function DownloadForMacLink() {
+function useMacDownloadUrl() {
   const [arch, setArch] = useState<MacArch>('aarch64');
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const platform = navigator.platform.toLowerCase();
+    if (platform.includes('intel') || platform.includes('x86_64')) {
+      setArch('x64');
+    }
+
     const uaData = (
       navigator as unknown as {
         userAgentData?: {
@@ -121,91 +129,15 @@ function DownloadForMacLink() {
     ).userAgentData;
 
     if (uaData?.getHighEntropyValues) {
-      uaData.getHighEntropyValues(['architecture']).then((values) => {
-        if (values.architecture === 'x86') setArch('x64');
+      void uaData.getHighEntropyValues(['architecture']).then((values) => {
+        if (values.architecture === 'x86') {
+          setArch('x64');
+        }
       });
     }
   }, []);
 
-  // Close dropdown on click outside or Escape key
-  useEffect(() => {
-    if (!showDropdown) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowDropdown(false);
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [showDropdown]);
-
-  const label = arch === 'aarch64' ? 'Apple Silicon' : 'Intel';
-  const otherArch: MacArch = arch === 'aarch64' ? 'x64' : 'aarch64';
-  const otherLabel = arch === 'aarch64' ? 'Intel' : 'Apple Silicon';
-
-  const dmgUrl = `${RELEASE_BASE}/${RELEASE_ASSETS[arch]}`;
-  const otherDmgUrl = `${RELEASE_BASE}/${RELEASE_ASSETS[otherArch]}`;
-
-  return (
-    <div className="relative shrink-0" ref={dropdownRef}>
-      <div className="flex items-center">
-        <a
-          href={dmgUrl}
-          className="flex items-center gap-1 text-xs px-2 py-1 rounded-l-lg transition-colors"
-          style={{ color: 'var(--text-secondary)' }}
-          title={`Download for macOS (${label})`}
-        >
-          <TbDownload size={13} />
-          <span>Download for Mac</span>
-        </a>
-        {/* eslint-disable-next-line no-restricted-syntax -- right half of a split-button (rounded-r-lg only); fusing with the <a> download link means this can't be a standalone <Button> without breaking the split-button layout */}
-        <button
-          type="button"
-          onClick={() => setShowDropdown((v) => !v)}
-          className="text-xs px-1 py-1 rounded-r-lg transition-colors"
-          style={{ color: 'var(--text-tertiary)' }}
-          title="Other architectures"
-        >
-          ▾
-        </button>
-      </div>
-      {showDropdown && (
-        <div
-          className="absolute right-0 top-full mt-1 rounded-lg shadow-lg border text-xs z-50 min-w-[160px]"
-          style={{
-            backgroundColor: 'var(--bg-elevated)',
-            borderColor: 'var(--border-secondary)',
-          }}
-        >
-          <a
-            href={dmgUrl}
-            className="block px-3 py-2 transition-colors"
-            style={{ color: 'var(--text-primary)' }}
-            onClick={() => setShowDropdown(false)}
-          >
-            macOS ({label}) ✓
-          </a>
-          <a
-            href={otherDmgUrl}
-            className="block px-3 py-2 transition-colors"
-            style={{ color: 'var(--text-secondary)' }}
-            onClick={() => setShowDropdown(false)}
-          >
-            macOS ({otherLabel})
-          </a>
-        </div>
-      )}
-    </div>
-  );
+  return `${RELEASE_BASE}/${RELEASE_ASSETS[arch]}`;
 }
 
 function App() {
@@ -250,6 +182,7 @@ function App() {
   const { theme } = useTheme();
   const previewSceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
   const { capabilities } = getPlatform();
+  const macDownloadUrl = useMacDownloadUrl();
   const { undo, redo } = useHistory();
   const initialShareContext = useMemo(
     () => (typeof window === 'undefined' ? null : (window.__SHARE_CONTEXT ?? null)),
@@ -795,6 +728,28 @@ function App() {
       }
     },
     [analytics]
+  );
+
+  const handleHeaderLayoutSelect = useCallback(
+    (preset: HeaderLayoutPreset) => {
+      const changed = settings.ui.defaultLayoutPreset !== preset;
+
+      updateSetting('ui', {
+        hasCompletedNux: true,
+        defaultLayoutPreset: preset,
+      });
+
+      if (changed) {
+        analytics.track('workspace layout selected', {
+          preset,
+          source: 'header' satisfies LayoutSelectionSource,
+          is_first_run: false,
+        });
+      }
+
+      applyWorkspacePreset(preset);
+    },
+    [analytics, settings.ui.defaultLayoutPreset]
   );
 
   const handleOpenCustomizerAiRefine = useCallback(() => {
@@ -1591,7 +1546,13 @@ function App() {
           </div>
         )}
 
-        {!capabilities.hasNativeMenu && !isMobile && <DownloadForMacLink />}
+        {!capabilities.hasNativeMenu && !isMobile && (
+          <HeaderWorkspaceControls
+            layoutPreset={settings.ui.defaultLayoutPreset}
+            onLayoutPresetChange={handleHeaderLayoutSelect}
+            downloadUrl={macDownloadUrl}
+          />
+        )}
 
         <div className="flex items-center gap-1.5 px-3 py-1 shrink-0">
           {isRendering && (

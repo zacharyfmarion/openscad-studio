@@ -1,8 +1,10 @@
+import type { ReactNode } from 'react';
 import { CONTROL_RADIUS_CLASS, CONTROL_SIZE_CLASSES } from './controlStyles';
 
 interface SegmentedOption<T extends string> {
   value: T;
   label: string;
+  icon?: ReactNode;
   title?: string;
   testId?: string;
 }
@@ -12,6 +14,7 @@ interface SegmentedControlProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   size?: 'sm' | 'md' | 'lg';
+  density?: 'default' | 'compact';
   'aria-label'?: string;
 }
 
@@ -25,6 +28,7 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   size = 'md',
+  density = 'default',
   'aria-label': ariaLabel,
 }: SegmentedControlProps<T>) {
   return (
@@ -47,7 +51,7 @@ export function SegmentedControl<T extends string>({
             aria-pressed={active}
             data-testid={option.testId}
             onClick={() => onChange(option.value)}
-            className={`${CONTROL_SIZE_CLASSES[size]} whitespace-nowrap font-medium transition-colors`}
+            className={`${CONTROL_SIZE_CLASSES[size]} ${density === 'compact' ? 'px-2' : ''} whitespace-nowrap font-medium transition-colors`}
             style={{
               backgroundColor: active ? ACTIVE_BG : INACTIVE_BG,
               color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
@@ -63,7 +67,10 @@ export function SegmentedControl<T extends string>({
               if (!active) e.currentTarget.style.color = 'var(--text-secondary)';
             }}
           >
-            {option.label}
+            <span className={`inline-flex items-center ${option.icon ? 'gap-1.5' : ''}`}>
+              {option.icon}
+              <span>{option.label}</span>
+            </span>
           </button>
         );
       })}
