@@ -2,11 +2,6 @@ import { test, expect } from '../../fixtures/app.fixture';
 import { setMonacoValue } from '../../helpers/editor';
 import type { Page } from '@playwright/test';
 
-/**
- * Toggle the Auto-Render on Idle setting.
- * The Toggle component renders a visually-hidden checkbox inside a <label>.
- * Clicking the <label> (not the hidden checkbox) reliably toggles the state.
- */
 async function setAutoRender(page: Page, enabled: boolean) {
   // Open settings > Editor
   await page.keyboard.press('Meta+,');
@@ -14,16 +9,13 @@ async function setAutoRender(page: Page, enabled: boolean) {
   await page.getByRole('button', { name: /^Editor$/ }).click();
   await page.getByText('Auto-Render on Idle').waitFor({ state: 'visible' });
 
-  // Navigate: "Auto-Render on Idle" text → parent row → find the Toggle's <label>
   const row = page.getByText('Auto-Render on Idle').locator('..').locator('..');
-  const checkbox = row.locator('input[type="checkbox"]');
-  const toggleLabel = row.locator('label').last();
+  const toggle = row.getByRole('switch');
 
-  const isChecked = await checkbox.isChecked().catch(() => false);
+  const isChecked = await toggle.isChecked().catch(() => false);
 
   if ((enabled && !isChecked) || (!enabled && isChecked)) {
-    await toggleLabel.click({ force: true });
-    // Verify the toggle actually changed
+    await toggle.click();
     await page.waitForTimeout(200);
   }
 
