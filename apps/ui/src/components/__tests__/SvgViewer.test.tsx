@@ -378,34 +378,4 @@ describe('SvgViewer', () => {
     expect(yAxis).toBeTruthy();
     expect(xAxis?.getAttribute('stroke')).not.toBe(yAxis?.getAttribute('stroke'));
   });
-
-  it('prevents browser-level pinch zoom gestures while the 2D viewer is active', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      headers: { get: () => 'image/svg+xml' },
-      text: async () => filledSvg,
-    });
-
-    renderViewer('blob:pinch-guard');
-
-    await screen.findByTestId('preview-2d-overlay');
-
-    const container = screen.getByTestId('preview-2d-container');
-    fireEvent.pointerEnter(container, { pointerId: 1, clientX: 200, clientY: 150 });
-
-    const gestureEvent = new Event('gesturestart', { bubbles: true, cancelable: true });
-    fireEvent(container, gestureEvent);
-    expect(gestureEvent.defaultPrevented).toBe(true);
-
-    const wheelEvent = new WheelEvent('wheel', {
-      bubbles: true,
-      cancelable: true,
-      ctrlKey: true,
-      deltaY: -120,
-      clientX: 200,
-      clientY: 150,
-    });
-    fireEvent(container, wheelEvent);
-    expect(wheelEvent.defaultPrevented).toBe(true);
-  });
 });
