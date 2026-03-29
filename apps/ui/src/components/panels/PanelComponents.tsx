@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { IDockviewPanelProps, IDockviewPanelHeaderProps } from 'dockview';
 import { TbCode, TbEye, TbSparkles, TbTerminal2 } from 'react-icons/tb';
 import type { IconType } from 'react-icons';
@@ -14,7 +14,7 @@ import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { selectActiveTab } from '../../stores/workspaceSelectors';
 import { isExportValidationError } from '../../services/exportErrors';
 import { RenderService } from '../../services/renderService';
-import { getPlatform } from '../../platform';
+import { eventBus, getPlatform } from '../../platform';
 import { notifyError } from '../../utils/notifications';
 import { useAnalytics } from '../../analytics/runtime';
 
@@ -128,6 +128,15 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
   const analytics = useAnalytics();
   const [isDownloadingStl, setIsDownloadingStl] = useState(false);
   const [isDownloadingSvg, setIsDownloadingSvg] = useState(false);
+  const [restoreVersion, setRestoreVersion] = useState(0);
+
+  useEffect(() => {
+    // Restoring a checkpoint can remove previously rendered controls. Force a
+    // remount so the customizer rebuilds against the restored source of truth.
+    return eventBus.on('history:restore', () => {
+      setRestoreVersion((version) => version + 1);
+    });
+  }, []);
 
   const handleDownloadStl = useCallback(async () => {
     if (isDownloadingStl) return;
@@ -181,6 +190,7 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
     <PanelErrorBoundary panelId="customizer" panelName="Customizer">
       <div className="h-full" style={{ backgroundColor: 'var(--bg-secondary)' }}>
         <CustomizerPanel
+          key={`${activeTab?.id ?? 'customizer'}:${restoreVersion}`}
           code={source}
           baselineCode={activeTab?.customizerBaseContent ?? source}
           onChange={updateSource}
