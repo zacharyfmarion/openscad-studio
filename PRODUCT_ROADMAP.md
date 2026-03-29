@@ -4,7 +4,9 @@
 >
 > OpenSCAD is the engine, not the product. The product is: you describe what you want, it makes it, you print it.
 
-**Current version**: v0.7.1 | **Last updated**: 2026-03-06
+**Current version**: v0.13.1 | **Last updated**: 2026-03-29
+
+This roadmap mixes shipped milestones with future planning. Older sections may describe the implementation assumptions that existed when they were written rather than the current client-side `openscad-wasm` architecture.
 
 ---
 
@@ -18,16 +20,19 @@
 
 ---
 
-## What We Have (v0.7.1)
+## What We Have (v0.13.1)
 
 | Area                                                                                  | Status |
 | ------------------------------------------------------------------------------------- | ------ |
-| Monaco editor with OpenSCAD syntax, 22+ themes, vim mode, tree-sitter formatting      | ✅     |
-| Live 3D preview (Three.js mesh viewer, orbit controls, wireframe/solid)               | ✅     |
+| Monaco editor with OpenSCAD syntax, 22 themes, vim mode, tree-sitter formatting       | ✅     |
+| Live 3D preview (Three.js mesh viewer, orbit controls, wireframe/solid/section tools) | ✅     |
 | 2D SVG mode for laser cutting / engraving                                             | ✅     |
 | AI copilot (Claude + GPT, streaming, tool-calling, diff-based editing, auto-rollback) | ✅     |
 | AI can see the 3D preview (screenshot tool returns base64 PNG to vision models)       | ✅     |
 | Customizer panel (tree-sitter parsed parameters → sliders, dropdowns, vectors)        | ✅     |
+| Share links with remixable web entry and thumbnail support                            | ✅     |
+| Product analytics controls and privacy-scrubbed Sentry monitoring                     | ✅     |
+| 2D/3D measurement tools and 3D section plane controls                                 | ✅     |
 | Export (STL, OBJ, AMF, 3MF, PNG, SVG, DXF)                                            | ✅     |
 | Web app via openscad-wasm (zero install, Cloudflare Pages)                            | ✅     |
 | Desktop app (macOS, Homebrew)                                                         | ✅     |
@@ -139,7 +144,7 @@ For shared designs and landing pages, the customizer should be primary — not t
 
 ### 3.1 Windows Support
 
-- [ ] Test OpenSCAD detection on Windows (`where openscad`, common install paths)
+- [ ] Test desktop filesystem, library path, and export workflows on Windows
 - [ ] Fix path handling (backslashes, drive letters)
 - [ ] Verify keyboard shortcuts (Ctrl vs ⌘)
 - [ ] MSI installer via Tauri bundler
@@ -148,7 +153,7 @@ For shared designs and landing pages, the customizer should be primary — not t
 
 ### 3.2 Linux Support
 
-- [ ] Test OpenSCAD detection on Linux (`which openscad`, package manager paths)
+- [ ] Test desktop filesystem, library path, and export workflows on Linux
 - [ ] AppImage build
 - [ ] .deb package for Ubuntu/Debian
 - [ ] Test on Ubuntu 22.04 and Fedora 39+

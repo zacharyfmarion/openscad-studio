@@ -1,6 +1,6 @@
 # Pre-Release Checklist for OpenSCAD Studio
 
-This checklist covers everything needed before open sourcing the project.
+This checklist captures the initial open-source launch work. It is primarily historical context now, not the source of truth for the current app architecture or release workflow. For current behavior, use `README.md`, `DEVELOPMENT.md`, `AGENTS.md`, and `CLAUDE.md`.
 
 ## ✅ Completed
 
@@ -25,8 +25,8 @@ This checklist covers everything needed before open sourcing the project.
 
 - [x] All React components use modern patterns (hooks, functional components)
 - [x] Rust code follows rustfmt conventions
-- [x] No obvious security issues (API keys stored securely per platform)
-- [x] Platform bridge abstracts API key storage (encrypted store on desktop, localStorage on web)
+- [x] No obvious secret leakage issues in the checked-in source
+- [x] Platform bridge abstracts app behavior while API keys remain client-side per current architecture
 - [x] Git history is clean (no sensitive data in commits)
 
 ## ⚠️ Recommended Before Release
@@ -42,7 +42,7 @@ This checklist covers everything needed before open sourcing the project.
   - [x] `.env` and `.env.local` ignored
   - [ ] Check no `.env` files in git history
 - [x] **API key storage**: Verified on both platforms
-  - [x] macOS desktop (Tauri encrypted store)
+  - [x] macOS desktop (Tauri webview localStorage, obfuscated)
   - [x] Web (localStorage with security warning)
 
 ### GitHub Repository Setup
@@ -78,7 +78,7 @@ This checklist covers everything needed before open sourcing the project.
 - [x] Manual smoke test checklist (macOS):
   - [x] App launches successfully
   - [x] Monaco editor works (syntax highlighting, editing)
-  - [x] OpenSCAD auto-detection works
+  - [x] Local rendering works through openscad-wasm
   - [x] Live preview renders (PNG mode)
   - [x] 3D mesh viewer loads STL files
   - [x] 2D SVG mode works
@@ -102,7 +102,7 @@ This checklist covers everything needed before open sourcing the project.
 - [ ] Test on macOS (Intel) - needs verification
 - [ ] Test on Windows 10/11 - not yet tested
 - [ ] Test on Linux (Ubuntu/Fedora) - not yet tested
-- [ ] Verify OpenSCAD detection on all platforms
+- [ ] Verify desktop-specific filesystem and library workflows on each supported platform
 
 ### Known Issues Documentation
 
@@ -236,7 +236,7 @@ git log --all --full-history -- "**/.env.local"
 
 ### API Key Handling
 
-- [x] API keys stored in Tauri encrypted store (desktop) or localStorage (web)
+- [x] API keys stored client-side in localStorage-backed state on both web and desktop
 - [x] Web version shows security warning about localStorage storage
 - [x] Example .env.example file exists (no real keys)
 

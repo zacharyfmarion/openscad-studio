@@ -194,7 +194,8 @@ When reporting bugs, please include:
 4. **Actual behavior**: What actually happened
 5. **Environment**:
    - OS: (macOS 14.0, Windows 11, Ubuntu 22.04, etc.)
-   - OpenSCAD version: (run `openscad --version`)
+   - App surface: web app or desktop app
+   - Browser (for web) or desktop app version (from About dialog)
    - App version: (from About dialog)
 6. **Screenshots/logs**: If applicable
 

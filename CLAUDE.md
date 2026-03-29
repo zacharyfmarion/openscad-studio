@@ -267,7 +267,7 @@ pnpm format             # Format all code
 ✅ Multi-turn AI chat with draft and attachment state
 ✅ Customizer panel with interactive parameter controls
 ✅ Tree-sitter based parameter parsing
-✅ 27 editor themes with categorized dropdown
+✅ 22 editor themes with categorized dropdown
 ✅ Vim mode with configurable keybindings
 ✅ Web version (openscad-studio.pages.dev)
 ✅ Platform abstraction (PlatformBridge interface)
