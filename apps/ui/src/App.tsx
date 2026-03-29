@@ -62,6 +62,7 @@ import { useWorkspaceStore, getWorkspaceState } from './stores/workspaceStore';
 import { formatOpenScadCode } from './utils/formatter';
 import { addRecentFile, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview } from './utils/capturePreview';
+import { getAiErrorHandling } from './utils/aiErrors';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { useShareEntry } from './hooks/useShareEntry';
 import { TbBrandGithub, TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
@@ -1286,10 +1287,13 @@ function App() {
 
   useEffect(() => {
     if (aiError) {
+      const handling = getAiErrorHandling(aiErrorObject ?? aiError, 'AI request failed');
+
       notifyError({
         operation: 'ai-stream',
         error: aiErrorObject ?? aiError,
-        displayMessage: aiError,
+        capture: handling.capture,
+        displayMessage: handling.displayMessage,
         fallbackMessage: 'AI request failed',
         toastId: 'ai-stream-error',
       });

@@ -46,6 +46,51 @@ describe('notifications', () => {
     });
   });
 
+  it('extracts nested provider error messages instead of falling back', () => {
+    expect(
+      normalizeAppError(
+        {
+          error: {
+            message:
+              'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.',
+          },
+        },
+        'Fallback error'
+      )
+    ).toEqual({
+      message:
+        'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.',
+      detail: JSON.stringify({
+        error: {
+          message:
+            'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.',
+        },
+      }),
+    });
+  });
+
+  it('keeps structured error details readable instead of coercing them to [object Object]', () => {
+    expect(
+      normalizeAppError(
+        {
+          reason: {
+            code: 'model_not_found',
+            message: 'model: claude-opus-4',
+          },
+        },
+        'Fallback error'
+      )
+    ).toEqual({
+      message: 'model: claude-opus-4',
+      detail: JSON.stringify({
+        reason: {
+          code: 'model_not_found',
+          message: 'model: claude-opus-4',
+        },
+      }),
+    });
+  });
+
   it('passes the toast id through for deduped error notifications', () => {
     notifyError({
       operation: 'open-file',

@@ -1,13 +1,16 @@
 import * as Sentry from '@sentry/react';
 import { APP_VERSION } from './constants/appInfo';
+import { shouldDropSentryEvent } from './utils/sentryNoise';
 
 const REDACTED = '[REDACTED]';
 
 const SENSITIVE_KEY_PATTERN =
   /(api[_-]?key|token|secret|password|authorization|cookie|set-cookie|prompt|code|content|attachment|diagnostic|transcript|conversation|file(_name|_path)?|path|html|image|preview|dsn)/i;
 
-const PATH_VALUE_PATTERN =
-  /(^\/)|(^[A-Za-z]:\\)|([/\\][^/\\]+\.[a-z0-9]{1,8}$)|([/\\](users|home|documents|desktop|downloads|library|appdata)([/\\]|$))/i;
+const PURE_PATH_VALUE_PATTERN =
+  /^(https?:\/\/\S+|tauri:\/\/\S+|asset:\/\/\S+|\/\S+|[A-Za-z]:\\\S+)$/i;
+const URL_VALUE_PATTERN = /\b(?:https?|tauri|asset):\/\/[^\s)]+/gi;
+const PATH_FRAGMENT_PATTERN = /(^|[\s(:])((?:\/[^)\s]+)+|(?:[A-Za-z]:\\[^\s)]+))/g;
 
 const TOKEN_VALUE_PATTERNS = [
   /\bsk-(proj-)?[A-Za-z0-9_-]+\b/g,
@@ -25,11 +28,13 @@ function redactString(value: string): string {
     return value;
   }
 
-  if (PATH_VALUE_PATTERN.test(trimmed)) {
+  if (PURE_PATH_VALUE_PATTERN.test(trimmed)) {
     return REDACTED;
   }
 
-  let sanitized = value;
+  let sanitized = value
+    .replace(URL_VALUE_PATTERN, REDACTED)
+    .replace(PATH_FRAGMENT_PATTERN, (_, prefix: string) => `${prefix}${REDACTED}`);
   for (const pattern of TOKEN_VALUE_PATTERNS) {
     sanitized = sanitized.replace(pattern, REDACTED);
   }
@@ -110,7 +115,8 @@ if (sentryEnabled) {
     maxBreadcrumbs: 0,
     normalizeDepth: 4,
     beforeSend(event) {
-      return sanitizeEvent(event) as typeof event;
+      const sanitized = sanitizeEvent(event) as typeof event;
+      return shouldDropSentryEvent(sanitized) ? null : sanitized;
     },
     beforeBreadcrumb(breadcrumb) {
       return sanitizeEvent(breadcrumb) as typeof breadcrumb;

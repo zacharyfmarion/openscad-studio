@@ -44,6 +44,7 @@ import {
   reduceActiveTurnChunk,
   type ActiveTurnState,
 } from '../utils/aiTurnState';
+import { getAiErrorHandling } from '../utils/aiErrors';
 import { startAiStream } from '../services/aiStream';
 import {
   FALLBACK_PREVIEW_SCENE_STYLE,
@@ -62,10 +63,7 @@ function extractErrorText(error: unknown): string {
 }
 
 function humanizeStreamError(errorText: string): string {
-  if (/failed to fetch/i.test(errorText)) {
-    return 'Could not reach the AI service — check your internet connection.';
-  }
-  return `Failed: ${errorText}`;
+  return getAiErrorHandling(errorText, 'AI request failed').displayMessage;
 }
 
 function extractApplyEditCheckpointId(output: unknown): string | null {
