@@ -8,7 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "share:build": "VITE_ENABLE_PROD_SHARE_DEV=true VITE_SHARE_API_URL=http://localhost:8788 pnpm build",
     "share:dev": "pnpm share:build && npx -y wrangler@3 pages dev dist --port 8788 --kv SHARE_KV --r2 SHARE_R2 --persist-to .wrangler/state/share-dev",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --experimental-vm-modules --no-warnings ../ui/node_modules/jest/bin/jest.js --config jest.config.cjs",
+    "test:coverage": "node --experimental-vm-modules --no-warnings ../ui/node_modules/jest/bin/jest.js --config jest.config.cjs --coverage --runInBand"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.45",
@@ -49,13 +51,17 @@
   "devDependencies": {
     "@sentry/vite-plugin": "^5.1.1",
     "@types/diff": "^6.0.0",
+    "@types/jest": "^29.5.14",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/three": "^0.171.0",
     "@vitejs/plugin-react": "^4.6.0",
     "autoprefixer": "^10.4.21",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8.4.49",
+    "ts-jest": "^29.3.4",
     "typescript": "~5.8.3",
     "vite": "^7.0.4"
   }

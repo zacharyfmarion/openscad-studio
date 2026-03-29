@@ -2,28 +2,43 @@
 
 import { act, screen } from '@testing-library/react';
 import { jest } from '@jest/globals';
-import { ExportDialog } from '../ExportDialog';
 import { renderWithProviders } from './test-utils';
 
-jest.mock('../../analytics/runtime', () => ({
+jest.unstable_mockModule('@/analytics/runtime', () => ({
+  bucketCount: (value: number) => String(value),
+  createAnalyticsApi: () => ({
+    track: jest.fn(),
+    trackError: jest.fn(),
+    setAnalyticsEnabled: jest.fn(),
+  }),
   useAnalytics: () => ({ track: jest.fn() }),
+  inferErrorDomain: () => 'ui',
+  setAnalyticsEnabled: jest.fn(),
+  trackAnalyticsError: jest.fn(),
+  trackAnalyticsEvent: jest.fn(),
 }));
 
-jest.mock('../../platform', () => ({
+jest.unstable_mockModule('@/platform', () => ({
   getPlatform: () => ({ fileExport: jest.fn() }),
 }));
 
-jest.mock('../../services/renderService', () => ({
+jest.unstable_mockModule('@/services/renderService', () => ({
   RenderService: { getInstance: () => ({ exportModel: jest.fn() }) },
 }));
 
-jest.mock('../../utils/notifications', () => ({
+jest.unstable_mockModule('@/utils/notifications', () => ({
   notifyError: jest.fn(),
   notifySuccess: jest.fn(),
   normalizeAppError: (_err: unknown, fallback: string) => ({ message: fallback }),
 }));
 
+let ExportDialog: typeof import('../ExportDialog').ExportDialog;
+
 describe('ExportDialog default format', () => {
+  beforeAll(async () => {
+    ({ ExportDialog } = await import('../ExportDialog'));
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });

@@ -2,15 +2,16 @@
 
 import { screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
-import { WelcomeScreen } from '../WelcomeScreen';
 import { clearApiKey, storeApiKey } from '../../stores/apiKeyStore';
 import { renderWithProviders } from './test-utils';
 
 const mockGetPlatform = jest.fn();
 
-jest.mock('../../platform', () => ({
+jest.unstable_mockModule('@/platform', () => ({
   getPlatform: () => mockGetPlatform(),
 }));
+
+let WelcomeScreen: typeof import('../WelcomeScreen').WelcomeScreen;
 
 function createJsonResponse(body: unknown) {
   return {
@@ -22,6 +23,10 @@ function createJsonResponse(body: unknown) {
 }
 
 describe('WelcomeScreen', () => {
+  beforeAll(async () => {
+    ({ WelcomeScreen } = await import('../WelcomeScreen'));
+  });
+
   beforeEach(() => {
     localStorage.clear();
     clearApiKey('anthropic');

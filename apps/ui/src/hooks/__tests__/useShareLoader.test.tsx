@@ -2,13 +2,14 @@
 
 import { render, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
-import { useShareLoader } from '../useShareLoader';
 
 const mockGetShare = jest.fn();
 
-jest.mock('../../services/shareService', () => ({
+jest.unstable_mockModule('@/services/shareService', () => ({
   getShare: (...args: unknown[]) => mockGetShare(...args),
 }));
+
+let useShareLoader: typeof import('../useShareLoader').useShareLoader;
 
 function TestComponent({ enabled = true }: { enabled?: boolean }) {
   const state = useShareLoader(enabled);
@@ -24,6 +25,10 @@ function TestComponent({ enabled = true }: { enabled?: boolean }) {
 }
 
 describe('useShareLoader', () => {
+  beforeAll(async () => {
+    ({ useShareLoader } = await import('../useShareLoader'));
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     window.history.replaceState({}, '', '/');

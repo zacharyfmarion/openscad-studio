@@ -221,6 +221,10 @@ export class RenderService {
    * Call this early (e.g., on app startup) to warm up the instance.
    */
   async init(): Promise<void> {
+    if (this.disposed) {
+      throw new Error('RenderService has been disposed');
+    }
+
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = new Promise<void>((resolve, reject) => {
@@ -258,6 +262,10 @@ export class RenderService {
     args: string[],
     auxiliaryFiles?: Record<string, string>
   ): Promise<WorkerRenderResult> {
+    if (this.disposed) {
+      throw new Error('RenderService has been disposed');
+    }
+
     await this.init();
 
     if (!this.worker || this.disposed) {

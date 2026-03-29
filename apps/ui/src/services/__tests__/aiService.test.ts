@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 
-jest.mock('../renderService', () => ({
+jest.unstable_mockModule('@/services/renderService', () => ({
   RenderService: {
     getInstance: () => ({
       checkSyntax: async () => ({ diagnostics: [] }),
@@ -8,8 +8,10 @@ jest.mock('../renderService', () => ({
   },
 }));
 
-import { buildTools, type AiToolCallbacks } from '../aiService';
 import { FALLBACK_PREVIEW_SCENE_STYLE } from '../previewSceneConfig';
+import type { AiToolCallbacks } from '../aiService';
+
+let buildTools: typeof import('../aiService').buildTools;
 
 type ExecutableTool = {
   execute: (input: unknown) => Promise<unknown>;
@@ -31,6 +33,10 @@ function createCallbacks(overrides: Partial<AiToolCallbacks> = {}): AiToolCallba
 }
 
 describe('buildTools project file tools', () => {
+  beforeAll(async () => {
+    ({ buildTools } = await import('../aiService'));
+  });
+
   it('lists project files from the desktop project tree', async () => {
     const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
 
