@@ -40,7 +40,7 @@ As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precis
 - 🔍 **Real-time diagnostics** - Inline error markers with line/column precision
 - ⚙️ **Customizer panel** - Interactive controls for OpenSCAD parameters with auto-rendering
 - 🔗 **Share links** - Publish browser-based share links with thumbnail support for remixable examples
-- 🌈 **Theme library** - 27 built-in themes including Solarized, Dracula, GitHub, Nord, Tokyo Night, Catppuccin, and more
+- 🌈 **Theme library** - 22 built-in themes including Solarized, Dracula, GitHub, Nord, Tokyo Night, Catppuccin, and more
 
 **Limitations:** Special operators (!, #, %, \*) preview not yet implemented
 
@@ -48,7 +48,7 @@ As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precis
 
 ### Web (No Install)
 
-Visit **[openscad-studio.pages.dev](https://openscad-studio.pages.dev)**. Works in Chrome and Edge (requires SharedArrayBuffer support). No OpenSCAD installation needed — rendering is done via WebAssembly in your browser.
+Visit **[openscad-studio.pages.dev](https://openscad-studio.pages.dev)**. Works in recent Chrome, Edge, and Firefox builds with SharedArrayBuffer support. No OpenSCAD installation needed — rendering is done via WebAssembly in your browser.
 
 ### Desktop (macOS)
 
