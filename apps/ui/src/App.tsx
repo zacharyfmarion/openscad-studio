@@ -13,9 +13,8 @@ import {
   HeaderWorkspaceControls,
   type HeaderLayoutPreset,
 } from './components/HeaderWorkspaceControls';
-import { TabBar } from './components/TabBar';
 import { WebMenuBar } from './components/WebMenuBar';
-import { EditableFileName } from './components/EditableFileName';
+import { FileTreePanel } from './components/FileTree';
 import {
   Button,
   IconButton,
@@ -59,7 +58,7 @@ import {
   selectWorkingDirectory,
 } from './stores/workspaceSelectors';
 import { useWorkspaceStore, getWorkspaceState } from './stores/workspaceStore';
-import { getProjectStore } from './stores/projectStore';
+import { getProjectStore, useProjectStore } from './stores/projectStore';
 import { formatOpenScadCode } from './utils/formatter';
 import { addRecentFile, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview } from './utils/capturePreview';
@@ -198,12 +197,16 @@ function App() {
   const showWelcome = useWorkspaceStore(selectShowWelcome);
   const activeTab = useWorkspaceStore(selectActiveTab) ?? tabs[0];
   const activeRender = useWorkspaceStore(selectActiveRender) ?? activeTab?.render;
+  // The render target tab holds the preview — use its render state regardless of
+  // which tab is currently active in the editor.
+  const renderTargetPath = useProjectStore((s) => s.renderTargetPath);
+  const renderTargetTab = tabs.find((t) => t.name === renderTargetPath);
+  const renderTargetRender = renderTargetTab?.render ?? activeRender;
   const workingDir = useWorkspaceStore(selectWorkingDirectory);
   const createTab = useWorkspaceStore((state) => state.createTab);
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
   const updateWorkspaceTabContent = useWorkspaceStore((state) => state.updateTabContent);
   const setTabCustomizerBase = useWorkspaceStore((state) => state.setTabCustomizerBase);
-  const renameTab = useWorkspaceStore((state) => state.renameTab);
   const markTabSaved = useWorkspaceStore((state) => state.markTabSaved);
   const closeTabLocal = useWorkspaceStore((state) => state.closeTabLocal);
   const replaceWelcomeTab = useWorkspaceStore((state) => state.replaceWelcomeTab);
@@ -270,15 +273,21 @@ function App() {
     autoRenderDelayMs: settings.editor.autoRenderDelayMs,
     library: settings.library,
     createRenderOwner: () => {
-      const tabId = activeTabRef.current?.id;
+      // Always render into the render target tab, not the active editor tab
+      const rtPath = getProjectStore().getState().renderTargetPath;
+      const rtTab = rtPath
+        ? getWorkspaceState().tabs.find((t) => t.name === rtPath)
+        : null;
+      const tabId = rtTab?.id ?? activeTabRef.current?.id;
       if (!tabId) {
         return null;
       }
 
+      const tab = rtTab ?? activeTabRef.current;
       return {
         tabId,
         requestId: beginTabRender(tabId, {
-          preferredDimension: activeTabRef.current.render.dimensionMode,
+          preferredDimension: tab?.render.dimensionMode,
         }),
       };
     },
@@ -314,20 +323,20 @@ function App() {
       });
     },
   });
-  const activePreviewSrc = activeRender?.previewSrc ?? '';
-  const activePreviewKind = activeRender?.previewKind ?? previewKind;
-  const activeDiagnostics = activeRender?.diagnostics ?? diagnostics;
-  const activeError = activeRender?.error ?? error;
+  const activePreviewSrc = renderTargetRender?.previewSrc ?? '';
+  const activePreviewKind = renderTargetRender?.previewKind ?? previewKind;
+  const activeDiagnostics = renderTargetRender?.diagnostics ?? diagnostics;
+  const activeError = renderTargetRender?.error ?? error;
 
   const handleOpenFallbackEditor = useCallback(() => {
     setShowNux(false);
     hideWelcomeScreen();
     window.history.replaceState({}, document.title, '/');
 
-    if (!activeRender?.lastRenderedContent && ready) {
+    if (!renderTargetRender?.lastRenderedContent && ready) {
       void renderWithTrigger('initial');
     }
-  }, [activeRender?.lastRenderedContent, hideWelcomeScreen, ready, renderWithTrigger]);
+  }, [renderTargetRender?.lastRenderedContent, hideWelcomeScreen, ready, renderWithTrigger]);
 
   // Project initialization helper
   // Populates the projectStore when a file is opened on either platform.
@@ -483,7 +492,12 @@ function App() {
         content: tabContent,
       });
 
-      updateSource(tabContent);
+      // Editor handles content display via multi-model.
+      // Only update source (render pipeline) if this is the render target.
+      const projectState = getProjectStore().getState();
+      if (name && name === projectState.renderTargetPath) {
+        updateSource(tabContent);
+      }
 
       return newId;
     },
@@ -498,14 +512,12 @@ function App() {
       switchingRef.current = true;
 
       setActiveTab(id);
-      const newTab = tabs.find((t) => t.id === id);
-      if (newTab) {
-        updateSource(newTab.content);
-      }
+      // Editor handles model switching via multi-model; no need to updateSource.
+      // source only tracks the render target content for the render pipeline.
 
       switchingRef.current = false;
     },
-    [activeTabId, setActiveTab, tabs, updateSource]
+    [activeTabId, setActiveTab]
   );
 
   const closeTab = useCallback(
@@ -543,15 +555,11 @@ function App() {
       closeTabLocal(id);
 
       if (wasActiveTab) {
-        const nextActiveTab = getWorkspaceState().tabs.find(
-          (workspaceTab) => workspaceTab.id === getWorkspaceState().activeTabId
-        );
-        if (nextActiveTab) {
-          updateSource(nextActiveTab.content);
-        }
+        // Editor handles model switching; no updateSource needed for display.
+        // If we closed the render target tab, we'd need to handle that in Stage 3.
       }
     },
-    [activeTabId, closeTabLocal, tabs, updateSource]
+    [activeTabId, closeTabLocal, tabs]
   );
 
   const updateTabContent = useCallback(
@@ -575,6 +583,64 @@ function App() {
     },
     [reorderWorkspaceTabs]
   );
+
+  // File tree handlers
+  const handleFileTreeClick = useCallback(
+    (filePath: string) => {
+      // Find existing tab for this file
+      const existingTab = tabs.find((t) => t.name === filePath);
+      if (existingTab) {
+        switchTab(existingTab.id);
+        return;
+      }
+
+      // Open the file in a new tab from the project store
+      const projectStore = getProjectStore();
+      const projectFile = projectStore.getState().files[filePath];
+      if (projectFile) {
+        createNewTab(null, projectFile.content, filePath);
+      }
+    },
+    [tabs, switchTab, createNewTab]
+  );
+
+  // Editor onChange: update workspace tab + project store, and trigger render
+  // only when the edited file is the render target (or an included dep).
+  const handleEditorChange = useCallback(
+    (content: string) => {
+      // Update workspace tab content
+      updateTabContent(activeTabId, content);
+
+      // Update project store
+      const projectStore = getProjectStore();
+      const projectState = projectStore.getState();
+      const relativePath = activeTab.filePath
+        ? activeTab.filePath.substring(activeTab.filePath.lastIndexOf('/') + 1)
+        : activeTab.name;
+
+      if (projectState.files[relativePath]) {
+        projectState.updateFileContent(relativePath, content);
+      }
+
+      // If this is the render target, update source to trigger re-render
+      if (relativePath === projectState.renderTargetPath) {
+        updateSource(content);
+      } else if (projectState.renderTargetPath) {
+        // Editing a non-render-target file that might be included by the target.
+        // Re-render the render target with its current content so it picks up
+        // the updated dependency via the project store.
+        const targetContent = projectState.files[projectState.renderTargetPath]?.content;
+        if (targetContent !== undefined) {
+          updateSource(targetContent);
+        }
+      }
+    },
+    [activeTabId, activeTab, updateTabContent, updateSource]
+  );
+
+  const handleToggleFileTree = useCallback(() => {
+    updateSetting('ui', { fileTreeVisible: !settings.ui.fileTreeVisible });
+  }, [settings.ui.fileTreeVisible]);
 
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
 
@@ -664,74 +730,12 @@ function App() {
     }
   }, [isShareEntry]);
 
-  // Centralized render-on-tab-change effect
-  // This ensures ANY tab switch triggers a render, regardless of how it happened
-  const prevActiveTabIdRef = useRef<string | null>(null);
-  const tabSwitchRenderTimerRef = useRef<number | null>(null);
+  // Tab switches no longer trigger renders — the render pipeline only renders
+  // the pinned render target. Editing any file that the render target includes
+  // will trigger a re-render via the project store dependency chain.
 
-  useEffect(() => {
-    // Skip initial mount - only render on actual tab changes
-    if (prevActiveTabIdRef.current === null) {
-      prevActiveTabIdRef.current = activeTabId;
-      return;
-    }
-
-    // Skip if switching to welcome screen
-    if (showWelcome) {
-      prevActiveTabIdRef.current = activeTabId;
-      return;
-    }
-
-    // Only render if tab actually changed
-    if (prevActiveTabIdRef.current !== activeTabId) {
-      // Clear any pending render
-      if (tabSwitchRenderTimerRef.current) {
-        clearTimeout(tabSwitchRenderTimerRef.current);
-      }
-
-      // Debounced render - handles rapid tab switching gracefully
-      tabSwitchRenderTimerRef.current = window.setTimeout(() => {
-        if (renderWithTriggerRef.current) {
-          const currentTab = tabs.find((t) => t.id === activeTabId);
-          if (import.meta.env.DEV)
-            console.log('[App] Auto-rendering after tab change to:', currentTab?.name);
-          renderWithTriggerRef.current('tab_switch');
-        }
-        tabSwitchRenderTimerRef.current = null;
-      }, 150);
-
-      prevActiveTabIdRef.current = activeTabId;
-    }
-
-    // Cleanup timer on unmount or tab change
-    return () => {
-      if (tabSwitchRenderTimerRef.current) {
-        clearTimeout(tabSwitchRenderTimerRef.current);
-      }
-    };
-  }, [activeTabId, showWelcome, tabs]);
-
-  // Sync active tab content with editor source
-  useEffect(() => {
-    if (activeTab && source !== activeTab.content) {
-      updateTabContent(activeTabId, source);
-    }
-  }, [source, activeTab, activeTabId, updateTabContent]);
-
-  // Sync project store when active file content changes
-  useEffect(() => {
-    const projectState = getProjectStore().getState();
-    if (!projectState.renderTargetPath) return;
-
-    // Derive the relative path for the active tab
-    const relativePath = activeTab.filePath
-      ? activeTab.filePath.substring(activeTab.filePath.lastIndexOf('/') + 1)
-      : activeTab.name;
-
-    if (projectState.files[relativePath] && projectState.files[relativePath].content !== source) {
-      projectState.updateFileContent(relativePath, source);
-    }
-  }, [source, activeTab]);
+  // Source-to-tab and project store sync is handled by handleEditorChange.
+  // No separate sync effects needed.
 
   // Helper function to save file to current path or prompt for new path
   const saveFile = useCallback(
@@ -1440,7 +1444,7 @@ function App() {
   const workspaceState: WorkspaceState = useMemo(
     () => ({
       source,
-      updateSource,
+      updateSource: handleEditorChange,
       diagnostics: activeDiagnostics,
       onManualRender: manualRender,
       settings,
@@ -1500,7 +1504,7 @@ function App() {
     }),
     [
       source,
-      updateSource,
+      handleEditorChange,
       activeDiagnostics,
       manualRender,
       settings,
@@ -1672,7 +1676,7 @@ function App() {
       style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
     >
       <header
-        className={`relative flex items-center gap-1.5 shrink-0 ${capabilities.hasFileSystem ? '' : 'py-1'}`}
+        className="relative flex items-center gap-1.5 shrink-0 py-1"
         style={{
           backgroundColor: 'var(--bg-secondary)',
           borderBottom: '1px solid var(--border-subtle)',
@@ -1688,32 +1692,9 @@ function App() {
           />
         )}
 
-        {isMobile && <div className="flex-1" />}
+        <div className="flex-1" />
 
-        {!isMobile && (
-          <div className="flex-1 min-w-0 overflow-hidden">
-            {capabilities.hasFileSystem ? (
-              <TabBar
-                tabs={tabs}
-                activeTabId={activeTabId}
-                onTabClick={switchTab}
-                onTabClose={closeTab}
-                onNewTab={() => createNewTab()}
-                onReorderTabs={reorderTabs}
-              />
-            ) : (
-              <EditableFileName
-                name={activeTab.name}
-                isDirty={activeTab.isDirty}
-                onRename={(newName) => {
-                  renameTab(activeTabId, newName);
-                }}
-              />
-            )}
-          </div>
-        )}
-
-        {!capabilities.hasNativeMenu && !isMobile && !isHeaderWorkspaceSwitcherHidden && (
+        {!isMobile && !isHeaderWorkspaceSwitcherHidden && (
           <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
             <HeaderWorkspaceControls
               layoutPreset={settings.ui.defaultLayoutPreset}
@@ -1828,17 +1809,28 @@ function App() {
         />
       )}
 
-      <div className="flex-1 overflow-hidden">
-        <WorkspaceProvider value={workspaceState}>
-          <DockviewReact
-            components={panelComponents}
-            tabComponents={tabComponents}
-            defaultTabComponent={WorkspaceTab}
-            onReady={onDockviewReady}
-            className="dockview-theme-openscad"
-            disableFloatingGroups={true}
+      <div className="flex-1 overflow-hidden flex">
+        {!isMobile && (
+          <FileTreePanel
+            activeFilePath={activeTab.name}
+            onFileClick={handleFileTreeClick}
+            collapsed={!settings.ui.fileTreeVisible}
+            onToggleCollapse={handleToggleFileTree}
+            width={settings.ui.fileTreeWidth}
           />
-        </WorkspaceProvider>
+        )}
+        <div className="flex-1 overflow-hidden">
+          <WorkspaceProvider value={workspaceState}>
+            <DockviewReact
+              components={panelComponents}
+              tabComponents={tabComponents}
+              defaultTabComponent={WorkspaceTab}
+              onReady={onDockviewReady}
+              className="dockview-theme-openscad"
+              disableFloatingGroups={true}
+            />
+          </WorkspaceProvider>
+        </div>
       </div>
 
       <ExportDialog

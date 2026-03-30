@@ -1,6 +1,6 @@
 import { Editor as MonacoEditor } from '@monaco-editor/react';
 import type { Diagnostic } from '../platform/historyService';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type * as Monaco from 'monaco-editor';
 import { eventBus } from '../platform';
 import { formatOpenScadCode } from '../utils/formatter';
@@ -9,18 +9,32 @@ import { getTheme } from '../themes';
 import { ensureOpenScadLanguage } from '../languages/openscadLanguage';
 import { initVimMode } from 'monaco-vim';
 import { applyVimConfig } from '../utils/vimConfig';
+import { EditorTabs, type EditorTab } from './EditorTabs';
 
 interface EditorProps {
   value: string;
   onChange: (value: string) => void;
+  activeFileId: string;
+  openTabs: EditorTab[];
+  onTabClick: (id: string) => void;
+  onTabClose: (id: string) => void;
   diagnostics: Diagnostic[];
   onManualRender?: () => void;
   settings?: Settings;
 }
 
+interface ModelEntry {
+  model: Monaco.editor.ITextModel;
+  viewState: Monaco.editor.ICodeEditorViewState | null;
+}
+
 export function Editor({
   value,
   onChange,
+  activeFileId,
+  openTabs,
+  onTabClick,
+  onTabClose,
   diagnostics,
   onManualRender,
   settings: propSettings,
@@ -33,6 +47,17 @@ export function Editor({
   const [editorMounted, setEditorMounted] = useState(false);
   const vimModeRef = useRef<{ dispose: () => void } | null>(null);
   const statusBarRef = useRef<HTMLDivElement | null>(null);
+
+  // Multi-model state
+  const modelsRef = useRef<Map<string, ModelEntry>>(new Map());
+  const activeFileIdRef = useRef(activeFileId);
+  const onChangeRef = useRef(onChange);
+  const suppressOnChangeRef = useRef(false);
+  const contentListenerRef = useRef<Monaco.IDisposable | null>(null);
+
+  // Keep refs in sync
+  onChangeRef.current = onChange;
+  activeFileIdRef.current = activeFileId;
 
   // Update settings when props change
   useEffect(() => {
@@ -63,27 +88,21 @@ export function Editor({
 
   // Initialize or dispose vim mode when settings change
   useEffect(() => {
-    // Wait for editor to be mounted
     if (!editorMounted || !editorRef.current) return;
 
     if (settings.editor.vimMode) {
-      // Wait for status bar to be mounted
       if (!statusBarMounted || !statusBarRef.current) return;
 
-      // Initialize vim mode
       if (!vimModeRef.current) {
         if (import.meta.env.DEV) console.log('[Editor] Initializing vim mode');
         vimModeRef.current = initVimMode(editorRef.current, statusBarRef.current);
       }
 
-      // Apply user's vim configuration
       const errors = applyVimConfig(settings.editor.vimConfig);
       if (errors.length > 0) {
         console.warn('[Editor] Vim configuration errors:', errors);
-        // You could show these errors to the user via a toast notification
       }
     } else {
-      // Dispose vim mode if it exists
       if (vimModeRef.current) {
         if (import.meta.env.DEV) console.log('[Editor] Disposing vim mode');
         vimModeRef.current.dispose();
@@ -92,7 +111,6 @@ export function Editor({
     }
 
     return () => {
-      // Cleanup on unmount
       if (vimModeRef.current) {
         vimModeRef.current.dispose();
         vimModeRef.current = null;
@@ -100,25 +118,113 @@ export function Editor({
     };
   }, [settings.editor.vimMode, settings.editor.vimConfig, statusBarMounted, editorMounted]);
 
+  // Get or create a Monaco model for a given file ID
+  const getOrCreateModel = useCallback(
+    (fileId: string, content: string): Monaco.editor.ITextModel | null => {
+      const monaco = monacoRef.current;
+      if (!monaco) return null;
+
+      const existing = modelsRef.current.get(fileId);
+      if (existing && !existing.model.isDisposed()) {
+        return existing.model;
+      }
+
+      const uri = monaco.Uri.parse(`file:///${fileId}.scad`);
+      const model = monaco.editor.createModel(content, 'openscad', uri);
+      modelsRef.current.set(fileId, { model, viewState: null });
+      return model;
+    },
+    []
+  );
+
+  // Set up the content change listener for the current model
+  const setupContentListener = useCallback(() => {
+    // Dispose previous listener
+    contentListenerRef.current?.dispose();
+    contentListenerRef.current = null;
+
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    contentListenerRef.current = editor.onDidChangeModelContent(() => {
+      if (suppressOnChangeRef.current) return;
+      const content = editor.getModel()?.getValue() ?? '';
+      onChangeRef.current(content);
+    });
+  }, []);
+
+  // Handle tab switching — swap Monaco models, preserving view state
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || !monacoRef.current) return;
+
+    // Save view state of the current model (before switching)
+    const currentModel = editor.getModel();
+    if (currentModel) {
+      for (const [id, entry] of modelsRef.current.entries()) {
+        if (entry.model === currentModel) {
+          entry.viewState = editor.saveViewState();
+          modelsRef.current.set(id, entry);
+          break;
+        }
+      }
+    }
+
+    // Get or create model for the new active file
+    const model = getOrCreateModel(activeFileId, value);
+    if (!model) return;
+
+    // Switch to the new model
+    suppressOnChangeRef.current = true;
+    editor.setModel(model);
+    suppressOnChangeRef.current = false;
+
+    // Restore view state if available
+    const entry = modelsRef.current.get(activeFileId);
+    if (entry?.viewState) {
+      editor.restoreViewState(entry.viewState);
+    }
+
+    // Re-attach content listener to the new model
+    setupContentListener();
+
+    editor.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFileId, editorMounted]);
+
+  // Sync external value changes to the active model (e.g., AI updates)
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const model = editor.getModel();
+    if (!model) return;
+
+    if (model.getValue() !== value) {
+      suppressOnChangeRef.current = true;
+      model.setValue(value);
+      suppressOnChangeRef.current = false;
+    }
+  }, [value]);
+
   // Listen for code updates from AI agent
   useEffect(() => {
-    let unlisten: (() => void) | null = null;
-
-    if (import.meta.env.DEV) console.log('[Editor] Setting up code-updated listener');
-    unlisten = eventBus.on('code-updated', ({ code }) => {
+    const unlisten = eventBus.on('code-updated', ({ code }) => {
       if (import.meta.env.DEV)
         console.log('[Editor] Received code-updated event, payload length:', code.length);
-      onChange(code);
+      const model = editorRef.current?.getModel();
+      if (model) {
+        // Update model directly — onDidChangeModelContent fires and propagates via onChange
+        model.setValue(code);
+      } else {
+        // Fallback if no model
+        onChangeRef.current(code);
+      }
     });
-    if (import.meta.env.DEV) console.log('[Editor] code-updated listener setup complete');
 
     return () => {
-      if (unlisten) {
-        if (import.meta.env.DEV) console.log('[Editor] Cleaning up code-updated listener');
-        unlisten();
-      }
+      unlisten();
     };
-  }, [onChange]);
+  }, [editorMounted]);
 
   // Update markers when diagnostics change
   useEffect(() => {
@@ -128,7 +234,6 @@ export function Editor({
     const model = editorRef.current.getModel();
     if (!model) return;
 
-    // Convert diagnostics to Monaco markers
     const markers: Monaco.editor.IMarkerData[] = diagnostics.map((diag) => ({
       severity:
         diag.severity === 'error'
@@ -139,12 +244,38 @@ export function Editor({
       startLineNumber: diag.line ?? 1,
       startColumn: diag.col ?? 1,
       endLineNumber: diag.line ?? 1,
-      endColumn: (diag.col ?? 1) + 100, // rough approximation
+      endColumn: (diag.col ?? 1) + 100,
       message: diag.message,
     }));
 
     monaco.editor.setModelMarkers(model, 'openscad', markers);
   }, [diagnostics, editorMounted]);
+
+  // Clean up models for tabs that are no longer open
+  useEffect(() => {
+    const openIds = new Set(openTabs.map((t) => t.id));
+    for (const [id, entry] of modelsRef.current.entries()) {
+      if (!openIds.has(id)) {
+        entry.model.dispose();
+        modelsRef.current.delete(id);
+      }
+    }
+  }, [openTabs]);
+
+  // Clean up all models on unmount
+  useEffect(() => {
+    const models = modelsRef.current;
+    const listener = contentListenerRef;
+    return () => {
+      listener.current?.dispose();
+      for (const entry of models.values()) {
+        if (!entry.model.isDisposed()) {
+          entry.model.dispose();
+        }
+      }
+      models.clear();
+    };
+  }, []);
 
   const handleEditorDidMount = (
     editor: Monaco.editor.IStandaloneCodeEditor,
@@ -152,7 +283,6 @@ export function Editor({
   ) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
-    setEditorMounted(true);
 
     // Expose editor reference for E2E tests (dev mode only)
     if (import.meta.env.DEV || window.__PLAYWRIGHT__) {
@@ -195,7 +325,6 @@ export function Editor({
       });
       setThemesRegistered(true);
 
-      // Set initial theme
       const currentTheme = getTheme(settings.appearance.theme);
       monaco.editor.setTheme(currentTheme.monaco);
     }
@@ -215,14 +344,11 @@ export function Editor({
     // Add keyboard shortcut for save (Cmd+S / Ctrl+S)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       if (import.meta.env.DEV) console.log('[Editor] Save triggered via Cmd+S');
-      // Emit the save event so App.tsx can handle formatting and file save
       eventBus.emit('menu:file:save');
     });
 
     // Ensure full OpenSCAD language support (syntax, config, tokens)
     ensureOpenScadLanguage(monaco);
-
-    // Note: Tree-sitter formatter is initialized early in App.tsx for better performance
 
     // Register document formatting provider for OpenSCAD
     monaco.languages.registerDocumentFormattingEditProvider('openscad', {
@@ -244,7 +370,7 @@ export function Editor({
           ];
         } catch (error) {
           console.error('[Editor] Formatting error:', error);
-          return []; // Return empty array on error (no changes)
+          return [];
         }
       },
     });
@@ -252,7 +378,6 @@ export function Editor({
     // Register autocomplete provider for OpenSCAD
     monaco.languages.registerCompletionItemProvider('openscad', {
       provideCompletionItems: (model, position) => {
-        // Get the current word being typed
         const word = model.getWordUntilPosition(position);
         const range = {
           startLineNumber: position.lineNumber,
@@ -449,19 +574,43 @@ export function Editor({
         return { suggestions };
       },
     });
+
+    // Now take over model management: create the initial model
+    // Dispose the default model that @monaco-editor/react created
+    const defaultModel = editor.getModel();
+    const initialModel = getOrCreateModel(activeFileIdRef.current, value);
+    if (initialModel && initialModel !== defaultModel) {
+      editor.setModel(initialModel);
+      if (defaultModel && !defaultModel.isDisposed()) {
+        defaultModel.dispose();
+      }
+    }
+
+    // Set up content change listener
+    setupContentListener();
+
+    setEditorMounted(true);
   };
 
   const theme = getTheme(settings.appearance.theme);
+  const showTabs = openTabs.length > 1;
 
   return (
     <div className="h-full flex flex-col ph-no-capture" data-testid="code-editor">
+      {showTabs && (
+        <EditorTabs
+          tabs={openTabs}
+          activeTabId={activeFileId}
+          onTabClick={onTabClick}
+          onTabClose={onTabClose}
+        />
+      )}
       <div className="flex-1 overflow-hidden">
         <MonacoEditor
           height="100%"
           defaultLanguage="openscad"
           theme={theme.monaco}
-          value={value}
-          onChange={(val) => onChange(val ?? '')}
+          defaultValue={value}
           onMount={handleEditorDidMount}
           options={{
             minimap: { enabled: false },

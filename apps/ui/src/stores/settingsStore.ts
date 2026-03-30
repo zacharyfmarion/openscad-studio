@@ -19,6 +19,8 @@ export interface UiSettings {
   hasCompletedNux: boolean;
   defaultLayoutPreset: 'default' | 'ai-first' | 'customizer-first';
   hasDismissedViewerControlsHint: boolean;
+  fileTreeVisible: boolean;
+  fileTreeWidth: number;
 }
 
 export type MeasurementUnit = 'mm' | 'cm' | 'in' | 'units';
@@ -101,6 +103,8 @@ const DEFAULT_SETTINGS: Settings = {
     hasCompletedNux: false,
     defaultLayoutPreset: 'default',
     hasDismissedViewerControlsHint: false,
+    fileTreeVisible: true,
+    fileTreeWidth: 200,
   },
   viewer: {
     showAxes: true,

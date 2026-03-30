@@ -19,12 +19,26 @@ import { notifyError } from '../../utils/notifications';
 import { useAnalytics } from '../../analytics/runtime';
 
 const EditorPanel: React.FC<IDockviewPanelProps> = () => {
-  const { source, updateSource, diagnostics, onManualRender, settings } = useWorkspace();
+  const {
+    source,
+    updateSource,
+    diagnostics,
+    onManualRender,
+    settings,
+    tabs,
+    activeTabId,
+    onTabClick,
+    onTabClose,
+  } = useWorkspace();
   return (
     <PanelErrorBoundary panelId="editor" panelName="Editor">
       <Editor
         value={source}
         onChange={updateSource}
+        activeFileId={activeTabId}
+        openTabs={tabs.map((t) => ({ id: t.id, name: t.name, isDirty: t.isDirty }))}
+        onTabClick={onTabClick}
+        onTabClose={onTabClose}
         diagnostics={diagnostics.filter((d) => !d.message.match(/^ECHO:/i))}
         onManualRender={onManualRender}
         settings={settings}
