@@ -23,4 +23,4 @@ Keep the measure tool panel readable as measurements accumulate by turning the m
 - [x] Update the shared tool panel and measure panels to support a bounded scrollable list.
 - [x] Add or update tests for the scrollable measurements tray behavior.
 - [x] Run targeted tests and validation for the changed files.
-- [ ] Prepare the branch and draft PR handoff.
+- [x] Prepare the branch and draft PR handoff.
