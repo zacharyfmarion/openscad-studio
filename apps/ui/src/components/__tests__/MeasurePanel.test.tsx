@@ -114,12 +114,16 @@ describe('MeasurePanel', () => {
 
     expect(screen.getByTestId('preview-3d-measurements-tray')).toHaveClass(
       'overflow-y-auto',
-      'pr-1'
+      'pr-1',
+      'space-y-1.5'
     );
     expect(screen.getByTestId('preview-3d-measurements-tray')).toHaveStyle({
-      maxHeight: 'min(18rem, calc(100vh - 16rem))',
+      maxHeight: '160px',
     });
     expect(screen.getByTestId('preview-3d-clear-measurements')).toHaveClass('shrink-0');
+    expect(screen.getAllByTestId('preview-3d-measurement-list-item')[0].parentElement).toHaveClass(
+      'shrink-0'
+    );
   });
 
   it('calls onMeasurementSelect when chip clicked', () => {
