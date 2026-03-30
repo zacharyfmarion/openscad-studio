@@ -1,10 +1,22 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { ThemeProvider } from '../../contexts/ThemeContext';
 
 const mockTrack = jest.fn();
+
+jest.unstable_mockModule('react-konva', async () => {
+  const React = await import('react');
+  const Primitive = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
+  return {
+    Stage: Primitive,
+    Layer: Primitive,
+    Line: Primitive,
+    Rect: Primitive,
+    Ellipse: Primitive,
+  };
+});
 
 jest.unstable_mockModule('@/analytics/runtime', () => ({
   bucketCount: (value: number) => String(value),
@@ -25,6 +37,8 @@ jest.unstable_mockModule('@/analytics/runtime', () => ({
 }));
 
 let SvgViewer: typeof import('../SvgViewer').SvgViewer;
+let SVG_2D_TOOLS: typeof import('../svg-viewer/toolRegistry').SVG_2D_TOOLS;
+let useSvgViewerAnalytics: typeof import('../svg-viewer/useSvgViewerAnalytics').useSvgViewerAnalytics;
 
 const rect = {
   x: 0,
@@ -65,6 +79,8 @@ function renderViewer(src = 'blob:ready') {
 describe('SvgViewer', () => {
   beforeAll(async () => {
     ({ SvgViewer } = await import('../SvgViewer'));
+    ({ SVG_2D_TOOLS } = await import('../svg-viewer/toolRegistry'));
+    ({ useSvgViewerAnalytics } = await import('../svg-viewer/useSvgViewerAnalytics'));
   });
 
   beforeEach(() => {
@@ -377,5 +393,46 @@ describe('SvgViewer', () => {
     expect(xAxis).toBeTruthy();
     expect(yAxis).toBeTruthy();
     expect(xAxis?.getAttribute('stroke')).not.toBe(yAxis?.getAttribute('stroke'));
+  });
+
+  it('registers the annotate tool with the expected shortcut', () => {
+    expect(SVG_2D_TOOLS).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'annotate',
+          label: 'Annotate',
+          shortcut: 'A',
+        }),
+      ])
+    );
+  });
+
+  it('tracks annotate mode selection as a 2D viewer tool event', () => {
+    const setViewMode = jest.fn();
+    const resetDraftMeasurement = jest.fn();
+
+    const { result } = renderHook(() =>
+      useSvgViewerAnalytics({
+        viewMode: 'pan',
+        setViewMode,
+        resetDraftMeasurement,
+        measurementUnit: 'mm',
+      })
+    );
+
+    act(() => {
+      result.current.handleViewModeChange('annotate', 'toolbar');
+    });
+
+    expect(setViewMode).toHaveBeenCalledWith('annotate');
+    expect(resetDraftMeasurement).toHaveBeenCalledWith('idle');
+    expect(mockTrack).toHaveBeenCalledWith(
+      'viewer tool selected',
+      expect.objectContaining({
+        viewer_kind: '2d',
+        tool: 'annotate',
+        input_method: 'toolbar',
+      })
+    );
   });
 });

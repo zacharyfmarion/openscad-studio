@@ -70,17 +70,32 @@ import type {
   SectionPlaneState,
   SelectionState,
 } from './three-viewer/types';
-import { TbBox, TbBoxModel, TbFocus2, TbSun, TbX } from 'react-icons/tb';
+import { TbBox, TbBoxModel, TbBrush, TbFocus2, TbSun, TbX } from 'react-icons/tb';
 import type { ToolContextPanelProps } from './three-viewer/types';
 import { updateSetting, useSettings } from '../stores/settingsStore';
 import { IconButton, Text } from './ui';
 import { useMobileLayout } from '../hooks/useMobileLayout';
+import {
+  AnnotationOverlay,
+  AnnotationPanel,
+  composeAnnotatedImage,
+  createAnnotationAttachmentFile,
+  exportAnnotationOverlayDataUrl,
+  normalizeViewerPoint,
+  useViewerAnnotationSession,
+  type ViewerAnnotationAttachResult,
+} from './viewer-annotation';
+import { notifyError, notifySuccess } from '../utils/notifications';
+import type Konva from 'konva';
 
 interface ThreeViewerProps {
   stlPath: string;
   isLoading?: boolean;
   viewerId?: string;
   onVisualReady?: () => void;
+  hasCurrentModelApiKey: boolean;
+  canAttachToAi: boolean;
+  onAttachToAi: (file: File) => Promise<ViewerAnnotationAttachResult>;
 }
 
 const introAnimatedViewerIds = new Set<string>();
@@ -775,12 +790,13 @@ function ViewerCameraManager({
   const pendingAutoFitVersionRef = useRef<string | null>(null);
   const isUserControllingRef = useRef(false);
   const currentFitsRef = useRef(true);
+  const isDevRuntime = Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV);
 
   latestModelFrameRef.current = modelFrame;
 
   const publishTestState = useCallback(
     (frame = latestModelFrameRef.current) => {
-      if (!import.meta.env.DEV) {
+      if (!isDevRuntime) {
         return;
       }
 
@@ -826,6 +842,7 @@ function ViewerCameraManager({
     [
       camera,
       cameraControlsRef,
+      isDevRuntime,
       interactionMode,
       measurementCount,
       orthographic,
@@ -905,11 +922,11 @@ function ViewerCameraManager({
     publishTestState(modelFrame);
 
     return () => {
-      if (import.meta.env.DEV) {
+      if (isDevRuntime) {
         delete window.__TEST_PREVIEW__;
       }
     };
-  }, [modelFrame, publishTestState]);
+  }, [isDevRuntime, modelFrame, publishTestState]);
 
   useEffect(() => {
     if (!modelFrame) {
@@ -1034,7 +1051,15 @@ function EnvironmentWithFallback({ preset }: { preset: string }) {
   );
 }
 
-export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: ThreeViewerProps) {
+export function ThreeViewer({
+  stlPath,
+  isLoading,
+  viewerId,
+  onVisualReady,
+  hasCurrentModelApiKey,
+  canAttachToAi,
+  onAttachToAi,
+}: ThreeViewerProps) {
   const { theme } = useTheme();
   const [settings] = useSettings();
   const { isMobile } = useMobileLayout();
@@ -1042,13 +1067,16 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
   const animateInitialFrameRef = useRef(viewerId ? !introAnimatedViewerIds.has(viewerId) : true);
   const materialManagerRef = useRef(new ViewerMaterialManager());
   const rootRef = useRef<HTMLDivElement>(null);
+  const previewSurfaceRef = useRef<HTMLDivElement>(null);
   const cameraControlsRef = useRef<CameraControlsType>(null);
+  const annotationStageRef = useRef<Konva.Stage | null>(null);
 
   const [modelFrame, setModelFrame] = useState<ModelFrame | null>(null);
   const [loadedModel, setLoadedModel] = useState<LoadedPreviewModel | null>(null);
   const lastVisualReadyVersionRef = useRef<string | null>(null);
   const [orthographic, setOrthographic] = useState(false);
   const [wireframe, setWireframe] = useState(false);
+  const [previewSurfaceSize, setPreviewSurfaceSize] = useState({ width: 0, height: 0 });
   const [interactionMode, setInteractionMode] = useState<InteractionMode>('orbit');
   const [selection, setSelection] = useState<SelectionState>(EMPTY_SELECTION);
   const [hoverSelection, setHoverSelection] = useState<SelectionState>(EMPTY_SELECTION);
@@ -1058,6 +1086,9 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
   const [sectionState, setSectionState] = useState<SectionPlaneState | null>(null);
   const [shiftPanActive, setShiftPanActive] = useState(false);
   const [liveMessage, setLiveMessage] = useState('');
+  const [isAttachingAnnotation, setIsAttachingAnnotation] = useState(false);
+  const annotationSession = useViewerAnnotationSession();
+  const resetAnnotationSession = annotationSession.resetSession;
 
   const gridMetrics = useMemo(() => derivePreviewGridMetrics(modelFrame), [modelFrame]);
   const axisMetrics = useMemo(
@@ -1088,9 +1119,32 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
         : null,
     [loadedModel, sectionState]
   );
-  const cameraControlsEnabled = true;
+  const cameraControlsEnabled = interactionMode !== 'annotate';
 
   const activeBounds = selection.bounds ?? loadedModel?.bounds ?? null;
+
+  useEffect(() => {
+    const element = previewSurfaceRef.current;
+    if (!element) {
+      return;
+    }
+
+    const updateSize = () => {
+      const rect = element.getBoundingClientRect();
+      setPreviewSurfaceSize({ width: rect.width, height: rect.height });
+    };
+
+    updateSize();
+
+    const observer = new ResizeObserver(() => {
+      updateSize();
+    });
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     if (!viewerId) {
@@ -1108,6 +1162,8 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
       setSelectedMeasurementId(null);
       setDraftMeasurement(INITIAL_DRAFT);
       setSectionState(null);
+      resetAnnotationSession();
+      setIsAttachingAnnotation(false);
       return;
     }
 
@@ -1120,7 +1176,18 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
       status: current.status === 'idle' ? 'idle' : 'placing-start',
     }));
     setSectionState(createDefaultSectionPlaneState(loadedModel.bounds));
-  }, [loadedModel]);
+    resetAnnotationSession();
+    setIsAttachingAnnotation(false);
+  }, [loadedModel, resetAnnotationSession]);
+
+  useEffect(() => {
+    if (interactionMode !== 'annotate') {
+      return;
+    }
+
+    setSelection(EMPTY_SELECTION);
+    setHoverSelection(EMPTY_SELECTION);
+  }, [interactionMode]);
 
   useEffect(() => {
     if (!sectionState || !loadedModel) {
@@ -1205,6 +1272,99 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
       setSectionState(createDefaultSectionPlaneState(loadedModel.bounds));
     }
   }, [loadedModel]);
+
+  const exitAnnotationMode = useCallback(() => {
+    resetAnnotationSession();
+    setInteractionMode('orbit');
+  }, [resetAnnotationSession]);
+
+  const handleAnnotationAttach = useCallback(async () => {
+    if (!previewSurfaceRef.current || !annotationStageRef.current) {
+      notifyError({
+        operation: 'viewer-annotation-export',
+        fallbackMessage: 'No preview is available to annotate.',
+        toastId: 'viewer-annotation-export-error',
+      });
+      return;
+    }
+
+    const modelCanvas = previewSurfaceRef.current.querySelector(
+      'canvas[data-engine]'
+    ) as HTMLCanvasElement | null;
+    if (!modelCanvas) {
+      notifyError({
+        operation: 'viewer-annotation-export',
+        fallbackMessage: 'No preview is available to annotate.',
+        toastId: 'viewer-annotation-export-error',
+      });
+      return;
+    }
+
+    setIsAttachingAnnotation(true);
+    try {
+      const baseImageDataUrl = modelCanvas.toDataURL('image/png');
+      const rect = previewSurfaceRef.current.getBoundingClientRect();
+      const overlay = await exportAnnotationOverlayDataUrl({
+        stage: annotationStageRef.current,
+        surface: { width: rect.width, height: rect.height },
+        pixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+      });
+
+      const composedDataUrl = await composeAnnotatedImage({
+        baseImageDataUrl,
+        overlayImageDataUrl: overlay.dataUrl,
+        width: overlay.width,
+        height: overlay.height,
+        backgroundColor: sceneStyle.backgroundColor,
+      });
+      const attachmentFile = await createAnnotationAttachmentFile(
+        composedDataUrl,
+        'viewer-annotation-3d.png'
+      );
+      const result = await onAttachToAi(attachmentFile);
+
+      if (result.status === 'attached') {
+        notifySuccess('Annotation attached to AI', {
+          toastId: 'viewer-annotation-attached',
+        });
+        exitAnnotationMode();
+        return;
+      }
+
+      if (result.status === 'missing-api-key') {
+        notifyError({
+          operation: 'viewer-annotation-attach',
+          fallbackMessage: 'Add an AI API key in Settings to attach annotations to the chat panel.',
+          toastId: 'viewer-annotation-missing-key',
+        });
+        return;
+      }
+
+      if (result.status === 'busy') {
+        notifyError({
+          operation: 'viewer-annotation-attach',
+          fallbackMessage: 'Wait for the current AI request or attachment processing to finish.',
+          toastId: 'viewer-annotation-ai-busy',
+        });
+        return;
+      }
+
+      notifyError({
+        operation: 'viewer-annotation-attach',
+        fallbackMessage: result.errors[0] ?? 'Failed to attach the annotation image.',
+        toastId: 'viewer-annotation-attach-error',
+      });
+    } catch (error) {
+      notifyError({
+        operation: 'viewer-annotation-export',
+        error,
+        fallbackMessage: 'Failed to export the annotated preview.',
+        toastId: 'viewer-annotation-export-error',
+      });
+    } finally {
+      setIsAttachingAnnotation(false);
+    }
+  }, [exitAnnotationMode, onAttachToAi, sceneStyle.backgroundColor]);
 
   const handleMeasurementDelete = useCallback(
     (id: string) => {
@@ -1297,6 +1457,11 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
         event.preventDefault();
         handleModeChange('section-plane', 'shortcut');
         break;
+      case 'a':
+      case 'A':
+        event.preventDefault();
+        handleModeChange('annotate', 'shortcut');
+        break;
       case 'Delete':
       case 'Backspace':
         if (selectedMeasurementId) {
@@ -1306,7 +1471,12 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
         break;
       case 'Escape':
         event.preventDefault();
-        if (interactionMode === 'measure-distance' && draftMeasurement.status === 'placing-end') {
+        if (interactionMode === 'annotate') {
+          exitAnnotationMode();
+        } else if (
+          interactionMode === 'measure-distance' &&
+          draftMeasurement.status === 'placing-end'
+        ) {
           setDraftMeasurement({ ...INITIAL_DRAFT, status: 'placing-start' });
         } else {
           handleModeChange('orbit', 'shortcut');
@@ -1449,7 +1619,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
             loadedModel={loadedModel}
           />
         )}
-        <div className="relative flex-1 min-w-0">
+        <div ref={previewSurfaceRef} className="relative flex-1 min-w-0">
           <div
             className="absolute top-2 right-2 z-10 flex gap-2"
             onClick={(event) => event.stopPropagation()}
@@ -1461,6 +1631,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
               title="Fit to View"
               tooltipSide="bottom"
               data-testid="preview-fit-view"
+              disabled={interactionMode === 'annotate'}
             >
               <TbFocus2 size={18} />
             </IconButton>
@@ -1495,6 +1666,19 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
             >
               <TbSun size={18} />
             </IconButton>
+
+            {isMobile ? (
+              <IconButton
+                variant="toolbar"
+                onClick={() => handleModeChange('annotate', 'toolbar')}
+                isActive={interactionMode === 'annotate'}
+                title="Annotate Preview"
+                tooltipSide="bottom"
+                data-testid="preview-toggle-annotate"
+              >
+                <TbBrush size={18} />
+              </IconButton>
+            ) : null}
           </div>
 
           <div aria-live="polite" className="sr-only">
@@ -1561,8 +1745,8 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
                 <TbX size={14} />
               </button>
               {prefersTouchHint
-                ? `${interactionConfig.touchHint} Use M, B, and S when the viewer is focused to switch inspection tools.`
-                : `${interactionConfig.desktopHint} Use M, B, and S when the viewer is focused to switch inspection tools.`}
+                ? `${interactionConfig.touchHint} Use M, B, S, and A when the viewer is focused to switch inspection tools.`
+                : `${interactionConfig.desktopHint} Use M, B, S, and A when the viewer is focused to switch inspection tools.`}
             </div>
           )}
 
@@ -1661,7 +1845,7 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
               onModelChange={setLoadedModel}
             />
 
-            {selection.bounds ? (
+            {interactionMode !== 'annotate' && selection.bounds ? (
               <SelectionBoundsOverlay bounds={selection.bounds} color="#3b82f6" />
             ) : null}
             {interactionMode === 'measure-bbox' && activeBounds ? (
@@ -1723,6 +1907,31 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
             ) : null}
           </Canvas>
 
+          {interactionMode === 'annotate' &&
+          previewSurfaceSize.width > 0 &&
+          previewSurfaceSize.height > 0 ? (
+            <AnnotationOverlay
+              surface={previewSurfaceSize}
+              shapes={annotationSession.shapes}
+              draft={annotationSession.draft}
+              onStageReady={(stage) => {
+                annotationStageRef.current = stage;
+              }}
+              onStart={(point) => {
+                annotationSession.beginDraft(normalizeViewerPoint(point, previewSurfaceSize));
+              }}
+              onMove={(point) => {
+                if (!annotationSession.draft) {
+                  return;
+                }
+                annotationSession.updateDraft(normalizeViewerPoint(point, previewSurfaceSize));
+              }}
+              onEnd={() => {
+                annotationSession.completeDraft();
+              }}
+            />
+          ) : null}
+
           {!isMobile &&
             (() => {
               const activeTool = VIEWER_TOOLS.find((t) => t.id === interactionMode);
@@ -1734,6 +1943,29 @@ export function ThreeViewer({ stlPath, isLoading, viewerId, onVisualReady }: Thr
                 </ToolPanel>
               );
             })()}
+
+          {interactionMode === 'annotate' ? (
+            <AnnotationPanel
+              tool={annotationSession.tool}
+              onToolChange={annotationSession.setTool}
+              onUndo={annotationSession.undoLast}
+              onClear={annotationSession.clearAll}
+              onCancel={exitAnnotationMode}
+              onAttach={handleAnnotationAttach}
+              canUndo={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
+              canClear={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
+              canAttach={
+                !isAttachingAnnotation && canAttachToAi && annotationSession.shapes.length > 0
+              }
+              attachLabel={
+                !hasCurrentModelApiKey
+                  ? 'Add API Key'
+                  : isAttachingAnnotation
+                    ? 'Attaching...'
+                    : 'Attach to AI'
+              }
+            />
+          ) : null}
         </div>
       </div>
     </div>

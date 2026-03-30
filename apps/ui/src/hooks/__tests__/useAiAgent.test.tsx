@@ -8,7 +8,12 @@ import {
   setStoredModel,
   getStoredModel,
 } from '../../stores/apiKeyStore';
-import type { AttachmentRecord, Message } from '../../types/aiChat';
+import {
+  getUserMessageText,
+  type AttachmentRecord,
+  type Message,
+  type UserMessage,
+} from '../../types/aiChat';
 import { useAiAgent } from '../useAiAgent';
 import {
   createAnalyticsSpy,
@@ -287,6 +292,166 @@ describe('useAiAgent', () => {
 
     expect(startAiStream).not.toHaveBeenCalled();
     expect(hook.current().draftErrors[0]).toContain('does not support image inputs');
+  });
+
+  it('prepends annotation guidance when submitting viewer annotation attachments', async () => {
+    storeApiKey('anthropic', 'test-key');
+    const messagesToModelMessages = jest.fn(() => []);
+    const startAiStream = jest.fn(async () =>
+      createStreamResult([
+        {
+          type: 'finish',
+          finishReason: 'stop',
+          rawFinishReason: 'stop',
+          totalUsage: {} as never,
+        },
+      ] satisfies StreamChunk[])
+    );
+
+    const hook = createHarness({
+      testOverrides: {
+        availableProviders: ['anthropic'],
+        createModel: (() => ({ id: 'model' })) as never,
+        buildTools: (() => ({})) as never,
+        messagesToModelMessages: messagesToModelMessages as never,
+        startAiStream: startAiStream as never,
+        processAttachmentFiles: (async (_files, _draft, _attachments, sourceSurface) => ({
+          attachments: [createReadyAttachment('att-annotated', { sourceSurface })],
+          errors: [],
+        })) as never,
+      },
+    });
+
+    await act(async () => {
+      await hook
+        .current()
+        .addDraftFiles(
+          [new File(['one'], 'annotated.png', { type: 'image/png' })],
+          'viewer_annotation'
+        );
+    });
+
+    act(() => {
+      hook.current().setDraftText('Help me fix this face.');
+    });
+
+    await act(async () => {
+      await hook.current().submitDraft();
+    });
+
+    await waitFor(() => {
+      expect(hook.current().isStreaming).toBe(false);
+    });
+
+    const userMessage = hook.current().messages[0] as UserMessage;
+    expect(userMessage).toMatchObject({ type: 'user' });
+    expect(getUserMessageText(userMessage)).toContain('intentional user annotations');
+    expect(getUserMessageText(userMessage)).toContain('Help me fix this face.');
+    expect(userMessage.parts[0]).toMatchObject({
+      type: 'text',
+      text: expect.stringContaining('intentional user annotations'),
+    });
+  });
+
+  it('does not inject annotation guidance for normal image attachments', async () => {
+    storeApiKey('anthropic', 'test-key');
+
+    const hook = createHarness({
+      testOverrides: {
+        availableProviders: ['anthropic'],
+        createModel: (() => ({ id: 'model' })) as never,
+        buildTools: (() => ({})) as never,
+        messagesToModelMessages: (() => []) as never,
+        startAiStream: (async () =>
+          createStreamResult([
+            {
+              type: 'finish',
+              finishReason: 'stop',
+              rawFinishReason: 'stop',
+              totalUsage: {} as never,
+            },
+          ] satisfies StreamChunk[])) as never,
+        processAttachmentFiles: (async (_files, _draft, _attachments, sourceSurface) => ({
+          attachments: [createReadyAttachment('att-normal', { sourceSurface })],
+          errors: [],
+        })) as never,
+      },
+    });
+
+    await act(async () => {
+      await hook.current().addDraftFiles([new File(['one'], 'ref.png', { type: 'image/png' })]);
+    });
+
+    await act(async () => {
+      await hook.current().submitDraft();
+    });
+
+    await waitFor(() => {
+      expect(hook.current().isStreaming).toBe(false);
+    });
+
+    const userMessage = hook.current().messages[0] as UserMessage;
+    expect(userMessage.parts).toHaveLength(1);
+    expect(userMessage.parts[0]).toMatchObject({ type: 'image' });
+  });
+
+  it('adds annotation guidance only once for mixed attachment sources and still works without user text', async () => {
+    storeApiKey('anthropic', 'test-key');
+    let nextId = 1;
+
+    const hook = createHarness({
+      testOverrides: {
+        availableProviders: ['anthropic'],
+        createModel: (() => ({ id: 'model' })) as never,
+        buildTools: (() => ({})) as never,
+        messagesToModelMessages: (() => []) as never,
+        startAiStream: (async () =>
+          createStreamResult([
+            {
+              type: 'finish',
+              finishReason: 'stop',
+              rawFinishReason: 'stop',
+              totalUsage: {} as never,
+            },
+          ] satisfies StreamChunk[])) as never,
+        processAttachmentFiles: (async (_files, _draft, _attachments, sourceSurface) => ({
+          attachments: [
+            createReadyAttachment(`att-${nextId++}`, {
+              sourceSurface,
+            }),
+          ],
+          errors: [],
+        })) as never,
+      },
+    });
+
+    await act(async () => {
+      await hook
+        .current()
+        .addDraftFiles(
+          [new File(['one'], 'annotated.png', { type: 'image/png' })],
+          'viewer_annotation'
+        );
+      await hook.current().addDraftFiles([new File(['two'], 'ref.png', { type: 'image/png' })]);
+    });
+
+    await act(async () => {
+      await hook.current().submitDraft();
+    });
+
+    await waitFor(() => {
+      expect(hook.current().isStreaming).toBe(false);
+    });
+
+    const userMessage = hook.current().messages[0] as UserMessage;
+    const textParts = userMessage.parts.filter((part) => part.type === 'text');
+
+    expect(textParts).toHaveLength(1);
+    expect(textParts[0]).toMatchObject({
+      type: 'text',
+      text: expect.stringContaining('intentional user annotations'),
+    });
+    expect(userMessage.parts.filter((part) => part.type === 'image')).toHaveLength(2);
   });
 
   it('completes a successful stream and persists the assistant response', async () => {

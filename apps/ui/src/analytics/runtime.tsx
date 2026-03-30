@@ -27,9 +27,15 @@ export type RenderTrigger =
   | 'code_update';
 
 export type SettingsSection = 'appearance' | 'viewer' | 'editor' | 'privacy' | 'ai' | 'libraries';
-export type ModelSelectionSurface = 'welcome' | 'ai_panel' | 'unknown';
+export type ModelSelectionSurface = 'welcome' | 'ai_panel' | 'viewer_annotation' | 'unknown';
 export type ViewerKind = '2d' | '3d';
-export type ViewerTool = 'pan' | 'orbit' | 'measure_distance' | 'measure_bbox' | 'section_plane';
+export type ViewerTool =
+  | 'pan'
+  | 'orbit'
+  | 'measure_distance'
+  | 'measure_bbox'
+  | 'section_plane'
+  | 'annotate';
 export type LayoutSelectionSource = 'nux' | 'settings' | 'layout_reset' | 'header';
 export type CustomizerAction = 'open_ai_refine' | 'open_editor' | 'open_export';
 export type ViewerPreferenceKey = 'measurement_unit' | 'measurement_snap_enabled';
