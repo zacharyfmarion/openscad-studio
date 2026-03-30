@@ -34,22 +34,134 @@ export interface NotifyOperationOptions<T> {
   logLabel?: string;
 }
 
-function coerceErrorMessage(error: unknown): string | null {
-  if (error instanceof Error) {
-    return error.message || error.name || null;
+function coerceNestedErrorMessage(
+  error: unknown,
+  depth: number,
+  seen: WeakSet<object>
+): string | null {
+  if (depth <= 0) {
+    return null;
   }
+
+  if (error instanceof Error) {
+    const cause = 'cause' in error ? (error as Error & { cause?: unknown }).cause : undefined;
+    return error.message || coerceNestedErrorMessage(cause, depth - 1, seen) || error.name || null;
+  }
+
   if (typeof error === 'string') {
     return error.trim() || null;
   }
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'message' in error &&
-    typeof (error as { message?: unknown }).message === 'string'
-  ) {
-    return ((error as { message: string }).message || '').trim() || null;
+
+  if (typeof error === 'object' && error !== null) {
+    if (seen.has(error)) {
+      return null;
+    }
+
+    seen.add(error);
+
+    const candidates = [
+      (error as Record<string, unknown>).message,
+      (error as Record<string, unknown>).detail,
+      (error as Record<string, unknown>).reason,
+      (error as Record<string, unknown>).error,
+      (error as Record<string, unknown>).cause,
+      (error as Record<string, unknown>).data,
+    ];
+
+    for (const candidate of candidates) {
+      const message = coerceNestedErrorMessage(candidate, depth - 1, seen);
+      if (message) {
+        return message;
+      }
+    }
   }
+
   return null;
+}
+
+function toSerializableDetail(value: unknown, depth: number, seen: WeakSet<object>): unknown {
+  if (depth <= 0) {
+    return undefined;
+  }
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || typeof value === 'boolean' || typeof value === 'number') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (value instanceof Error) {
+    const cause = 'cause' in value ? (value as Error & { cause?: unknown }).cause : undefined;
+    const serialized: Record<string, unknown> = {
+      name: value.name,
+      message: value.message,
+    };
+
+    const serializedCause = toSerializableDetail(cause, depth - 1, seen);
+    if (serializedCause !== undefined) {
+      serialized.cause = serializedCause;
+    }
+
+    return serialized;
+  }
+
+  if (Array.isArray(value)) {
+    const serialized = value
+      .map((item) => toSerializableDetail(item, depth - 1, seen))
+      .filter((item) => item !== undefined);
+    return serialized.length > 0 ? serialized : undefined;
+  }
+
+  if (typeof value === 'object') {
+    if (seen.has(value)) {
+      return '[Circular]';
+    }
+
+    seen.add(value);
+
+    const serialized = Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .map(
+          ([key, childValue]) => [key, toSerializableDetail(childValue, depth - 1, seen)] as const
+        )
+        .filter(([, childValue]) => childValue !== undefined)
+    );
+
+    return Object.keys(serialized).length > 0 ? serialized : undefined;
+  }
+
+  return String(value);
+}
+
+function coerceErrorDetail(error: unknown): string | undefined {
+  if (typeof error === 'string' || error === undefined) {
+    return undefined;
+  }
+
+  const serialized = toSerializableDetail(error, 5, new WeakSet());
+  if (serialized === undefined) {
+    return undefined;
+  }
+
+  if (typeof serialized === 'string') {
+    return serialized;
+  }
+
+  try {
+    return JSON.stringify(serialized);
+  } catch {
+    return undefined;
+  }
+}
+
+export function coerceErrorMessage(error: unknown): string | null {
+  return coerceNestedErrorMessage(error, 5, new WeakSet());
 }
 
 export function normalizeAppError(
@@ -63,7 +175,7 @@ export function normalizeAppError(
 
   return {
     message,
-    detail: typeof error === 'string' ? undefined : String(error),
+    detail: coerceErrorDetail(error),
   };
 }
 

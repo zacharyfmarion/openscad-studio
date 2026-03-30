@@ -543,7 +543,7 @@ describe('useAiAgent', () => {
     });
 
     expect(hook.current().error).toBe(
-      'Could not reach the AI service — check your internet connection.'
+      'Could not reach the AI service. Check your internet connection and provider access, then try again.'
     );
     expect(hook.current().draft.text).toBe('Restore this prompt');
   });
@@ -591,7 +591,7 @@ describe('useAiAgent', () => {
       expect(hook.current().isStreaming).toBe(false);
     });
 
-    expect(hook.current().error).toBe('Failed: Worker exploded');
+    expect(hook.current().error).toBe('Worker exploded');
     expect(hook.current().draft.text).toBe('');
     expect(hook.current().messages).toEqual(
       expect.arrayContaining([
@@ -607,6 +607,73 @@ describe('useAiAgent', () => {
           result: 'Applied [CHECKPOINT:cp-123]',
         }),
       ])
+    );
+  });
+
+  it('humanizes provider rate-limit failures before any response arrives', async () => {
+    storeApiKey('anthropic', 'test-key');
+
+    const hook = createHarness({
+      testOverrides: {
+        availableProviders: ['anthropic'],
+        createModel: (() => ({ id: 'model' })) as never,
+        buildTools: (() => ({})) as never,
+        messagesToModelMessages: (() => []) as never,
+        startAiStream: (async () => {
+          throw new Error(
+            "This request would exceed your organization's rate limit of 10,000 input tokens per minute"
+          );
+        }) as never,
+      },
+    });
+
+    await act(async () => {
+      await hook.current().submitPrompt('Restore this prompt');
+    });
+
+    await waitFor(() => {
+      expect(hook.current().isStreaming).toBe(false);
+    });
+
+    expect(hook.current().error).toBe(
+      'The AI provider is rate-limiting requests right now. Wait a moment and try again.'
+    );
+    expect(hook.current().draft.text).toBe('Restore this prompt');
+  });
+
+  it('unwraps nested network failures from stream error objects', async () => {
+    storeApiKey('anthropic', 'test-key');
+
+    const hook = createHarness({
+      testOverrides: {
+        availableProviders: ['anthropic'],
+        createModel: (() => ({ id: 'model' })) as never,
+        buildTools: (() => ({})) as never,
+        messagesToModelMessages: (() => []) as never,
+        startAiStream: (async () =>
+          createStreamResult([
+            {
+              type: 'error',
+              error: {
+                error: {
+                  message: 'Load failed (api.anthropic.com)',
+                },
+              },
+            } as StreamChunk,
+          ])) as never,
+      },
+    });
+
+    await act(async () => {
+      await hook.current().submitPrompt('Patch the file');
+    });
+
+    await waitFor(() => {
+      expect(hook.current().isStreaming).toBe(false);
+    });
+
+    expect(hook.current().error).toBe(
+      'Could not reach the AI service. Check your internet connection and provider access, then try again.'
     );
   });
 
