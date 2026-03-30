@@ -192,6 +192,26 @@ export function Editor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFileId, editorMounted]);
 
+  // Replace model content while preserving the undo stack.
+  // model.setValue() destroys undo history; pushEditOperations keeps it.
+  const replaceModelContent = useCallback((model: Monaco.editor.ITextModel, newContent: string) => {
+    const currentContent = model.getValue();
+    if (currentContent === newContent) return;
+
+    suppressOnChangeRef.current = true;
+    model.pushEditOperations(
+      [],
+      [
+        {
+          range: model.getFullModelRange(),
+          text: newContent,
+        },
+      ],
+      () => null
+    );
+    suppressOnChangeRef.current = false;
+  }, []);
+
   // Sync external value changes to the active model (e.g., AI updates)
   useEffect(() => {
     const editor = editorRef.current;
@@ -199,12 +219,8 @@ export function Editor({
     const model = editor.getModel();
     if (!model) return;
 
-    if (model.getValue() !== value) {
-      suppressOnChangeRef.current = true;
-      model.setValue(value);
-      suppressOnChangeRef.current = false;
-    }
-  }, [value]);
+    replaceModelContent(model, value);
+  }, [value, replaceModelContent]);
 
   // Listen for code updates from AI agent
   useEffect(() => {
@@ -213,8 +229,7 @@ export function Editor({
         console.log('[Editor] Received code-updated event, payload length:', code.length);
       const model = editorRef.current?.getModel();
       if (model) {
-        // Update model directly — onDidChangeModelContent fires and propagates via onChange
-        model.setValue(code);
+        replaceModelContent(model, code);
       } else {
         // Fallback if no model
         onChangeRef.current(code);
@@ -224,7 +239,7 @@ export function Editor({
     return () => {
       unlisten();
     };
-  }, [editorMounted]);
+  }, [editorMounted, replaceModelContent]);
 
   // Update markers when diagnostics change
   useEffect(() => {

@@ -125,6 +125,24 @@ export function createProjectStore(initialState?: ProjectStoreState) {
       set({ renderTargetPath: relativePath });
     },
 
+    revertFile: (relativePath) => {
+      const state = get();
+      const file = state.files[relativePath];
+      if (!file || !file.isDirty) return;
+
+      set({
+        files: {
+          ...state.files,
+          [relativePath]: {
+            ...file,
+            content: file.savedContent,
+            isDirty: false,
+          },
+        },
+        contentVersion: state.contentVersion + 1,
+      });
+    },
+
     setCustomizerBase: (relativePath, content) => {
       const state = get();
       const file = state.files[relativePath];

@@ -553,6 +553,9 @@ function App() {
           );
           if (!confirmDiscard) return;
         }
+
+        // Revert file content to saved state so the file tree dirty indicator clears
+        getProjectStore().getState().revertFile(tab.projectPath);
       }
 
       revokeBlobUrl(tab.render.previewSrc);
@@ -579,9 +582,14 @@ function App() {
       }
 
       // Open the file in a new tab — content lives in projectStore
-      const projectFile = getProjectStore().getState().files[filePath];
+      const store = getProjectStore().getState();
+      const projectFile = store.files[filePath];
       if (projectFile) {
-        createNewTab(null, undefined, filePath);
+        // Resolve absolute disk path so Cmd+S can save without a dialog
+        const absolutePath = store.projectRoot
+          ? `${store.projectRoot}/${filePath}`
+          : null;
+        createNewTab(absolutePath, undefined, filePath);
       }
     },
     [tabs, switchTab, createNewTab]

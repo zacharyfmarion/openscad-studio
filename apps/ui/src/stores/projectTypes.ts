@@ -64,6 +64,9 @@ export interface ProjectStoreActions {
   /** Change which file is the render target. No-op if the file doesn't exist. */
   setRenderTarget: (relativePath: string) => void;
 
+  /** Revert a file to its last saved content, clearing dirty state. */
+  revertFile: (relativePath: string) => void;
+
   /** Update the customizer baseline content for a file. */
   setCustomizerBase: (relativePath: string, content: string) => void;
 
