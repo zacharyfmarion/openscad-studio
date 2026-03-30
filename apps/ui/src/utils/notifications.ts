@@ -84,6 +84,10 @@ function toSerializableDetail(value: unknown, depth: number, seen: WeakSet<objec
     return undefined;
   }
 
+  if (value === undefined) {
+    return undefined;
+  }
+
   if (value === null || typeof value === 'boolean' || typeof value === 'number') {
     return value;
   }
