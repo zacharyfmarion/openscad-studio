@@ -47,7 +47,7 @@ function fallbackCapabilities(runtimeSurface: RuntimeSurface): PlatformCapabilit
   }
 
   return {
-    multiFile: false,
+    multiFile: true,
     hasNativeMenu: false,
     hasFileSystem: false,
     canSetWindowTitle: true,

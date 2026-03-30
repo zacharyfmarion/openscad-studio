@@ -12,7 +12,7 @@ describe('platform bootstrap', () => {
     const platform = await import('../index');
 
     expect(platform.getPlatform().capabilities).toEqual({
-      multiFile: false,
+      multiFile: true,
       hasNativeMenu: false,
       hasFileSystem: false,
       canSetWindowTitle: true,

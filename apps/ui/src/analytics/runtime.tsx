@@ -100,7 +100,7 @@ function getFallbackCapabilities(runtimeSurface: RuntimeSurface): PlatformCapabi
   }
 
   return {
-    multiFile: false,
+    multiFile: true,
     hasNativeMenu: false,
     hasFileSystem: false,
     canSetWindowTitle: true,

@@ -26,6 +26,11 @@ export interface ResolveOptions {
   libraryFiles: Record<string, string>;
   /** Platform bridge for file I/O */
   platform: PlatformBridge;
+  /**
+   * Optional project files from the projectStore.
+   * Checked before hitting disk. On web (no disk), this is the only source.
+   */
+  projectFiles?: Record<string, string>;
 }
 
 /**
@@ -64,7 +69,7 @@ export async function resolveWorkingDirDeps(
   code: string,
   options: ResolveOptions
 ): Promise<Record<string, string>> {
-  const { workingDir, libraryFiles, platform } = options;
+  const { workingDir, libraryFiles, platform, projectFiles } = options;
   const result: Record<string, string> = {};
   const visited = new Set<string>();
 
@@ -92,7 +97,15 @@ export async function resolveWorkingDirDeps(
         return;
       }
 
-      // Try to read this file from the working directory
+      // Check project store first (works on both web and desktop)
+      if (projectFiles && normalizedPath in projectFiles) {
+        const content = projectFiles[normalizedPath];
+        result[normalizedPath] = content;
+        await resolve(content, depth + 1);
+        continue;
+      }
+
+      // Fall back to reading from disk (desktop only, web returns null)
       const absolutePath = workingDir + '/' + normalizedPath;
       const content = await platform.readTextFile(absolutePath);
 

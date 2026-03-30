@@ -34,7 +34,7 @@ function createBootstrapCapabilities(): PlatformCapabilities {
         canSetWindowTitle: true,
       }
     : {
-        multiFile: false,
+        multiFile: true,
         hasNativeMenu: false,
         hasFileSystem: false,
         canSetWindowTitle: true,

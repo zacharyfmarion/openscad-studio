@@ -32,7 +32,7 @@ declare global {
 }
 
 const capabilities: PlatformCapabilities = {
-  multiFile: false,
+  multiFile: true,
   hasNativeMenu: false,
   hasFileSystem: false,
   canSetWindowTitle: true,

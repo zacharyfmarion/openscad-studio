@@ -59,6 +59,7 @@ import {
   selectWorkingDirectory,
 } from './stores/workspaceSelectors';
 import { useWorkspaceStore, getWorkspaceState } from './stores/workspaceStore';
+import { getProjectStore } from './stores/projectStore';
 import { formatOpenScadCode } from './utils/formatter';
 import { addRecentFile, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview } from './utils/capturePreview';
@@ -328,15 +329,55 @@ function App() {
     }
   }, [activeRender?.lastRenderedContent, hideWelcomeScreen, ready, renderWithTrigger]);
 
+  // Project initialization helper
+  // Populates the projectStore when a file is opened on either platform.
+  const initializeProject = useCallback(
+    async (filePath: string | null, fileName: string, content: string) => {
+      const store = getProjectStore();
+      const platform = getPlatform();
+
+      if (filePath) {
+        // Desktop: derive project root from file path and scan for siblings
+        const separatorIndex = filePath.lastIndexOf('/');
+        const projectRoot = separatorIndex > 0 ? filePath.substring(0, separatorIndex) : null;
+        const relativeName = filePath.substring(separatorIndex + 1);
+
+        const files: Record<string, string> = { [relativeName]: content };
+
+        if (projectRoot && platform.capabilities.hasFileSystem) {
+          try {
+            const siblings = await platform.readDirectoryFiles(projectRoot, ['scad'], true);
+            for (const [relPath, siblingContent] of Object.entries(siblings)) {
+              // Don't overwrite the primary file (we have the freshest content)
+              if (relPath !== relativeName) {
+                files[relPath] = siblingContent;
+              }
+            }
+          } catch (err) {
+            console.warn('[App] Failed to scan sibling files:', err);
+          }
+        }
+
+        store.getState().openProject(projectRoot, files, relativeName);
+      } else {
+        // Web: single file project with no disk root
+        const name = fileName || 'Untitled.scad';
+        store.getState().openProject(null, { [name]: content }, name);
+      }
+    },
+    []
+  );
+
   const handleOpenSharedDocument = useCallback(
     (share: { title: string; code: string }) => {
       setShowNux(false);
+      void initializeProject(null, share.title, share.code);
       return openSharedDocument({
         name: share.title,
         content: share.code,
       });
     },
-    [openSharedDocument]
+    [initializeProject, openSharedDocument]
   );
 
   const handleRenderSharedDocument = useCallback(
@@ -545,6 +586,17 @@ function App() {
   const renderWithTriggerRef = useRef(renderWithTrigger);
   const updateSourceAndRenderRef = useRef(updateSourceAndRender);
 
+  // Initialize project store with the default untitled file on mount
+  useEffect(() => {
+    const state = getProjectStore().getState();
+    // Only initialize if the project store is empty (no files loaded yet)
+    if (Object.keys(state.files).length === 0) {
+      const tab = activeTabRef.current;
+      void initializeProject(tab.filePath, tab.name, tab.content);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Keep refs in sync with state
   useEffect(() => {
     activeTabRef.current = activeTab;
@@ -665,6 +717,21 @@ function App() {
       updateTabContent(activeTabId, source);
     }
   }, [source, activeTab, activeTabId, updateTabContent]);
+
+  // Sync project store when active file content changes
+  useEffect(() => {
+    const projectState = getProjectStore().getState();
+    if (!projectState.renderTargetPath) return;
+
+    // Derive the relative path for the active tab
+    const relativePath = activeTab.filePath
+      ? activeTab.filePath.substring(activeTab.filePath.lastIndexOf('/') + 1)
+      : activeTab.name;
+
+    if (projectState.files[relativePath] && projectState.files[relativePath].content !== source) {
+      projectState.updateFileContent(relativePath, source);
+    }
+  }, [source, activeTab]);
 
   // Helper function to save file to current path or prompt for new path
   const saveFile = useCallback(
@@ -917,6 +984,7 @@ function App() {
 
         hideWelcomeScreen();
         if (result.path) addRecentFile(result.path);
+        void initializeProject(result.path, result.name, result.content);
         analytics.track('file opened', {
           source: 'recent',
           has_disk_path: Boolean(result.path),
@@ -955,6 +1023,7 @@ function App() {
       analytics,
       createNewTab,
       hideWelcomeScreen,
+      initializeProject,
       replaceWelcomeTab,
       showWelcome,
       switchTab,
@@ -1003,6 +1072,7 @@ function App() {
 
       hideWelcomeScreen();
       if (result.path) addRecentFile(result.path);
+      void initializeProject(result.path, result.name, result.content);
       analytics.track('file opened', {
         source: 'open',
         has_disk_path: Boolean(result.path),
@@ -1030,6 +1100,7 @@ function App() {
     analytics,
     createNewTab,
     hideWelcomeScreen,
+    initializeProject,
     replaceWelcomeTab,
     showWelcome,
     switchTab,
@@ -1111,6 +1182,7 @@ function App() {
           hideWelcomeScreen();
 
           if (result.path) addRecentFile(result.path);
+          void initializeProject(result.path, result.name, result.content);
           analytics.track('file opened', {
             source: 'menu_open',
             has_disk_path: Boolean(result.path),
@@ -1190,7 +1262,7 @@ function App() {
       unlistenFns.forEach((fn) => fn());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analytics, createNewTab, hideWelcomeScreen, showWelcome, showWelcomeScreen, switchTab]);
+  }, [analytics, createNewTab, hideWelcomeScreen, initializeProject, showWelcome, showWelcomeScreen, switchTab]);
 
   useEffect(() => {
     const platform = getPlatform();
@@ -1600,7 +1672,7 @@ function App() {
       style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
     >
       <header
-        className={`relative flex items-center gap-1.5 shrink-0 ${capabilities.multiFile ? '' : 'py-1'}`}
+        className={`relative flex items-center gap-1.5 shrink-0 ${capabilities.hasFileSystem ? '' : 'py-1'}`}
         style={{
           backgroundColor: 'var(--bg-secondary)',
           borderBottom: '1px solid var(--border-subtle)',
@@ -1620,7 +1692,7 @@ function App() {
 
         {!isMobile && (
           <div className="flex-1 min-w-0 overflow-hidden">
-            {capabilities.multiFile ? (
+            {capabilities.hasFileSystem ? (
               <TabBar
                 tabs={tabs}
                 activeTabId={activeTabId}

@@ -4,6 +4,7 @@ import { RenderService, type Diagnostic } from '../services/renderService';
 import { getPlatform } from '../platform';
 import type { LibrarySettings } from '../stores/settingsStore';
 import { resolveWorkingDirDeps } from '../utils/resolveWorkingDirDeps';
+import { getProjectState, getAuxiliaryFilesForRender } from '../stores/projectStore';
 import { notifyError } from '../utils/notifications';
 import { hasRenderableOutput } from './renderOutput';
 export type RenderKind = 'mesh' | 'svg';
@@ -242,16 +243,19 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         await auxFilesPromiseRef.current;
 
         // Resolve working directory dependencies by parsing include/use statements
-        // instead of blindly scanning the entire working directory
+        // instead of blindly scanning the entire working directory.
+        // On web (no workingDir), project store files are the only source.
         const workingDir = workingDirRef.current;
         let renderAuxFiles = libraryFilesRef.current;
+        const projectFiles = getAuxiliaryFilesForRender(getProjectState());
 
-        if (workingDir) {
+        if (workingDir || Object.keys(projectFiles).length > 0) {
           const platform = getPlatformImpl();
           const workingDirFiles = await resolveWorkingDirDepsImpl(code, {
-            workingDir,
+            workingDir: workingDir ?? '/virtual',
             libraryFiles: libraryFilesRef.current,
             platform,
+            projectFiles,
           });
 
           if (Object.keys(workingDirFiles).length > 0) {
