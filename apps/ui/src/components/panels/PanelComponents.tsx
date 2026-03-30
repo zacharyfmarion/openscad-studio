@@ -20,7 +20,6 @@ import { useAnalytics } from '../../analytics/runtime';
 
 const EditorPanel: React.FC<IDockviewPanelProps> = () => {
   const {
-    source,
     updateSource,
     diagnostics,
     onManualRender,
@@ -30,10 +29,11 @@ const EditorPanel: React.FC<IDockviewPanelProps> = () => {
     onTabClick,
     onTabClose,
   } = useWorkspace();
+  const activeTab = tabs.find((t) => t.id === activeTabId);
   return (
     <PanelErrorBoundary panelId="editor" panelName="Editor">
       <Editor
-        value={source}
+        value={activeTab?.content ?? ''}
         onChange={updateSource}
         activeFileId={activeTabId}
         openTabs={tabs.map((t) => ({ id: t.id, name: t.name, isDirty: t.isDirty }))}
