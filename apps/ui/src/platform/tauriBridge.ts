@@ -216,6 +216,21 @@ export class TauriBridge implements PlatformBridge {
     return typeof selected === 'string' ? selected : (selected as { path: string }).path;
   }
 
+  async writeTextFile(absolutePath: string, content: string): Promise<void> {
+    const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+    await writeTextFile(absolutePath, content);
+  }
+
+  async deleteFile(absolutePath: string): Promise<void> {
+    const { remove } = await import('@tauri-apps/plugin-fs');
+    await remove(absolutePath);
+  }
+
+  async renameFile(oldPath: string, newPath: string): Promise<void> {
+    const { rename } = await import('@tauri-apps/plugin-fs');
+    await rename(oldPath, newPath);
+  }
+
   setWindowTitle(title: string): void {
     import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
       getCurrentWindow().setTitle(title);

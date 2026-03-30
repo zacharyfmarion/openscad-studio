@@ -131,6 +131,17 @@ export interface PlatformBridge {
    */
   pickDirectory(): Promise<string | null>;
 
+  // -- File CRUD (for project file management) --
+
+  /** Write a text file to the given absolute path. Web bridge is a no-op. */
+  writeTextFile(absolutePath: string, content: string): Promise<void>;
+
+  /** Delete a file at the given absolute path. Web bridge is a no-op. */
+  deleteFile(absolutePath: string): Promise<void>;
+
+  /** Rename/move a file. Web bridge is a no-op. */
+  renameFile(oldPath: string, newPath: string): Promise<void>;
+
   // -- Lifecycle --
 
   /** Optional initialization (e.g., setting up native menu event forwarding) */

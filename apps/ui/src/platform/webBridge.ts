@@ -79,6 +79,18 @@ export class WebBridge implements PlatformBridge {
     return null;
   }
 
+  async writeTextFile(): Promise<void> {
+    // Web: file writes happen in-memory via projectStore
+  }
+
+  async deleteFile(): Promise<void> {
+    // Web: file deletes happen in-memory via projectStore
+  }
+
+  async renameFile(): Promise<void> {
+    // Web: file renames happen in-memory via projectStore
+  }
+
   async fileOpen(filters?: FileFilter[]): Promise<FileOpenResult | null> {
     if (hasFileSystemAccess()) {
       return this.fileOpenNative(filters);

@@ -128,6 +128,10 @@ class BootstrapBridge implements PlatformBridge {
   async pickDirectory(): Promise<string | null> {
     return null;
   }
+
+  async writeTextFile(): Promise<void> {}
+  async deleteFile(): Promise<void> {}
+  async renameFile(): Promise<void> {}
 }
 
 const bootstrapBridge = new BootstrapBridge();

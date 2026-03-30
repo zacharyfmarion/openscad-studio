@@ -61,6 +61,9 @@ export interface ProjectStoreActions {
   /** Remove a file from the project. */
   removeFile: (relativePath: string) => void;
 
+  /** Rename a file within the project. No-op if oldPath doesn't exist or newPath already exists. */
+  renameFile: (oldPath: string, newPath: string) => void;
+
   /** Change which file is the render target. No-op if the file doesn't exist. */
   setRenderTarget: (relativePath: string) => void;
 

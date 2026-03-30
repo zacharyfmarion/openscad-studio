@@ -1,10 +1,14 @@
-import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarLeftExpand } from 'react-icons/tb';
+import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarLeftExpand, TbPlus } from 'react-icons/tb';
 import { IconButton } from '../ui';
 import { FileTree } from './FileTree';
 
 interface FileTreePanelProps {
   activeFilePath: string | null;
   onFileClick: (path: string) => void;
+  onRenameFile: (oldPath: string, newName: string) => void;
+  onDeleteFile: (path: string) => void;
+  onSetRenderTarget: (path: string) => void;
+  onCreateFile: (parentDir: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
   width: number;
@@ -13,6 +17,10 @@ interface FileTreePanelProps {
 export function FileTreePanel({
   activeFilePath,
   onFileClick,
+  onRenameFile,
+  onDeleteFile,
+  onSetRenderTarget,
+  onCreateFile,
   collapsed,
   onToggleCollapse,
   width,
@@ -55,12 +63,24 @@ export function FileTreePanel({
         >
           Files
         </span>
-        <IconButton onClick={onToggleCollapse} size="sm" title="Hide file tree">
-          <TbLayoutSidebarLeftCollapse size={14} />
-        </IconButton>
+        <div className="flex items-center gap-0.5">
+          <IconButton onClick={() => onCreateFile('')} size="sm" title="New file">
+            <TbPlus size={14} />
+          </IconButton>
+          <IconButton onClick={onToggleCollapse} size="sm" title="Hide file tree">
+            <TbLayoutSidebarLeftCollapse size={14} />
+          </IconButton>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        <FileTree activeFilePath={activeFilePath} onFileClick={onFileClick} />
+        <FileTree
+          activeFilePath={activeFilePath}
+          onFileClick={onFileClick}
+          onRenameFile={onRenameFile}
+          onDeleteFile={onDeleteFile}
+          onSetRenderTarget={onSetRenderTarget}
+          onCreateFile={onCreateFile}
+        />
       </div>
     </div>
   );

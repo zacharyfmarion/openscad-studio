@@ -83,10 +83,14 @@ export function createWorkspaceStore(
       });
     },
 
-    renameTab: (id, name) => {
+    renameTab: (id, name, projectPath) => {
       set((state) => ({
         ...state,
-        tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, name } : tab)),
+        tabs: state.tabs.map((tab) =>
+          tab.id === id
+            ? { ...tab, name, ...(projectPath !== undefined ? { projectPath } : {}) }
+            : tab
+        ),
       }));
     },
 

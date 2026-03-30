@@ -26,6 +26,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@monaco-editor/react": "^4.6.0",
     "@posthog/react": "^1.8.2",
+    "@radix-ui/react-context-menu": "^2.2.16",
     "@radix-ui/react-select": "^2.1.6",
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tooltip": "^1.2.8",

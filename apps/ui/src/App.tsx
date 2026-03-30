@@ -71,7 +71,7 @@ import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTyp
 
 const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
 const REPOSITORY_URL = 'https://github.com/zacharyfmarion/openscad-studio';
-const HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY = '(max-width: 1400px)';
+const HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY = '(max-width: 900px)';
 
 const RELEASE_ASSETS: Record<MacArch, string> = {
   aarch64: 'OpenSCAD.Studio_latest_aarch64.dmg',
@@ -206,6 +206,7 @@ function App() {
   const createTab = useWorkspaceStore((state) => state.createTab);
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
   const markTabSaved = useWorkspaceStore((state) => state.markTabSaved);
+  const renameTab = useWorkspaceStore((state) => state.renameTab);
   const closeTabLocal = useWorkspaceStore((state) => state.closeTabLocal);
   const replaceWelcomeTab = useWorkspaceStore((state) => state.replaceWelcomeTab);
   const openSharedDocument = useWorkspaceStore((state) => state.openSharedDocument);
@@ -608,6 +609,114 @@ function App() {
   const handleToggleFileTree = useCallback(() => {
     updateSetting('ui', { fileTreeVisible: !settings.ui.fileTreeVisible });
   }, [settings.ui.fileTreeVisible]);
+
+  const handleCreateFile = useCallback(
+    async (parentDir: string) => {
+      let baseName = 'new_file.scad';
+      const store = getProjectStore().getState();
+      const prefix = parentDir ? `${parentDir}/` : '';
+
+      // Find a unique name
+      let counter = 1;
+      let path = `${prefix}${baseName}`;
+      while (path in store.files) {
+        baseName = `new_file_${counter}.scad`;
+        path = `${prefix}${baseName}`;
+        counter++;
+      }
+
+      const content = '';
+      store.addFile(path, content, { isVirtual: store.projectRoot === null });
+
+      // Write to disk on desktop
+      if (store.projectRoot) {
+        const platform = getPlatform();
+        const absolutePath = `${store.projectRoot}/${path}`;
+        await platform.writeTextFile(absolutePath, content);
+        // Mark as saved since we just wrote it
+        store.markFileSaved(path, content);
+      }
+
+      // Open in a new tab
+      const absolutePath = store.projectRoot ? `${store.projectRoot}/${path}` : null;
+      createNewTab(absolutePath, content, path);
+    },
+    [createNewTab]
+  );
+
+  const handleRenameFile = useCallback(
+    async (oldPath: string, newName: string) => {
+      const store = getProjectStore().getState();
+      const parentDir = oldPath.includes('/') ? oldPath.substring(0, oldPath.lastIndexOf('/')) : '';
+      const newPath = parentDir ? `${parentDir}/${newName}` : newName;
+
+      if (newPath === oldPath) return;
+      if (newPath in store.files) return; // Name already taken
+
+      store.renameFile(oldPath, newPath);
+
+      // Rename on disk
+      if (store.projectRoot) {
+        const platform = getPlatform();
+        await platform.renameFile(
+          `${store.projectRoot}/${oldPath}`,
+          `${store.projectRoot}/${newPath}`
+        );
+      }
+
+      // Update any open tab that references this file
+      const tab = tabs.find((t) => t.projectPath === oldPath);
+      if (tab) {
+        const absolutePath = store.projectRoot ? `${store.projectRoot}/${newPath}` : null;
+        markTabSaved(tab.id, { filePath: absolutePath, name: newName });
+        renameTab(tab.id, newName, newPath);
+      }
+    },
+    [tabs, markTabSaved, renameTab]
+  );
+
+  const handleDeleteFile = useCallback(
+    async (filePath: string) => {
+      const platform = getPlatform();
+      const fileName = filePath.split('/').pop() || filePath;
+
+      const confirmed = await platform.confirm(
+        `Are you sure you want to delete "${fileName}"?`,
+        { title: 'Delete File', kind: 'warning', okLabel: 'Delete', cancelLabel: 'Cancel' }
+      );
+      if (!confirmed) return;
+
+      const store = getProjectStore().getState();
+
+      // Delete from disk first
+      if (store.projectRoot) {
+        await platform.deleteFile(`${store.projectRoot}/${filePath}`);
+      }
+
+      // Close any open tab for this file
+      const tab = tabs.find((t) => t.projectPath === filePath);
+      if (tab) {
+        revokeBlobUrl(tab.render.previewSrc);
+        closeTabLocal(tab.id);
+      }
+
+      store.removeFile(filePath);
+
+      // If we deleted everything, create a new untitled file
+      const remaining = Object.keys(store.files);
+      if (remaining.length === 0) {
+        const defaultContent = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';
+        store.addFile('Untitled', defaultContent);
+        store.setRenderTarget('Untitled');
+        createNewTab(null, defaultContent, 'Untitled');
+      }
+    },
+    [tabs, closeTabLocal, createNewTab]
+  );
+
+  const handleSetRenderTarget = useCallback((filePath: string) => {
+    getProjectStore().getState().setRenderTarget(filePath);
+  }, []);
 
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
 
@@ -1789,6 +1898,10 @@ function App() {
           <FileTreePanel
             activeFilePath={activeTab.projectPath}
             onFileClick={handleFileTreeClick}
+            onRenameFile={handleRenameFile}
+            onDeleteFile={handleDeleteFile}
+            onSetRenderTarget={handleSetRenderTarget}
+            onCreateFile={handleCreateFile}
             collapsed={!settings.ui.fileTreeVisible}
             onToggleCollapse={handleToggleFileTree}
             width={settings.ui.fileTreeWidth}

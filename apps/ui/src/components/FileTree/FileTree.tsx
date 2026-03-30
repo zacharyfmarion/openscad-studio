@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { TbChevronDown, TbChevronRight } from 'react-icons/tb';
+import * as ContextMenu from '@radix-ui/react-context-menu';
 import { useProjectStore } from '../../stores/projectStore';
 import { FileTreeItem } from './FileTreeItem';
 
@@ -46,12 +47,20 @@ function buildTree(filePaths: string[]): TreeNode[] {
   return sortNodes(root.children);
 }
 
+interface FileTreeCallbacks {
+  onFileClick: (path: string) => void;
+  onRenameFile: (oldPath: string, newName: string) => void;
+  onDeleteFile: (path: string) => void;
+  onSetRenderTarget: (path: string) => void;
+  onCreateFile: (parentDir: string) => void;
+}
+
 interface FolderNodeProps {
   node: TreeNode;
   activeFilePath: string | null;
   renderTargetPath: string | null;
   files: Record<string, { isDirty: boolean }>;
-  onFileClick: (path: string) => void;
+  callbacks: FileTreeCallbacks;
   depth: number;
 }
 
@@ -60,32 +69,63 @@ function FolderNode({
   activeFilePath,
   renderTargetPath,
   files,
-  onFileClick,
+  callbacks,
   depth,
 }: FolderNodeProps) {
   const [expanded, setExpanded] = useState(true);
 
   return (
     <div>
-      {/* eslint-disable-next-line no-restricted-syntax -- tree folder toggle with custom layout */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors text-left"
-        style={{
-          paddingLeft: `${depth * 12 + 8}px`,
-          color: 'var(--text-secondary)',
-        }}
-      >
-        {expanded ? <TbChevronDown size={12} /> : <TbChevronRight size={12} />}
-        <span className="truncate">{node.name}</span>
-      </button>
+      <ContextMenu.Root>
+        <ContextMenu.Trigger asChild>
+          {/* eslint-disable-next-line no-restricted-syntax -- tree folder toggle with custom layout */}
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="w-full flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors text-left"
+            style={{
+              paddingLeft: `${depth * 12 + 8}px`,
+              color: 'var(--text-secondary)',
+            }}
+          >
+            {expanded ? <TbChevronDown size={12} /> : <TbChevronRight size={12} />}
+            <span className="truncate">{node.name}</span>
+          </button>
+        </ContextMenu.Trigger>
+        <ContextMenu.Portal>
+          <ContextMenu.Content
+            className="min-w-[160px] rounded-md p-1 shadow-lg"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid var(--border-primary)',
+              zIndex: 1000,
+            }}
+          >
+            <ContextMenu.Item
+              className="flex items-center px-3 py-1.5 text-xs rounded cursor-pointer outline-none"
+              style={{ color: 'var(--text-secondary)' }}
+              onSelect={() => {
+                if (!expanded) setExpanded(true);
+                callbacks.onCreateFile(node.fullPath);
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              New File
+            </ContextMenu.Item>
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      </ContextMenu.Root>
       {expanded && (
         <TreeNodes
           nodes={node.children}
           activeFilePath={activeFilePath}
           renderTargetPath={renderTargetPath}
           files={files}
-          onFileClick={onFileClick}
+          callbacks={callbacks}
           depth={depth + 1}
         />
       )}
@@ -98,7 +138,7 @@ interface TreeNodesProps {
   activeFilePath: string | null;
   renderTargetPath: string | null;
   files: Record<string, { isDirty: boolean }>;
-  onFileClick: (path: string) => void;
+  callbacks: FileTreeCallbacks;
   depth: number;
 }
 
@@ -107,7 +147,7 @@ function TreeNodes({
   activeFilePath,
   renderTargetPath,
   files,
-  onFileClick,
+  callbacks,
   depth,
 }: TreeNodesProps) {
   return (
@@ -117,10 +157,14 @@ function TreeNodes({
           <div key={node.fullPath} style={{ paddingLeft: `${depth * 12 + 8}px` }}>
             <FileTreeItem
               name={node.name}
+              fullPath={node.fullPath}
               isActive={node.fullPath === activeFilePath}
               isDirty={files[node.fullPath]?.isDirty ?? false}
               isRenderTarget={node.fullPath === renderTargetPath}
-              onClick={() => onFileClick(node.fullPath)}
+              onClick={() => callbacks.onFileClick(node.fullPath)}
+              onRename={callbacks.onRenameFile}
+              onDelete={callbacks.onDeleteFile}
+              onSetRenderTarget={callbacks.onSetRenderTarget}
             />
           </div>
         ) : (
@@ -130,7 +174,7 @@ function TreeNodes({
             activeFilePath={activeFilePath}
             renderTargetPath={renderTargetPath}
             files={files}
-            onFileClick={onFileClick}
+            callbacks={callbacks}
             depth={depth}
           />
         )
@@ -142,14 +186,33 @@ function TreeNodes({
 interface FileTreeProps {
   activeFilePath: string | null;
   onFileClick: (path: string) => void;
+  onRenameFile: (oldPath: string, newName: string) => void;
+  onDeleteFile: (path: string) => void;
+  onSetRenderTarget: (path: string) => void;
+  onCreateFile: (parentDir: string) => void;
 }
 
-export function FileTree({ activeFilePath, onFileClick }: FileTreeProps) {
+export function FileTree({
+  activeFilePath,
+  onFileClick,
+  onRenameFile,
+  onDeleteFile,
+  onSetRenderTarget,
+  onCreateFile,
+}: FileTreeProps) {
   const files = useProjectStore((s) => s.files);
   const renderTargetPath = useProjectStore((s) => s.renderTargetPath);
 
   const filePaths = Object.keys(files).sort((a, b) => a.localeCompare(b));
   const tree = buildTree(filePaths);
+
+  const callbacks: FileTreeCallbacks = {
+    onFileClick,
+    onRenameFile,
+    onDeleteFile,
+    onSetRenderTarget,
+    onCreateFile,
+  };
 
   if (filePaths.length === 0) {
     return (
@@ -166,7 +229,7 @@ export function FileTree({ activeFilePath, onFileClick }: FileTreeProps) {
         activeFilePath={activeFilePath}
         renderTargetPath={renderTargetPath}
         files={files}
-        onFileClick={onFileClick}
+        callbacks={callbacks}
         depth={0}
       />
     </div>

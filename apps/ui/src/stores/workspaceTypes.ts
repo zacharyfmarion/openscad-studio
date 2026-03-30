@@ -39,7 +39,7 @@ export interface WorkspaceStoreActions {
     activate?: boolean;
   }) => TabId;
   setActiveTab: (id: TabId) => void;
-  renameTab: (id: TabId, name: string) => void;
+  renameTab: (id: TabId, name: string, projectPath?: string) => void;
   markTabSaved: (id: TabId, args: { filePath: string | null; name: string }) => void;
   closeTabLocal: (id: TabId) => void;
   replaceWelcomeTab: (args: {

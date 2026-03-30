@@ -54,12 +54,14 @@ export function createProjectStore(initialState?: ProjectStoreState) {
       const state = get();
       if (relativePath in state.files) return;
 
+      const isVirtual = options?.isVirtual ?? state.projectRoot === null;
       set({
         files: {
           ...state.files,
           [relativePath]: createProjectFile(content, {
-            isVirtual: options?.isVirtual ?? state.projectRoot === null,
-            isDirty: true,
+            isVirtual,
+            // Virtual files (web) have no disk to save to, so dirty is meaningless
+            isDirty: isVirtual ? false : true,
           }),
         },
         contentVersion: state.contentVersion + 1,
@@ -77,7 +79,8 @@ export function createProjectStore(initialState?: ProjectStoreState) {
           [relativePath]: {
             ...file,
             content,
-            isDirty: content !== file.savedContent,
+            // Virtual files (web) have no disk to save to, so dirty is meaningless
+            isDirty: file.isVirtual ? false : content !== file.savedContent,
           },
         },
         contentVersion: state.contentVersion + 1,
@@ -116,6 +119,25 @@ export function createProjectStore(initialState?: ProjectStoreState) {
         updates.renderTargetPath = remaining.length > 0 ? remaining[0] : null;
       }
 
+      set(updates);
+    },
+
+    renameFile: (oldPath, newPath) => {
+      const state = get();
+      if (!(oldPath in state.files) || newPath in state.files) return;
+
+      const rest = { ...state.files };
+      const file = rest[oldPath];
+      delete rest[oldPath];
+      rest[newPath] = file;
+
+      const updates: Partial<ProjectStoreState> = {
+        files: rest,
+        contentVersion: state.contentVersion + 1,
+      };
+      if (state.renderTargetPath === oldPath) {
+        updates.renderTargetPath = newPath;
+      }
       set(updates);
     },
 

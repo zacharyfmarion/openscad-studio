@@ -16,6 +16,8 @@
     "fs:allow-write-file",
     "fs:allow-exists",
     "fs:allow-read-dir",
+    "fs:allow-rename",
+    "fs:allow-remove",
     {
       "identifier": "fs:scope",
       "allow": ["$HOME/**", "$APPCACHE/**"]
