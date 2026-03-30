@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { type ToolSet, stepCountIs } from 'ai';
 import { bucketCount, useAnalytics, type ModelSelectionSurface } from '../analytics/runtime';
 import { historyService, eventBus, getPlatform } from '../platform';
+import { getProjectState, getRenderTargetContent } from '../stores/projectStore';
 import {
   createModel,
   SYSTEM_PROMPT,
@@ -252,7 +253,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
     stateRef.current = state;
   }, [state]);
 
-  const sourceRef = useRef<string>('');
   const capturePreviewRef = useRef<(() => Promise<string | null>) | null>(null);
   const stlBlobUrlRef = useRef<string | null>(null);
   const workingDirRef = useRef<string | null>(null);
@@ -279,7 +279,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
 
   const callbacks: AiToolCallbacks = useMemo(
     () => ({
-      getCurrentCode: () => sourceRef.current,
+      getCurrentCode: () => getRenderTargetContent(getProjectState()) ?? '',
       captureCurrentView: async () => {
         if (capturePreviewRef.current) {
           return capturePreviewRef.current();
@@ -332,7 +332,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
           currentFilePathRef.current
         );
         if (currentRelativePath === normalizedPath) {
-          return sourceRef.current;
+          return getRenderTargetContent(getProjectState()) ?? '';
         }
 
         return platform.readTextFile(`${workingDir}/${normalizedPath}`);
@@ -347,10 +347,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
   );
 
   const tools: ToolSet = useMemo(() => buildToolsImpl(callbacks), [buildToolsImpl, callbacks]);
-
-  const updateSourceRef = useCallback((code: string) => {
-    sourceRef.current = code;
-  }, []);
 
   const updateCapturePreview = useCallback((fn: (() => Promise<string | null>) | null) => {
     capturePreviewRef.current = fn;
@@ -1021,7 +1017,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
     setCurrentModel,
     loadModelAndProviders,
     handleRestoreCheckpoint,
-    updateSourceRef,
     updateCapturePreview,
     updateStlBlobUrl,
     updateWorkingDir,

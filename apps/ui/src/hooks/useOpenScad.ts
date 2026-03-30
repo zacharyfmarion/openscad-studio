@@ -22,7 +22,14 @@ export interface RenderSnapshot {
 }
 
 interface UseOpenScadOptions {
-  initialSource?: string;
+  /** Render target content — provided by the caller (derived from projectStore). */
+  source?: string;
+  /**
+   * Monotonically increasing counter that changes when any project file is
+   * mutated. Used to trigger re-renders when an included dependency (not the
+   * render target itself) changes.
+   */
+  contentVersion?: number;
   workingDir?: string | null;
   autoRenderOnIdle?: boolean;
   autoRenderDelayMs?: number;
@@ -48,7 +55,8 @@ interface UseOpenScadOptions {
 export function useOpenScad(options: UseOpenScadOptions = {}) {
   const defaultAnalytics = useAnalytics();
   const {
-    initialSource = '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
+    source = '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
+    contentVersion = 0,
     autoRenderOnIdle = false,
     autoRenderDelayMs = 500,
     library,
@@ -61,7 +69,6 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   const getPlatformImpl = testOverrides?.getPlatform ?? getPlatform;
   const resolveWorkingDirDepsImpl = testOverrides?.resolveWorkingDirDeps ?? resolveWorkingDirDeps;
   const notifyErrorImpl = testOverrides?.notifyError ?? notifyError;
-  const [source, setSource] = useState<string>(initialSource);
   const [ready, setReady] = useState(false);
   const [previewSrc, setPreviewSrc] = useState<string>('');
   const [previewKind, setPreviewKind] = useState<RenderKind>('mesh');
@@ -422,19 +429,15 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     ]
   );
 
-  const updateSource = useCallback((newSource: string) => {
-    setSource(newSource);
-  }, []);
-
-  // Atomically update source AND render with the new code.
-  // This bypasses the stale-closure problem where manualRender() would
-  // render with the previous `source` because React hasn't flushed the
-  // state update from updateSource() yet.
-  const updateSourceAndRender = useCallback(
-    (newSource: string, trigger: RenderTrigger = 'code_update') => {
-      setSource(newSource);
-      lastRenderedSourceRef.current = newSource;
-      return doRender(newSource, dimensionMode, trigger);
+  /**
+   * Render specific code immediately, bypassing debounce.
+   * Use this when you have the code in hand and can't wait for the prop to update
+   * (e.g., file open, AI edits, history restore).
+   */
+  const renderCode = useCallback(
+    (code: string, trigger: RenderTrigger = 'code_update') => {
+      lastRenderedSourceRef.current = code;
+      return doRender(code, dimensionMode, trigger);
     },
     [dimensionMode, doRender]
   );
@@ -461,6 +464,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   // Debounced auto-render on idle
   const autoRenderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRenderedSourceRef = useRef<string>(source);
+  const lastRenderedVersionRef = useRef<number>(contentVersion);
 
   // Manual render function (stable callback)
   const manualRender = useCallback(() => {
@@ -482,9 +486,13 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     [dimensionMode, doRender, source]
   );
 
+  // contentVersion changes when ANY project file is mutated (including non-render-target
+  // includes). Together with source, this ensures the debounced auto-render fires for
+  // both render-target edits and dependency edits.
   useEffect(() => {
     if (!autoRenderOnIdle || !ready) return;
-    if (source === lastRenderedSourceRef.current) return;
+    // Skip if source AND version haven't changed since the last render.
+    if (source === lastRenderedSourceRef.current && contentVersion === lastRenderedVersionRef.current) return;
 
     if (autoRenderTimerRef.current) {
       clearTimeout(autoRenderTimerRef.current);
@@ -492,6 +500,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
     autoRenderTimerRef.current = setTimeout(() => {
       lastRenderedSourceRef.current = source;
+      lastRenderedVersionRef.current = contentVersion;
       void doRender(source, dimensionMode, 'auto_idle');
     }, autoRenderDelayMs);
 
@@ -500,7 +509,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         clearTimeout(autoRenderTimerRef.current);
       }
     };
-  }, [source, autoRenderOnIdle, autoRenderDelayMs, ready, doRender, dimensionMode]);
+  }, [source, contentVersion, autoRenderOnIdle, autoRenderDelayMs, ready, doRender, dimensionMode]);
 
   // Cleanup Blob URLs on unmount
   useEffect(() => {
@@ -517,7 +526,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       window.__TEST_OPENSCAD__ = {
         doRender,
         manualRender,
-        updateSourceAndRender,
+        renderCode,
         renderWithTrigger,
         dimensionMode,
         renderService: renderServiceRef.current,
@@ -539,14 +548,11 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     doRender,
     isDevRuntime,
     manualRender,
+    renderCode,
     renderWithTrigger,
-    updateSourceAndRender,
   ]);
 
   return {
-    source,
-    updateSource,
-    updateSourceAndRender,
     previewSrc,
     previewKind,
     diagnostics,
@@ -557,6 +563,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     manualRender,
     renderOnSave,
     renderWithTrigger,
+    renderCode,
     clearPreview,
     auxiliaryFiles,
   };

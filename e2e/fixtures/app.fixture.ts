@@ -145,7 +145,7 @@ export class AppHelper {
     const snapshot = await this.page.evaluate(
       async ({ nextCode, renderTrigger }) => {
         return (
-          (window as any).__TEST_OPENSCAD__?.updateSourceAndRender?.(nextCode, renderTrigger) ??
+          (window as any).__TEST_OPENSCAD__?.renderCode?.(nextCode, renderTrigger) ??
           null
         );
       },

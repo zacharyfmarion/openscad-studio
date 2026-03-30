@@ -15,8 +15,8 @@ interface Window {
       trigger?: import('./analytics/runtime').RenderTrigger
     ) => Promise<import('./hooks/useOpenScad').RenderSnapshot | null>;
     manualRender: () => Promise<import('./hooks/useOpenScad').RenderSnapshot | null>;
-    updateSourceAndRender: (
-      source: string,
+    renderCode: (
+      code: string,
       trigger?: import('./analytics/runtime').RenderTrigger
     ) => Promise<import('./hooks/useOpenScad').RenderSnapshot | null>;
     renderWithTrigger: (

@@ -85,20 +85,6 @@ function SortableTab({ tab, isActive, onTabClick, onTabClose }: SortableTabProps
         />
       )}
 
-      {/* Unsaved indicator - show before filename */}
-      {tab.isDirty && (
-        <div
-          style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            backgroundColor: 'var(--accent-primary)',
-            flexShrink: 0,
-          }}
-          title="Unsaved changes"
-        />
-      )}
-
       {/* Tab name */}
       <span className="truncate flex-1 text-left" style={{ fontSize: '13px' }}>
         {tab.name}

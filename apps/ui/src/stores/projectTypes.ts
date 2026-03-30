@@ -7,6 +7,8 @@ export interface ProjectFile {
   isDirty: boolean;
   /** Whether this file exists only in memory (web virtual FS) vs. on disk */
   isVirtual: boolean;
+  /** Baseline content for the customizer panel (reset-to snapshot). */
+  customizerBaseContent: string;
 }
 
 export interface ProjectStoreState {
@@ -27,6 +29,13 @@ export interface ProjectStoreState {
    * This is the "entry point" — include/use deps are resolved from this file.
    */
   renderTargetPath: string | null;
+
+  /**
+   * Monotonically increasing counter, bumped on every file content mutation.
+   * Used by the render pipeline to detect dependency changes (e.g. editing an
+   * included file that isn't the render target).
+   */
+  contentVersion: number;
 }
 
 export interface ProjectStoreActions {
@@ -54,6 +63,9 @@ export interface ProjectStoreActions {
 
   /** Change which file is the render target. No-op if the file doesn't exist. */
   setRenderTarget: (relativePath: string) => void;
+
+  /** Update the customizer baseline content for a file. */
+  setCustomizerBase: (relativePath: string, content: string) => void;
 
   /** Reset the project to empty state. */
   resetProject: () => void;

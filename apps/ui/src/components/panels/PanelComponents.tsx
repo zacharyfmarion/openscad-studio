@@ -10,8 +10,7 @@ import { DiffViewer } from '../DiffViewer';
 import { CustomizerPanel } from '../CustomizerPanel';
 import { PanelErrorBoundary } from '../ErrorBoundary';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
-import { useWorkspaceStore } from '../../stores/workspaceStore';
-import { selectActiveTab } from '../../stores/workspaceSelectors';
+import { useProjectStore } from '../../stores/projectStore';
 import { isExportValidationError } from '../../services/exportErrors';
 import { RenderService } from '../../services/renderService';
 import { getPlatform } from '../../platform';
@@ -30,13 +29,21 @@ const EditorPanel: React.FC<IDockviewPanelProps> = () => {
     onTabClose,
   } = useWorkspace();
   const activeTab = tabs.find((t) => t.id === activeTabId);
+  const editorContent = useProjectStore(
+    (s) => (activeTab?.projectPath ? (s.files[activeTab.projectPath]?.content ?? '') : '')
+  );
+  const projectFiles = useProjectStore((s) => s.files);
   return (
     <PanelErrorBoundary panelId="editor" panelName="Editor">
       <Editor
-        value={activeTab?.content ?? ''}
+        value={editorContent}
         onChange={updateSource}
         activeFileId={activeTabId}
-        openTabs={tabs.map((t) => ({ id: t.id, name: t.name, isDirty: t.isDirty }))}
+        openTabs={tabs.map((t) => ({
+          id: t.id,
+          name: t.name,
+          isDirty: projectFiles[t.projectPath]?.isDirty ?? false,
+        }))}
         onTabClick={onTabClick}
         onTabClose={onTabClose}
         diagnostics={diagnostics.filter((d) => !d.message.match(/^ECHO:/i))}
@@ -150,17 +157,18 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
     onOpenEditorPanel,
   } = useWorkspace();
 
-  const activeTab = useWorkspaceStore(selectActiveTab);
+  const renderTargetBaselineCode = useProjectStore(
+    (s) => (s.renderTargetPath ? (s.files[s.renderTargetPath]?.customizerBaseContent ?? source) : source)
+  );
   const analytics = useAnalytics();
   const [isDownloadingStl, setIsDownloadingStl] = useState(false);
   const [isDownloadingSvg, setIsDownloadingSvg] = useState(false);
 
   const handleDownloadStl = useCallback(async () => {
     if (isDownloadingStl) return;
-    const code = activeTab?.content ?? source;
     setIsDownloadingStl(true);
     try {
-      const exportBytes = await RenderService.getInstance().exportModel(code, 'stl');
+      const exportBytes = await RenderService.getInstance().exportModel(source, 'stl');
       await getPlatform().fileExport(exportBytes, 'export.stl', [
         { name: 'STL Files', extensions: ['stl'] },
       ]);
@@ -177,14 +185,13 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
     } finally {
       setIsDownloadingStl(false);
     }
-  }, [isDownloadingStl, activeTab, source, analytics]);
+  }, [isDownloadingStl, source, analytics]);
 
   const handleDownloadSvg = useCallback(async () => {
     if (isDownloadingSvg) return;
-    const code = activeTab?.content ?? source;
     setIsDownloadingSvg(true);
     try {
-      const exportBytes = await RenderService.getInstance().exportModel(code, 'svg');
+      const exportBytes = await RenderService.getInstance().exportModel(source, 'svg');
       await getPlatform().fileExport(exportBytes, 'export.svg', [
         { name: 'SVG Files', extensions: ['svg'] },
       ]);
@@ -201,14 +208,14 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
     } finally {
       setIsDownloadingSvg(false);
     }
-  }, [isDownloadingSvg, activeTab, source, analytics]);
+  }, [isDownloadingSvg, source, analytics]);
 
   return (
     <PanelErrorBoundary panelId="customizer" panelName="Customizer">
       <div className="h-full" style={{ backgroundColor: 'var(--bg-secondary)' }}>
         <CustomizerPanel
           code={source}
-          baselineCode={activeTab?.customizerBaseContent ?? source}
+          baselineCode={renderTargetBaselineCode}
           onChange={updateSource}
           isCustomizerFirstMode={settings.ui.defaultLayoutPreset === 'customizer-first'}
           previewKind={previewKind}

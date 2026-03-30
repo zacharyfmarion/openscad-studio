@@ -11,6 +11,7 @@ function createInitialProjectState(): ProjectStoreState {
     projectRoot: null,
     files: {},
     renderTargetPath: null,
+    contentVersion: 0,
   };
 }
 
@@ -23,6 +24,7 @@ function createProjectFile(
     savedContent: content,
     isDirty: options?.isDirty ?? false,
     isVirtual: options?.isVirtual ?? false,
+    customizerBaseContent: content,
   };
 }
 
@@ -44,6 +46,7 @@ export function createProjectStore(initialState?: ProjectStoreState) {
         projectRoot: root,
         files: projectFiles,
         renderTargetPath,
+        contentVersion: get().contentVersion + 1,
       });
     },
 
@@ -59,13 +62,14 @@ export function createProjectStore(initialState?: ProjectStoreState) {
             isDirty: true,
           }),
         },
+        contentVersion: state.contentVersion + 1,
       });
     },
 
     updateFileContent: (relativePath, content) => {
       const state = get();
       const file = state.files[relativePath];
-      if (!file) return;
+      if (!file || file.content === content) return;
 
       set({
         files: {
@@ -76,6 +80,7 @@ export function createProjectStore(initialState?: ProjectStoreState) {
             isDirty: content !== file.savedContent,
           },
         },
+        contentVersion: state.contentVersion + 1,
       });
     },
 
@@ -118,6 +123,22 @@ export function createProjectStore(initialState?: ProjectStoreState) {
       const state = get();
       if (!(relativePath in state.files)) return;
       set({ renderTargetPath: relativePath });
+    },
+
+    setCustomizerBase: (relativePath, content) => {
+      const state = get();
+      const file = state.files[relativePath];
+      if (!file) return;
+
+      set({
+        files: {
+          ...state.files,
+          [relativePath]: {
+            ...file,
+            customizerBaseContent: content,
+          },
+        },
+      });
     },
 
     resetProject: () => {

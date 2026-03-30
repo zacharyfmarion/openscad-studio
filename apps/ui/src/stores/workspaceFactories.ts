@@ -24,18 +24,15 @@ export function createWorkspaceTab(args?: {
   id?: TabId;
   filePath?: string | null;
   name?: string;
-  content?: string;
+  projectPath?: string;
 }): WorkspaceTab {
-  const content = args?.content ?? DEFAULT_OPENSCAD_CODE;
+  const name = args?.name ?? DEFAULT_TAB_NAME;
 
   return {
     id: args?.id ?? createTabId(),
     filePath: args?.filePath ?? null,
-    name: args?.name ?? DEFAULT_TAB_NAME,
-    content,
-    customizerBaseContent: content,
-    savedContent: content,
-    isDirty: false,
+    name,
+    projectPath: args?.projectPath ?? name,
     render: createEmptyRenderState(),
   };
 }

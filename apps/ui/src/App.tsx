@@ -58,7 +58,7 @@ import {
   selectWorkingDirectory,
 } from './stores/workspaceSelectors';
 import { useWorkspaceStore, getWorkspaceState } from './stores/workspaceStore';
-import { getProjectStore, useProjectStore } from './stores/projectStore';
+import { getProjectStore, useProjectStore, getRenderTargetContent } from './stores/projectStore';
 import { formatOpenScadCode } from './utils/formatter';
 import { addRecentFile, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview } from './utils/capturePreview';
@@ -200,13 +200,11 @@ function App() {
   // The render target tab holds the preview — use its render state regardless of
   // which tab is currently active in the editor.
   const renderTargetPath = useProjectStore((s) => s.renderTargetPath);
-  const renderTargetTab = tabs.find((t) => t.name === renderTargetPath);
+  const renderTargetTab = tabs.find((t) => t.projectPath === renderTargetPath);
   const renderTargetRender = renderTargetTab?.render ?? activeRender;
   const workingDir = useWorkspaceStore(selectWorkingDirectory);
   const createTab = useWorkspaceStore((state) => state.createTab);
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
-  const updateWorkspaceTabContent = useWorkspaceStore((state) => state.updateTabContent);
-  const setTabCustomizerBase = useWorkspaceStore((state) => state.setTabCustomizerBase);
   const markTabSaved = useWorkspaceStore((state) => state.markTabSaved);
   const closeTabLocal = useWorkspaceStore((state) => state.closeTabLocal);
   const replaceWelcomeTab = useWorkspaceStore((state) => state.replaceWelcomeTab);
@@ -253,10 +251,12 @@ function App() {
     return () => mq.removeEventListener('change', handleChange);
   }, []);
 
+  const renderTargetContent = useProjectStore((s) =>
+    s.renderTargetPath ? (s.files[s.renderTargetPath]?.content ?? '') : ''
+  );
+  const contentVersion = useProjectStore((s) => s.contentVersion);
+
   const {
-    source,
-    updateSource,
-    updateSourceAndRender,
     previewKind,
     diagnostics,
     isRendering,
@@ -265,8 +265,11 @@ function App() {
     manualRender,
     renderOnSave,
     renderWithTrigger,
+    renderCode,
     auxiliaryFiles,
   } = useOpenScad({
+    source: renderTargetContent,
+    contentVersion,
     suppressInitialRender: Boolean(initialShareContext),
     workingDir,
     autoRenderOnIdle: settings.editor.autoRenderOnIdle,
@@ -276,7 +279,7 @@ function App() {
       // Always render into the render target tab, not the active editor tab
       const rtPath = getProjectStore().getState().renderTargetPath;
       const rtTab = rtPath
-        ? getWorkspaceState().tabs.find((t) => t.name === rtPath)
+        ? getWorkspaceState().tabs.find((t) => t.projectPath === rtPath)
         : null;
       const tabId = rtTab?.id ?? activeTabRef.current?.id;
       if (!tabId) {
@@ -383,19 +386,18 @@ function App() {
       void initializeProject(null, share.title, share.code);
       return openSharedDocument({
         name: share.title,
-        content: share.code,
+        projectPath: share.title,
       });
     },
     [initializeProject, openSharedDocument]
   );
 
   const handleRenderSharedDocument = useCallback(
-    ({ tabId, code }: { tabId: string; code: string }) => {
-      updateWorkspaceTabContent(tabId, code);
-      setTabCustomizerBase(tabId, code);
-      return updateSourceAndRender(code, 'file_open');
+    ({ code }: { tabId: string; code: string }) => {
+      // projectStore is already populated by handleOpenSharedDocument — just render.
+      return renderCode(code, 'file_open');
     },
-    [setTabCustomizerBase, updateSourceAndRender, updateWorkspaceTabContent]
+    [renderCode]
   );
 
   const {
@@ -421,20 +423,24 @@ function App() {
   const handleUndo = useCallback(async () => {
     const checkpoint = await undo();
     if (checkpoint) {
-      updateSource(checkpoint.code);
-      updateWorkspaceTabContent(activeTabId, checkpoint.code);
-      setTabCustomizerBase(activeTabId, checkpoint.code);
+      const store = getProjectStore().getState();
+      const projectPath = activeTab.projectPath;
+      store.updateFileContent(projectPath, checkpoint.code);
+      store.setCustomizerBase(projectPath, checkpoint.code);
+      void renderCode(checkpoint.code, 'history_restore');
     }
-  }, [activeTabId, setTabCustomizerBase, undo, updateSource, updateWorkspaceTabContent]);
+  }, [activeTab.projectPath, undo, renderCode]);
 
   const handleRedo = useCallback(async () => {
     const checkpoint = await redo();
     if (checkpoint) {
-      updateSource(checkpoint.code);
-      updateWorkspaceTabContent(activeTabId, checkpoint.code);
-      setTabCustomizerBase(activeTabId, checkpoint.code);
+      const store = getProjectStore().getState();
+      const projectPath = activeTab.projectPath;
+      store.updateFileContent(projectPath, checkpoint.code);
+      store.setCustomizerBase(projectPath, checkpoint.code);
+      void renderCode(checkpoint.code, 'history_restore');
     }
-  }, [activeTabId, redo, setTabCustomizerBase, updateSource, updateWorkspaceTabContent]);
+  }, [activeTab.projectPath, redo, renderCode]);
 
   const aiPromptPanelRef = useRef<AiPromptPanelRef>(null);
   const analytics = useAnalytics();
@@ -471,7 +477,6 @@ function App() {
     newConversation,
     setCurrentModel,
     handleRestoreCheckpoint,
-    updateSourceRef,
     updateCapturePreview,
     updateStlBlobUrl,
     updateWorkingDir,
@@ -484,24 +489,23 @@ function App() {
   // Tab management functions
   const createNewTab = useCallback(
     (filePath?: string | null, content?: string, name?: string): string => {
+      const projectPath = name ?? 'Untitled';
       const defaultContent = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';
-      const tabContent = content || defaultContent;
+
+      // Ensure the file exists in projectStore
+      const store = getProjectStore().getState();
+      if (!store.files[projectPath]) {
+        store.addFile(projectPath, content ?? defaultContent);
+      }
+
       const newId = createTab({
         filePath: filePath || null,
         name,
-        content: tabContent,
+        projectPath,
       });
-
-      // Editor handles content display via multi-model.
-      // Only update source (render pipeline) if this is the render target.
-      const projectState = getProjectStore().getState();
-      if (name && name === projectState.renderTargetPath) {
-        updateSource(tabContent);
-      }
-
       return newId;
     },
-    [createTab, updateSource]
+    [createTab]
   );
 
   const switchingRef = useRef(false);
@@ -525,7 +529,8 @@ function App() {
       const tab = tabs.find((t) => t.id === id);
       if (!tab) return;
 
-      if (tab.isDirty) {
+      const isDirty = getProjectStore().getState().files[tab.projectPath]?.isDirty ?? false;
+      if (isDirty) {
         const platform = getPlatform();
         const wantsToSave = await platform.ask(`Save changes to ${tab.name}?`, {
           title: 'Unsaved Changes',
@@ -550,31 +555,10 @@ function App() {
         }
       }
 
-      const wasActiveTab = id === activeTabId;
       revokeBlobUrl(tab.render.previewSrc);
       closeTabLocal(id);
-
-      if (wasActiveTab) {
-        // Editor handles model switching; no updateSource needed for display.
-        // If we closed the render target tab, we'd need to handle that in Stage 3.
-      }
     },
-    [activeTabId, closeTabLocal, tabs]
-  );
-
-  const updateTabContent = useCallback(
-    (id: string, content: string) => {
-      updateWorkspaceTabContent(id, content);
-    },
-    [updateWorkspaceTabContent]
-  );
-
-  const updateTabContentAndCustomizerBase = useCallback(
-    (id: string, content: string) => {
-      updateWorkspaceTabContent(id, content);
-      setTabCustomizerBase(id, content);
-    },
-    [setTabCustomizerBase, updateWorkspaceTabContent]
+    [closeTabLocal, tabs]
   );
 
   const reorderTabs = useCallback(
@@ -587,55 +571,30 @@ function App() {
   // File tree handlers
   const handleFileTreeClick = useCallback(
     (filePath: string) => {
-      // Find existing tab for this file
-      const existingTab = tabs.find((t) => t.name === filePath);
+      // Find existing tab for this file (by projectPath)
+      const existingTab = tabs.find((t) => t.projectPath === filePath);
       if (existingTab) {
         switchTab(existingTab.id);
         return;
       }
 
-      // Open the file in a new tab from the project store
-      const projectStore = getProjectStore();
-      const projectFile = projectStore.getState().files[filePath];
+      // Open the file in a new tab — content lives in projectStore
+      const projectFile = getProjectStore().getState().files[filePath];
       if (projectFile) {
-        createNewTab(null, projectFile.content, filePath);
+        createNewTab(null, undefined, filePath);
       }
     },
     [tabs, switchTab, createNewTab]
   );
 
-  // Editor onChange: update workspace tab + project store, and trigger render
-  // only when the edited file is the render target (or an included dep).
+  // Editor onChange: single write to projectStore. The render pipeline reacts
+  // automatically via the source prop (render target content) and contentVersion.
   const handleEditorChange = useCallback(
     (content: string) => {
-      // Update workspace tab content
-      updateTabContent(activeTabId, content);
-
-      // Update project store
-      const projectStore = getProjectStore();
-      const projectState = projectStore.getState();
-      const relativePath = activeTab.filePath
-        ? activeTab.filePath.substring(activeTab.filePath.lastIndexOf('/') + 1)
-        : activeTab.name;
-
-      if (projectState.files[relativePath]) {
-        projectState.updateFileContent(relativePath, content);
-      }
-
-      // If this is the render target, update source to trigger re-render
-      if (relativePath === projectState.renderTargetPath) {
-        updateSource(content);
-      } else if (projectState.renderTargetPath) {
-        // Editing a non-render-target file that might be included by the target.
-        // Re-render the render target with its current content so it picks up
-        // the updated dependency via the project store.
-        const targetContent = projectState.files[projectState.renderTargetPath]?.content;
-        if (targetContent !== undefined) {
-          updateSource(targetContent);
-        }
-      }
+      const projectPath = activeTabRef.current.projectPath;
+      getProjectStore().getState().updateFileContent(projectPath, content);
     },
-    [activeTabId, activeTab, updateTabContent, updateSource]
+    []
   );
 
   const handleToggleFileTree = useCallback(() => {
@@ -645,12 +604,11 @@ function App() {
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
 
   // Use refs to avoid stale closures in event listeners
-  const sourceRef = useRef<string>(source);
   const workingDirRef = useRef<string | null>(workingDir);
   const renderOnSaveRef = useRef(renderOnSave);
   const manualRenderRef = useRef(manualRender);
   const renderWithTriggerRef = useRef(renderWithTrigger);
-  const updateSourceAndRenderRef = useRef(updateSourceAndRender);
+  const renderCodeRef = useRef(renderCode);
 
   // Initialize project store with the default untitled file on mount
   useEffect(() => {
@@ -658,7 +616,8 @@ function App() {
     // Only initialize if the project store is empty (no files loaded yet)
     if (Object.keys(state.files).length === 0) {
       const tab = activeTabRef.current;
-      void initializeProject(tab.filePath, tab.name, tab.content);
+      const defaultContent = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';
+      void initializeProject(tab.filePath, tab.name, defaultContent);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -671,11 +630,6 @@ function App() {
   useEffect(() => {
     tabsRef.current = tabs;
   }, [tabs]);
-
-  useEffect(() => {
-    sourceRef.current = source;
-    updateSourceRef(source);
-  }, [source, updateSourceRef]);
 
   useEffect(() => {
     updateStlBlobUrl(activePreviewKind === 'mesh' && activePreviewSrc ? activePreviewSrc : null);
@@ -721,8 +675,8 @@ function App() {
   }, [renderWithTrigger]);
 
   useEffect(() => {
-    updateSourceAndRenderRef.current = updateSourceAndRender;
-  }, [updateSourceAndRender]);
+    renderCodeRef.current = renderCode;
+  }, [renderCode]);
 
   useEffect(() => {
     if (isShareEntry) {
@@ -745,18 +699,20 @@ function App() {
         const platform = getPlatform();
         const filters = [{ name: 'OpenSCAD Files', extensions: ['scad'] }];
 
-        let currentSource = sourceRef.current;
+        const store = getProjectStore().getState();
+        let currentSource = store.files[currentTab.projectPath]?.content ?? '';
 
         const currentSettings = loadSettings();
         if (currentSettings.editor.formatOnSave) {
           try {
-            currentSource = await formatOpenScadCode(currentSource, {
+            const formatted = await formatOpenScadCode(currentSource, {
               indentSize: currentSettings.editor.indentSize,
               useTabs: currentSettings.editor.useTabs,
             });
-            if (currentSource !== sourceRef.current) {
-              updateSource(currentSource);
-              updateTabContentAndCustomizerBase(currentTab.id, currentSource);
+            if (formatted !== currentSource) {
+              currentSource = formatted;
+              store.updateFileContent(currentTab.projectPath, formatted);
+              store.setCustomizerBase(currentTab.projectPath, formatted);
             }
           } catch (err) {
             console.error('[saveFile] Failed to format code:', err);
@@ -783,8 +739,8 @@ function App() {
         markTabSaved(currentTab.id, {
           filePath: savePath,
           name: fileName,
-          savedContent: currentSource,
         });
+        store.markFileSaved(currentTab.projectPath, currentSource);
 
         const dockPanel = getDockviewApi()?.getPanel(currentTab.id);
         if (dockPanel) {
@@ -823,7 +779,7 @@ function App() {
         return false;
       }
     },
-    [analytics, markTabSaved, updateSource, updateTabContentAndCustomizerBase]
+    [analytics, markTabSaved]
   );
 
   const handleStartWithDraft = useCallback(
@@ -970,25 +926,26 @@ function App() {
         const result = await platform.fileRead(path);
         if (!result) return 'cancelled' as const;
 
+        // Initialize project store first so content is available
+        void initializeProject(result.path, result.name, result.content);
+
         const firstTab = tabs[0];
         const shouldReplaceFirstTab =
-          showWelcome && tabs.length === 1 && !firstTab.filePath && !firstTab.isDirty;
+          showWelcome && tabs.length === 1 && !firstTab.filePath;
 
         if (shouldReplaceFirstTab) {
           revokeBlobUrl(firstTab.render.previewSrc);
           replaceWelcomeTab({
             filePath: result.path,
             name: result.name,
-            content: result.content,
+            projectPath: result.name,
           });
-          updateSource(result.content);
         } else {
           createNewTab(result.path, result.content, result.name);
         }
 
         hideWelcomeScreen();
         if (result.path) addRecentFile(result.path);
-        void initializeProject(result.path, result.name, result.content);
         analytics.track('file opened', {
           source: 'recent',
           has_disk_path: Boolean(result.path),
@@ -1032,7 +989,6 @@ function App() {
       showWelcome,
       switchTab,
       tabs,
-      updateSource,
     ]
   );
 
@@ -1058,25 +1014,26 @@ function App() {
         }
       }
 
+      // Initialize project store first so content is available
+      void initializeProject(result.path, result.name, result.content);
+
       const firstTab = tabs[0];
       const shouldReplaceFirstTab =
-        showWelcome && tabs.length === 1 && !firstTab.filePath && !firstTab.isDirty;
+        showWelcome && tabs.length === 1 && !firstTab.filePath;
 
       if (shouldReplaceFirstTab) {
         revokeBlobUrl(firstTab.render.previewSrc);
         replaceWelcomeTab({
           filePath: result.path,
           name: result.name,
-          content: result.content,
+          projectPath: result.name,
         });
-        updateSource(result.content);
       } else {
         createNewTab(result.path, result.content, result.name);
       }
 
       hideWelcomeScreen();
       if (result.path) addRecentFile(result.path);
-      void initializeProject(result.path, result.name, result.content);
       analytics.track('file opened', {
         source: 'open',
         has_disk_path: Boolean(result.path),
@@ -1109,7 +1066,6 @@ function App() {
     showWelcome,
     switchTab,
     tabs,
-    updateSource,
   ]);
 
   // Helper function to check for unsaved changes before destructive operations
@@ -1117,7 +1073,8 @@ function App() {
   const checkUnsavedChangesRef = useRef<() => Promise<boolean>>();
 
   checkUnsavedChangesRef.current = async (): Promise<boolean> => {
-    if (!activeTabRef.current.isDirty) return true;
+    const isDirty = getProjectStore().getState().files[activeTabRef.current.projectPath]?.isDirty ?? false;
+    if (!isDirty) return true;
 
     const platform = getPlatform();
 
@@ -1182,11 +1139,12 @@ function App() {
             }
           }
 
+          // Initialize project store first so content is available
+          void initializeProject(result.path, result.name, result.content);
           createNewTab(result.path, result.content, result.name);
           hideWelcomeScreen();
 
           if (result.path) addRecentFile(result.path);
-          void initializeProject(result.path, result.name, result.content);
           analytics.track('file opened', {
             source: 'menu_open',
             has_disk_path: Boolean(result.path),
@@ -1238,8 +1196,9 @@ function App() {
             dxf: { label: 'DXF (2D CAD)', ext: 'dxf' },
           };
           const formatInfo = formatLabels[format];
+          const rtContent = getRenderTargetContent(getProjectStore().getState()) ?? '';
           const exportBytes = await RenderService.getInstance().exportModel(
-            sourceRef.current,
+            rtContent,
             format as 'stl' | 'obj' | 'amf' | '3mf' | 'svg' | 'dxf'
           );
           await getPlatform().fileExport(exportBytes, `export.${formatInfo.ext}`, [
@@ -1271,7 +1230,8 @@ function App() {
   useEffect(() => {
     const platform = getPlatform();
     const unlisten = platform.onCloseRequested(async () => {
-      const anyDirty = tabsRef.current.some((t) => t.isDirty);
+      const projectFiles = getProjectStore().getState().files;
+      const anyDirty = Object.values(projectFiles).some((f) => f.isDirty);
       if (!anyDirty) return true;
       return checkUnsavedChangesRef.current ? await checkUnsavedChangesRef.current() : true;
     });
@@ -1281,20 +1241,25 @@ function App() {
     };
   }, []);
 
+  const activeFileDirty = useProjectStore(
+    (s) => s.files[activeTab.projectPath]?.isDirty ?? false
+  );
+  const anyFileDirty = useProjectStore(
+    (s) => Object.values(s.files).some((f) => f.isDirty)
+  );
+
   useEffect(() => {
     const fileName = activeTab.name;
-    const dirtyIndicator = activeTab.isDirty ? '\u2022 ' : '';
+    const dirtyIndicator = activeFileDirty ? '\u2022 ' : '';
     getPlatform().setWindowTitle(`${dirtyIndicator}${fileName} - OpenSCAD Studio`);
-  }, [activeTab]);
+  }, [activeTab.name, activeFileDirty]);
 
   useEffect(() => {
     const platform = getPlatform();
     if ('setDirtyState' in platform) {
-      (platform as { setDirtyState: (d: boolean) => void }).setDirtyState(
-        tabs.some((t) => t.isDirty)
-      );
+      (platform as { setDirtyState: (d: boolean) => void }).setDirtyState(anyFileDirty);
     }
-  }, [tabs]);
+  }, [anyFileDirty]);
 
   useEffect(() => {
     const unlisten = eventBus.on('render-requested', () => {
@@ -1307,17 +1272,19 @@ function App() {
 
   useEffect(() => {
     const unlisten = eventBus.on('code-updated', ({ code, source: eventSource }) => {
-      updateSourceAndRenderRef.current(
-        code,
-        eventSource === 'history' ? 'history_restore' : 'code_update'
-      );
-      updateWorkspaceTabContent(activeTabId, code);
+      const store = getProjectStore().getState();
+      const projectPath = activeTabRef.current.projectPath;
+      store.updateFileContent(projectPath, code);
       if (eventSource !== 'customizer') {
-        setTabCustomizerBase(activeTabId, code);
+        store.setCustomizerBase(projectPath, code);
       }
+      // Render immediately — don't wait for debounce. Use render target content
+      // which may be the same as `code` (if this file is the target) or unchanged.
+      const renderContent = store.files[store.renderTargetPath ?? '']?.content ?? code;
+      renderCodeRef.current(renderContent, eventSource === 'history' ? 'history_restore' : 'code_update');
     });
     return unlisten;
-  }, [activeTabId, setTabCustomizerBase, updateWorkspaceTabContent]);
+  }, []);
 
   const previousSettingsDialogRef = useRef(false);
   useEffect(() => {
@@ -1443,7 +1410,7 @@ function App() {
 
   const workspaceState: WorkspaceState = useMemo(
     () => ({
-      source,
+      source: renderTargetContent,
       updateSource: handleEditorChange,
       diagnostics: activeDiagnostics,
       onManualRender: manualRender,
@@ -1503,7 +1470,7 @@ function App() {
       onOpenExportDialog: handleOpenExportDialog,
     }),
     [
-      source,
+      renderTargetContent,
       handleEditorChange,
       activeDiagnostics,
       manualRender,
@@ -1812,7 +1779,7 @@ function App() {
       <div className="flex-1 overflow-hidden flex">
         {!isMobile && (
           <FileTreePanel
-            activeFilePath={activeTab.name}
+            activeFilePath={activeTab.projectPath}
             onFileClick={handleFileTreeClick}
             collapsed={!settings.ui.fileTreeVisible}
             onToggleCollapse={handleToggleFileTree}
@@ -1836,14 +1803,14 @@ function App() {
       <ExportDialog
         isOpen={showExportDialog}
         onClose={() => setShowExportDialog(false)}
-        source={source}
+        source={renderTargetContent}
         workingDir={workingDir}
         previewKind={activePreviewKind}
       />
       <ShareDialog
         isOpen={showShareDialog}
         onClose={() => setShowShareDialog(false)}
-        source={source}
+        source={renderTargetContent}
         tabName={activeTab.name}
         forkedFrom={shareOrigin?.shareId ?? null}
         capturePreview={() =>
