@@ -185,7 +185,7 @@ function Svg2DMeasurePanel({
       : 'Click to place start. Hold Shift to lock angle. Esc exits.';
 
   return (
-    <div className="flex flex-col gap-3" data-testid="preview-2d-context-bar">
+    <div className="flex min-h-0 flex-col gap-3" data-testid="preview-2d-context-bar">
       <span
         className="text-xs"
         style={{ color: 'var(--text-secondary)' }}
@@ -207,8 +207,8 @@ function Svg2DMeasurePanel({
       {measurementItems.length > 0 ? (
         <>
           <div
-            className="flex flex-col gap-1.5 overflow-y-auto"
-            style={{ maxHeight: '160px' }}
+            className="min-h-0 flex flex-col gap-1.5 overflow-y-auto pr-1"
+            style={{ maxHeight: 'min(18rem, calc(100vh - 16rem))' }}
             data-testid="preview-2d-measurements-tray"
           >
             {measurementItems.map((item) => {

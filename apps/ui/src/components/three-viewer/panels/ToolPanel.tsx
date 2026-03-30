@@ -13,9 +13,8 @@ export function ToolPanel({ label, children, defaultExpanded = true }: ToolPanel
 
   return (
     <div
-      className="absolute bottom-3 right-3 z-40 rounded-lg overflow-hidden"
+      className="absolute bottom-3 right-3 z-40 flex max-h-[calc(100%-1.5rem)] w-[280px] flex-col rounded-lg overflow-hidden"
       style={{
-        width: '280px',
         backgroundColor: 'var(--bg-elevated)',
         border: '1px solid var(--border-primary)',
       }}
@@ -36,7 +35,7 @@ export function ToolPanel({ label, children, defaultExpanded = true }: ToolPanel
 
       {expanded && (
         <div
-          className="px-3 pb-3 pt-2 flex flex-col gap-3"
+          className="min-h-0 flex flex-col gap-3 overflow-hidden px-3 pb-3 pt-2"
           style={{ borderTop: '1px solid var(--border-primary)' }}
         >
           {children}
