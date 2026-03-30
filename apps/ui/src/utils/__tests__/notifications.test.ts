@@ -91,6 +91,43 @@ describe('notifications', () => {
     });
   });
 
+  it('unwraps nested Error causes before falling back to the outer name', () => {
+    const rootCause = new Error('Rate limit exceeded');
+    const wrapped = new Error('');
+    Object.assign(wrapped, { cause: rootCause });
+
+    expect(normalizeAppError(wrapped, 'Fallback error')).toEqual({
+      message: 'Rate limit exceeded',
+      detail: JSON.stringify({
+        name: 'Error',
+        message: '',
+        cause: {
+          name: 'Error',
+          message: 'Rate limit exceeded',
+        },
+      }),
+    });
+  });
+
+  it('serializes circular structured details without throwing', () => {
+    const circular: Record<string, unknown> = {
+      reason: {
+        message: 'Provider exploded',
+      },
+    };
+    circular.self = circular;
+
+    expect(normalizeAppError(circular, 'Fallback error')).toEqual({
+      message: 'Provider exploded',
+      detail: JSON.stringify({
+        reason: {
+          message: 'Provider exploded',
+        },
+        self: '[Circular]',
+      }),
+    });
+  });
+
   it('passes the toast id through for deduped error notifications', () => {
     notifyError({
       operation: 'open-file',
@@ -118,6 +155,30 @@ describe('notifications', () => {
       id: undefined,
       description: undefined,
     });
+  });
+
+  it('forwards structured analytics metadata when capturing unexpected errors', () => {
+    notifyError({
+      operation: 'refresh-models',
+      error: new Error('Unexpected refresh failure'),
+      analyticsProperties: {
+        provider: 'anthropic',
+      },
+      sourceComponent: 'model-selector',
+    });
+
+    expect(captureSentryException).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({
+        tags: expect.objectContaining({
+          operation: 'refresh-models',
+        }),
+        extra: expect.objectContaining({
+          provider: 'anthropic',
+          source_component: 'model-selector',
+        }),
+      })
+    );
   });
 
   it('uses the shared success notifier', () => {

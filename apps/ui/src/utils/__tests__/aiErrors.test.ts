@@ -3,6 +3,14 @@
 import { getAiErrorHandling } from '../aiErrors';
 
 describe('aiErrors', () => {
+  it('treats provider network failures as handled user-facing errors', () => {
+    expect(getAiErrorHandling(new Error('Load failed (api.anthropic.com)'))).toEqual({
+      displayMessage:
+        'Could not reach the AI service. Check your internet connection and provider access, then try again.',
+      capture: false,
+    });
+  });
+
   it('treats provider billing failures as handled user-facing errors', () => {
     expect(
       getAiErrorHandling({
@@ -18,9 +26,33 @@ describe('aiErrors', () => {
     });
   });
 
+  it('treats invalid API keys as handled configuration issues', () => {
+    expect(
+      getAiErrorHandling({ cause: { message: 'authentication_error: invalid x-api-key' } })
+    ).toEqual({
+      displayMessage: 'Your Anthropic API key was rejected. Update it in Settings and try again.',
+      capture: false,
+    });
+  });
+
   it('treats unavailable model errors as handled configuration issues', () => {
     expect(getAiErrorHandling({ reason: { message: 'model: claude-opus-4' } })).toEqual({
       displayMessage: 'The selected model is unavailable. Choose another model and try again.',
+      capture: false,
+    });
+  });
+
+  it('treats provider rate-limit failures as handled retryable errors', () => {
+    expect(
+      getAiErrorHandling({
+        detail: {
+          message:
+            "This request would exceed your organization's rate limit of 10,000 input tokens per minute",
+        },
+      })
+    ).toEqual({
+      displayMessage:
+        'The AI provider is rate-limiting requests right now. Wait a moment and try again.',
       capture: false,
     });
   });

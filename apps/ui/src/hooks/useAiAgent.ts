@@ -55,10 +55,52 @@ import { createRandomId } from '../utils/randomId';
 import { updateSetting, loadSettings, type MeasurementUnit } from '../stores/settingsStore';
 
 function extractErrorText(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    return String((error as { message: unknown }).message);
+  const visit = (value: unknown, depth: number, seen: WeakSet<object>): string | null => {
+    if (depth <= 0) {
+      return null;
+    }
+
+    if (value instanceof Error) {
+      const cause = 'cause' in value ? (value as Error & { cause?: unknown }).cause : undefined;
+      return value.message || visit(cause, depth - 1, seen) || value.name || null;
+    }
+
+    if (typeof value === 'string') {
+      return value.trim() || null;
+    }
+
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return null;
+      }
+
+      seen.add(value);
+
+      const candidates = [
+        (value as Record<string, unknown>).message,
+        (value as Record<string, unknown>).detail,
+        (value as Record<string, unknown>).reason,
+        (value as Record<string, unknown>).error,
+        (value as Record<string, unknown>).cause,
+        (value as Record<string, unknown>).data,
+      ];
+
+      for (const candidate of candidates) {
+        const message = visit(candidate, depth - 1, seen);
+        if (message) {
+          return message;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const message = visit(error, 5, new WeakSet());
+  if (message) {
+    return message;
   }
+
   return String(error);
 }
 
