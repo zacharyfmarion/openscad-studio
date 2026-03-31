@@ -1165,11 +1165,18 @@ function App() {
 
         const shouldNotifySaveSuccess = promptForPath || !currentTab.filePath;
         const fileName = savePath.split('/').pop() || savePath;
+
+        // If the file was renamed (e.g., "Untitled" → "lamp.scad"), update projectStore
+        if (fileName !== currentTab.projectPath) {
+          getProjectStore().getState().renameFile(currentTab.projectPath, fileName);
+          renameTab(currentTab.id, fileName, fileName);
+        }
+
         markTabSaved(currentTab.id, {
           filePath: savePath,
           name: fileName,
         });
-        store.markFileSaved(currentTab.projectPath, currentSource);
+        getProjectStore().getState().markFileSaved(fileName, currentSource);
 
         const dockPanel = getDockviewApi()?.getPanel(currentTab.id);
         if (dockPanel) {
@@ -1208,7 +1215,7 @@ function App() {
         return false;
       }
     },
-    [analytics, markTabSaved, saveProjectToDirectory]
+    [analytics, markTabSaved, renameTab, saveProjectToDirectory]
   );
 
   const saveAllFiles = useCallback(async () => {
