@@ -71,7 +71,7 @@ export const solarizedDark: Theme = {
     bg: {
       primary: '#002b36', // base03
       secondary: '#073642', // base02
-      tertiary: '#586e75', // base01
+      tertiary: '#0c4358', // accent-primary mixed 15% over base02
       elevated: '#073642', // base02
     },
     text: {
@@ -141,7 +141,7 @@ export const solarizedLight: Theme = {
     bg: {
       primary: '#fdf6e3', // base3
       secondary: '#eee8d5', // base2
-      tertiary: '#93a1a1', // base1
+      tertiary: '#d0dad5', // accent-primary mixed 15% over base2
       elevated: '#eee8d5', // base2
     },
     text: {
