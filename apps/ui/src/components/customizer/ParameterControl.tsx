@@ -221,11 +221,15 @@ function ValueWithUnit({
   value,
   unit,
   className,
+  density = 'default',
 }: {
   value: React.ReactNode;
   unit?: string;
   className?: string;
+  density?: 'default' | 'compact';
 }) {
+  const isCompact = density === 'compact';
+
   return (
     <div
       className={`flex items-center overflow-hidden rounded-lg border${className ? ` ${className}` : ''}`}
@@ -237,7 +241,7 @@ function ValueWithUnit({
       <div className="flex-1">{value}</div>
       {unit && (
         <span
-          className="px-2 text-xs"
+          className={`${isCompact ? 'px-1.5 py-1' : 'px-2'} text-xs`}
           style={{
             color: 'var(--text-tertiary)',
             borderLeft: '1px solid var(--border-primary)',
@@ -528,7 +532,8 @@ function NumberControl({
   const control = (
     <ValueWithUnit
       unit={displayUnit}
-      className={layout === 'inline' ? 'w-28 shrink-0' : 'w-36'}
+      className={layout === 'inline' ? 'w-24 shrink-0' : 'w-36'}
+      density={layout === 'inline' ? 'compact' : 'default'}
       value={
         <input
           type="number"
@@ -542,7 +547,9 @@ function NumberControl({
               event.currentTarget.blur();
             }
           }}
-          className="customizer-number-input w-full bg-transparent px-3 py-2 text-sm outline-none"
+          className={`customizer-number-input w-full bg-transparent text-sm outline-none ${
+            layout === 'inline' ? 'px-2.5 py-1.5 text-right' : 'px-3 py-2'
+          }`}
           style={{ color: 'var(--text-primary)' }}
         />
       }

@@ -27,9 +27,15 @@ describe('ParameterControl', () => {
     renderWithProviders(<ParameterControl param={makeParam()} onChange={() => {}} />);
 
     const control = screen.getByTestId('customizer-control-pot_height');
+    const input = control.querySelector('[data-slot="inline-meta"] input');
+    const inputShell = input?.closest('.w-24');
 
     expect(control.getAttribute('data-layout')).toBe('inline');
-    expect(control.querySelector('[data-slot="inline-meta"] input')).toBeTruthy();
+    expect(input).toBeTruthy();
+    expect(input?.className).toContain('px-2.5');
+    expect(input?.className).toContain('py-1.5');
+    expect(input?.className).toContain('text-right');
+    expect(inputShell).toBeTruthy();
     expect(control.querySelector('[data-slot="control-body"] input')).toBeNull();
     expect(screen.getByText('mm')).toBeTruthy();
   });
