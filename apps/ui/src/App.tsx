@@ -1030,6 +1030,15 @@ function App() {
     renderCodeRef.current = renderCode;
   }, [renderCode]);
 
+  // Re-render immediately when the render target changes
+  const prevRenderTargetRef = useRef(renderTargetPath);
+  useEffect(() => {
+    if (renderTargetPath && renderTargetPath !== prevRenderTargetRef.current) {
+      prevRenderTargetRef.current = renderTargetPath;
+      renderCodeRef.current(renderTargetContent, 'code_update');
+    }
+  }, [renderTargetPath, renderTargetContent]);
+
   useEffect(() => {
     if (isShareEntry) {
       setShowNux(false);
