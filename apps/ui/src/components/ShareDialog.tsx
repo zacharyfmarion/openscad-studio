@@ -20,7 +20,7 @@ interface ShareDialogProps {
   tabName: string;
   forkedFrom?: string | null;
   capturePreview: () => Promise<string | null>;
-  stlBlobUrl: string | null;
+  preview3dUrl: string | null;
   previewKind: RenderKind | null;
 }
 
@@ -93,7 +93,7 @@ export function ShareDialog({
   tabName,
   forkedFrom = null,
   capturePreview,
-  stlBlobUrl,
+  preview3dUrl,
   previewKind,
 }: ShareDialogProps) {
   const analytics = useAnalytics();
@@ -140,8 +140,8 @@ export function ShareDialog({
   const handleUploadThumbnail = async (nextShareId: string, thumbnailUploadToken: string) => {
     try {
       let previewBlob: Blob | null = null;
-      if (previewKind === 'mesh' && stlBlobUrl) {
-        const dataUrl = await captureOffscreen(stlBlobUrl, {
+      if (previewKind === 'mesh' && preview3dUrl) {
+        const dataUrl = await captureOffscreen(preview3dUrl, {
           view: 'isometric',
           width: 1200,
           height: 630,

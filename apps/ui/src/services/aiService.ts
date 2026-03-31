@@ -12,7 +12,7 @@ import type { MeasurementUnit } from '../stores/settingsStore';
 export interface AiToolCallbacks {
   getCurrentCode: () => string;
   captureCurrentView: () => Promise<string | null>;
-  getStlBlobUrl: () => string | null;
+  get3dPreviewUrl: () => string | null;
   getPreviewSceneStyle: () => PreviewSceneStyle;
   hasProjectFileAccess: () => boolean;
   getCurrentFileRelativePath: () => string | null;
@@ -215,8 +215,8 @@ export function buildTools(callbacks: AiToolCallbacks) {
           };
         }
 
-        const stlUrl = callbacks.getStlBlobUrl();
-        if (!stlUrl) {
+        const preview3dUrl = callbacks.get3dPreviewUrl();
+        if (!preview3dUrl) {
           return {
             error:
               'No 3D model available for angle-specific views. Render the code first, or use view="current" to capture the 2D SVG preview.',
@@ -232,7 +232,7 @@ export function buildTools(callbacks: AiToolCallbacks) {
             opts.view = view;
           }
           opts.sceneStyle = callbacks.getPreviewSceneStyle();
-          const dataUrl = await captureOffscreen(stlUrl, opts);
+          const dataUrl = await captureOffscreen(preview3dUrl, opts);
           return { image_data_url: dataUrl };
         } catch (err) {
           return {

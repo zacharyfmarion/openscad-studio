@@ -311,7 +311,7 @@ export class RenderService {
 
   /**
    * Render OpenSCAD code and return the output bytes + diagnostics.
-   * 3D mode returns STL (kind: 'mesh'), 2D mode returns SVG (kind: 'svg').
+   * 3D mode returns OFF (kind: 'mesh'), 2D mode returns SVG (kind: 'svg').
    */
   /**
    * Check if a render result is already cached for the given parameters.
@@ -349,7 +349,7 @@ export class RenderService {
 
     // Determine output format
     const is3d = view === '3d';
-    const outputPath = is3d ? '/output.stl' : '/output.svg';
+    const outputPath = is3d ? '/output.off' : '/output.svg';
     const kind: 'mesh' | 'svg' = is3d ? 'mesh' : 'svg';
 
     const args = this.buildArgs(outputPath, { view, backend });

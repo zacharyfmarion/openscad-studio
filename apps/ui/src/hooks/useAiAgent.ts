@@ -254,7 +254,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
 
   const sourceRef = useRef<string>('');
   const capturePreviewRef = useRef<(() => Promise<string | null>) | null>(null);
-  const stlBlobUrlRef = useRef<string | null>(null);
+  const preview3dUrlRef = useRef<string | null>(null);
   const workingDirRef = useRef<string | null>(null);
   const currentFilePathRef = useRef<string | null>(null);
   const auxiliaryFilesRef = useRef<Record<string, string>>({});
@@ -286,7 +286,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         }
         return null;
       },
-      getStlBlobUrl: () => stlBlobUrlRef.current,
+      get3dPreviewUrl: () => preview3dUrlRef.current,
       getPreviewSceneStyle: () => previewSceneStyleRef.current,
       hasProjectFileAccess: () => {
         try {
@@ -356,8 +356,8 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
     capturePreviewRef.current = fn;
   }, []);
 
-  const updateStlBlobUrl = useCallback((url: string | null) => {
-    stlBlobUrlRef.current = url;
+  const update3dPreviewUrl = useCallback((url: string | null) => {
+    preview3dUrlRef.current = url;
   }, []);
 
   const updateWorkingDir = useCallback((dir: string | null) => {
@@ -1023,7 +1023,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
     handleRestoreCheckpoint,
     updateSourceRef,
     updateCapturePreview,
-    updateStlBlobUrl,
+    update3dPreviewUrl,
     updateWorkingDir,
     updateCurrentFilePath,
     updateAuxiliaryFiles,

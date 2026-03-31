@@ -423,7 +423,7 @@ function App() {
     handleRestoreCheckpoint,
     updateSourceRef,
     updateCapturePreview,
-    updateStlBlobUrl,
+    update3dPreviewUrl,
     updateWorkingDir,
     updateCurrentFilePath,
     updateAuxiliaryFiles,
@@ -560,8 +560,8 @@ function App() {
   }, [source, updateSourceRef]);
 
   useEffect(() => {
-    updateStlBlobUrl(activePreviewKind === 'mesh' && activePreviewSrc ? activePreviewSrc : null);
-  }, [activePreviewKind, activePreviewSrc, updateStlBlobUrl]);
+    update3dPreviewUrl(activePreviewKind === 'mesh' && activePreviewSrc ? activePreviewSrc : null);
+  }, [activePreviewKind, activePreviewSrc, update3dPreviewUrl]);
   useEffect(() => {
     updateCapturePreview(() =>
       captureCurrentPreview({
@@ -1789,7 +1789,7 @@ function App() {
             targetHeight: 630,
           })
         }
-        stlBlobUrl={activePreviewKind === 'mesh' ? activePreviewSrc : null}
+        preview3dUrl={activePreviewKind === 'mesh' ? activePreviewSrc : null}
         previewKind={activePreviewKind}
       />
 

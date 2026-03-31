@@ -1,11 +1,17 @@
 import { jest } from '@jest/globals';
 
+const mockCaptureOffscreen = jest.fn(async () => 'data:image/png;base64,AAA=');
+
 jest.unstable_mockModule('@/services/renderService', () => ({
   RenderService: {
     getInstance: () => ({
       checkSyntax: async () => ({ diagnostics: [] }),
     }),
   },
+}));
+
+jest.unstable_mockModule('@/services/offscreenRenderer', () => ({
+  captureOffscreen: (...args: unknown[]) => mockCaptureOffscreen(...args),
 }));
 
 import { FALLBACK_PREVIEW_SCENE_STYLE } from '../previewSceneConfig';
@@ -21,7 +27,7 @@ function createCallbacks(overrides: Partial<AiToolCallbacks> = {}): AiToolCallba
   return {
     getCurrentCode: () => 'cube(10);',
     captureCurrentView: async () => null,
-    getStlBlobUrl: () => null,
+    get3dPreviewUrl: () => null,
     getPreviewSceneStyle: () => FALLBACK_PREVIEW_SCENE_STYLE,
     hasProjectFileAccess: () => true,
     getCurrentFileRelativePath: () => 'main.scad',
@@ -35,6 +41,10 @@ function createCallbacks(overrides: Partial<AiToolCallbacks> = {}): AiToolCallba
 describe('buildTools project file tools', () => {
   beforeAll(async () => {
     ({ buildTools } = await import('../aiService'));
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
   it('lists project files from the desktop project tree', async () => {
@@ -102,6 +112,27 @@ describe('buildTools project file tools', () => {
 
     expect(result).toBe(
       '❌ Unable to read file: lib/utils.scad\n\nProject file browsing is unavailable in web mode or for unsaved files. Save the file to disk in the desktop app to let the AI inspect sibling project files.'
+    );
+  });
+
+  it('captures off-angle screenshots through the generic 3D preview callback', async () => {
+    const tools = buildTools(
+      createCallbacks({
+        get3dPreviewUrl: () => 'blob:preview-3d',
+      })
+    ) as Record<string, ExecutableTool>;
+
+    const result = (await tools.get_preview_screenshot.execute({
+      view: 'isometric',
+    })) as { image_data_url: string };
+
+    expect(result.image_data_url).toBe('data:image/png;base64,AAA=');
+    expect(mockCaptureOffscreen).toHaveBeenCalledWith(
+      'blob:preview-3d',
+      expect.objectContaining({
+        view: 'isometric',
+        sceneStyle: FALLBACK_PREVIEW_SCENE_STYLE,
+      })
     );
   });
 });

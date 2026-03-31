@@ -170,7 +170,7 @@ describe('RenderService', () => {
 
     const renderPromise = service.render('cube(10);', { view: '3d' });
     const { worker, request } = await takeLastPostedRenderRequest();
-    expect(request.args).toEqual(['/input.scad', '-o', '/output.stl', '--backend=manifold']);
+    expect(request.args).toEqual(['/input.scad', '-o', '/output.off', '--backend=manifold']);
     worker.emitMessage({
       type: 'result',
       id: request.id,

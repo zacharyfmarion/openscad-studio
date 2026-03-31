@@ -100,7 +100,7 @@ describe('useAiAgent', () => {
       | {
           getCurrentCode: () => string;
           captureCurrentView: () => Promise<string | null>;
-          getStlBlobUrl: () => string | null;
+          get3dPreviewUrl: () => string | null;
           getPreviewSceneStyle: () => unknown;
           hasProjectFileAccess: () => boolean;
           getCurrentFileRelativePath: () => string | null;
@@ -128,7 +128,7 @@ describe('useAiAgent', () => {
     act(() => {
       hook.current().updateSourceRef('cube(42);');
       hook.current().updateCapturePreview(async () => 'data:image/png;base64,abc');
-      hook.current().updateStlBlobUrl('blob:mesh');
+      hook.current().update3dPreviewUrl('blob:mesh');
       hook.current().updateWorkingDir('/project');
       hook.current().updateCurrentFilePath('/project/main.scad');
       hook.current().updatePreviewSceneStyle({ type: 'presentation' } as never);
@@ -137,7 +137,7 @@ describe('useAiAgent', () => {
     expect(capturedCallbacks).toBeDefined();
     expect(capturedCallbacks!.getCurrentCode()).toBe('cube(42);');
     expect(await capturedCallbacks!.captureCurrentView()).toBe('data:image/png;base64,abc');
-    expect(capturedCallbacks!.getStlBlobUrl()).toBe('blob:mesh');
+    expect(capturedCallbacks!.get3dPreviewUrl()).toBe('blob:mesh');
     expect(capturedCallbacks!.getPreviewSceneStyle()).toEqual({ type: 'presentation' });
     expect(capturedCallbacks!.hasProjectFileAccess()).toBe(true);
     expect(capturedCallbacks!.getCurrentFileRelativePath()).toBe('main.scad');

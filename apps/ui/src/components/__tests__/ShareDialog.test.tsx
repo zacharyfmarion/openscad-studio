@@ -7,6 +7,7 @@ import { ThemeProvider } from '../../contexts/ThemeContext';
 
 const mockCreateShare = jest.fn();
 const mockUploadThumbnail = jest.fn();
+const mockCaptureOffscreen = jest.fn(async () => 'data:image/png;base64,AAA=');
 
 // Return a stable object so that components with `analytics` in useEffect deps don't
 // re-run the effect on every render (the real useAnalytics is memoized).
@@ -28,7 +29,7 @@ jest.unstable_mockModule('@/analytics/runtime', () => {
 });
 
 jest.unstable_mockModule('@/services/offscreenRenderer', () => ({
-  captureOffscreen: jest.fn(async () => 'data:image/png;base64,AAA='),
+  captureOffscreen: (...args: unknown[]) => mockCaptureOffscreen(...args),
 }));
 
 jest.unstable_mockModule('@/services/shareService', () => ({
@@ -76,7 +77,7 @@ describe('ShareDialog', () => {
           tabName="Bracket"
           forkedFrom={null}
           capturePreview={async () => 'data:image/png;base64,AAA='}
-          stlBlobUrl={null}
+          preview3dUrl={null}
           previewKind="mesh"
         />
       </ThemeProvider>
@@ -125,7 +126,7 @@ describe('ShareDialog', () => {
           tabName="Bracket"
           forkedFrom={null}
           capturePreview={async () => 'data:image/png;base64,AAA='}
-          stlBlobUrl={null}
+          preview3dUrl={null}
           previewKind="mesh"
         />
       </ThemeProvider>
@@ -148,5 +149,41 @@ describe('ShareDialog', () => {
     expect(
       screen.queryByText(/Anyone with the link can view a copy without changing your original/i)
     ).toBeNull();
+  });
+
+  it('uses the generic 3D preview url for mesh thumbnails', async () => {
+    mockCreateShare.mockResolvedValue({
+      id: 'abc12345',
+      url: 'http://localhost:3000/s/abc12345',
+      thumbnailUploadToken: 'thumbnail-token',
+    });
+
+    render(
+      <ThemeProvider>
+        <ShareDialog
+          isOpen
+          onClose={() => {}}
+          source={'color("red") cube(10);'}
+          tabName="Colored"
+          forkedFrom={null}
+          capturePreview={async () => 'data:image/png;base64,AAA='}
+          preview3dUrl="blob:preview-3d"
+          previewKind="mesh"
+        />
+      </ThemeProvider>
+    );
+
+    fireEvent.click(screen.getByTestId('share-create-button'));
+
+    await waitFor(() => {
+      expect(mockCaptureOffscreen).toHaveBeenCalledWith(
+        'blob:preview-3d',
+        expect.objectContaining({
+          view: 'isometric',
+          width: 1200,
+          height: 630,
+        })
+      );
+    });
   });
 });
