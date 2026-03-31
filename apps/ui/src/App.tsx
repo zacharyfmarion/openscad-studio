@@ -1189,7 +1189,7 @@ function App() {
           const platform = getPlatform();
           if (!platform.capabilities.hasFileSystem) return 'cancelled' as const;
 
-          const files = await platform.readDirectoryFiles(path, ['.scad'], true);
+          const files = await platform.readDirectoryFiles(path, ['scad'], true);
           const scadFiles = Object.keys(files);
           if (scadFiles.length === 0) return 'removed' as const;
 
@@ -1495,7 +1495,7 @@ function App() {
           const dirPath = await platform.pickDirectory();
           if (!dirPath) return;
 
-          const files = await platform.readDirectoryFiles(dirPath, ['.scad'], true);
+          const files = await platform.readDirectoryFiles(dirPath, ['scad'], true);
           const scadFiles = Object.keys(files);
           if (scadFiles.length === 0) {
             notifyError({
