@@ -10,28 +10,35 @@ import type { AiProvider } from '../stores/apiKeyStore';
 import type { MeasurementUnit } from '../stores/settingsStore';
 
 export interface AiToolCallbacks {
-  getCurrentCode: () => string;
   captureCurrentView: () => Promise<string | null>;
   getStlBlobUrl: () => string | null;
   getPreviewSceneStyle: () => PreviewSceneStyle;
+  /** Returns all project file paths sorted alphabetically */
   listProjectFiles: () => string[];
+  /** Read a file's content by relative path (returns null if not found) */
   readProjectFile: (path: string) => string | null;
+  /** Returns the current render target path */
   getRenderTargetPath: () => string | null;
-  getFileContent: (path: string) => string | null;
+  /** Create a new file in the project */
   createProjectFile: (path: string, content: string) => boolean;
+  /** Edit a file by exact string replacement. Returns null on success, error string on failure. */
   editProjectFile: (path: string, oldString: string, newString: string) => string | null;
+  /** Change the render target */
   setRenderTarget: (path: string) => boolean;
   getMeasurementUnit: () => MeasurementUnit;
   setMeasurementUnit: (unit: MeasurementUnit) => void;
 }
+
+const MAX_CONTEXT_LINES = 200;
+const TRUNCATION_LINES = 150;
 
 export const SYSTEM_PROMPT = `## OpenSCAD AI Assistant
 
 You are an expert OpenSCAD assistant helping users design and modify 3D models. You have access to tools that let you see the current code, view the rendered preview, and make targeted code changes.
 
 ### Your Capabilities:
-- **View code**: Use \`get_current_code\` to see the render target's current code
-- **Browse project files**: Use \`list_project_files\` to see all files in the project and which is the render target
+- **Understand the project**: Use \`get_project_context\` to see the render target, its code, and top-level file listing
+- **Browse folders**: Use \`list_folder_contents\` to explore project directories (omit path for root, or pass a folder path)
 - **Read any file**: Use \`read_file\` to read any file in the project
 - **See the design**: Use \`get_preview_screenshot\` to see the rendered output
 - **Check for errors**: Use \`get_diagnostics\` to check compilation errors and warnings
@@ -48,7 +55,7 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
 5. **Include context**: Make the \`old_string\` large enough to be unique - include surrounding lines if needed.
 
 ### Recommended Workflow:
-1. Start by calling \`get_current_code\` to understand what exists
+1. Start by calling \`get_project_context\` to understand what exists (render target + code + file listing)
 2. Optionally use \`get_preview_screenshot\` to see the rendered output
 3. For fixes, use \`get_diagnostics\` to see what errors exist
 4. Use \`apply_edit\` with the exact old text, new replacement, and a rationale explaining the change
@@ -57,7 +64,7 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
 
 ### Multi-File Projects:
 - The **render target** is the file that gets compiled and previewed. Other files are available via \`include\`/\`use\`.
-- Use \`list_project_files\` to see all files and which is the render target.
+- Use \`list_folder_contents\` to browse project directories incrementally.
 - Use \`apply_edit\` with \`file_path\` to edit any file in the project by its relative path.
 - Use \`create_file\` to split code into modules (e.g., shared libraries, separate parts).
 - Use \`set_render_target\` to switch which file is being previewed (e.g., to check a different entry point).
@@ -133,28 +140,109 @@ export function createModel(provider: AiProvider, apiKey: string, modelId: strin
   return openai(modelId);
 }
 
+/**
+ * List files and subfolders at a specific directory level.
+ * Returns a formatted string with entries like:
+ *   📁 lib/
+ *   main.scad (render target)
+ *   utils.scad
+ */
+function listFolderEntries(
+  allFiles: string[],
+  folder: string,
+  renderTarget?: string | null
+): string {
+  const prefix = folder ? folder + '/' : '';
+  const folders = new Set<string>();
+  const files: string[] = [];
+
+  for (const filePath of allFiles) {
+    if (!filePath.startsWith(prefix)) continue;
+    const remainder = filePath.slice(prefix.length);
+    const slashIdx = remainder.indexOf('/');
+    if (slashIdx >= 0) {
+      folders.add(remainder.slice(0, slashIdx));
+    } else {
+      files.push(remainder);
+    }
+  }
+
+  const lines: string[] = [];
+  for (const dir of [...folders].sort()) {
+    lines.push(`  📁 ${dir}/`);
+  }
+  for (const file of files.sort()) {
+    const fullPath = prefix + file;
+    lines.push(fullPath === renderTarget ? `  ${file} (render target)` : `  ${file}`);
+  }
+
+  return lines.join('\n');
+}
+
 export function buildTools(callbacks: AiToolCallbacks) {
   return {
-    get_current_code: tool({
-      description: 'Get the current OpenSCAD code from the editor',
+    get_project_context: tool({
+      description:
+        'Get an overview of the project: the render target path, its source code, and a top-level file/folder listing. Call this first to understand what you are working with.',
       inputSchema: z.object({}),
       execute: async () => {
-        return callbacks.getCurrentCode();
+        const renderTarget = callbacks.getRenderTargetPath();
+        const allFiles = callbacks.listProjectFiles();
+
+        const parts: string[] = [];
+
+        // Render target info
+        if (renderTarget) {
+          parts.push(`Render target: ${renderTarget}`);
+          const content = callbacks.readProjectFile(renderTarget);
+          if (content) {
+            const lines = content.split('\n');
+            if (lines.length > MAX_CONTEXT_LINES) {
+              const truncated = lines.slice(0, TRUNCATION_LINES).join('\n');
+              parts.push(`\n--- ${renderTarget} (showing ${TRUNCATION_LINES} of ${lines.length} lines) ---\n${truncated}\n\n[Truncated. Use read_file to see the full content.]`);
+            } else {
+              parts.push(`\n--- ${renderTarget} ---\n${content}`);
+            }
+          }
+        } else {
+          parts.push('No render target set.');
+        }
+
+        // Top-level file/folder listing
+        if (allFiles.length > 0) {
+          const topLevel = listFolderEntries(allFiles, '', renderTarget);
+          parts.push(`\nProject files (${allFiles.length} total):\n${topLevel}`);
+        } else {
+          parts.push('\nNo project files.');
+        }
+
+        return parts.join('\n');
       },
     }),
 
-    list_project_files: tool({
+    list_folder_contents: tool({
       description:
-        'List all files in the project. Returns relative file paths and indicates which is the render target.',
-      inputSchema: z.object({}),
-      execute: async () => {
-        const paths = callbacks.listProjectFiles();
-        if (paths.length === 0) {
+        'List files and subfolders at a specific directory level in the project. Omit path or pass empty string for the project root.',
+      inputSchema: z.object({
+        path: z
+          .string()
+          .optional()
+          .default('')
+          .describe('Folder path to list (e.g. "lib" or "parts/v2"). Omit for project root.'),
+      }),
+      execute: async ({ path }) => {
+        const allFiles = callbacks.listProjectFiles();
+        if (allFiles.length === 0) {
           return 'No project files found.';
         }
         const renderTarget = callbacks.getRenderTargetPath();
-        const lines = paths.map((p) => (p === renderTarget ? `  ${p} (render target)` : `  ${p}`));
-        return `Project files (${paths.length}):\n${lines.join('\n')}`;
+        const folder = path?.replace(/\/$/, '') ?? '';
+        const listing = listFolderEntries(allFiles, folder, renderTarget);
+        if (!listing) {
+          return `No files found in ${folder || 'project root'}.`;
+        }
+        const header = folder ? `Contents of ${folder}/` : 'Project root:';
+        return `${header}\n${listing}`;
       },
     }),
 
@@ -283,8 +371,8 @@ export function buildTools(callbacks: AiToolCallbacks) {
           return `✅ Edit applied to ${file_path}!\n✅ Preview will update automatically if this file is included by the render target.\n\nRationale: ${rationale}`;
         }
 
-        // Edit the render target (backward-compatible path with checkpoints)
-        const currentCode = callbacks.getCurrentCode();
+        // Edit the render target (with checkpoints)
+        const currentCode = renderTarget ? (callbacks.readProjectFile(renderTarget) ?? '') : '';
 
         const occurrences = currentCode.split(old_string).length - 1;
         if (occurrences === 0) {
@@ -314,7 +402,8 @@ export function buildTools(callbacks: AiToolCallbacks) {
       description: 'Get current OpenSCAD compilation errors and warnings',
       inputSchema: z.object({}),
       execute: async () => {
-        const currentCode = callbacks.getCurrentCode();
+        const renderTarget = callbacks.getRenderTargetPath();
+        const currentCode = renderTarget ? (callbacks.readProjectFile(renderTarget) ?? '') : '';
         const result = await RenderService.getInstance().checkSyntax(currentCode);
 
         if (result.diagnostics.length === 0) {

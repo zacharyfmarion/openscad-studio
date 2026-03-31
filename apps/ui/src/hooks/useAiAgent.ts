@@ -5,7 +5,6 @@ import { historyService, eventBus } from '../platform';
 import {
   getProjectState,
   getProjectStore,
-  getRenderTargetContent,
   listProjectFiles as listProjectFilesFromState,
 } from '../stores/projectStore';
 import {
@@ -279,7 +278,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
 
   const callbacks: AiToolCallbacks = useMemo(
     () => ({
-      getCurrentCode: () => getRenderTargetContent(getProjectState()) ?? '',
       captureCurrentView: async () => {
         if (capturePreviewRef.current) {
           return capturePreviewRef.current();
@@ -296,10 +294,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         return state.files[normalizedPath]?.content ?? null;
       },
       getRenderTargetPath: () => getProjectState().renderTargetPath,
-      getFileContent: (path: string) => {
-        const state = getProjectState();
-        return state.files[path]?.content ?? null;
-      },
       createProjectFile: (path: string, content: string) => {
         const normalizedPath = normalizeProjectRelativePath(path);
         if (!normalizedPath) return false;

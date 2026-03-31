@@ -95,14 +95,12 @@ describe('useAiAgent', () => {
 
     let capturedCallbacks:
       | {
-          getCurrentCode: () => string;
           captureCurrentView: () => Promise<string | null>;
           getStlBlobUrl: () => string | null;
           getPreviewSceneStyle: () => unknown;
           listProjectFiles: () => string[];
           readProjectFile: (path: string) => string | null;
           getRenderTargetPath: () => string | null;
-          getFileContent: (path: string) => string | null;
           createProjectFile: (path: string, content: string) => boolean;
           editProjectFile: (path: string, oldString: string, newString: string) => string | null;
           setRenderTarget: (path: string) => boolean;
@@ -131,7 +129,6 @@ describe('useAiAgent', () => {
     });
 
     expect(capturedCallbacks).toBeDefined();
-    expect(capturedCallbacks!.getCurrentCode()).toBe('cube(42);');
     expect(await capturedCallbacks!.captureCurrentView()).toBe('data:image/png;base64,abc');
     expect(capturedCallbacks!.getStlBlobUrl()).toBe('blob:mesh');
     expect(capturedCallbacks!.getPreviewSceneStyle()).toEqual({ type: 'presentation' });
@@ -140,7 +137,6 @@ describe('useAiAgent', () => {
     expect(capturedCallbacks!.readProjectFile('main.scad')).toBe('cube(42);');
     expect(capturedCallbacks!.readProjectFile('../escape.scad')).toBeNull();
     expect(capturedCallbacks!.getRenderTargetPath()).toBe('main.scad');
-    expect(capturedCallbacks!.getFileContent('main.scad')).toBe('cube(42);');
     expect(capturedCallbacks!.getMeasurementUnit()).toBe('cm');
 
     // Test editProjectFile
