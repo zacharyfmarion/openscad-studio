@@ -1681,6 +1681,44 @@ function App() {
     }
   }, [anyFileDirty]);
 
+  // Watch project directory for external file changes (desktop only)
+  const projectRoot = useProjectStore((s) => s.projectRoot);
+  useEffect(() => {
+    if (!projectRoot) return;
+    const platform = getPlatform();
+    if (!platform.capabilities.hasFileSystem) return;
+
+    let unwatchFn: (() => void) | null = null;
+
+    platform.watchDirectory(projectRoot, (relativePath, content) => {
+      const store = getProjectStore().getState();
+      if (content === null) {
+        // File was deleted externally — only remove if it exists and isn't dirty
+        if (relativePath in store.files && !store.files[relativePath].isDirty) {
+          store.removeFile(relativePath);
+        }
+        return;
+      }
+      // File was created or modified externally
+      if (relativePath in store.files) {
+        // Only update if the file isn't dirty (don't overwrite unsaved user edits)
+        if (!store.files[relativePath].isDirty && store.files[relativePath].content !== content) {
+          store.updateFileContent(relativePath, content);
+          store.markFileSaved(relativePath, content);
+        }
+      } else {
+        store.addFile(relativePath, content);
+        store.markFileSaved(relativePath, content);
+      }
+    }).then((fn) => {
+      unwatchFn = fn;
+    });
+
+    return () => {
+      unwatchFn?.();
+    };
+  }, [projectRoot]);
+
   useEffect(() => {
     const unlisten = eventBus.on('render-requested', () => {
       if (manualRenderRef.current) {

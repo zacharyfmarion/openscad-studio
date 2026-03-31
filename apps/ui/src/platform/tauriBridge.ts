@@ -231,6 +231,71 @@ export class TauriBridge implements PlatformBridge {
     await rename(oldPath, newPath);
   }
 
+  async watchDirectory(
+    dirPath: string,
+    onChange: (relativePath: string, content: string | null) => void
+  ): Promise<() => void> {
+    const { watch } = await import('@tauri-apps/plugin-fs');
+    const { readTextFile } = await import('@tauri-apps/plugin-fs');
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const pendingPaths = new Set<string>();
+
+    const unwatch = await watch(dirPath, (event) => {
+      // event can be a single event or batch
+      const events = Array.isArray(event) ? event : [event];
+      for (const e of events) {
+        if (typeof e.type === 'object' && ('modify' in e.type || 'create' in e.type)) {
+          for (const path of e.paths) {
+            if (path.endsWith('.scad')) {
+              // Convert absolute path to relative
+              const relative = path.startsWith(dirPath + '/')
+                ? path.slice(dirPath.length + 1)
+                : path.startsWith(dirPath) ? path.slice(dirPath.length) : null;
+              if (relative) pendingPaths.add(relative);
+            }
+          }
+        }
+        if (typeof e.type === 'object' && 'remove' in e.type) {
+          for (const path of e.paths) {
+            if (path.endsWith('.scad')) {
+              const relative = path.startsWith(dirPath + '/')
+                ? path.slice(dirPath.length + 1)
+                : path.startsWith(dirPath) ? path.slice(dirPath.length) : null;
+              if (relative) {
+                pendingPaths.delete(relative);
+                onChange(relative, null);
+              }
+            }
+          }
+        }
+      }
+
+      // Debounce 300ms to batch rapid edits
+      if (pendingPaths.size > 0) {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
+          const paths = [...pendingPaths];
+          pendingPaths.clear();
+          for (const relPath of paths) {
+            try {
+              const content = await readTextFile(`${dirPath}/${relPath}`);
+              onChange(relPath, content);
+            } catch {
+              // File may have been deleted between event and read
+              onChange(relPath, null);
+            }
+          }
+        }, 300);
+      }
+    }, { recursive: true });
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unwatch();
+    };
+  }
+
   setWindowTitle(title: string): void {
     import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
       getCurrentWindow().setTitle(title);

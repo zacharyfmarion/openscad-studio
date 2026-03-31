@@ -142,6 +142,18 @@ export interface PlatformBridge {
   /** Rename/move a file. Web bridge is a no-op. */
   renameFile(oldPath: string, newPath: string): Promise<void>;
 
+  // -- File watching --
+
+  /**
+   * Watch a directory for changes to .scad files.
+   * Callback receives the relative path of the changed file and its new content.
+   * Returns an unsubscribe function. Web bridge is a no-op (returns no-op unsub).
+   */
+  watchDirectory(
+    dirPath: string,
+    onChange: (relativePath: string, content: string | null) => void
+  ): Promise<() => void>;
+
   // -- Lifecycle --
 
   /** Optional initialization (e.g., setting up native menu event forwarding) */

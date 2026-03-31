@@ -91,6 +91,11 @@ export class WebBridge implements PlatformBridge {
     // Web: file renames happen in-memory via projectStore
   }
 
+  async watchDirectory(): Promise<() => void> {
+    // Web: no filesystem watching
+    return () => {};
+  }
+
   async fileOpen(filters?: FileFilter[]): Promise<FileOpenResult | null> {
     if (hasFileSystemAccess()) {
       return this.fileOpenNative(filters);
