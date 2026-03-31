@@ -97,6 +97,35 @@ describe('MeasurePanel', () => {
     expect(screen.getByTestId('preview-3d-clear-measurements')).toBeInTheDocument();
   });
 
+  it('uses a scrollable measurements tray so the panel stays readable', () => {
+    render(
+      <MeasurePanel
+        {...emptyProps}
+        draftMeasurement={idleDraft}
+        measurements={Array.from({ length: 12 }, (_, index) =>
+          makeMeasurement(`m${index}`, index + 1)
+        )}
+        selectedMeasurementId={null}
+        onMeasurementSelect={noop}
+        onMeasurementDelete={noop}
+        onMeasurementsClear={noop}
+      />
+    );
+
+    expect(screen.getByTestId('preview-3d-measurements-tray')).toHaveClass(
+      'overflow-y-auto',
+      'pr-1',
+      'space-y-1.5'
+    );
+    expect(screen.getByTestId('preview-3d-measurements-tray')).toHaveStyle({
+      maxHeight: '160px',
+    });
+    expect(screen.getByTestId('preview-3d-clear-measurements')).toHaveClass('shrink-0');
+    expect(screen.getAllByTestId('preview-3d-measurement-list-item')[0].parentElement).toHaveClass(
+      'shrink-0'
+    );
+  });
+
   it('calls onMeasurementSelect when chip clicked', () => {
     const onSelect = jest.fn();
     render(

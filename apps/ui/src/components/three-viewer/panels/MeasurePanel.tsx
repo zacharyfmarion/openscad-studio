@@ -17,7 +17,7 @@ export function MeasurePanel({
       : 'Click to place start point. Hold Shift after to lock to axis.';
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-h-0 flex-col gap-3">
       <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
         {helpText}
       </span>
@@ -25,7 +25,7 @@ export function MeasurePanel({
       {measurements.length > 0 ? (
         <>
           <div
-            className="flex flex-col gap-1.5 overflow-y-auto"
+            className="min-h-0 overflow-y-auto pr-1 space-y-1.5"
             style={{ maxHeight: '160px' }}
             data-testid="preview-3d-measurements-tray"
           >
@@ -34,7 +34,7 @@ export function MeasurePanel({
               return (
                 <div
                   key={m.id}
-                  className="flex items-center rounded-lg overflow-hidden text-xs"
+                  className="flex shrink-0 items-center rounded-lg overflow-hidden text-xs"
                   style={{
                     backgroundColor: selected ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
                     border: `1px solid ${selected ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
@@ -89,7 +89,7 @@ export function MeasurePanel({
             variant="ghost"
             data-testid="preview-3d-clear-measurements"
             onClick={onMeasurementsClear}
-            className="w-full"
+            className="w-full shrink-0"
           >
             Clear all
           </Button>
