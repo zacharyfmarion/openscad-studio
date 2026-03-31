@@ -50,7 +50,14 @@ type HeaderMetric = RowMetric & {
 const HEADER_HEIGHT = 29;
 const ITEM_ESTIMATED_HEIGHT = 44;
 const OVERSCAN_PX = 240;
-const DEFAULT_VIEWPORT_HEIGHT = 320;
+
+function getDefaultViewportHeight(): number {
+  if (typeof window === 'undefined') {
+    return 320;
+  }
+
+  return Math.max(320, window.innerHeight);
+}
 
 function findStartIndex(metrics: RowMetric[], offset: number): number {
   let low = 0;
@@ -204,7 +211,7 @@ function readElementHeight(node: HTMLElement): number {
 export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(DEFAULT_VIEWPORT_HEIGHT);
+  const [viewportHeight, setViewportHeight] = useState(getDefaultViewportHeight);
   const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>({});
 
   const handleHeightChange = useCallback((rowId: string, height: number) => {
@@ -359,6 +366,22 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
       }
     };
   }, [updateViewportHeight]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleWindowResize = () => {
+      setViewportHeight((current) => Math.max(current, getDefaultViewportHeight()));
+    };
+
+    window.addEventListener('resize', handleWindowResize);
+
+    return () => {
+      window.removeEventListener('resize', handleWindowResize);
+    };
+  }, []);
 
   if (diagnostics.length === 0) {
     return (

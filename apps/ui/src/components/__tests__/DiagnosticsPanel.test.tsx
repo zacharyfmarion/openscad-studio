@@ -44,10 +44,16 @@ describe('DiagnosticsPanel', () => {
     HTMLElement.prototype,
     'clientHeight'
   );
+  const originalInnerHeight = window.innerHeight;
 
   beforeEach(() => {
     panelResizeHeight = 240;
     panelClientHeight = 240;
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      writable: true,
+      value: 900,
+    });
 
     Object.defineProperty(global, 'ResizeObserver', {
       configurable: true,
@@ -64,6 +70,12 @@ describe('DiagnosticsPanel', () => {
   });
 
   afterEach(() => {
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      writable: true,
+      value: originalInnerHeight,
+    });
+
     if (originalClientHeight) {
       Object.defineProperty(HTMLElement.prototype, 'clientHeight', originalClientHeight);
     } else {
@@ -122,6 +134,23 @@ describe('DiagnosticsPanel', () => {
 
   it('uses the observed panel height when clientHeight is not ready yet', async () => {
     panelResizeHeight = 720;
+    panelClientHeight = 0;
+
+    const diagnostics: Diagnostic[] = Array.from({ length: 200 }, (_, index) => ({
+      severity: 'info',
+      line: index + 1,
+      message: `message ${index}`,
+    }));
+
+    renderWithProviders(<DiagnosticsPanel diagnostics={diagnostics} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('message 20')).toBeInTheDocument();
+    });
+  });
+
+  it('falls back to the window height when panel measurements are unavailable on first render', async () => {
+    panelResizeHeight = 0;
     panelClientHeight = 0;
 
     const diagnostics: Diagnostic[] = Array.from({ length: 200 }, (_, index) => ({
