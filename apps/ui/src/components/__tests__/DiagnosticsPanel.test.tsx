@@ -5,6 +5,9 @@ import { DiagnosticsPanel } from '../DiagnosticsPanel';
 import { renderWithProviders } from './test-utils';
 import type { Diagnostic } from '../../platform/historyService';
 
+let panelResizeHeight = 240;
+let panelClientHeight = 240;
+
 class ResizeObserverMock {
   private readonly callback: ResizeObserverCallback;
 
@@ -22,7 +25,7 @@ class ResizeObserverMock {
             height:
               target instanceof HTMLElement &&
               target.getAttribute('data-testid') === 'diagnostics-panel'
-                ? 240
+                ? panelResizeHeight
                 : 0,
           } as DOMRectReadOnly,
         } as ResizeObserverEntry,
@@ -43,6 +46,9 @@ describe('DiagnosticsPanel', () => {
   );
 
   beforeEach(() => {
+    panelResizeHeight = 240;
+    panelClientHeight = 240;
+
     Object.defineProperty(global, 'ResizeObserver', {
       configurable: true,
       writable: true,
@@ -52,7 +58,7 @@ describe('DiagnosticsPanel', () => {
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
       configurable: true,
       get() {
-        return this.getAttribute('data-testid') === 'diagnostics-panel' ? 240 : 0;
+        return this.getAttribute('data-testid') === 'diagnostics-panel' ? panelClientHeight : 0;
       },
     });
   });
@@ -111,6 +117,23 @@ describe('DiagnosticsPanel', () => {
 
     await waitFor(() => {
       expect(screen.getByText('message 199')).toBeInTheDocument();
+    });
+  });
+
+  it('uses the observed panel height when clientHeight is not ready yet', async () => {
+    panelResizeHeight = 720;
+    panelClientHeight = 0;
+
+    const diagnostics: Diagnostic[] = Array.from({ length: 200 }, (_, index) => ({
+      severity: 'info',
+      line: index + 1,
+      message: `message ${index}`,
+    }));
+
+    renderWithProviders(<DiagnosticsPanel diagnostics={diagnostics} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('message 20')).toBeInTheDocument();
     });
   });
 });

@@ -1,4 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Text } from './ui';
 import type { Diagnostic } from '../platform/historyService';
 
@@ -127,30 +135,53 @@ function MeasuredRow({
 }) {
   const rowRef = useRef<HTMLDivElement | null>(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const node = rowRef.current;
     if (!node) {
       return;
     }
 
-    const measure = () => {
-      const nextHeight = Math.ceil(node.getBoundingClientRect().height);
-      if (nextHeight > 0) {
-        onHeightChange(rowId, nextHeight);
+    let frameId: number | null = null;
+
+    const measure = (nextHeight?: number) => {
+      const resolvedHeight = Math.ceil(nextHeight ?? node.getBoundingClientRect().height);
+      if (resolvedHeight > 0) {
+        onHeightChange(rowId, resolvedHeight);
       }
     };
 
-    measure();
+    const scheduleMeasure = (nextHeight?: number) => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+      }
+
+      frameId = requestAnimationFrame(() => {
+        frameId = null;
+        measure(nextHeight);
+      });
+    };
+
+    scheduleMeasure();
 
     if (typeof ResizeObserver === 'undefined') {
-      return;
+      return () => {
+        if (frameId !== null) {
+          cancelAnimationFrame(frameId);
+        }
+      };
     }
 
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      scheduleMeasure(entry?.contentRect.height);
+    });
     observer.observe(node);
 
     return () => {
       observer.disconnect();
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+      }
     };
   }, [onHeightChange, rowId]);
 
@@ -161,11 +192,38 @@ function MeasuredRow({
   );
 }
 
+function readElementHeight(node: HTMLElement): number {
+  const rectHeight = Math.ceil(node.getBoundingClientRect().height);
+  if (rectHeight > 0) {
+    return rectHeight;
+  }
+
+  return Math.ceil(node.clientHeight);
+}
+
 export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(DEFAULT_VIEWPORT_HEIGHT);
   const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>({});
+
+  const handleHeightChange = useCallback((rowId: string, height: number) => {
+    setMeasuredHeights((current) => {
+      if (current[rowId] === height) {
+        return current;
+      }
+      return { ...current, [rowId]: height };
+    });
+  }, []);
+
+  const updateViewportHeight = useCallback((nextHeight: number) => {
+    const resolvedHeight = Math.ceil(nextHeight);
+    if (resolvedHeight <= 0) {
+      return;
+    }
+
+    setViewportHeight((current) => (current === resolvedHeight ? current : resolvedHeight));
+  }, []);
 
   const { echoMessages, otherDiagnostics } = useMemo(() => {
     const echo: Diagnostic[] = [];
@@ -265,35 +323,42 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
       return;
     }
 
-    const updateViewport = () => {
-      const nextHeight = node.clientHeight;
-      if (nextHeight > 0) {
-        setViewportHeight(nextHeight);
+    let frameId: number | null = null;
+
+    const scheduleViewportUpdate = (nextHeight?: number) => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
       }
+
+      frameId = requestAnimationFrame(() => {
+        frameId = null;
+        updateViewportHeight(nextHeight ?? readElementHeight(node));
+      });
     };
 
-    updateViewport();
+    scheduleViewportUpdate();
 
     if (typeof ResizeObserver === 'undefined') {
-      return;
+      return () => {
+        if (frameId !== null) {
+          cancelAnimationFrame(frameId);
+        }
+      };
     }
 
-    const observer = new ResizeObserver(updateViewport);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      scheduleViewportUpdate(entry?.contentRect.height);
+    });
     observer.observe(node);
 
     return () => {
       observer.disconnect();
-    };
-  }, []);
-
-  const handleHeightChange = (rowId: string, height: number) => {
-    setMeasuredHeights((current) => {
-      if (current[rowId] === height) {
-        return current;
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
       }
-      return { ...current, [rowId]: height };
-    });
-  };
+    };
+  }, [updateViewportHeight]);
 
   if (diagnostics.length === 0) {
     return (
