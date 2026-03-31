@@ -22,4 +22,4 @@ Virtualize the Diagnostics / Console panel so large render output and diagnostic
 - [x] Preserve Output and Diagnostics section behavior with sticky headers
 - [x] Add or update component tests for the virtualized list
 - [x] Run targeted formatting and validation
-- [ ] Create a draft PR against `main`
+- [x] Create a draft PR against `main`
