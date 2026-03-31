@@ -29,8 +29,8 @@ const EditorPanel: React.FC<IDockviewPanelProps> = () => {
     onTabClose,
   } = useWorkspace();
   const activeTab = tabs.find((t) => t.id === activeTabId);
-  const editorContent = useProjectStore(
-    (s) => (activeTab?.projectPath ? (s.files[activeTab.projectPath]?.content ?? '') : '')
+  const editorContent = useProjectStore((s) =>
+    activeTab?.projectPath ? (s.files[activeTab.projectPath]?.content ?? '') : ''
   );
   const projectFiles = useProjectStore((s) => s.files);
   return (
@@ -157,8 +157,8 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
     onOpenEditorPanel,
   } = useWorkspace();
 
-  const renderTargetBaselineCode = useProjectStore(
-    (s) => (s.renderTargetPath ? (s.files[s.renderTargetPath]?.customizerBaseContent ?? source) : source)
+  const renderTargetBaselineCode = useProjectStore((s) =>
+    s.renderTargetPath ? (s.files[s.renderTargetPath]?.customizerBaseContent ?? source) : source
   );
   const analytics = useAnalytics();
   const [isDownloadingStl, setIsDownloadingStl] = useState(false);

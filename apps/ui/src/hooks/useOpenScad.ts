@@ -492,7 +492,11 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   useEffect(() => {
     if (!autoRenderOnIdle || !ready) return;
     // Skip if source AND version haven't changed since the last render.
-    if (source === lastRenderedSourceRef.current && contentVersion === lastRenderedVersionRef.current) return;
+    if (
+      source === lastRenderedSourceRef.current &&
+      contentVersion === lastRenderedVersionRef.current
+    )
+      return;
 
     if (autoRenderTimerRef.current) {
       clearTimeout(autoRenderTimerRef.current);
@@ -543,14 +547,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         delete window.__TEST_OPENSCAD__;
       }
     };
-  }, [
-    dimensionMode,
-    doRender,
-    isDevRuntime,
-    manualRender,
-    renderCode,
-    renderWithTrigger,
-  ]);
+  }, [dimensionMode, doRender, isDevRuntime, manualRender, renderCode, renderWithTrigger]);
 
   return {
     previewSrc,

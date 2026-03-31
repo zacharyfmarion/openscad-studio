@@ -56,10 +56,7 @@ pub fn run() {
                         .accelerator("CmdOrCtrl+O")
                         .build(app)?,
                 )
-                .item(
-                    &MenuItemBuilder::with_id("open_folder", "Open Folder...")
-                        .build(app)?,
-                )
+                .item(&MenuItemBuilder::with_id("open_folder", "Open Folder...").build(app)?)
                 .separator()
                 .item(
                     &MenuItemBuilder::with_id("save", "Save")

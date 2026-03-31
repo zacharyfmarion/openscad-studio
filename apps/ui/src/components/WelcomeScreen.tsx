@@ -240,7 +240,11 @@ export function WelcomeScreen({
                       style={{ color: 'var(--text-tertiary)' }}
                       aria-hidden="true"
                     >
-                      {file.type === 'folder' || !file.path.endsWith('.scad') ? <TbFolder size={22} /> : <TbFileText size={22} />}
+                      {file.type === 'folder' || !file.path.endsWith('.scad') ? (
+                        <TbFolder size={22} />
+                      ) : (
+                        <TbFileText size={22} />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>

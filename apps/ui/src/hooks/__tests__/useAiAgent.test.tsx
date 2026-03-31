@@ -87,7 +87,11 @@ describe('useAiAgent', () => {
 
     // Set up projectStore with files
     const store = getProjectStore().getState();
-    store.openProject(null, { 'main.scad': 'cube(42);', 'lib/utils.scad': 'module helper() {}' }, 'main.scad');
+    store.openProject(
+      null,
+      { 'main.scad': 'cube(42);', 'lib/utils.scad': 'module helper() {}' },
+      'main.scad'
+    );
 
     let capturedCallbacks:
       | {
@@ -140,9 +144,15 @@ describe('useAiAgent', () => {
     expect(capturedCallbacks!.getMeasurementUnit()).toBe('cm');
 
     // Test editProjectFile
-    const editError = capturedCallbacks!.editProjectFile('lib/utils.scad', 'module helper() {}', 'module helper() { cube(5); }');
+    const editError = capturedCallbacks!.editProjectFile(
+      'lib/utils.scad',
+      'module helper() {}',
+      'module helper() { cube(5); }'
+    );
     expect(editError).toBeNull();
-    expect(capturedCallbacks!.readProjectFile('lib/utils.scad')).toBe('module helper() { cube(5); }');
+    expect(capturedCallbacks!.readProjectFile('lib/utils.scad')).toBe(
+      'module helper() { cube(5); }'
+    );
 
     // Test createProjectFile
     expect(capturedCallbacks!.createProjectFile('new.scad', '// new')).toBe(true);

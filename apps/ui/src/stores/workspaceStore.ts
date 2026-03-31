@@ -117,8 +117,7 @@ export function createWorkspaceStore(
       const state = get();
       const firstTab = state.tabs[0];
       // Replace if there's a single untitled, unsaved tab
-      const shouldReplaceFirstTab =
-        state.tabs.length === 1 && firstTab && !firstTab.filePath;
+      const shouldReplaceFirstTab = state.tabs.length === 1 && firstTab && !firstTab.filePath;
 
       if (!shouldReplaceFirstTab) {
         return get().createTab({
@@ -150,8 +149,7 @@ export function createWorkspaceStore(
     openSharedDocument: (args) => {
       const state = get();
       const firstTab = state.tabs[0];
-      const shouldReplaceFirstTab =
-        state.tabs.length === 1 && firstTab && !firstTab.filePath;
+      const shouldReplaceFirstTab = state.tabs.length === 1 && firstTab && !firstTab.filePath;
 
       if (shouldReplaceFirstTab) {
         const nextTabId = get().replaceWelcomeTab({

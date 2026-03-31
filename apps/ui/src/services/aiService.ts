@@ -351,7 +351,9 @@ export function buildTools(callbacks: AiToolCallbacks) {
           .string()
           .describe('Relative path for the new file (e.g. "lib/utils.scad" or "box_lid.scad")'),
         content: z.string().describe('Initial file content'),
-        rationale: z.string().describe('Human-readable explanation of why this file is being created'),
+        rationale: z
+          .string()
+          .describe('Human-readable explanation of why this file is being created'),
       }),
       execute: async ({ file_path, content, rationale }) => {
         const success = callbacks.createProjectFile(file_path, content);

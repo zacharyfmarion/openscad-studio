@@ -133,14 +133,18 @@ describe('buildTools project file tools', () => {
       rationale: 'split out base module',
     });
 
-    expect(createProjectFile).toHaveBeenCalledWith('parts/base.scad', 'module base() { cube(20); }');
+    expect(createProjectFile).toHaveBeenCalledWith(
+      'parts/base.scad',
+      'module base() { cube(20); }'
+    );
     expect(result).toContain('✅ Created parts/base.scad');
   });
 
   it('create_file returns error when file exists', async () => {
-    const tools = buildTools(
-      createCallbacks({ createProjectFile: () => false })
-    ) as Record<string, ExecutableTool>;
+    const tools = buildTools(createCallbacks({ createProjectFile: () => false })) as Record<
+      string,
+      ExecutableTool
+    >;
 
     const result = await tools.create_file.execute({
       file_path: 'main.scad',
@@ -166,9 +170,10 @@ describe('buildTools project file tools', () => {
   });
 
   it('set_render_target returns error for missing file', async () => {
-    const tools = buildTools(
-      createCallbacks({ setRenderTarget: () => false })
-    ) as Record<string, ExecutableTool>;
+    const tools = buildTools(createCallbacks({ setRenderTarget: () => false })) as Record<
+      string,
+      ExecutableTool
+    >;
 
     const result = await tools.set_render_target.execute({
       file_path: 'nonexistent.scad',
