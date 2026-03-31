@@ -18,6 +18,7 @@
     "fs:allow-read-dir",
     "fs:allow-rename",
     "fs:allow-remove",
+    "fs:allow-watch",
     {
       "identifier": "fs:scope",
       "allow": ["$HOME/**", "$APPCACHE/**"]
