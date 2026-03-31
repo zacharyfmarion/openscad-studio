@@ -190,4 +190,37 @@ describe('DiagnosticsPanel', () => {
       expect(screen.getByText('message 20')).toBeInTheDocument();
     });
   });
+
+  it('anchors scroll position when expanding a collapsed section above the viewport', async () => {
+    const diagnostics: Diagnostic[] = [
+      ...Array.from({ length: 8 }, (_, index) => ({
+        severity: 'error' as const,
+        line: index + 1,
+        message: `error ${index}`,
+      })),
+      ...Array.from({ length: 40 }, (_, index) => ({
+        severity: 'info' as const,
+        message: `ECHO: output ${index}`,
+      })),
+    ];
+
+    renderWithProviders(<DiagnosticsPanel diagnostics={diagnostics} />);
+
+    const panel = screen.getByTestId('diagnostics-panel');
+    fireEvent.click(screen.getByTestId('diagnostic-panel-section-error'));
+
+    Object.defineProperty(panel, 'scrollTop', {
+      configurable: true,
+      value: 500,
+      writable: true,
+    });
+    fireEvent.scroll(panel);
+
+    const beforeExpand = panel.scrollTop;
+    fireEvent.click(screen.getByTestId('diagnostic-panel-section-error'));
+
+    await waitFor(() => {
+      expect(panel.scrollTop).toBeGreaterThan(beforeExpand);
+    });
+  });
 });

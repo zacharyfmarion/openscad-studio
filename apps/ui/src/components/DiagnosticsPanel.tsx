@@ -62,6 +62,15 @@ interface SectionDescriptor {
   rowKind: Extract<Row, { kind: 'echo' | 'diagnostic' }>['kind'];
 }
 
+function getRowId(
+  rowKind: Extract<Row, { kind: 'echo' | 'diagnostic' }>['kind'],
+  sectionId: SectionId,
+  diagnostic: Diagnostic,
+  index: number
+): string {
+  return `${rowKind}-${sectionId}-${index}-${diagnostic.line ?? 'na'}-${diagnostic.message}`;
+}
+
 const HEADER_HEIGHT = 29;
 const ITEM_ESTIMATED_HEIGHT = 44;
 const OVERSCAN_PX = 240;
@@ -301,15 +310,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
     [otherDiagnostics]
   );
 
-  const toggleSection = useCallback((sectionId: SectionId) => {
-    setCollapsedSections((current) => ({
-      ...current,
-      [sectionId]: !current[sectionId],
-    }));
-  }, []);
-
-  const rows = useMemo<Row[]>(() => {
-    const nextRows: Row[] = [];
+  const sectionDescriptors = useMemo<SectionDescriptor[]>(() => {
     const sections: SectionDescriptor[] = [];
 
     if (errorDiagnostics.length > 0) {
@@ -345,7 +346,13 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
       });
     }
 
-    sections.forEach((section, sectionIndex) => {
+    return sections;
+  }, [echoMessages, errorDiagnostics, infoDiagnostics, warningDiagnostics]);
+
+  const rows = useMemo<Row[]>(() => {
+    const nextRows: Row[] = [];
+
+    sectionDescriptors.forEach((section, sectionIndex) => {
       nextRows.push({
         id: `header-${section.id}`,
         kind: 'header',
@@ -363,7 +370,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
 
       section.items.forEach((diagnostic, index) => {
         nextRows.push({
-          id: `${section.rowKind}-${section.id}-${index}-${diagnostic.line ?? 'na'}-${diagnostic.message}`,
+          id: getRowId(section.rowKind, section.id, diagnostic, index),
           kind: section.rowKind,
           sectionId: section.id,
           diagnostic,
@@ -374,7 +381,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
     });
 
     return nextRows;
-  }, [collapsedSections, echoMessages, errorDiagnostics, infoDiagnostics, warningDiagnostics]);
+  }, [collapsedSections, sectionDescriptors]);
 
   const metrics = useMemo(() => {
     let offset = 0;
@@ -464,6 +471,52 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
     };
   }, []);
 
+  const headerMetrics = metrics.metrics.filter((metric): metric is HeaderMetric =>
+    isHeaderMetric(metric)
+  );
+
+  const toggleSection = useCallback(
+    (sectionId: SectionId) => {
+      const section = sectionDescriptors.find((descriptor) => descriptor.id === sectionId);
+      const sectionHeaderMetric = headerMetrics.find(
+        (metric) => metric.row.sectionId === sectionId
+      );
+      const node = scrollRef.current;
+
+      if (!section || !sectionHeaderMetric || !node) {
+        setCollapsedSections((current) => ({
+          ...current,
+          [sectionId]: !current[sectionId],
+        }));
+        return;
+      }
+
+      const isCurrentlyCollapsed = collapsedSections[sectionId];
+      const itemHeightDelta = section.items.reduce((total, diagnostic, index) => {
+        const rowId = getRowId(section.rowKind, section.id, diagnostic, index);
+        return total + (measuredHeights[rowId] ?? ITEM_ESTIMATED_HEIGHT);
+      }, 0);
+      const shouldAnchorScroll = sectionHeaderMetric.top < scrollTop;
+      const scrollDelta = isCurrentlyCollapsed ? itemHeightDelta : -itemHeightDelta;
+
+      setCollapsedSections((current) => ({
+        ...current,
+        [sectionId]: !current[sectionId],
+      }));
+
+      if (!shouldAnchorScroll) {
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        const nextScrollTop = Math.max(0, node.scrollTop + scrollDelta);
+        node.scrollTop = nextScrollTop;
+        setScrollTop(nextScrollTop);
+      });
+    },
+    [collapsedSections, headerMetrics, measuredHeights, scrollTop, sectionDescriptors]
+  );
+
   if (diagnostics.length === 0) {
     return (
       <div
@@ -484,9 +537,6 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
     endIndex >= startIndex ? metrics.metrics.slice(startIndex, endIndex + 1) : metrics.metrics;
 
   const stickyHeaderIds = new Set<string>();
-  const headerMetrics = metrics.metrics.filter((metric): metric is HeaderMetric =>
-    isHeaderMetric(metric)
-  );
   headerMetrics.forEach((metric) => {
     if (scrollTop > metric.top - metric.row.stickyTop) {
       stickyHeaderIds.add(metric.row.id);
