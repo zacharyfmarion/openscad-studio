@@ -175,6 +175,8 @@ interface FolderNodeProps {
   onSetDropTarget: (path: string | null) => void;
   files: Record<string, { isDirty: boolean }>;
   callbacks: FileTreeCallbacks;
+  expandedFolders: Set<string>;
+  toggleFolder: (path: string) => void;
   depth: number;
 }
 
@@ -188,9 +190,14 @@ function FolderNode({
   onSetDropTarget,
   files,
   callbacks,
+  expandedFolders,
+  toggleFolder,
   depth,
 }: FolderNodeProps) {
-  const [expanded, setExpanded] = useState(true);
+  const expanded = expandedFolders.has(node.fullPath);
+  const setExpanded = (val: boolean) => {
+    if (val !== expanded) toggleFolder(node.fullPath);
+  };
   const expandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hover = useCtxHover();
 
@@ -384,6 +391,8 @@ function FolderNode({
             onSetDropTarget={onSetDropTarget}
             files={files}
             callbacks={callbacks}
+            expandedFolders={expandedFolders}
+            toggleFolder={toggleFolder}
             depth={depth + 1}
           />
         </>
@@ -404,6 +413,8 @@ interface TreeNodesProps {
   onSetDropTarget: (path: string | null) => void;
   files: Record<string, { isDirty: boolean }>;
   callbacks: FileTreeCallbacks;
+  expandedFolders: Set<string>;
+  toggleFolder: (path: string) => void;
   depth: number;
 }
 
@@ -417,6 +428,8 @@ function TreeNodes({
   onSetDropTarget,
   files,
   callbacks,
+  expandedFolders,
+  toggleFolder,
   depth,
 }: TreeNodesProps) {
   return (
@@ -466,6 +479,8 @@ function TreeNodes({
             onSetDropTarget={onSetDropTarget}
             files={files}
             callbacks={callbacks}
+            expandedFolders={expandedFolders}
+            toggleFolder={toggleFolder}
             depth={depth}
           />
         );
@@ -479,6 +494,8 @@ function TreeNodes({
 interface FileTreeProps {
   activeFilePath: string | null;
   pendingRenameFile: string | null;
+  expandedFolders: Set<string>;
+  toggleFolder: (path: string) => void;
   onFileClick: (path: string) => void;
   onRenameFile: (oldPath: string, newName: string) => void;
   onDeleteFile: (path: string) => void;
@@ -494,6 +511,8 @@ interface FileTreeProps {
 export function FileTree({
   activeFilePath,
   pendingRenameFile,
+  expandedFolders,
+  toggleFolder,
   onFileClick,
   onRenameFile,
   onDeleteFile,
@@ -671,6 +690,8 @@ export function FileTree({
             onSetDropTarget={setDropTargetPath}
             files={files}
             callbacks={callbacks}
+            expandedFolders={expandedFolders}
+            toggleFolder={toggleFolder}
             depth={0}
           />
         </div>

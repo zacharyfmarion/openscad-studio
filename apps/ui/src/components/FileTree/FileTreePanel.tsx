@@ -1,6 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarLeftExpand, TbPlus } from 'react-icons/tb';
-import { IconButton } from '../ui';
 import { FileTree } from './FileTree';
 import { useProjectStore } from '../../stores/projectStore';
 
@@ -41,6 +40,43 @@ export function FileTreePanel({
     : 'Files';
   const [pendingRenameFile, setPendingRenameFile] = useState<string | null>(null);
 
+  // Track which folders are collapsed. Folders NOT in this set are expanded (default).
+  // This state lives here (not in FileTree) so it survives panel collapse/expand.
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
+
+  // Use stable store references for deriving folder paths
+  const files = useProjectStore((s) => s.files);
+  const emptyFolders = useProjectStore((s) => s.emptyFolders);
+
+  // expandedFolders = all folders that aren't explicitly collapsed
+  const expandedFolders = useMemo(() => {
+    const allFolders = new Set<string>();
+    for (const filePath of Object.keys(files)) {
+      const parts = filePath.split('/');
+      for (let i = 1; i < parts.length; i++) {
+        allFolders.add(parts.slice(0, i).join('/'));
+      }
+    }
+    if (emptyFolders) {
+      for (const folder of emptyFolders) {
+        allFolders.add(folder);
+      }
+    }
+    return new Set([...allFolders].filter((p) => !collapsedFolders.has(p)));
+  }, [files, emptyFolders, collapsedFolders]);
+
+  const toggleFolder = useCallback((path: string) => {
+    setCollapsedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  }, []);
+
   const handleCreateFile = useCallback(
     async (parentDir: string) => {
       const newPath = await onCreateFile(parentDir);
@@ -66,10 +102,24 @@ export function FileTreePanel({
           borderRight: '1px solid var(--border-subtle)',
         }}
       >
-        <div className="flex items-center justify-center py-2">
-          <IconButton onClick={onToggleCollapse} size="sm" title="Show file tree">
-            <TbLayoutSidebarLeftExpand size={16} />
-          </IconButton>
+        <div
+          className="flex items-center justify-center shrink-0 box-border"
+          style={{
+            height: 'var(--dv-tabs-and-actions-container-height, 28px)',
+            borderBottom: '1px solid var(--border-subtle)',
+            boxSizing: 'border-box',
+          }}
+        >
+          {/* eslint-disable-next-line no-restricted-syntax -- compact icon button for tab-height header */}
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title="Show file tree"
+            className="flex items-center justify-center rounded hover:bg-[var(--bg-elevated)] transition-colors"
+            style={{ width: 22, height: 22, color: 'var(--text-secondary)' }}
+          >
+            <TbLayoutSidebarLeftExpand size={14} />
+          </button>
         </div>
       </div>
     );
@@ -126,6 +176,8 @@ export function FileTreePanel({
         <FileTree
           activeFilePath={activeFilePath}
           pendingRenameFile={pendingRenameFile}
+          expandedFolders={expandedFolders}
+          toggleFolder={toggleFolder}
           onFileClick={onFileClick}
           onRenameFile={onRenameFile}
           onDeleteFile={onDeleteFile}
