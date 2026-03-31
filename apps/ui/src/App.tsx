@@ -39,7 +39,7 @@ import {
   MOBILE_LAYOUT_MEDIA_QUERY,
   openPanel,
 } from './stores/layoutStore';
-import { useOpenScad } from './hooks/useOpenScad';
+import { useRenderOrchestrator } from './hooks/useRenderOrchestrator';
 import { useAiAgent } from './hooks/useAiAgent';
 import { useHistory } from './hooks/useHistory';
 import { useMobileLayout } from './hooks/useMobileLayout';
@@ -60,6 +60,7 @@ import {
 } from './stores/workspaceSelectors';
 import { useWorkspaceStore, getWorkspaceState } from './stores/workspaceStore';
 import { getProjectStore, useProjectStore, getRenderTargetContent } from './stores/projectStore';
+import { requestRender } from './stores/renderRequestStore';
 import { DEFAULT_TAB_NAME } from './stores/workspaceFactories';
 import { formatOpenScadCode } from './utils/formatter';
 import { addRecentFile, addRecentFolder, removeRecentFile } from './utils/recentFiles';
@@ -337,10 +338,8 @@ function App() {
     error,
     ready,
     manualRender,
-    renderOnSave,
-    renderWithTrigger,
-    renderCode,
-  } = useOpenScad({
+    renderCode: renderCodeDirect,
+  } = useRenderOrchestrator({
     source: renderTargetContent,
     contentVersion,
     suppressInitialRender: Boolean(initialShareContext),
@@ -408,9 +407,9 @@ function App() {
     window.history.replaceState({}, document.title, '/');
 
     if (!renderTargetRender?.lastRenderedContent && ready) {
-      void renderWithTrigger('initial');
+      requestRender('initial', { immediate: true });
     }
-  }, [renderTargetRender?.lastRenderedContent, hideWelcomeScreen, ready, renderWithTrigger]);
+  }, [renderTargetRender?.lastRenderedContent, hideWelcomeScreen, ready]);
 
   // Project initialization helper
   // Populates the projectStore when a file is opened on either platform.
@@ -477,9 +476,10 @@ function App() {
   const handleRenderSharedDocument = useCallback(
     ({ code }: { tabId: string; code: string }) => {
       // projectStore is already populated by handleOpenSharedDocument — just render.
-      return renderCode(code, 'file_open');
+      // Returns RenderSnapshot for the share entry loading flow.
+      return renderCodeDirect(code, 'file_open');
     },
-    [renderCode]
+    [renderCodeDirect]
   );
 
   const {
@@ -509,9 +509,9 @@ function App() {
       const projectPath = activeTab.projectPath;
       store.updateFileContent(projectPath, checkpoint.code);
       store.setCustomizerBase(projectPath, checkpoint.code);
-      void renderCode(checkpoint.code, 'history_restore');
+      requestRender('history_restore', { immediate: true, code: checkpoint.code });
     }
-  }, [activeTab.projectPath, undo, renderCode]);
+  }, [activeTab.projectPath, undo]);
 
   const handleRedo = useCallback(async () => {
     const checkpoint = await redo();
@@ -520,9 +520,9 @@ function App() {
       const projectPath = activeTab.projectPath;
       store.updateFileContent(projectPath, checkpoint.code);
       store.setCustomizerBase(projectPath, checkpoint.code);
-      void renderCode(checkpoint.code, 'history_restore');
+      requestRender('history_restore', { immediate: true, code: checkpoint.code });
     }
-  }, [activeTab.projectPath, redo, renderCode]);
+  }, [activeTab.projectPath, redo]);
 
   const aiPromptPanelRef = useRef<AiPromptPanelRef>(null);
   const analytics = useAnalytics();
@@ -969,12 +969,6 @@ function App() {
 
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
 
-  // Use refs to avoid stale closures in event listeners
-  const renderOnSaveRef = useRef(renderOnSave);
-  const manualRenderRef = useRef(manualRender);
-  const renderWithTriggerRef = useRef(renderWithTrigger);
-  const renderCodeRef = useRef(renderCode);
-
   // Initialize project store with the default untitled file on mount
   useEffect(() => {
     const state = getProjectStore().getState();
@@ -1013,31 +1007,6 @@ function App() {
   useEffect(() => {
     updatePreviewSceneStyle(previewSceneStyle);
   }, [previewSceneStyle, updatePreviewSceneStyle]);
-
-  useEffect(() => {
-    renderOnSaveRef.current = renderOnSave;
-  }, [renderOnSave]);
-
-  useEffect(() => {
-    manualRenderRef.current = manualRender;
-  }, [manualRender]);
-
-  useEffect(() => {
-    renderWithTriggerRef.current = renderWithTrigger;
-  }, [renderWithTrigger]);
-
-  useEffect(() => {
-    renderCodeRef.current = renderCode;
-  }, [renderCode]);
-
-  // Re-render immediately when the render target changes
-  const prevRenderTargetRef = useRef(renderTargetPath);
-  useEffect(() => {
-    if (renderTargetPath && renderTargetPath !== prevRenderTargetRef.current) {
-      prevRenderTargetRef.current = renderTargetPath;
-      renderCodeRef.current(renderTargetContent, 'code_update');
-    }
-  }, [renderTargetPath, renderTargetContent]);
 
   useEffect(() => {
     if (isShareEntry) {
@@ -1101,9 +1070,7 @@ function App() {
         markTabSaved(tab.id, { filePath: absolutePath, name: tab.name });
       }
 
-      if (renderOnSaveRef.current) {
-        renderOnSaveRef.current();
-      }
+      requestRender('save', { immediate: true });
 
       notifySuccess('Project saved to folder', { toastId: 'save-project-dir-success' });
       return true;
@@ -1194,16 +1161,13 @@ function App() {
 
         addRecentFile(savePath);
 
-        // Trigger render on save (only if OpenSCAD is available)
-        if (renderOnSaveRef.current) {
-          renderOnSaveRef.current();
-        }
+        requestRender('save', { immediate: true });
 
         analytics.track('file saved', {
           source: promptForPath ? 'save_as' : 'save',
           had_existing_path: Boolean(currentTab.filePath),
           format_on_save: currentSettings.editor.formatOnSave,
-          render_after_save: Boolean(renderOnSaveRef.current),
+          render_after_save: true,
         });
 
         if (shouldNotifySaveSuccess) {
@@ -1273,9 +1237,7 @@ function App() {
     }
 
     if (savedCount > 0) {
-      if (renderOnSaveRef.current) {
-        renderOnSaveRef.current();
-      }
+      requestRender('save', { immediate: true });
       notifySuccess(`Saved ${savedCount} file${savedCount > 1 ? 's' : ''}`, {
         toastId: 'save-all-success',
       });
@@ -1439,9 +1401,7 @@ function App() {
           addRecentFolder(path);
           analytics.track('folder opened', { source: 'recent', file_count: scadFiles.length });
 
-          if (renderWithTriggerRef.current) {
-            setTimeout(() => renderWithTriggerRef.current?.('file_open'), 100);
-          }
+          requestRender('file_open', { immediate: true });
           return 'opened' as const;
         }
 
@@ -1499,13 +1459,7 @@ function App() {
           replaced_welcome_tab: shouldReplaceFirstTab,
         });
 
-        if (renderWithTriggerRef.current) {
-          setTimeout(() => {
-            if (renderWithTriggerRef.current) {
-              renderWithTriggerRef.current('file_open');
-            }
-          }, 100);
-        }
+        requestRender('file_open', { immediate: true });
         return 'opened' as const;
       } catch (err) {
         removeRecentFile(path);
@@ -1586,13 +1540,7 @@ function App() {
         replaced_welcome_tab: shouldReplaceFirstTab,
       });
 
-      if (renderWithTriggerRef.current) {
-        setTimeout(() => {
-          if (renderWithTriggerRef.current) {
-            renderWithTriggerRef.current('file_open');
-          }
-        }, 100);
-      }
+      requestRender('file_open', { immediate: true });
     } catch (err) {
       notifyError({
         operation: 'open-file',
@@ -1699,13 +1647,7 @@ function App() {
             replaced_welcome_tab: false,
           });
 
-          if (renderWithTriggerRef.current) {
-            setTimeout(() => {
-              if (renderWithTriggerRef.current) {
-                renderWithTriggerRef.current('file_open');
-              }
-            }, 100);
-          }
+          requestRender('file_open', { immediate: true });
         } catch (err) {
           notifyError({
             operation: 'open-file',
@@ -1775,13 +1717,7 @@ function App() {
 
           analytics.track('folder opened', { file_count: scadFiles.length });
 
-          if (renderWithTriggerRef.current) {
-            setTimeout(() => {
-              if (renderWithTriggerRef.current) {
-                renderWithTriggerRef.current('file_open');
-              }
-            }, 100);
-          }
+          requestRender('file_open', { immediate: true });
         } catch (err) {
           notifyError({
             operation: 'open-folder',
@@ -1900,13 +1836,7 @@ function App() {
             toastId: 'open-project-success',
           });
 
-          if (renderWithTriggerRef.current) {
-            setTimeout(() => {
-              if (renderWithTriggerRef.current) {
-                renderWithTriggerRef.current('file_open');
-              }
-            }, 100);
-          }
+          requestRender('file_open', { immediate: true });
         } catch (err) {
           notifyError({
             operation: 'open-project',
@@ -2006,9 +1936,7 @@ function App() {
 
   useEffect(() => {
     const unlisten = eventBus.on('render-requested', () => {
-      if (manualRenderRef.current) {
-        manualRenderRef.current();
-      }
+      requestRender('manual', { immediate: true });
     });
     return unlisten;
   }, []);
@@ -2021,12 +1949,9 @@ function App() {
       if (eventSource !== 'customizer') {
         store.setCustomizerBase(projectPath, code);
       }
-      // Re-read state after mutation — Zustand creates a new state object on set()
-      const updatedState = getProjectStore().getState();
-      const renderContent = updatedState.files[updatedState.renderTargetPath ?? '']?.content ?? code;
-      renderCodeRef.current(
-        renderContent,
-        eventSource === 'history' ? 'history_restore' : 'code_update'
+      requestRender(
+        eventSource === 'history' ? 'history_restore' : 'code_update',
+        { immediate: true }
       );
     });
     return unlisten;
