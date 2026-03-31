@@ -90,19 +90,44 @@ describe('DiagnosticsPanel', () => {
     expect(screen.getByTestId('diagnostics-panel')).toHaveTextContent('No messages');
   });
 
-  it('splits echo output and diagnostics into separate sections', () => {
+  it('orders sections as errors, warnings, then output', () => {
     const diagnostics: Diagnostic[] = [
-      { severity: 'info', message: 'ECHO: ready' },
       { severity: 'error', line: 7, message: 'Unexpected token' },
+      { severity: 'warning', line: 9, message: 'Potential issue' },
+      { severity: 'info', message: 'ECHO: ready' },
     ];
 
     renderWithProviders(<DiagnosticsPanel diagnostics={diagnostics} />);
 
-    expect(screen.getByText('Output')).toBeInTheDocument();
-    expect(screen.getByText('Diagnostics')).toBeInTheDocument();
+    const sectionButtons = screen
+      .getAllByRole('button')
+      .map((button) => button.textContent?.replace(/\s+/g, ' ').trim());
+
+    expect(sectionButtons).toEqual(['Errors1', 'Warnings1', 'Output1']);
+    expect(screen.getByText('Unexpected token')).toBeInTheDocument();
+    expect(screen.getByText('Potential issue')).toBeInTheDocument();
     expect(screen.getByText('ready')).toBeInTheDocument();
     expect(screen.getByText('Line 7:')).toBeInTheDocument();
+  });
+
+  it('collapses a section without affecting the others', () => {
+    const diagnostics: Diagnostic[] = [
+      { severity: 'error', line: 7, message: 'Unexpected token' },
+      { severity: 'warning', line: 9, message: 'Potential issue' },
+      { severity: 'info', message: 'ECHO: ready' },
+    ];
+
+    renderWithProviders(<DiagnosticsPanel diagnostics={diagnostics} />);
+
+    fireEvent.click(screen.getByTestId('diagnostic-panel-section-warning'));
+
+    expect(screen.queryByText('Potential issue')).not.toBeInTheDocument();
     expect(screen.getByText('Unexpected token')).toBeInTheDocument();
+    expect(screen.getByText('ready')).toBeInTheDocument();
+    expect(screen.getByTestId('diagnostic-panel-section-warning')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
   });
 
   it('virtualizes long diagnostic lists and updates the window on scroll', async () => {
@@ -116,7 +141,7 @@ describe('DiagnosticsPanel', () => {
 
     const panel = screen.getByTestId('diagnostics-panel');
 
-    expect(screen.getByText('message 0')).toBeInTheDocument();
+    expect(screen.getByText('message 1')).toBeInTheDocument();
     expect(screen.queryByText('message 199')).not.toBeInTheDocument();
     expect(screen.getAllByTestId('diagnostic-panel-row-item').length).toBeLessThan(200);
 
@@ -128,7 +153,7 @@ describe('DiagnosticsPanel', () => {
     fireEvent.scroll(panel);
 
     await waitFor(() => {
-      expect(screen.getByText('message 199')).toBeInTheDocument();
+      expect(screen.getByText('message 198')).toBeInTheDocument();
     });
   });
 

@@ -7,24 +7,31 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Text } from './ui';
+import { TbChevronDown, TbChevronRight } from 'react-icons/tb';
+import { Button, Text } from './ui';
 import type { Diagnostic } from '../platform/historyService';
 
 interface DiagnosticsPanelProps {
   diagnostics: Diagnostic[];
 }
 
+type SectionId = 'error' | 'warning' | 'info' | 'echo';
+
 type Row =
   | {
       id: string;
       kind: 'header';
-      label: 'Output' | 'Diagnostics';
+      label: string;
+      sectionId: SectionId;
+      itemCount: number;
+      isCollapsed: boolean;
       stickyTop: number;
       estimatedHeight: number;
     }
   | {
       id: string;
       kind: 'echo';
+      sectionId: SectionId;
       diagnostic: Diagnostic;
       showBorder: boolean;
       estimatedHeight: number;
@@ -32,6 +39,7 @@ type Row =
   | {
       id: string;
       kind: 'diagnostic';
+      sectionId: SectionId;
       diagnostic: Diagnostic;
       showBorder: boolean;
       estimatedHeight: number;
@@ -46,6 +54,13 @@ interface RowMetric {
 type HeaderMetric = RowMetric & {
   row: Extract<Row, { kind: 'header' }>;
 };
+
+interface SectionDescriptor {
+  id: SectionId;
+  label: string;
+  items: Diagnostic[];
+  rowKind: Extract<Row, { kind: 'echo' | 'diagnostic' }>['kind'];
+}
 
 const HEADER_HEIGHT = 29;
 const ITEM_ESTIMATED_HEIGHT = 44;
@@ -105,16 +120,29 @@ function isHeaderMetric(metric: RowMetric | undefined): metric is HeaderMetric {
 
 function HeaderRow({
   label,
+  sectionId,
+  itemCount,
+  isCollapsed,
+  onToggle,
   stickyTop,
   hidden,
 }: {
-  label: 'Output' | 'Diagnostics';
+  label: string;
+  sectionId: SectionId;
+  itemCount: number;
+  isCollapsed: boolean;
+  onToggle: (sectionId: SectionId) => void;
   stickyTop?: number;
   hidden?: boolean;
 }) {
+  const ToggleIcon = isCollapsed ? TbChevronRight : TbChevronDown;
+
   return (
-    <div
-      className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide z-10"
+    <Button
+      variant="ghost"
+      size="sm"
+      data-testid={`diagnostic-panel-section-${sectionId}`}
+      className="w-full h-auto justify-between px-4 py-1.5 text-xs font-semibold uppercase tracking-wide z-10 rounded-none"
       style={{
         backgroundColor: 'var(--bg-secondary)',
         color: 'var(--text-tertiary)',
@@ -122,10 +150,19 @@ function HeaderRow({
         position: stickyTop === undefined ? 'relative' : 'sticky',
         top: stickyTop,
         visibility: hidden ? 'hidden' : 'visible',
+        textAlign: 'left',
       }}
+      aria-expanded={!isCollapsed}
+      onClick={() => onToggle(sectionId)}
     >
-      {label}
-    </div>
+      <span className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2">
+          <ToggleIcon size={14} />
+          <span>{label}</span>
+        </span>
+        <span style={{ color: 'var(--text-muted)' }}>{itemCount}</span>
+      </span>
+    </Button>
   );
 }
 
@@ -213,6 +250,12 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(getDefaultViewportHeight);
   const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>({});
+  const [collapsedSections, setCollapsedSections] = useState<Record<SectionId, boolean>>({
+    error: false,
+    warning: false,
+    info: false,
+    echo: false,
+  });
 
   const handleHeightChange = useCallback((rowId: string, height: number) => {
     setMeasuredHeights((current) => {
@@ -245,51 +288,93 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
     return { echoMessages: echo, otherDiagnostics: other };
   }, [diagnostics]);
 
+  const errorDiagnostics = useMemo(
+    () => otherDiagnostics.filter((diagnostic) => diagnostic.severity === 'error'),
+    [otherDiagnostics]
+  );
+  const warningDiagnostics = useMemo(
+    () => otherDiagnostics.filter((diagnostic) => diagnostic.severity === 'warning'),
+    [otherDiagnostics]
+  );
+  const infoDiagnostics = useMemo(
+    () => otherDiagnostics.filter((diagnostic) => diagnostic.severity === 'info'),
+    [otherDiagnostics]
+  );
+
+  const toggleSection = useCallback((sectionId: SectionId) => {
+    setCollapsedSections((current) => ({
+      ...current,
+      [sectionId]: !current[sectionId],
+    }));
+  }, []);
+
   const rows = useMemo<Row[]>(() => {
     const nextRows: Row[] = [];
+    const sections: SectionDescriptor[] = [];
 
+    if (errorDiagnostics.length > 0) {
+      sections.push({
+        id: 'error',
+        label: 'Errors',
+        items: errorDiagnostics,
+        rowKind: 'diagnostic',
+      });
+    }
+    if (warningDiagnostics.length > 0) {
+      sections.push({
+        id: 'warning',
+        label: 'Warnings',
+        items: warningDiagnostics,
+        rowKind: 'diagnostic',
+      });
+    }
+    if (infoDiagnostics.length > 0) {
+      sections.push({
+        id: 'info',
+        label: 'Info',
+        items: infoDiagnostics,
+        rowKind: 'diagnostic',
+      });
+    }
     if (echoMessages.length > 0) {
-      nextRows.push({
-        id: 'header-output',
-        kind: 'header',
+      sections.push({
+        id: 'echo',
         label: 'Output',
-        stickyTop: 0,
-        estimatedHeight: HEADER_HEIGHT,
-      });
-
-      echoMessages.forEach((diagnostic, index) => {
-        nextRows.push({
-          id: `echo-${index}-${diagnostic.line ?? 'na'}-${diagnostic.message}`,
-          kind: 'echo',
-          diagnostic,
-          showBorder: index < echoMessages.length - 1 || otherDiagnostics.length > 0,
-          estimatedHeight: ITEM_ESTIMATED_HEIGHT,
-        });
+        items: echoMessages,
+        rowKind: 'echo',
       });
     }
 
-    if (otherDiagnostics.length > 0) {
+    sections.forEach((section, sectionIndex) => {
       nextRows.push({
-        id: 'header-diagnostics',
+        id: `header-${section.id}`,
         kind: 'header',
-        label: 'Diagnostics',
-        stickyTop: echoMessages.length > 0 ? HEADER_HEIGHT : 0,
+        label: section.label,
+        sectionId: section.id,
+        itemCount: section.items.length,
+        isCollapsed: collapsedSections[section.id],
+        stickyTop: sectionIndex * HEADER_HEIGHT,
         estimatedHeight: HEADER_HEIGHT,
       });
 
-      otherDiagnostics.forEach((diagnostic, index) => {
+      if (collapsedSections[section.id]) {
+        return;
+      }
+
+      section.items.forEach((diagnostic, index) => {
         nextRows.push({
-          id: `diagnostic-${index}-${diagnostic.line ?? 'na'}-${diagnostic.message}`,
-          kind: 'diagnostic',
+          id: `${section.rowKind}-${section.id}-${index}-${diagnostic.line ?? 'na'}-${diagnostic.message}`,
+          kind: section.rowKind,
+          sectionId: section.id,
           diagnostic,
-          showBorder: index < otherDiagnostics.length - 1,
+          showBorder: index < section.items.length - 1,
           estimatedHeight: ITEM_ESTIMATED_HEIGHT,
         });
       });
-    }
+    });
 
     return nextRows;
-  }, [echoMessages, otherDiagnostics]);
+  }, [collapsedSections, echoMessages, errorDiagnostics, infoDiagnostics, warningDiagnostics]);
 
   const metrics = useMemo(() => {
     let offset = 0;
@@ -302,10 +387,6 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
 
     return { metrics: nextMetrics, totalHeight: offset };
   }, [measuredHeights, rows]);
-
-  const metricById = useMemo(() => {
-    return new Map(metrics.metrics.map((metric) => [metric.row.id, metric]));
-  }, [metrics.metrics]);
 
   useEffect(() => {
     setMeasuredHeights((current) => {
@@ -402,19 +483,15 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
   const visibleMetrics =
     endIndex >= startIndex ? metrics.metrics.slice(startIndex, endIndex + 1) : metrics.metrics;
 
-  const outputHeaderMetric = metricById.get('header-output');
-  const diagnosticsHeaderMetric = metricById.get('header-diagnostics');
-
   const stickyHeaderIds = new Set<string>();
-  if (isHeaderMetric(outputHeaderMetric) && scrollTop > outputHeaderMetric.top) {
-    stickyHeaderIds.add(outputHeaderMetric.row.id);
-  }
-  if (
-    isHeaderMetric(diagnosticsHeaderMetric) &&
-    scrollTop >= diagnosticsHeaderMetric.top - diagnosticsHeaderMetric.row.stickyTop
-  ) {
-    stickyHeaderIds.add(diagnosticsHeaderMetric.row.id);
-  }
+  const headerMetrics = metrics.metrics.filter((metric): metric is HeaderMetric =>
+    isHeaderMetric(metric)
+  );
+  headerMetrics.forEach((metric) => {
+    if (scrollTop > metric.top - metric.row.stickyTop) {
+      stickyHeaderIds.add(metric.row.id);
+    }
+  });
 
   return (
     <div
@@ -424,17 +501,19 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
       style={{ backgroundColor: 'var(--bg-secondary)' }}
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
     >
-      {isHeaderMetric(outputHeaderMetric) && stickyHeaderIds.has(outputHeaderMetric.row.id) ? (
-        <HeaderRow label="Output" stickyTop={0} />
-      ) : null}
-      {isHeaderMetric(diagnosticsHeaderMetric) &&
-      stickyHeaderIds.has(diagnosticsHeaderMetric.row.id) ? (
-        <HeaderRow
-          label="Diagnostics"
-          stickyTop={diagnosticsHeaderMetric.row.stickyTop}
-          hidden={false}
-        />
-      ) : null}
+      {headerMetrics
+        .filter((metric) => stickyHeaderIds.has(metric.row.id))
+        .map((metric) => (
+          <HeaderRow
+            key={`sticky-${metric.row.id}`}
+            label={metric.row.label}
+            sectionId={metric.row.sectionId}
+            itemCount={metric.row.itemCount}
+            isCollapsed={metric.row.isCollapsed}
+            onToggle={toggleSection}
+            stickyTop={metric.row.stickyTop}
+          />
+        ))}
 
       <div
         className="relative"
@@ -452,6 +531,10 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
               >
                 <HeaderRow
                   label={metric.row.label}
+                  sectionId={metric.row.sectionId}
+                  itemCount={metric.row.itemCount}
+                  isCollapsed={metric.row.isCollapsed}
+                  onToggle={toggleSection}
                   hidden={stickyHeaderIds.has(metric.row.id)}
                   stickyTop={undefined}
                 />
