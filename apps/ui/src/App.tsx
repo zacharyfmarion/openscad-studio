@@ -428,6 +428,7 @@ function App() {
     updateCurrentFilePath,
     updateAuxiliaryFiles,
     updatePreviewSceneStyle,
+    updateUseModelColors,
     loadModelAndProviders,
   } = useAiAgent();
 
@@ -589,6 +590,10 @@ function App() {
   useEffect(() => {
     updatePreviewSceneStyle(previewSceneStyle);
   }, [previewSceneStyle, updatePreviewSceneStyle]);
+
+  useEffect(() => {
+    updateUseModelColors(settings.viewer.showModelColors);
+  }, [settings.viewer.showModelColors, updateUseModelColors]);
 
   useEffect(() => {
     renderOnSaveRef.current = renderOnSave;
@@ -1791,6 +1796,7 @@ function App() {
         }
         preview3dUrl={activePreviewKind === 'mesh' ? activePreviewSrc : null}
         previewKind={activePreviewKind}
+        useModelColors={settings.viewer.showModelColors}
       />
 
       <SettingsDialog

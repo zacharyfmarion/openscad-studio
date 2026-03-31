@@ -165,12 +165,14 @@ function Preview3DModel({
   url,
   wireframe,
   sceneStyle,
+  useModelColors,
   onModelFrameChange,
   onModelChange,
 }: {
   url: string;
   wireframe: boolean;
   sceneStyle: PreviewSceneStyle;
+  useModelColors: boolean;
   onModelFrameChange: (frame: ModelFrame | null) => void;
   onModelChange: (model: LoadedPreviewModel | null) => void;
 }) {
@@ -223,9 +225,10 @@ function Preview3DModel({
     return buildPreview3dObject({
       parsed: parsedModel,
       sceneStyle,
+      useModelColors,
       wireframe,
     });
-  }, [parsedModel, sceneStyle, wireframe]);
+  }, [parsedModel, sceneStyle, useModelColors, wireframe]);
 
   useEffect(() => {
     if (!builtModel || !parsedModel) {
@@ -1080,6 +1083,7 @@ export function ThreeViewer({
   const showAxisLabels = settings.viewer.showAxisLabels;
   const showGrid = settings.viewer.show3DGrid;
   const showShadows = settings.viewer.showShadows;
+  const showModelColors = settings.viewer.showModelColors;
   const showViewcube = settings.viewer.showViewcube;
   const snapEnabled = settings.viewer.measurementSnapEnabled;
   const showSelectionInfo = settings.viewer.showSelectionInfo;
@@ -1818,6 +1822,7 @@ export function ThreeViewer({
               url={preview3dPath}
               wireframe={wireframe}
               sceneStyle={sceneStyle}
+              useModelColors={showModelColors}
               onModelFrameChange={setModelFrame}
               onModelChange={setLoadedModel}
             />

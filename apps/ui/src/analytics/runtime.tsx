@@ -38,7 +38,10 @@ export type ViewerTool =
   | 'annotate';
 export type LayoutSelectionSource = 'nux' | 'settings' | 'layout_reset' | 'header';
 export type CustomizerAction = 'open_ai_refine' | 'open_editor' | 'open_export';
-export type ViewerPreferenceKey = 'measurement_unit' | 'measurement_snap_enabled';
+export type ViewerPreferenceKey =
+  | 'measurement_unit'
+  | 'measurement_snap_enabled'
+  | 'show_model_colors';
 export type AnalyticsErrorDomain =
   | 'bootstrap'
   | 'render'

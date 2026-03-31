@@ -29,6 +29,7 @@ function createCallbacks(overrides: Partial<AiToolCallbacks> = {}): AiToolCallba
     captureCurrentView: async () => null,
     get3dPreviewUrl: () => null,
     getPreviewSceneStyle: () => FALLBACK_PREVIEW_SCENE_STYLE,
+    getUseModelColors: () => true,
     hasProjectFileAccess: () => true,
     getCurrentFileRelativePath: () => 'main.scad',
     listProjectFiles: async () => ['lib/utils.scad', 'main.scad'],
@@ -132,6 +133,7 @@ describe('buildTools project file tools', () => {
       expect.objectContaining({
         view: 'isometric',
         sceneStyle: FALLBACK_PREVIEW_SCENE_STYLE,
+        useModelColors: true,
       })
     );
   });

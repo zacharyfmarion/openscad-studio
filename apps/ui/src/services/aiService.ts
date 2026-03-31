@@ -14,6 +14,7 @@ export interface AiToolCallbacks {
   captureCurrentView: () => Promise<string | null>;
   get3dPreviewUrl: () => string | null;
   getPreviewSceneStyle: () => PreviewSceneStyle;
+  getUseModelColors: () => boolean;
   hasProjectFileAccess: () => boolean;
   getCurrentFileRelativePath: () => string | null;
   listProjectFiles: () => Promise<string[] | null>;
@@ -232,6 +233,7 @@ export function buildTools(callbacks: AiToolCallbacks) {
             opts.view = view;
           }
           opts.sceneStyle = callbacks.getPreviewSceneStyle();
+          opts.useModelColors = callbacks.getUseModelColors();
           const dataUrl = await captureOffscreen(preview3dUrl, opts);
           return { image_data_url: dataUrl };
         } catch (err) {

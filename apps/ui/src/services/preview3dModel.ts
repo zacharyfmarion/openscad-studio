@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { PreviewSceneStyle } from './previewSceneConfig';
 import { buildModelFrameFromSourceBox, type ModelFrame } from './previewFraming';
 
@@ -28,6 +29,8 @@ interface MutableGroupData {
   indices: number[];
   vertexMap: Map<number, number>;
 }
+
+const DEFAULT_CREASE_ANGLE = Math.PI / 3;
 
 function clamp01(value: number) {
   return Math.min(1, Math.max(0, value));
@@ -59,6 +62,73 @@ function parseFaceColor(
     normalizeColorChannel(values[2], false),
     normalizeColorChannel(values[3] ?? 1, true),
   ];
+}
+
+function buildFanTriangles(faceVertices: number[]) {
+  const triangles: Array<[number, number, number]> = [];
+
+  for (let triangleIndex = 1; triangleIndex < faceVertices.length - 1; triangleIndex += 1) {
+    triangles.push([faceVertices[0], faceVertices[triangleIndex], faceVertices[triangleIndex + 1]]);
+  }
+
+  return triangles;
+}
+
+function createProjectionBasis(normal: THREE.Vector3) {
+  const tangentSeed =
+    Math.abs(normal.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
+  const tangent = new THREE.Vector3().crossVectors(tangentSeed, normal).normalize();
+  const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+  return { tangent, bitangent };
+}
+
+function triangulateFace(
+  faceVertices: number[],
+  vertices: Array<[number, number, number]>
+): Array<[number, number, number]> {
+  if (faceVertices.length <= 3) {
+    return faceVertices.length === 3 ? [[faceVertices[0], faceVertices[1], faceVertices[2]]] : [];
+  }
+
+  const points3d = faceVertices.map((vertexIndex) => {
+    const vertex = vertices[vertexIndex];
+    if (!vertex) {
+      throw new Error(`Invalid OFF preview: face references missing vertex ${vertexIndex}.`);
+    }
+    return new THREE.Vector3(vertex[0], vertex[1], vertex[2]);
+  });
+
+  const faceNormal = new THREE.Vector3();
+  for (let index = 0; index < points3d.length; index += 1) {
+    const current = points3d[index];
+    const next = points3d[(index + 1) % points3d.length];
+    faceNormal.x += (current.y - next.y) * (current.z + next.z);
+    faceNormal.y += (current.z - next.z) * (current.x + next.x);
+    faceNormal.z += (current.x - next.x) * (current.y + next.y);
+  }
+
+  if (faceNormal.lengthSq() <= Number.EPSILON) {
+    return buildFanTriangles(faceVertices);
+  }
+
+  faceNormal.normalize();
+  const origin = points3d[0];
+  const { tangent, bitangent } = createProjectionBasis(faceNormal);
+  const contour = points3d.map((point) => {
+    const relative = point.clone().sub(origin);
+    return new THREE.Vector2(relative.dot(tangent), relative.dot(bitangent));
+  });
+
+  const needsReversal = THREE.ShapeUtils.isClockWise(contour);
+  const orderedContour = needsReversal ? [...contour].reverse() : contour;
+  const orderedVertices = needsReversal ? [...faceVertices].reverse() : faceVertices;
+
+  const triangles = THREE.ShapeUtils.triangulateShape(orderedContour, []);
+  if (triangles.length === 0) {
+    return buildFanTriangles(faceVertices);
+  }
+
+  return triangles.map(([a, b, c]) => [orderedVertices[a], orderedVertices[b], orderedVertices[c]]);
 }
 
 function parseHeaderAndCounts(lines: string[]) {
@@ -161,27 +231,29 @@ export function parseOffPreviewModel(args: {
       return nextIndex;
     };
 
-    for (let triangleIndex = 1; triangleIndex < faceVertices.length - 1; triangleIndex += 1) {
-      group.indices.push(
-        addVertex(faceVertices[0]),
-        addVertex(faceVertices[triangleIndex]),
-        addVertex(faceVertices[triangleIndex + 1])
-      );
+    const triangles = triangulateFace(faceVertices, vertices);
+    for (const [a, b, c] of triangles) {
+      group.indices.push(addVertex(a), addVertex(b), addVertex(c));
     }
   }
 
   const groups = Array.from(groupedFaces.entries()).map(([key, group]) => {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
+    const indexedGeometry = new THREE.BufferGeometry();
+    indexedGeometry.setAttribute(
       'position',
       new THREE.Float32BufferAttribute(new Float32Array(group.positions), 3)
     );
-    geometry.setIndex(
+    indexedGeometry.setIndex(
       group.positions.length / 3 > 65535
         ? new THREE.Uint32BufferAttribute(new Uint32Array(group.indices), 1)
         : new THREE.Uint16BufferAttribute(new Uint16Array(group.indices), 1)
     );
-    geometry.computeVertexNormals();
+    indexedGeometry.computeBoundingBox();
+
+    const geometry = toCreasedNormals(indexedGeometry, DEFAULT_CREASE_ANGLE);
+    if (geometry !== indexedGeometry) {
+      indexedGeometry.dispose();
+    }
     geometry.computeBoundingBox();
 
     const color = new THREE.Color(group.color[0], group.color[1], group.color[2]);
@@ -230,29 +302,33 @@ export async function loadOffPreviewModelFromUrl(args: {
 export function buildPreview3dObject(args: {
   parsed: ParsedPreview3dModel;
   sceneStyle: PreviewSceneStyle;
+  useModelColors?: boolean;
   wireframe?: boolean;
 }): BuiltPreview3dObject {
-  const { parsed, sceneStyle, wireframe = false } = args;
+  const { parsed, sceneStyle, useModelColors = true, wireframe = false } = args;
   const root = new THREE.Group();
   root.name = 'modelContainer';
   root.rotation.x = -Math.PI / 2;
 
   const materials: THREE.Material[] = [];
   const meshes = parsed.groups.map((group) => {
+    const materialColor = useModelColors ? group.color : new THREE.Color(sceneStyle.modelColor);
+    const materialOpacity = useModelColors ? group.opacity : 1;
+    const materialTransparent = useModelColors ? group.transparent : false;
     const material = wireframe
       ? new THREE.MeshBasicMaterial({
-          color: group.color,
+          color: materialColor,
           wireframe: true,
-          transparent: group.transparent,
-          opacity: group.opacity,
+          transparent: materialTransparent,
+          opacity: materialOpacity,
         })
       : new THREE.MeshStandardMaterial({
-          color: group.color,
+          color: materialColor,
           metalness: sceneStyle.material.metalness,
           roughness: sceneStyle.material.roughness,
           envMapIntensity: sceneStyle.material.envMapIntensity,
-          transparent: group.transparent,
-          opacity: group.opacity,
+          transparent: materialTransparent,
+          opacity: materialOpacity,
         });
 
     materials.push(material);

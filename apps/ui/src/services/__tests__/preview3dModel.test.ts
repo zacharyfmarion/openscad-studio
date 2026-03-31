@@ -13,9 +13,33 @@ describe('parseOffPreviewModel', () => {
     });
 
     expect(parsed.groups).toHaveLength(1);
-    expect(parsed.groups[0].geometry.index?.count).toBe(6);
+    expect(parsed.groups[0].geometry.index).toBeNull();
+    expect(parsed.groups[0].geometry.getAttribute('position').count).toBe(6);
+    expect(parsed.groups[0].geometry.getAttribute('normal').count).toBe(6);
     expect(parsed.groups[0].color.getHexString()).toBe('ff0000');
     expect(parsed.groups[0].opacity).toBe(1);
+
+    parsed.dispose();
+  });
+
+  it('triangulates concave OFF faces without falling back to broken fan geometry', () => {
+    const parsed = parseOffPreviewModel({
+      content: [
+        'OFF 5 1 0',
+        '0 0 0',
+        '2 0 0',
+        '2 1 0',
+        '1 0.4 0',
+        '0 1 0',
+        '5 0 1 2 3 4 255 200 0',
+      ].join('\n'),
+      fallbackColor: FALLBACK_PREVIEW_SCENE_STYLE.modelColor,
+      version: 'concave',
+    });
+
+    expect(parsed.groups).toHaveLength(1);
+    expect(parsed.groups[0].geometry.getAttribute('position').count).toBe(9);
+    expect(parsed.groups[0].geometry.getAttribute('normal').count).toBe(9);
 
     parsed.dispose();
   });
@@ -83,6 +107,32 @@ describe('buildPreview3dObject', () => {
     expect(built.meshes).toHaveLength(1);
     expect(built.root.rotation.x).toBeCloseTo(-Math.PI / 2);
     expect(built.meshes[0].material).toBeInstanceOf(THREE.MeshBasicMaterial);
+
+    built.dispose();
+    parsed.dispose();
+  });
+
+  it('can ignore model colors and render with the default preview material instead', () => {
+    const parsed = parseOffPreviewModel({
+      content: ['OFF 4 1 0', '0 0 0', '1 0 0', '1 1 0', '0 1 0', '4 0 1 2 3 255 0 0 127'].join(
+        '\n'
+      ),
+      fallbackColor: FALLBACK_PREVIEW_SCENE_STYLE.modelColor,
+      version: 'monochrome',
+    });
+
+    const built = buildPreview3dObject({
+      parsed,
+      sceneStyle: FALLBACK_PREVIEW_SCENE_STYLE,
+      useModelColors: false,
+    });
+
+    expect(built.meshes).toHaveLength(1);
+    expect(built.meshes[0].material).toBeInstanceOf(THREE.MeshStandardMaterial);
+    const material = built.meshes[0].material as THREE.MeshStandardMaterial;
+    expect(material.color.getHexString()).toBe('6699cc');
+    expect(material.opacity).toBe(1);
+    expect(material.transparent).toBe(false);
 
     built.dispose();
     parsed.dispose();

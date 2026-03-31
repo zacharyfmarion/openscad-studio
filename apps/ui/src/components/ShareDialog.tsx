@@ -22,6 +22,7 @@ interface ShareDialogProps {
   capturePreview: () => Promise<string | null>;
   preview3dUrl: string | null;
   previewKind: RenderKind | null;
+  useModelColors: boolean;
 }
 
 const SHARE_MODE_OPTIONS: Array<{
@@ -95,6 +96,7 @@ export function ShareDialog({
   capturePreview,
   preview3dUrl,
   previewKind,
+  useModelColors,
 }: ShareDialogProps) {
   const analytics = useAnalytics();
   const [title, setTitle] = useState(getDefaultShareTitle(tabName));
@@ -145,6 +147,7 @@ export function ShareDialog({
           view: 'isometric',
           width: 1200,
           height: 630,
+          useModelColors,
         });
         previewBlob = await dataUrlToBlob(dataUrl);
       }

@@ -13,6 +13,8 @@ Add `color()` support to 3D preview, share thumbnails, and AI off-angle screensh
 - [x] Generalize STL-named screenshot/share/AI preview plumbing to generic 3D preview source naming.
 - [x] Add or update unit/component coverage for OFF parsing, render-service behavior, viewer compatibility, and screenshot/share integrations.
 - [x] Run targeted validation for the changed frontend behavior and record any intentionally skipped checks.
+- [x] Harden OFF face handling and normal generation to avoid shading artifacts on complex CSG output.
+- [x] Add a viewer setting that disables model colors for live preview and offscreen captures while preserving geometry loading.
 
 ## Affected Areas
 
@@ -23,8 +25,12 @@ Add `color()` support to 3D preview, share thumbnails, and AI off-angle screensh
 - `apps/ui/src/services/aiService.ts`
 - `apps/ui/src/components/ShareDialog.tsx`
 - `apps/ui/src/App.tsx`
+- `apps/ui/src/stores/settingsStore.ts`
+- `apps/ui/src/components/settings/ViewerSettings.tsx`
+- `apps/ui/src/components/SettingsDialog.tsx`
 - `apps/ui/src/services/__tests__/*`
 - `apps/ui/src/components/__tests__/*`
+- `apps/ui/src/stores/__tests__/*`
 - New shared OFF parsing / preview-model utilities under `apps/ui/src/services/`
 
 ## Checklist
@@ -36,3 +42,7 @@ Add `color()` support to 3D preview, share thumbnails, and AI off-angle screensh
 - [x] Update offscreen capture, share thumbnails, and AI screenshots to use the generic 3D preview source.
 - [x] Add or update tests for parser, render service, viewer, and capture/share/AI flows.
 - [x] Run validation and summarize results.
+- [x] Replace naive OFF face handling with a more robust triangulation and normal-generation pipeline.
+- [x] Add a persisted viewer setting to disable model colors and explain its effect in settings copy.
+- [x] Thread the color preference through the live viewer, share thumbnails, and AI screenshot capture.
+- [x] Extend tests for the hardened OFF parser and new viewer setting behavior.

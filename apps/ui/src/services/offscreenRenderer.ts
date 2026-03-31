@@ -19,6 +19,7 @@ export interface CaptureOptions {
   width?: number;
   height?: number;
   sceneStyle?: PreviewSceneStyle;
+  useModelColors?: boolean;
 }
 
 const PRESET_DIRECTIONS: Record<PresetView, [number, number, number]> = {
@@ -55,6 +56,7 @@ export async function captureOffscreen(
   options: CaptureOptions = {}
 ): Promise<string> {
   const sceneStyle = options.sceneStyle ?? FALLBACK_PREVIEW_SCENE_STYLE;
+  const useModelColors = options.useModelColors ?? true;
   const { width = sceneStyle.screenshot.width, height = sceneStyle.screenshot.height } = options;
   const parsedModel = await loadOffPreviewModelFromUrl({
     url: preview3dUrl,
@@ -64,6 +66,7 @@ export async function captureOffscreen(
   const previewObject = buildPreview3dObject({
     parsed: parsedModel,
     sceneStyle,
+    useModelColors,
   });
 
   const canvas = document.createElement('canvas');

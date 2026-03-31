@@ -22,6 +22,7 @@ describe('settingsStore', () => {
     expect(settings.viewer.showAxisLabels).toBe(true);
     expect(settings.viewer.show3DGrid).toBe(true);
     expect(settings.viewer.showShadows).toBe(true);
+    expect(settings.viewer.showModelColors).toBe(true);
     expect(settings.viewer.showViewcube).toBe(true);
     expect(settings.viewer.measurementSnapEnabled).toBe(true);
     expect(settings.viewer.showSelectionInfo).toBe(true);

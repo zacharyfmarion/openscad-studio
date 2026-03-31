@@ -129,6 +129,12 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
           enabled: value,
         });
       }
+      if (key === 'showModelColors') {
+        analytics.track('viewer preference changed', {
+          setting: 'show_model_colors' satisfies ViewerPreferenceKey,
+          enabled: value,
+        });
+      }
     },
     [settings, analytics]
   );

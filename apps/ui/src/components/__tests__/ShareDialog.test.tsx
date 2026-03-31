@@ -79,6 +79,7 @@ describe('ShareDialog', () => {
           capturePreview={async () => 'data:image/png;base64,AAA='}
           preview3dUrl={null}
           previewKind="mesh"
+          useModelColors
         />
       </ThemeProvider>
     );
@@ -128,6 +129,7 @@ describe('ShareDialog', () => {
           capturePreview={async () => 'data:image/png;base64,AAA='}
           preview3dUrl={null}
           previewKind="mesh"
+          useModelColors
         />
       </ThemeProvider>
     );
@@ -169,6 +171,7 @@ describe('ShareDialog', () => {
           capturePreview={async () => 'data:image/png;base64,AAA='}
           preview3dUrl="blob:preview-3d"
           previewKind="mesh"
+          useModelColors={false}
         />
       </ThemeProvider>
     );
@@ -182,6 +185,7 @@ describe('ShareDialog', () => {
           view: 'isometric',
           width: 1200,
           height: 630,
+          useModelColors: false,
         })
       );
     });
