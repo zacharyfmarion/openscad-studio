@@ -85,8 +85,11 @@ export function FileTreePanel({
       }}
     >
       <div
-        className="flex items-center justify-between px-2 py-1.5 shrink-0"
-        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+        className="flex items-center justify-between px-2 shrink-0"
+        style={{
+          height: 'var(--dv-tabs-and-actions-container-height, 35px)',
+          borderBottom: '1px solid var(--border-subtle)',
+        }}
       >
         <span
           className="text-xs font-medium truncate"
@@ -96,12 +99,26 @@ export function FileTreePanel({
           {folderName}
         </span>
         <div className="flex items-center gap-0.5">
-          <IconButton onClick={() => handleCreateFile('')} size="sm" title="New file">
+          {/* eslint-disable-next-line no-restricted-syntax -- these icon buttons are embedded in a tab-height header strip; <IconButton> size="sm" (h-7) is too tall */}
+          <button
+            type="button"
+            onClick={() => handleCreateFile('')}
+            title="New file"
+            className="flex items-center justify-center rounded hover:bg-[var(--bg-elevated)] transition-colors"
+            style={{ width: 22, height: 22, color: 'var(--text-secondary)' }}
+          >
             <TbPlus size={14} />
-          </IconButton>
-          <IconButton onClick={onToggleCollapse} size="sm" title="Hide file tree">
+          </button>
+          {/* eslint-disable-next-line no-restricted-syntax -- same as above */}
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title="Hide file tree"
+            className="flex items-center justify-center rounded hover:bg-[var(--bg-elevated)] transition-colors"
+            style={{ width: 22, height: 22, color: 'var(--text-secondary)' }}
+          >
             <TbLayoutSidebarLeftCollapse size={14} />
-          </IconButton>
+          </button>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
