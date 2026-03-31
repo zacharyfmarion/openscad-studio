@@ -99,6 +99,9 @@ importers:
       dockview:
         specifier: ^4.13.1
         version: 4.13.1(react@18.3.1)
+      fflate:
+        specifier: ^0.8.2
+        version: 0.8.2
       konva:
         specifier: ^10.2.3
         version: 10.2.3

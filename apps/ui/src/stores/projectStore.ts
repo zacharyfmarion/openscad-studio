@@ -1,6 +1,7 @@
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import type { ProjectStore, ProjectStoreState, ProjectFile } from './projectTypes';
+import { DEFAULT_TAB_NAME, DEFAULT_OPENSCAD_CODE } from './workspaceFactories';
 
 // ============================================================================
 // Initial state
@@ -183,6 +184,17 @@ export function createProjectStore(initialState?: ProjectStoreState) {
 
     resetProject: () => {
       set(createInitialProjectState());
+    },
+
+    resetToUntitledProject: () => {
+      set({
+        projectRoot: null,
+        files: {
+          [DEFAULT_TAB_NAME]: createProjectFile(DEFAULT_OPENSCAD_CODE, { isVirtual: true }),
+        },
+        renderTargetPath: DEFAULT_TAB_NAME,
+        contentVersion: get().contentVersion + 1,
+      });
     },
   }));
 }

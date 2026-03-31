@@ -6,6 +6,9 @@ interface EventMap {
   'menu:file:save': void;
   'menu:file:save_as': void;
   'menu:file:export': ExportFormat;
+  'menu:file:save_project': void;
+  'menu:file:open_project': void;
+  'menu:file:save_all': void;
   'render-requested': void;
   'history:restore': { code: string };
   'code-updated': { code: string; source: 'customizer' | 'editor' | 'ai' | 'history' };

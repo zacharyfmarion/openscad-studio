@@ -43,6 +43,7 @@
     "class-variance-authority": "^0.7.1",
     "diff": "^7.0.0",
     "dockview": "^4.13.1",
+    "fflate": "^0.8.2",
     "konva": "^10.2.3",
     "monaco-editor": "^0.52.0",
     "monaco-vim": "^0.4.2",

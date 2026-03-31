@@ -81,31 +81,27 @@ describe('useAiAgent', () => {
     expect(getStoredModel()).toBe('claude-sonnet-4-5');
   });
 
-  it('exposes project-aware tool callbacks through the injected buildTools bridge', async () => {
+  it('exposes project-aware tool callbacks that read from projectStore', async () => {
+    const { getProjectStore } = await import('../../stores/projectStore');
     const updateSetting = jest.fn();
-    const readDirectoryFiles = jest.fn(async () => ({
-      'z.scad': 'module z() {}',
-      'a.scad': 'module a() {}',
-    }));
-    const readTextFile = jest.fn(async (path: string) => `// file:${path}`);
-    const getPlatform = jest.fn(
-      () =>
-        ({
-          capabilities: { hasFileSystem: true },
-          readDirectoryFiles,
-          readTextFile,
-        }) as never
-    );
+
+    // Set up projectStore with files
+    const store = getProjectStore().getState();
+    store.openProject(null, { 'main.scad': 'cube(42);', 'lib/utils.scad': 'module helper() {}' }, 'main.scad');
+
     let capturedCallbacks:
       | {
           getCurrentCode: () => string;
           captureCurrentView: () => Promise<string | null>;
           getStlBlobUrl: () => string | null;
           getPreviewSceneStyle: () => unknown;
-          hasProjectFileAccess: () => boolean;
-          getCurrentFileRelativePath: () => string | null;
-          listProjectFiles: () => Promise<string[] | null>;
-          readProjectFile: (path: string) => Promise<string | null>;
+          listProjectFiles: () => string[];
+          readProjectFile: (path: string) => string | null;
+          getRenderTargetPath: () => string | null;
+          getFileContent: (path: string) => string | null;
+          createProjectFile: (path: string, content: string) => boolean;
+          editProjectFile: (path: string, oldString: string, newString: string) => string | null;
+          setRenderTarget: (path: string) => boolean;
           getMeasurementUnit: () => string;
           setMeasurementUnit: (unit: 'mm' | 'cm' | 'in' | 'units') => void;
         }
@@ -119,18 +115,14 @@ describe('useAiAgent', () => {
       testOverrides: {
         availableProviders: ['anthropic'],
         buildTools: buildTools as never,
-        getPlatform: getPlatform as never,
         updateSetting: updateSetting as never,
         loadSettings: (() => ({ viewer: { measurementUnit: 'cm' } })) as never,
       },
     });
 
     act(() => {
-      hook.current().updateSourceRef('cube(42);');
       hook.current().updateCapturePreview(async () => 'data:image/png;base64,abc');
       hook.current().updateStlBlobUrl('blob:mesh');
-      hook.current().updateWorkingDir('/project');
-      hook.current().updateCurrentFilePath('/project/main.scad');
       hook.current().updatePreviewSceneStyle({ type: 'presentation' } as never);
     });
 
@@ -139,43 +131,37 @@ describe('useAiAgent', () => {
     expect(await capturedCallbacks!.captureCurrentView()).toBe('data:image/png;base64,abc');
     expect(capturedCallbacks!.getStlBlobUrl()).toBe('blob:mesh');
     expect(capturedCallbacks!.getPreviewSceneStyle()).toEqual({ type: 'presentation' });
-    expect(capturedCallbacks!.hasProjectFileAccess()).toBe(true);
-    expect(capturedCallbacks!.getCurrentFileRelativePath()).toBe('main.scad');
-    expect(await capturedCallbacks!.listProjectFiles()).toEqual(['a.scad', 'z.scad']);
-    expect(await capturedCallbacks!.readProjectFile('main.scad')).toBe('cube(42);');
-    expect(await capturedCallbacks!.readProjectFile('./lib/util.scad')).toBe(
-      '// file:/project/lib/util.scad'
-    );
-    expect(await capturedCallbacks!.readProjectFile('../escape.scad')).toBeNull();
+    expect(capturedCallbacks!.listProjectFiles()).toEqual(['lib/utils.scad', 'main.scad']);
+    expect(capturedCallbacks!.readProjectFile('lib/utils.scad')).toBe('module helper() {}');
+    expect(capturedCallbacks!.readProjectFile('main.scad')).toBe('cube(42);');
+    expect(capturedCallbacks!.readProjectFile('../escape.scad')).toBeNull();
+    expect(capturedCallbacks!.getRenderTargetPath()).toBe('main.scad');
+    expect(capturedCallbacks!.getFileContent('main.scad')).toBe('cube(42);');
     expect(capturedCallbacks!.getMeasurementUnit()).toBe('cm');
+
+    // Test editProjectFile
+    const editError = capturedCallbacks!.editProjectFile('lib/utils.scad', 'module helper() {}', 'module helper() { cube(5); }');
+    expect(editError).toBeNull();
+    expect(capturedCallbacks!.readProjectFile('lib/utils.scad')).toBe('module helper() { cube(5); }');
+
+    // Test createProjectFile
+    expect(capturedCallbacks!.createProjectFile('new.scad', '// new')).toBe(true);
+    expect(capturedCallbacks!.readProjectFile('new.scad')).toBe('// new');
+    expect(capturedCallbacks!.createProjectFile('new.scad', '// duplicate')).toBe(false);
+
+    // Test setRenderTarget
+    expect(capturedCallbacks!.setRenderTarget('lib/utils.scad')).toBe(true);
+    expect(capturedCallbacks!.getRenderTargetPath()).toBe('lib/utils.scad');
+    expect(capturedCallbacks!.setRenderTarget('nonexistent.scad')).toBe(false);
 
     act(() => {
       capturedCallbacks!.setMeasurementUnit('in');
     });
 
     expect(updateSetting).toHaveBeenCalledWith('viewer', { measurementUnit: 'in' });
-    expect(readDirectoryFiles).toHaveBeenCalledWith('/project', ['scad'], true);
-    expect(readTextFile).toHaveBeenCalledWith('/project/lib/util.scad');
-  });
 
-  it('handles missing project context gracefully when tool callbacks cannot access the filesystem', async () => {
-    const buildTools = jest.fn((callbacks) => {
-      expect(callbacks.hasProjectFileAccess()).toBe(false);
-      return {};
-    });
-
-    const hook = createHarness({
-      testOverrides: {
-        availableProviders: ['anthropic'],
-        buildTools: buildTools as never,
-        getPlatform: (() => {
-          throw new Error('platform unavailable');
-        }) as never,
-      },
-    });
-
-    expect(hook.current().availableProviders).toEqual(['anthropic']);
-    expect(buildTools).toHaveBeenCalled();
+    // Clean up projectStore
+    store.resetProject();
   });
 
   it('surfaces a missing API key before attempting to stream a prompt', async () => {

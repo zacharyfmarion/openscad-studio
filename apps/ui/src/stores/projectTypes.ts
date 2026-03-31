@@ -75,6 +75,9 @@ export interface ProjectStoreActions {
 
   /** Reset the project to empty state. */
   resetProject: () => void;
+
+  /** Reset to a fresh virtual "Untitled" project with default content. */
+  resetToUntitledProject: () => void;
 }
 
 export type ProjectStore = ProjectStoreState & ProjectStoreActions;

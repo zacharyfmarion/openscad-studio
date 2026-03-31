@@ -14,28 +14,30 @@ export interface AiToolCallbacks {
   captureCurrentView: () => Promise<string | null>;
   getStlBlobUrl: () => string | null;
   getPreviewSceneStyle: () => PreviewSceneStyle;
-  hasProjectFileAccess: () => boolean;
-  getCurrentFileRelativePath: () => string | null;
-  listProjectFiles: () => Promise<string[] | null>;
-  readProjectFile: (path: string) => Promise<string | null>;
+  listProjectFiles: () => string[];
+  readProjectFile: (path: string) => string | null;
+  getRenderTargetPath: () => string | null;
+  getFileContent: (path: string) => string | null;
+  createProjectFile: (path: string, content: string) => boolean;
+  editProjectFile: (path: string, oldString: string, newString: string) => string | null;
+  setRenderTarget: (path: string) => boolean;
   getMeasurementUnit: () => MeasurementUnit;
   setMeasurementUnit: (unit: MeasurementUnit) => void;
 }
-
-const PROJECT_FILE_ACCESS_UNAVAILABLE_MESSAGE =
-  'Project file browsing is unavailable in web mode or for unsaved files. Save the file to disk in the desktop app to let the AI inspect sibling project files.';
 
 export const SYSTEM_PROMPT = `## OpenSCAD AI Assistant
 
 You are an expert OpenSCAD assistant helping users design and modify 3D models. You have access to tools that let you see the current code, view the rendered preview, and make targeted code changes.
 
 ### Your Capabilities:
-- **View code**: Use \`get_current_code\` to see what you're working with
-- **Browse project files**: Use \`list_project_files\` to see all .scad files under the current file's directory on desktop
-- **Read any file**: Use \`read_file\` to read any .scad file in that desktop project tree (for understanding includes/uses)
+- **View code**: Use \`get_current_code\` to see the render target's current code
+- **Browse project files**: Use \`list_project_files\` to see all files in the project and which is the render target
+- **Read any file**: Use \`read_file\` to read any file in the project
 - **See the design**: Use \`get_preview_screenshot\` to see the rendered output
 - **Check for errors**: Use \`get_diagnostics\` to check compilation errors and warnings
-- **Make changes**: Use \`apply_edit\` to modify the code with exact string replacement
+- **Make changes**: Use \`apply_edit\` to modify code with exact string replacement (specify \`file_path\` to edit a specific file, or omit to edit the render target)
+- **Create files**: Use \`create_file\` to add new files to the project
+- **Switch render target**: Use \`set_render_target\` to change which file is compiled and previewed
 - **Update preview**: Use \`trigger_render\` to manually refresh the preview
 
 ### Critical Rules for Editing:
@@ -52,6 +54,13 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
 4. Use \`apply_edit\` with the exact old text, new replacement, and a rationale explaining the change
 5. The preview updates automatically after successful edits
 6. After all edits are complete, call \`get_diagnostics\` to verify the code compiles without new errors. If there are errors, fix them with additional \`apply_edit\` calls.
+
+### Multi-File Projects:
+- The **render target** is the file that gets compiled and previewed. Other files are available via \`include\`/\`use\`.
+- Use \`list_project_files\` to see all files and which is the render target.
+- Use \`apply_edit\` with \`file_path\` to edit any file in the project by its relative path.
+- Use \`create_file\` to split code into modules (e.g., shared libraries, separate parts).
+- Use \`set_render_target\` to switch which file is being previewed (e.g., to check a different entry point).
 
 ### Interpreting Annotated Screenshots:
 - If an attached viewer screenshot includes drawn circles, boxes, ovals, arrows, or freehand marks, treat that markup as intentional user annotation highlighting the area to focus on.
@@ -136,44 +145,33 @@ export function buildTools(callbacks: AiToolCallbacks) {
 
     list_project_files: tool({
       description:
-        "List all .scad files under the current file's directory on desktop. Returns relative file paths. Unavailable in web mode or for unsaved files.",
+        'List all files in the project. Returns relative file paths and indicates which is the render target.',
       inputSchema: z.object({}),
       execute: async () => {
-        if (!callbacks.hasProjectFileAccess()) {
-          return PROJECT_FILE_ACCESS_UNAVAILABLE_MESSAGE;
+        const paths = callbacks.listProjectFiles();
+        if (paths.length === 0) {
+          return 'No project files found.';
         }
-
-        const paths = await callbacks.listProjectFiles();
-        if (!paths || paths.length === 0) {
-          return 'No project files found in the current working directory.';
-        }
-        return `Project files (${paths.length}):\n${paths.map((p) => `  ${p}`).join('\n')}`;
+        const renderTarget = callbacks.getRenderTargetPath();
+        const lines = paths.map((p) => (p === renderTarget ? `  ${p} (render target)` : `  ${p}`));
+        return `Project files (${paths.length}):\n${lines.join('\n')}`;
       },
     }),
 
     read_file: tool({
       description:
-        "Read the contents of a .scad file from the current file's directory tree on desktop. Use the relative path as shown by list_project_files.",
+        'Read the contents of a file in the project. Use the relative path as shown by list_project_files.',
       inputSchema: z.object({
         path: z
           .string()
           .describe('Relative path to the file (e.g. "parts.scad" or "lib/utils.scad")'),
       }),
       execute: async ({ path }) => {
-        if (!callbacks.hasProjectFileAccess()) {
-          return `❌ Unable to read file: ${path}\n\n${PROJECT_FILE_ACCESS_UNAVAILABLE_MESSAGE}`;
-        }
-
-        const currentFilePath = callbacks.getCurrentFileRelativePath();
-        if (currentFilePath && path === currentFilePath) {
-          return callbacks.getCurrentCode();
-        }
-
-        const content = await callbacks.readProjectFile(path);
+        const content = callbacks.readProjectFile(path);
         if (content === null) {
-          const available = await callbacks.listProjectFiles();
-          if (!available || available.length === 0) {
-            return `❌ File not found: ${path}\n\nNo project files are available in the current working directory.`;
+          const available = callbacks.listProjectFiles();
+          if (available.length === 0) {
+            return `❌ File not found: ${path}\n\nNo project files are available.`;
           }
           return `❌ File not found: ${path}\n\nAvailable files:\n${available.map((p) => `  ${p}`).join('\n')}`;
         }
@@ -261,13 +259,31 @@ export function buildTools(callbacks: AiToolCallbacks) {
 
     apply_edit: tool({
       description:
-        'Apply an exact string replacement to the OpenSCAD code. The old_string must appear exactly once in the file.',
+        'Apply an exact string replacement to an OpenSCAD file. The old_string must appear exactly once in the target file. Omit file_path to edit the render target.',
       inputSchema: z.object({
+        file_path: z
+          .string()
+          .optional()
+          .describe(
+            'Relative path of the file to edit (e.g. "lib/utils.scad"). Omit to edit the render target.'
+          ),
         old_string: z.string().describe('The exact text to find (must be unique in the file)'),
         new_string: z.string().describe('The replacement text'),
         rationale: z.string().describe('Human-readable explanation of the change'),
       }),
-      execute: async ({ old_string, new_string, rationale }) => {
+      execute: async ({ file_path, old_string, new_string, rationale }) => {
+        const renderTarget = callbacks.getRenderTargetPath();
+
+        // If targeting a specific non-render-target file, use editProjectFile
+        if (file_path && file_path !== renderTarget) {
+          const error = callbacks.editProjectFile(file_path, old_string, new_string);
+          if (error) {
+            return `❌ Failed to apply edit to ${file_path}: ${error}\n\nRationale: ${rationale}\n\nThe edit was not applied.`;
+          }
+          return `✅ Edit applied to ${file_path}!\n✅ Preview will update automatically if this file is included by the render target.\n\nRationale: ${rationale}`;
+        }
+
+        // Edit the render target (backward-compatible path with checkpoints)
         const currentCode = callbacks.getCurrentCode();
 
         const occurrences = currentCode.split(old_string).length - 1;
@@ -324,6 +340,44 @@ export function buildTools(callbacks: AiToolCallbacks) {
       execute: async () => {
         eventBus.emit('render-requested');
         return '✅ Render triggered. Check the preview pane for the updated output.';
+      },
+    }),
+
+    create_file: tool({
+      description:
+        'Create a new file in the project. Use this to split code into modules or create new entry points.',
+      inputSchema: z.object({
+        file_path: z
+          .string()
+          .describe('Relative path for the new file (e.g. "lib/utils.scad" or "box_lid.scad")'),
+        content: z.string().describe('Initial file content'),
+        rationale: z.string().describe('Human-readable explanation of why this file is being created'),
+      }),
+      execute: async ({ file_path, content, rationale }) => {
+        const success = callbacks.createProjectFile(file_path, content);
+        if (!success) {
+          return `❌ Failed to create ${file_path}: the file already exists or the path is invalid.\n\nRationale: ${rationale}\n\nUse \`apply_edit\` with \`file_path\` to modify an existing file.`;
+        }
+        return `✅ Created ${file_path}\n\nRationale: ${rationale}\n\nThe file is now available for \`include\`/\`use\` from other files.`;
+      },
+    }),
+
+    set_render_target: tool({
+      description:
+        'Change which file is compiled and previewed. The render target is the entry point file that OpenSCAD compiles.',
+      inputSchema: z.object({
+        file_path: z.string().describe('Relative path of the file to set as the render target'),
+      }),
+      execute: async ({ file_path }) => {
+        const success = callbacks.setRenderTarget(file_path);
+        if (!success) {
+          const files = callbacks.listProjectFiles();
+          if (files.length === 0) {
+            return `❌ File not found: ${file_path}\n\nNo project files available.`;
+          }
+          return `❌ File not found: ${file_path}\n\nAvailable files:\n${files.map((p) => `  ${p}`).join('\n')}`;
+        }
+        return `✅ Render target changed to ${file_path}. The preview now compiles and renders this file.`;
       },
     }),
 

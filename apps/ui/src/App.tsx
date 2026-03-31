@@ -59,10 +59,12 @@ import {
 } from './stores/workspaceSelectors';
 import { useWorkspaceStore, getWorkspaceState } from './stores/workspaceStore';
 import { getProjectStore, useProjectStore, getRenderTargetContent } from './stores/projectStore';
+import { DEFAULT_TAB_NAME } from './stores/workspaceFactories';
 import { formatOpenScadCode } from './utils/formatter';
 import { addRecentFile, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview } from './utils/capturePreview';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
+import { exportProjectZip } from './utils/projectZip';
 import { useShareEntry } from './hooks/useShareEntry';
 import { TbBrandGithub, TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
 import { Toaster } from 'sonner';
@@ -79,6 +81,49 @@ const RELEASE_ASSETS: Record<MacArch, string> = {
 };
 
 type MacArch = 'aarch64' | 'x64';
+
+/** Prompt the user to pick a folder and return its .scad files, or null if cancelled. */
+function pickFolder(): Promise<{ files: Record<string, string>; renderTargetPath: string } | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.setAttribute('webkitdirectory', '');
+    input.onchange = async () => {
+      const fileList = input.files;
+      if (!fileList || fileList.length === 0) {
+        resolve(null);
+        return;
+      }
+
+      const files: Record<string, string> = {};
+      for (const file of Array.from(fileList)) {
+        // webkitRelativePath gives "folderName/path/to/file.scad"
+        const relativePath = file.webkitRelativePath;
+        if (!relativePath.endsWith('.scad')) continue;
+        // Strip the top-level folder name
+        const parts = relativePath.split('/');
+        const pathWithoutRoot = parts.slice(1).join('/');
+        if (pathWithoutRoot) {
+          files[pathWithoutRoot] = await file.text();
+        }
+      }
+
+      const scadFiles = Object.keys(files);
+      if (scadFiles.length === 0) {
+        resolve(null);
+        return;
+      }
+
+      const renderTargetPath =
+        scadFiles.find((p) => p === 'main.scad') ??
+        scadFiles.sort((a, b) => a.localeCompare(b))[0];
+
+      resolve({ files, renderTargetPath });
+    };
+    input.oncancel = () => resolve(null);
+    input.click();
+  });
+}
 
 function isIgnorableError(reason: unknown): boolean {
   // Raw DOM Events (e.g. from img.onerror = reject) carry no meaningful error
@@ -256,6 +301,7 @@ function App() {
     s.renderTargetPath ? (s.files[s.renderTargetPath]?.content ?? '') : ''
   );
   const contentVersion = useProjectStore((s) => s.contentVersion);
+  const hasMultipleFiles = useProjectStore((s) => Object.keys(s.files).length > 1);
 
   const {
     previewKind,
@@ -267,7 +313,6 @@ function App() {
     renderOnSave,
     renderWithTrigger,
     renderCode,
-    auxiliaryFiles,
   } = useOpenScad({
     source: renderTargetContent,
     contentVersion,
@@ -480,9 +525,6 @@ function App() {
     handleRestoreCheckpoint,
     updateCapturePreview,
     updateStlBlobUrl,
-    updateWorkingDir,
-    updateCurrentFilePath,
-    updateAuxiliaryFiles,
     updatePreviewSceneStyle,
     loadModelAndProviders,
   } = useAiAgent();
@@ -561,6 +603,12 @@ function App() {
 
       revokeBlobUrl(tab.render.previewSrc);
       closeTabLocal(id);
+
+      // If closing this tab caused workspace to reset to welcome, also reset project
+      const wsState = getWorkspaceState();
+      if (wsState.showWelcome && wsState.tabs.length === 1 && !wsState.tabs[0].filePath) {
+        getProjectStore().getState().resetToUntitledProject();
+      }
     },
     [closeTabLocal, tabs]
   );
@@ -702,13 +750,11 @@ function App() {
 
       store.removeFile(filePath);
 
-      // If we deleted everything, create a new untitled file
+      // If we deleted everything, reset to a fresh untitled project
       const remaining = Object.keys(store.files);
       if (remaining.length === 0) {
-        const defaultContent = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';
-        store.addFile('Untitled', defaultContent);
-        store.setRenderTarget('Untitled');
-        createNewTab(null, defaultContent, 'Untitled');
+        store.resetToUntitledProject();
+        createNewTab(null, undefined, DEFAULT_TAB_NAME);
       }
     },
     [tabs, closeTabLocal, createNewTab]
@@ -721,7 +767,6 @@ function App() {
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
 
   // Use refs to avoid stale closures in event listeners
-  const workingDirRef = useRef<string | null>(workingDir);
   const renderOnSaveRef = useRef(renderOnSave);
   const manualRenderRef = useRef(manualRender);
   const renderWithTriggerRef = useRef(renderWithTrigger);
@@ -763,19 +808,6 @@ function App() {
   }, [activePreviewKind, activePreviewSrc, updateCapturePreview]);
 
   useEffect(() => {
-    workingDirRef.current = workingDir;
-    updateWorkingDir(workingDir);
-  }, [workingDir, updateWorkingDir]);
-
-  useEffect(() => {
-    updateCurrentFilePath(activeTab?.filePath ?? null);
-  }, [activeTab?.filePath, updateCurrentFilePath]);
-
-  useEffect(() => {
-    updateAuxiliaryFiles(auxiliaryFiles);
-  }, [auxiliaryFiles, updateAuxiliaryFiles]);
-
-  useEffect(() => {
     updatePreviewSceneStyle(previewSceneStyle);
   }, [previewSceneStyle, updatePreviewSceneStyle]);
 
@@ -809,6 +841,75 @@ function App() {
   // No separate sync effects needed.
 
   // Helper function to save file to current path or prompt for new path
+  const saveProjectToDirectory = useCallback(
+    async (): Promise<boolean> => {
+      try {
+        const platform = getPlatform();
+        const dirPath = await platform.pickDirectory();
+        if (!dirPath) return false;
+
+        const store = getProjectStore().getState();
+        const currentSettings = loadSettings();
+
+        // Write all files to the selected directory
+        for (const [relativePath, file] of Object.entries(store.files)) {
+          let content = file.content;
+
+          if (currentSettings.editor.formatOnSave) {
+            try {
+              content = await formatOpenScadCode(content, {
+                indentSize: currentSettings.editor.indentSize,
+                useTabs: currentSettings.editor.useTabs,
+              });
+              if (content !== file.content) {
+                getProjectStore().getState().updateFileContent(relativePath, content);
+                getProjectStore().getState().setCustomizerBase(relativePath, content);
+              }
+            } catch {
+              // Continue with unformatted content
+            }
+          }
+
+          const absolutePath = `${dirPath}/${relativePath}`;
+          await platform.writeTextFile(absolutePath, content);
+        }
+
+        // Transition project from virtual to disk-backed
+        const updatedStore = getProjectStore().getState();
+        updatedStore.openProject(
+          dirPath,
+          Object.fromEntries(
+            Object.entries(updatedStore.files).map(([path, file]) => [path, file.content])
+          ),
+          updatedStore.renderTargetPath ?? DEFAULT_TAB_NAME
+        );
+
+        // Update workspace tabs with their new disk paths
+        for (const tab of tabsRef.current) {
+          const absolutePath = `${dirPath}/${tab.projectPath}`;
+          markTabSaved(tab.id, { filePath: absolutePath, name: tab.name });
+        }
+
+        if (renderOnSaveRef.current) {
+          renderOnSaveRef.current();
+        }
+
+        notifySuccess('Project saved to folder', { toastId: 'save-project-dir-success' });
+        return true;
+      } catch (err) {
+        notifyError({
+          operation: 'save-project-to-directory',
+          error: err,
+          fallbackMessage: 'Failed to save project to folder',
+          toastId: 'save-project-dir-error',
+          logLabel: 'Save project to directory failed',
+        });
+        return false;
+      }
+    },
+    [markTabSaved]
+  );
+
   const saveFile = useCallback(
     async (promptForPath: boolean = false): Promise<boolean> => {
       try {
@@ -817,6 +918,17 @@ function App() {
         const filters = [{ name: 'OpenSCAD Files', extensions: ['scad'] }];
 
         const store = getProjectStore().getState();
+
+        // Virtual multi-file project on desktop: redirect to folder save
+        if (
+          !promptForPath &&
+          store.projectRoot === null &&
+          Object.keys(store.files).length > 1 &&
+          platform.capabilities.hasFileSystem
+        ) {
+          return saveProjectToDirectory();
+        }
+
         let currentSource = store.files[currentTab.projectPath]?.content ?? '';
 
         const currentSettings = loadSettings();
@@ -896,8 +1008,65 @@ function App() {
         return false;
       }
     },
-    [analytics, markTabSaved]
+    [analytics, markTabSaved, saveProjectToDirectory]
   );
+
+  const saveAllFiles = useCallback(async () => {
+    const store = getProjectStore().getState();
+    const platform = getPlatform();
+    const currentSettings = loadSettings();
+    const filters = [{ name: 'OpenSCAD Files', extensions: ['scad'] }];
+    let savedCount = 0;
+
+    for (const [relativePath, file] of Object.entries(store.files)) {
+      if (!file.isDirty) continue;
+
+      let content = file.content;
+
+      // Auto-format on save if enabled
+      if (currentSettings.editor.formatOnSave) {
+        try {
+          const formatted = await formatOpenScadCode(content, {
+            indentSize: currentSettings.editor.indentSize,
+            useTabs: currentSettings.editor.useTabs,
+          });
+          if (formatted !== content) {
+            content = formatted;
+            getProjectStore().getState().updateFileContent(relativePath, formatted);
+            getProjectStore().getState().setCustomizerBase(relativePath, formatted);
+          }
+        } catch {
+          // Continue with unformatted content
+        }
+      }
+
+      // Build absolute path for desktop projects
+      const absolutePath = store.projectRoot
+        ? `${store.projectRoot}/${relativePath}`
+        : null;
+
+      const savePath = await platform.fileSave(content, absolutePath, filters, relativePath);
+      if (savePath) {
+        getProjectStore().getState().markFileSaved(relativePath, content);
+
+        // Update matching workspace tab if one exists
+        const tab = tabsRef.current.find((t) => t.projectPath === relativePath);
+        if (tab) {
+          markTabSaved(tab.id, { filePath: savePath, name: tab.name });
+        }
+        savedCount++;
+      }
+    }
+
+    if (savedCount > 0) {
+      if (renderOnSaveRef.current) {
+        renderOnSaveRef.current();
+      }
+      notifySuccess(`Saved ${savedCount} file${savedCount > 1 ? 's' : ''}`, {
+        toastId: 'save-all-success',
+      });
+    }
+  }, [markTabSaved]);
 
   const handleStartWithDraft = useCallback(
     (draftOverride?: AiDraft) => {
@@ -1228,6 +1397,7 @@ function App() {
           : true;
         if (!canProceed) return;
 
+        getProjectStore().getState().resetToUntitledProject();
         createNewTab();
         showWelcomeScreen();
       })
@@ -1301,6 +1471,12 @@ function App() {
     );
 
     unlistenFns.push(
+      eventBus.on('menu:file:save_all', async () => {
+        await saveAllFiles();
+      })
+    );
+
+    unlistenFns.push(
       eventBus.on('menu:file:export', async (format: ExportFormat) => {
         try {
           const formatLabels: Record<ExportFormat, { label: string; ext: string }> = {
@@ -1338,11 +1514,80 @@ function App() {
       })
     );
 
+    unlistenFns.push(
+      eventBus.on('menu:file:save_project', async () => {
+        try {
+          const state = getProjectStore().getState();
+          if (!state.renderTargetPath) return;
+          const files: Record<string, string> = {};
+          for (const [path, file] of Object.entries(state.files)) {
+            files[path] = file.content;
+          }
+          const blob = exportProjectZip({
+            files,
+            renderTargetPath: state.renderTargetPath,
+          });
+          const data = new Uint8Array(await blob.arrayBuffer());
+          await getPlatform().fileExport(data, 'project.zip', [
+            { name: 'ZIP Archive', extensions: ['zip'] },
+          ]);
+          analytics.track('project exported', { file_count: Object.keys(files).length });
+          notifySuccess('Project saved', { toastId: 'save-project-success' });
+        } catch (err) {
+          notifyError({
+            operation: 'save-project',
+            error: err,
+            fallbackMessage: 'Failed to save project',
+            toastId: 'save-project-error',
+            logLabel: 'Save project failed',
+          });
+        }
+      })
+    );
+
+    unlistenFns.push(
+      eventBus.on('menu:file:open_project', async () => {
+        try {
+          const canProceed = checkUnsavedChangesRef.current
+            ? await checkUnsavedChangesRef.current()
+            : true;
+          if (!canProceed) return;
+
+          const result = await pickFolder();
+          if (!result) return;
+
+          getProjectStore().getState().openProject(null, result.files, result.renderTargetPath);
+          createNewTab(null, result.files[result.renderTargetPath], result.renderTargetPath);
+          hideWelcomeScreen();
+          analytics.track('project imported', { file_count: Object.keys(result.files).length });
+          notifySuccess(`Opened project with ${Object.keys(result.files).length} files`, {
+            toastId: 'open-project-success',
+          });
+
+          if (renderWithTriggerRef.current) {
+            setTimeout(() => {
+              if (renderWithTriggerRef.current) {
+                renderWithTriggerRef.current('file_open');
+              }
+            }, 100);
+          }
+        } catch (err) {
+          notifyError({
+            operation: 'open-project',
+            error: err,
+            fallbackMessage: 'Failed to open project',
+            toastId: 'open-project-error',
+            logLabel: 'Open project failed',
+          });
+        }
+      })
+    );
+
     return () => {
       unlistenFns.forEach((fn) => fn());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analytics, createNewTab, hideWelcomeScreen, initializeProject, showWelcome, showWelcomeScreen, switchTab]);
+  }, [analytics, createNewTab, hideWelcomeScreen, initializeProject, saveAllFiles, showWelcome, showWelcomeScreen, switchTab]);
 
   useEffect(() => {
     const platform = getPlatform();
@@ -1437,6 +1682,11 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
         e.preventDefault();
         closeTab(activeTabId);
+      }
+      // ⌘⌥S or Ctrl+Alt+S to save all
+      if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 's') {
+        e.preventDefault();
+        eventBus.emit('menu:file:save_all');
       }
     };
 
@@ -1773,6 +2023,7 @@ function App() {
             onSettings={() => setShowSettingsDialog(true)}
             onUndo={handleUndo}
             onRedo={handleRedo}
+            hasMultipleFiles={hasMultipleFiles}
           />
         )}
 

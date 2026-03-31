@@ -1,8 +1,13 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { type ToolSet, stepCountIs } from 'ai';
 import { bucketCount, useAnalytics, type ModelSelectionSurface } from '../analytics/runtime';
-import { historyService, eventBus, getPlatform } from '../platform';
-import { getProjectState, getRenderTargetContent } from '../stores/projectStore';
+import { historyService, eventBus } from '../platform';
+import {
+  getProjectState,
+  getProjectStore,
+  getRenderTargetContent,
+  listProjectFiles as listProjectFilesFromState,
+} from '../stores/projectStore';
 import {
   createModel,
   SYSTEM_PROMPT,
@@ -50,7 +55,7 @@ import {
   FALLBACK_PREVIEW_SCENE_STYLE,
   type PreviewSceneStyle,
 } from '../services/previewSceneConfig';
-import { getRelativeProjectPath, normalizeProjectRelativePath } from '../utils/projectFilePaths';
+import { normalizeProjectRelativePath } from '../utils/projectFilePaths';
 import { createRandomId } from '../utils/randomId';
 import { updateSetting, loadSettings, type MeasurementUnit } from '../stores/settingsStore';
 
@@ -194,7 +199,6 @@ interface UseAiAgentOptions {
   testOverrides?: {
     analytics?: ReturnType<typeof useAnalytics>;
     availableProviders?: ReturnType<typeof useAvailableProviders>;
-    getPlatform?: typeof getPlatform;
     createModel?: typeof createModel;
     buildTools?: typeof buildTools;
     startAiStream?: typeof startAiStream;
@@ -215,7 +219,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
   const overrides = options.testOverrides;
   const analytics = overrides?.analytics ?? defaultAnalytics;
   const availableProviders = overrides?.availableProviders ?? defaultAvailableProviders;
-  const getPlatformImpl = overrides?.getPlatform ?? getPlatform;
   const createModelImpl = overrides?.createModel ?? createModel;
   const buildToolsImpl = overrides?.buildTools ?? buildTools;
   const startAiStreamImpl = overrides?.startAiStream ?? startAiStream;
@@ -255,9 +258,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
 
   const capturePreviewRef = useRef<(() => Promise<string | null>) | null>(null);
   const stlBlobUrlRef = useRef<string | null>(null);
-  const workingDirRef = useRef<string | null>(null);
-  const currentFilePathRef = useRef<string | null>(null);
-  const auxiliaryFilesRef = useRef<Record<string, string>>({});
   const previewSceneStyleRef = useRef<PreviewSceneStyle>(FALLBACK_PREVIEW_SCENE_STYLE);
   const measurementUnitRef = useRef<MeasurementUnit>(loadSettingsImpl().viewer.measurementUnit);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -288,54 +288,44 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
       },
       getStlBlobUrl: () => stlBlobUrlRef.current,
       getPreviewSceneStyle: () => previewSceneStyleRef.current,
-      hasProjectFileAccess: () => {
-        try {
-          return Boolean(workingDirRef.current) && getPlatformImpl().capabilities.hasFileSystem;
-        } catch {
-          return false;
-        }
-      },
-      getCurrentFileRelativePath: () =>
-        getRelativeProjectPath(workingDirRef.current, currentFilePathRef.current),
-      listProjectFiles: async () => {
-        const workingDir = workingDirRef.current;
-        if (!workingDir) {
-          return null;
-        }
-
-        const platform = getPlatformImpl();
-        if (!platform.capabilities.hasFileSystem) {
-          return null;
-        }
-
-        const files = await platform.readDirectoryFiles(workingDir, ['scad'], true);
-        return Object.keys(files).sort((a, b) => a.localeCompare(b));
-      },
-      readProjectFile: async (path: string) => {
-        const workingDir = workingDirRef.current;
-        if (!workingDir) {
-          return null;
-        }
-
-        const platform = getPlatformImpl();
-        if (!platform.capabilities.hasFileSystem) {
-          return null;
-        }
-
+      listProjectFiles: () => listProjectFilesFromState(getProjectState()),
+      readProjectFile: (path: string) => {
         const normalizedPath = normalizeProjectRelativePath(path);
-        if (!normalizedPath) {
-          return null;
-        }
+        if (!normalizedPath) return null;
+        const state = getProjectState();
+        return state.files[normalizedPath]?.content ?? null;
+      },
+      getRenderTargetPath: () => getProjectState().renderTargetPath,
+      getFileContent: (path: string) => {
+        const state = getProjectState();
+        return state.files[path]?.content ?? null;
+      },
+      createProjectFile: (path: string, content: string) => {
+        const normalizedPath = normalizeProjectRelativePath(path);
+        if (!normalizedPath) return false;
+        const state = getProjectState();
+        if (normalizedPath in state.files) return false;
+        getProjectStore().getState().addFile(normalizedPath, content);
+        return true;
+      },
+      editProjectFile: (path: string, oldString: string, newString: string) => {
+        const state = getProjectState();
+        const file = state.files[path];
+        if (!file) return `File not found: ${path}`;
 
-        const currentRelativePath = getRelativeProjectPath(
-          workingDirRef.current,
-          currentFilePathRef.current
-        );
-        if (currentRelativePath === normalizedPath) {
-          return getRenderTargetContent(getProjectState()) ?? '';
-        }
+        const occurrences = file.content.split(oldString).length - 1;
+        if (occurrences === 0) return 'old_string not found in the file';
+        if (occurrences > 1) return `old_string found ${occurrences} times — it must be unique`;
 
-        return platform.readTextFile(`${workingDir}/${normalizedPath}`);
+        const newContent = file.content.replace(oldString, newString);
+        getProjectStore().getState().updateFileContent(path, newContent);
+        return null;
+      },
+      setRenderTarget: (path: string) => {
+        const state = getProjectState();
+        if (!(path in state.files)) return false;
+        getProjectStore().getState().setRenderTarget(path);
+        return true;
       },
       getMeasurementUnit: () => measurementUnitRef.current,
       setMeasurementUnit: (unit: MeasurementUnit) => {
@@ -343,7 +333,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         updateSettingImpl('viewer', { measurementUnit: unit });
       },
     }),
-    [getPlatformImpl, updateSettingImpl]
+    [updateSettingImpl]
   );
 
   const tools: ToolSet = useMemo(() => buildToolsImpl(callbacks), [buildToolsImpl, callbacks]);
@@ -354,18 +344,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
 
   const updateStlBlobUrl = useCallback((url: string | null) => {
     stlBlobUrlRef.current = url;
-  }, []);
-
-  const updateWorkingDir = useCallback((dir: string | null) => {
-    workingDirRef.current = dir;
-  }, []);
-
-  const updateCurrentFilePath = useCallback((path: string | null) => {
-    currentFilePathRef.current = path;
-  }, []);
-
-  const updateAuxiliaryFiles = useCallback((files: Record<string, string>) => {
-    auxiliaryFilesRef.current = files;
   }, []);
 
   const updatePreviewSceneStyle = useCallback((sceneStyle: PreviewSceneStyle) => {
@@ -740,7 +718,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         provider,
         model_id: currentState.currentModel,
         attachment_count: submittedReadyIds.length,
-        has_project_file_access: callbacks.hasProjectFileAccess(),
+        has_project_files: callbacks.listProjectFiles().length > 0,
         prompt_length_bucket: bucketCount(draft.text.trim().length, [20, 80, 200, 500]),
         conversation_length_bucket: bucketCount(updatedMessages.length, [2, 5, 10, 20]),
       });
@@ -1019,9 +997,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
     handleRestoreCheckpoint,
     updateCapturePreview,
     updateStlBlobUrl,
-    updateWorkingDir,
-    updateCurrentFilePath,
-    updateAuxiliaryFiles,
     updatePreviewSceneStyle,
     setDraftText,
     setDraft,
