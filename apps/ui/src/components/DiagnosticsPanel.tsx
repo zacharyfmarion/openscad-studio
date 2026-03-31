@@ -20,16 +20,6 @@ type SectionId = 'error' | 'warning' | 'info' | 'echo';
 type Row =
   | {
       id: string;
-      kind: 'header';
-      label: string;
-      sectionId: SectionId;
-      itemCount: number;
-      isCollapsed: boolean;
-      stickyTop: number;
-      estimatedHeight: number;
-    }
-  | {
-      id: string;
       kind: 'echo';
       sectionId: SectionId;
       diagnostic: Diagnostic;
@@ -51,15 +41,19 @@ interface RowMetric {
   height: number;
 }
 
-type HeaderMetric = RowMetric & {
-  row: Extract<Row, { kind: 'header' }>;
-};
-
 interface SectionDescriptor {
   id: SectionId;
   label: string;
   items: Diagnostic[];
   rowKind: Extract<Row, { kind: 'echo' | 'diagnostic' }>['kind'];
+}
+
+interface SectionLayout {
+  descriptor: SectionDescriptor;
+  itemStart: number;
+  itemHeight: number;
+  itemCount: number;
+  isCollapsed: boolean;
 }
 
 function getRowId(
@@ -123,10 +117,6 @@ function findEndIndex(metrics: RowMetric[], offset: number): number {
   return candidate;
 }
 
-function isHeaderMetric(metric: RowMetric | undefined): metric is HeaderMetric {
-  return metric?.row.kind === 'header';
-}
-
 function HeaderRow({
   label,
   sectionId,
@@ -134,15 +124,13 @@ function HeaderRow({
   isCollapsed,
   onToggle,
   stickyTop,
-  hidden,
 }: {
   label: string;
   sectionId: SectionId;
   itemCount: number;
   isCollapsed: boolean;
   onToggle: (sectionId: SectionId) => void;
-  stickyTop?: number;
-  hidden?: boolean;
+  stickyTop: number;
 }) {
   const ToggleIcon = isCollapsed ? TbChevronRight : TbChevronDown;
 
@@ -156,9 +144,8 @@ function HeaderRow({
         backgroundColor: 'var(--bg-secondary)',
         color: 'var(--text-tertiary)',
         borderBottom: '1px solid var(--border-subtle)',
-        position: stickyTop === undefined ? 'relative' : 'sticky',
+        position: 'sticky',
         top: stickyTop,
-        visibility: hidden ? 'hidden' : 'visible',
         textAlign: 'left',
       }}
       aria-expanded={!isCollapsed}
@@ -349,39 +336,45 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
     return sections;
   }, [echoMessages, errorDiagnostics, infoDiagnostics, warningDiagnostics]);
 
+  const sectionLayouts = useMemo<SectionLayout[]>(() => {
+    let itemOffset = 0;
+    return sectionDescriptors.map((descriptor) => {
+      const isCollapsed = collapsedSections[descriptor.id];
+      const itemHeight = isCollapsed ? 0 : descriptor.items.length * ITEM_ESTIMATED_HEIGHT;
+      const layout: SectionLayout = {
+        descriptor,
+        itemStart: itemOffset,
+        itemHeight,
+        itemCount: descriptor.items.length,
+        isCollapsed,
+      };
+      itemOffset += itemHeight;
+      return layout;
+    });
+  }, [collapsedSections, sectionDescriptors]);
+
   const rows = useMemo<Row[]>(() => {
     const nextRows: Row[] = [];
 
-    sectionDescriptors.forEach((section, sectionIndex) => {
-      nextRows.push({
-        id: `header-${section.id}`,
-        kind: 'header',
-        label: section.label,
-        sectionId: section.id,
-        itemCount: section.items.length,
-        isCollapsed: collapsedSections[section.id],
-        stickyTop: sectionIndex * HEADER_HEIGHT,
-        estimatedHeight: HEADER_HEIGHT,
-      });
-
-      if (collapsedSections[section.id]) {
+    sectionLayouts.forEach(({ descriptor, isCollapsed }) => {
+      if (isCollapsed) {
         return;
       }
 
-      section.items.forEach((diagnostic, index) => {
+      descriptor.items.forEach((diagnostic, index) => {
         nextRows.push({
-          id: getRowId(section.rowKind, section.id, diagnostic, index),
-          kind: section.rowKind,
-          sectionId: section.id,
+          id: getRowId(descriptor.rowKind, descriptor.id, diagnostic, index),
+          kind: descriptor.rowKind,
+          sectionId: descriptor.id,
           diagnostic,
-          showBorder: index < section.items.length - 1,
+          showBorder: index < descriptor.items.length - 1,
           estimatedHeight: ITEM_ESTIMATED_HEIGHT,
         });
       });
     });
 
     return nextRows;
-  }, [collapsedSections, sectionDescriptors]);
+  }, [sectionLayouts]);
 
   const metrics = useMemo(() => {
     let offset = 0;
@@ -471,19 +464,12 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
     };
   }, []);
 
-  const headerMetrics = metrics.metrics.filter((metric): metric is HeaderMetric =>
-    isHeaderMetric(metric)
-  );
-
   const toggleSection = useCallback(
     (sectionId: SectionId) => {
-      const section = sectionDescriptors.find((descriptor) => descriptor.id === sectionId);
-      const sectionHeaderMetric = headerMetrics.find(
-        (metric) => metric.row.sectionId === sectionId
-      );
+      const sectionLayout = sectionLayouts.find((layout) => layout.descriptor.id === sectionId);
       const node = scrollRef.current;
 
-      if (!section || !sectionHeaderMetric || !node) {
+      if (!sectionLayout || !node) {
         setCollapsedSections((current) => ({
           ...current,
           [sectionId]: !current[sectionId],
@@ -491,13 +477,13 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
         return;
       }
 
-      const isCurrentlyCollapsed = collapsedSections[sectionId];
-      const itemHeightDelta = section.items.reduce((total, diagnostic, index) => {
-        const rowId = getRowId(section.rowKind, section.id, diagnostic, index);
+      const { descriptor, itemStart, isCollapsed } = sectionLayout;
+      const itemHeightDelta = descriptor.items.reduce((total, diagnostic, index) => {
+        const rowId = getRowId(descriptor.rowKind, descriptor.id, diagnostic, index);
         return total + (measuredHeights[rowId] ?? ITEM_ESTIMATED_HEIGHT);
       }, 0);
-      const shouldAnchorScroll = sectionHeaderMetric.top < scrollTop;
-      const scrollDelta = isCurrentlyCollapsed ? itemHeightDelta : -itemHeightDelta;
+      const shouldAnchorScroll = itemStart < scrollTop;
+      const scrollDelta = isCollapsed ? itemHeightDelta : -itemHeightDelta;
 
       setCollapsedSections((current) => ({
         ...current,
@@ -514,7 +500,7 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
         setScrollTop(nextScrollTop);
       });
     },
-    [collapsedSections, headerMetrics, measuredHeights, scrollTop, sectionDescriptors]
+    [measuredHeights, scrollTop, sectionLayouts]
   );
 
   if (diagnostics.length === 0) {
@@ -530,18 +516,13 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
   }
 
   const renderStart = Math.max(0, scrollTop - OVERSCAN_PX);
-  const renderEnd = scrollTop + viewportHeight + OVERSCAN_PX;
+  const headerStackHeight = sectionLayouts.length * HEADER_HEIGHT;
+  const itemViewportHeight = Math.max(0, viewportHeight - headerStackHeight);
+  const renderEnd = scrollTop + itemViewportHeight + OVERSCAN_PX;
   const startIndex = findStartIndex(metrics.metrics, renderStart);
   const endIndex = findEndIndex(metrics.metrics, renderEnd);
   const visibleMetrics =
     endIndex >= startIndex ? metrics.metrics.slice(startIndex, endIndex + 1) : metrics.metrics;
-
-  const stickyHeaderIds = new Set<string>();
-  headerMetrics.forEach((metric) => {
-    if (scrollTop > metric.top - metric.row.stickyTop) {
-      stickyHeaderIds.add(metric.row.id);
-    }
-  });
 
   return (
     <div
@@ -551,19 +532,17 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
       style={{ backgroundColor: 'var(--bg-secondary)' }}
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
     >
-      {headerMetrics
-        .filter((metric) => stickyHeaderIds.has(metric.row.id))
-        .map((metric) => (
-          <HeaderRow
-            key={`sticky-${metric.row.id}`}
-            label={metric.row.label}
-            sectionId={metric.row.sectionId}
-            itemCount={metric.row.itemCount}
-            isCollapsed={metric.row.isCollapsed}
-            onToggle={toggleSection}
-            stickyTop={metric.row.stickyTop}
-          />
-        ))}
+      {sectionLayouts.map((sectionLayout, index) => (
+        <HeaderRow
+          key={`section-${sectionLayout.descriptor.id}`}
+          label={sectionLayout.descriptor.label}
+          sectionId={sectionLayout.descriptor.id}
+          itemCount={sectionLayout.itemCount}
+          isCollapsed={sectionLayout.isCollapsed}
+          onToggle={toggleSection}
+          stickyTop={index * HEADER_HEIGHT}
+        />
+      ))}
 
       <div
         className="relative"
@@ -571,27 +550,6 @@ export function DiagnosticsPanel({ diagnostics }: DiagnosticsPanelProps) {
         data-testid="diagnostics-panel-spacer"
       >
         {visibleMetrics.map((metric) => {
-          if (metric.row.kind === 'header') {
-            return (
-              <MeasuredRow
-                key={metric.row.id}
-                rowId={metric.row.id}
-                top={metric.top}
-                onHeightChange={handleHeightChange}
-              >
-                <HeaderRow
-                  label={metric.row.label}
-                  sectionId={metric.row.sectionId}
-                  itemCount={metric.row.itemCount}
-                  isCollapsed={metric.row.isCollapsed}
-                  onToggle={toggleSection}
-                  hidden={stickyHeaderIds.has(metric.row.id)}
-                  stickyTop={undefined}
-                />
-              </MeasuredRow>
-            );
-          }
-
           if (metric.row.kind === 'echo') {
             return (
               <MeasuredRow
