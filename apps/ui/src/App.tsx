@@ -2252,6 +2252,17 @@ function App() {
             onDeleteFile={handleDeleteFile}
             onSetRenderTarget={handleSetRenderTarget}
             onCreateFile={handleCreateFile}
+            onDropFolder={(files, renderTarget) => {
+              getProjectStore().getState().openProject(null, files, renderTarget);
+              createNewTab(null, files[renderTarget], renderTarget);
+              hideWelcomeScreen();
+              notifySuccess(`Opened project with ${Object.keys(files).length} files`, {
+                toastId: 'drop-folder-success',
+              });
+              if (renderWithTriggerRef.current) {
+                setTimeout(() => renderWithTriggerRef.current?.('file_open'), 100);
+              }
+            }}
             collapsed={!settings.ui.fileTreeVisible}
             onToggleCollapse={handleToggleFileTree}
             width={settings.ui.fileTreeWidth}

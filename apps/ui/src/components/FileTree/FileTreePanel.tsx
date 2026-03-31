@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react';
 import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarLeftExpand, TbPlus } from 'react-icons/tb';
 import { IconButton } from '../ui';
 import { FileTree } from './FileTree';
@@ -9,9 +10,60 @@ interface FileTreePanelProps {
   onDeleteFile: (path: string) => void;
   onSetRenderTarget: (path: string) => void;
   onCreateFile: (parentDir: string) => void;
+  onDropFolder?: (files: Record<string, string>, renderTargetPath: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
   width: number;
+}
+
+async function readDroppedFolder(items: DataTransferItemList): Promise<Record<string, string> | null> {
+  const entries: FileSystemEntry[] = [];
+  for (const item of Array.from(items)) {
+    const entry = item.webkitGetAsEntry?.();
+    if (entry) entries.push(entry);
+  }
+
+  if (entries.length === 0) return null;
+
+  const files: Record<string, string> = {};
+
+  async function walkEntry(entry: FileSystemEntry, prefix: string): Promise<void> {
+    if (entry.isFile) {
+      if (entry.name.endsWith('.scad')) {
+        const file = await new Promise<File>((resolve, reject) => {
+          (entry as FileSystemFileEntry).file(resolve, reject);
+        });
+        const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+        files[path] = await file.text();
+      }
+    } else if (entry.isDirectory) {
+      const reader = (entry as FileSystemDirectoryEntry).createReader();
+      const children = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+        reader.readEntries(resolve, reject);
+      });
+      const nextPrefix = prefix ? `${prefix}/${entry.name}` : entry.name;
+      for (const child of children) {
+        await walkEntry(child, nextPrefix);
+      }
+    }
+  }
+
+  // If a single directory was dropped, strip the top-level folder name
+  if (entries.length === 1 && entries[0].isDirectory) {
+    const reader = (entries[0] as FileSystemDirectoryEntry).createReader();
+    const children = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+      reader.readEntries(resolve, reject);
+    });
+    for (const child of children) {
+      await walkEntry(child, '');
+    }
+  } else {
+    for (const entry of entries) {
+      await walkEntry(entry, '');
+    }
+  }
+
+  return Object.keys(files).length > 0 ? files : null;
 }
 
 export function FileTreePanel({
@@ -21,10 +73,45 @@ export function FileTreePanel({
   onDeleteFile,
   onSetRenderTarget,
   onCreateFile,
+  onDropFolder,
   collapsed,
   onToggleCollapse,
   width,
 }: FileTreePanelProps) {
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    if (!onDropFolder || !e.dataTransfer.items.length) return;
+
+    const files = await readDroppedFolder(e.dataTransfer.items);
+    if (!files) return;
+
+    const scadFiles = Object.keys(files);
+    const renderTargetPath =
+      scadFiles.find((p) => p === 'main.scad') ??
+      scadFiles.sort((a, b) => a.localeCompare(b))[0];
+
+    onDropFolder(files, renderTargetPath);
+  }, [onDropFolder]);
+
   if (collapsed) {
     return (
       <div
@@ -51,7 +138,12 @@ export function FileTreePanel({
         width: `${width}px`,
         backgroundColor: 'var(--bg-secondary)',
         borderRight: '1px solid var(--border-subtle)',
+        outline: isDragOver ? '2px solid var(--accent)' : undefined,
+        outlineOffset: '-2px',
       }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <div
         className="flex items-center justify-between px-2 py-1.5 shrink-0"
