@@ -3,7 +3,7 @@ import type { ModelSelectionSurface } from '../analytics/runtime';
 import { Button, Text } from './ui';
 import { AiComposer } from './AiComposer';
 import { ModelSelector } from './ModelSelector';
-import { TbFileText } from 'react-icons/tb';
+import { TbFileText, TbFolder } from 'react-icons/tb';
 import { getPlatform } from '../platform';
 import { useHasApiKey } from '../stores/apiKeyStore';
 import type { AiDraft, AttachmentStore } from '../types/aiChat';
@@ -282,6 +282,7 @@ export function WelcomeScreen({
               className="text-sm"
               data-testid="welcome-open-file"
             >
+              <TbFileText className="size-4" />
               Open File
             </Button>
           )}
@@ -292,6 +293,7 @@ export function WelcomeScreen({
               className="text-sm"
               data-testid="welcome-open-folder"
             >
+              <TbFolder className="size-4" />
               Open Folder
             </Button>
           )}
