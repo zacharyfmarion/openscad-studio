@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarLeftExpand, TbPlus } from 'react-icons/tb';
+import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarLeftExpand, TbPlus, TbFolderDown } from 'react-icons/tb';
 import { IconButton } from '../ui';
 import { FileTree } from './FileTree';
 
@@ -133,18 +133,35 @@ export function FileTreePanel({
 
   return (
     <div
-      className="flex flex-col shrink-0 overflow-hidden"
+      className="relative flex flex-col shrink-0 overflow-hidden"
       style={{
         width: `${width}px`,
         backgroundColor: 'var(--bg-secondary)',
         borderRight: '1px solid var(--border-subtle)',
-        outline: isDragOver ? '2px solid var(--accent)' : undefined,
-        outlineOffset: '-2px',
       }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {isDragOver && (
+        <div
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 pointer-events-none"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--accent) 10%, var(--bg-secondary) 90%)',
+            border: '2px dashed var(--accent)',
+            borderRight: 'none',
+            margin: '0',
+          }}
+        >
+          <TbFolderDown size={24} style={{ color: 'var(--accent)' }} />
+          <span
+            className="text-xs font-medium"
+            style={{ color: 'var(--accent)' }}
+          >
+            Drop folder
+          </span>
+        </div>
+      )}
       <div
         className="flex items-center justify-between px-2 py-1.5 shrink-0"
         style={{ borderBottom: '1px solid var(--border-subtle)' }}
