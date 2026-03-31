@@ -1721,7 +1721,7 @@ export function ThreeViewer({
               style={{
                 backgroundColor: 'rgba(0, 0, 0, 0.32)',
                 border: '1px solid var(--border-secondary)',
-                color: 'var(--text-tertiary)',
+                color: 'var(--text-primary)',
                 backdropFilter: 'blur(8px)',
                 maxWidth: '360px',
                 padding: '10px 38px 10px 12px',
@@ -1736,7 +1736,7 @@ export function ThreeViewer({
                 style={{
                   width: '20px',
                   height: '20px',
-                  color: 'var(--text-tertiary)',
+                  color: 'var(--text-secondary)',
                 }}
                 title="Dismiss controls hint"
                 aria-label="Dismiss controls hint"
