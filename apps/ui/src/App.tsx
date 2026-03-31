@@ -1185,7 +1185,8 @@ function App() {
     async (path: string, type?: 'file' | 'folder') => {
       try {
         // Handle recent folders by opening the directory
-        if (type === 'folder') {
+        // Also detect legacy entries without type field by checking extension
+        if (type === 'folder' || !path.endsWith('.scad')) {
           const platform = getPlatform();
           if (!platform.capabilities.hasFileSystem) return 'cancelled' as const;
 

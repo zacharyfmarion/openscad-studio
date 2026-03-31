@@ -21,6 +21,7 @@ function normalizeRecentFile(file: Partial<RecentFile>): RecentFile | null {
         ? file.name
         : file.path.split('/').pop() || file.path,
     lastOpened: typeof file.lastOpened === 'number' ? file.lastOpened : 0,
+    ...(file.type === 'folder' ? { type: 'folder' as const } : {}),
   };
 }
 
