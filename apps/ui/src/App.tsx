@@ -1199,7 +1199,19 @@ function App() {
             scadFiles.sort((a, b) => a.localeCompare(b))[0];
 
           getProjectStore().getState().openProject(path, files, renderTarget);
-          createNewTab(`${path}/${renderTarget}`, files[renderTarget], renderTarget);
+
+          const firstTab = tabs[0];
+          const shouldReplace = firstTab && !firstTab.filePath && tabs.length === 1;
+          if (shouldReplace) {
+            revokeBlobUrl(firstTab.render.previewSrc);
+            replaceWelcomeTab({
+              filePath: `${path}/${renderTarget}`,
+              name: renderTarget,
+              projectPath: renderTarget,
+            });
+          } else {
+            createNewTab(`${path}/${renderTarget}`, files[renderTarget], renderTarget);
+          }
           hideWelcomeScreen();
           addRecentFolder(path);
           analytics.track('folder opened', { source: 'recent', file_count: scadFiles.length });
@@ -1514,11 +1526,19 @@ function App() {
             scadFiles.sort((a, b) => a.localeCompare(b))[0];
 
           getProjectStore().getState().openProject(dirPath, files, renderTarget);
-          createNewTab(
-            `${dirPath}/${renderTarget}`,
-            files[renderTarget],
-            renderTarget
-          );
+
+          const firstTab = tabsRef.current[0];
+          const shouldReplace = firstTab && !firstTab.filePath && tabsRef.current.length === 1;
+          if (shouldReplace) {
+            revokeBlobUrl(firstTab.render.previewSrc);
+            replaceWelcomeTab({
+              filePath: `${dirPath}/${renderTarget}`,
+              name: renderTarget,
+              projectPath: renderTarget,
+            });
+          } else {
+            createNewTab(`${dirPath}/${renderTarget}`, files[renderTarget], renderTarget);
+          }
           hideWelcomeScreen();
           addRecentFolder(dirPath);
 
