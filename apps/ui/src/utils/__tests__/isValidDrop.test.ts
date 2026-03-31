@@ -1,4 +1,4 @@
-import { isValidDrop } from '../../components/FileTree/FileTree';
+import { isValidDrop } from '../isValidDrop';
 
 describe('isValidDrop', () => {
   // ── File drops ───────────────────────────────────────────────────────────

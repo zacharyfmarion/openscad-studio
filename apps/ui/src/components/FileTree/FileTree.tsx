@@ -4,6 +4,7 @@ import * as ContextMenu from '@radix-ui/react-context-menu';
 import { useProjectStore } from '../../stores/projectStore';
 import { FileTreeItem } from './FileTreeItem';
 import { readDroppedItems } from '../../utils/readDroppedItems';
+import { isValidDrop } from '../../utils/isValidDrop';
 
 interface TreeNode {
   name: string;
@@ -62,29 +63,6 @@ function buildTree(filePaths: string[], emptyFolderPaths: string[] = []): TreeNo
   }
 
   return sortNodes(root.children);
-}
-
-/**
- * Returns true if dragging sourcePath onto targetFolderPath is a valid move.
- * Exported so it can be imported by App.tsx and tested directly.
- */
-export function isValidDrop(
-  sourcePath: string,
-  sourceIsFolder: boolean,
-  targetFolderPath: string
-): boolean {
-  const currentParent = sourcePath.includes('/')
-    ? sourcePath.substring(0, sourcePath.lastIndexOf('/'))
-    : '';
-  // Already in this folder
-  if (targetFolderPath === currentParent) return false;
-  if (sourceIsFolder) {
-    // Can't drop folder onto itself
-    if (targetFolderPath === sourcePath) return false;
-    // Can't drop folder into one of its own descendants
-    if (targetFolderPath.startsWith(sourcePath + '/')) return false;
-  }
-  return true;
 }
 
 interface DragState {

@@ -15,7 +15,7 @@ import {
 } from './components/HeaderWorkspaceControls';
 import { WebMenuBar } from './components/WebMenuBar';
 import { FileTreePanel } from './components/FileTree';
-import { isValidDrop } from './components/FileTree/FileTree';
+import { isValidDrop } from './utils/isValidDrop';
 import {
   Button,
   IconButton,

@@ -426,7 +426,10 @@ describe('computeOrphanedAncestors', () => {
   });
 
   it('returns nothing when parent still has files', () => {
-    const files = { 'lib/other.scad': {} } as any;
+    const files = { 'lib/other.scad': {} } as unknown as Record<
+      string,
+      import('../projectTypes').ProjectFile
+    >;
     const result = computeOrphanedAncestors('lib/file.scad', files, []);
     expect(result).toEqual([]);
   });
