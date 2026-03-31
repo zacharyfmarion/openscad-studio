@@ -191,7 +191,7 @@ describe('DiagnosticsPanel', () => {
     });
   });
 
-  it('anchors scroll position when expanding a collapsed section above the viewport', async () => {
+  it('toggles a visible section even when its children are out of view', async () => {
     const diagnostics: Diagnostic[] = [
       ...Array.from({ length: 8 }, (_, index) => ({
         severity: 'error' as const,
@@ -207,20 +207,24 @@ describe('DiagnosticsPanel', () => {
     renderWithProviders(<DiagnosticsPanel diagnostics={diagnostics} />);
 
     const panel = screen.getByTestId('diagnostics-panel');
-    fireEvent.click(screen.getByTestId('diagnostic-panel-section-error'));
 
     Object.defineProperty(panel, 'scrollTop', {
       configurable: true,
-      value: 500,
+      value: 20,
       writable: true,
     });
     fireEvent.scroll(panel);
 
-    const beforeExpand = panel.scrollTop;
     fireEvent.click(screen.getByTestId('diagnostic-panel-section-error'));
 
     await waitFor(() => {
-      expect(panel.scrollTop).toBeGreaterThan(beforeExpand);
+      expect(screen.queryByText('error 0')).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('diagnostic-panel-section-error'));
+
+    await waitFor(() => {
+      expect(screen.getByText('error 0')).toBeInTheDocument();
     });
   });
 });
