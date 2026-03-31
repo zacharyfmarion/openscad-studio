@@ -31,6 +31,7 @@ interface WelcomeScreenProps {
   onStartManually: () => void;
   onOpenRecent: (path: string) => Promise<RecentFileOpenResult>;
   onOpenFile?: () => void;
+  onOpenFolder?: () => void;
   onOpenSettings?: () => void;
   showRecentFiles?: boolean;
   currentModel?: string;
@@ -61,6 +62,7 @@ export function WelcomeScreen({
   onStartManually,
   onOpenRecent,
   onOpenFile,
+  onOpenFolder,
   onOpenSettings,
   showRecentFiles = true,
   currentModel = 'claude-sonnet-4-5',
@@ -281,6 +283,16 @@ export function WelcomeScreen({
               data-testid="welcome-open-file"
             >
               Open File
+            </Button>
+          )}
+          {onOpenFolder && (
+            <Button
+              variant="secondary"
+              onClick={onOpenFolder}
+              className="text-sm"
+              data-testid="welcome-open-folder"
+            >
+              Open Folder
             </Button>
           )}
           <Button

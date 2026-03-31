@@ -2041,6 +2041,9 @@ function App() {
         onStartManually={handleStartManually}
         onOpenRecent={handleOpenRecent}
         onOpenFile={handleOpenFile}
+        onOpenFolder={() => {
+          eventBus.emit(capabilities.hasFileSystem ? 'menu:file:open_folder' : 'menu:file:open_project');
+        }}
         showRecentFiles={capabilities.hasFileSystem}
         currentModel={currentModel}
         availableProviders={availableProviders}
