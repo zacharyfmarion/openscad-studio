@@ -2005,9 +2005,9 @@ function App() {
       if (eventSource !== 'customizer') {
         store.setCustomizerBase(projectPath, code);
       }
-      // Render immediately — don't wait for debounce. Use render target content
-      // which may be the same as `code` (if this file is the target) or unchanged.
-      const renderContent = store.files[store.renderTargetPath ?? '']?.content ?? code;
+      // Re-read state after mutation — Zustand creates a new state object on set()
+      const updatedState = getProjectStore().getState();
+      const renderContent = updatedState.files[updatedState.renderTargetPath ?? '']?.content ?? code;
       renderCodeRef.current(
         renderContent,
         eventSource === 'history' ? 'history_restore' : 'code_update'
