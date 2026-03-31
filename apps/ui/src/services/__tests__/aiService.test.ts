@@ -35,6 +35,7 @@ function createCallbacks(overrides: Partial<AiToolCallbacks> = {}): AiToolCallba
     getRenderTargetPath: () => 'main.scad',
     createProjectFile: () => true,
     editProjectFile: () => null,
+    requestRender: () => {},
     setRenderTarget: () => true,
     getMeasurementUnit: () => 'mm',
     setMeasurementUnit: () => {},
@@ -221,7 +222,11 @@ describe('buildTools', () => {
     });
 
     it('reports error when old_string not found in render target', async () => {
-      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+      const tools = buildTools(
+        createCallbacks({
+          editProjectFile: () => 'old_string not found in the file',
+        })
+      ) as Record<string, ExecutableTool>;
 
       const result = (await tools.apply_edit.execute({
         old_string: 'nonexistent_string',
@@ -229,7 +234,7 @@ describe('buildTools', () => {
         rationale: 'test',
       })) as string;
 
-      expect(result).toContain('❌ Failed to apply edit: old_string not found');
+      expect(result).toContain('❌ Failed to apply edit');
     });
   });
 

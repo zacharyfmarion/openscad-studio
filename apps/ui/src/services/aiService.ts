@@ -23,6 +23,8 @@ export interface AiToolCallbacks {
   createProjectFile: (path: string, content: string) => boolean;
   /** Edit a file by exact string replacement. Returns null on success, error string on failure. */
   editProjectFile: (path: string, oldString: string, newString: string) => string | null;
+  /** Request a render via the renderRequestStore */
+  requestRender: (trigger: string, opts?: { immediate?: boolean; code?: string }) => void;
   /** Change the render target */
   setRenderTarget: (path: string) => boolean;
   getMeasurementUnit: () => MeasurementUnit;
@@ -368,22 +370,18 @@ export function buildTools(callbacks: AiToolCallbacks) {
           if (error) {
             return `❌ Failed to apply edit to ${file_path}: ${error}\n\nRationale: ${rationale}\n\nThe edit was not applied.`;
           }
+          callbacks.requestRender('code_update', { immediate: true });
           return `✅ Edit applied to ${file_path}!\n✅ Preview will update automatically if this file is included by the render target.\n\nRationale: ${rationale}`;
         }
 
         // Edit the render target (with checkpoints)
-        const currentCode = renderTarget ? (callbacks.readProjectFile(renderTarget) ?? '') : '';
-
-        const occurrences = currentCode.split(old_string).length - 1;
-        if (occurrences === 0) {
-          return `❌ Failed to apply edit: old_string not found in the code.\n\nRationale: ${rationale}\n\nThe edit was not applied. Please check the exact text and try again.`;
+        const targetPath = file_path ?? renderTarget;
+        if (!targetPath) {
+          return `❌ No render target set.\n\nRationale: ${rationale}`;
         }
-        if (occurrences > 1) {
-          return `❌ Failed to apply edit: old_string found ${occurrences} times. It must be unique.\n\nRationale: ${rationale}\n\nThe edit was not applied. Include more surrounding context to make old_string unique.`;
-        }
+        const currentCode = callbacks.readProjectFile(targetPath) ?? '';
 
-        const newCode = currentCode.replace(old_string, new_string);
-
+        // Create checkpoint before edit
         const checkpointId = historyService.createCheckpoint(
           currentCode,
           [],
@@ -391,7 +389,16 @@ export function buildTools(callbacks: AiToolCallbacks) {
           'ai'
         );
 
+        // Apply the edit via projectStore
+        const error = callbacks.editProjectFile(targetPath, old_string, new_string);
+        if (error) {
+          return `❌ Failed to apply edit: ${error}\n\nRationale: ${rationale}\n\nThe edit was not applied. Please check the exact text and try again.`;
+        }
+
+        // Read back the new code for Editor sync
+        const newCode = callbacks.readProjectFile(targetPath) ?? '';
         eventBus.emit('code-updated', { code: newCode, source: 'ai' });
+        callbacks.requestRender('code_update', { immediate: true });
 
         const checkpointSuffix = `\n[CHECKPOINT:${checkpointId}]`;
         return `✅ Edit applied successfully!\n✅ Preview has been updated automatically\n\nRationale: ${rationale}\n\nThe changes are now live in the editor.${checkpointSuffix}`;

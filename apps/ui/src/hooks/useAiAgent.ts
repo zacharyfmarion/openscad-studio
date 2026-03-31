@@ -7,6 +7,7 @@ import {
   getProjectStore,
   listProjectFiles as listProjectFilesFromState,
 } from '../stores/projectStore';
+import { requestRender } from '../stores/renderRequestStore';
 import {
   createModel,
   SYSTEM_PROMPT,
@@ -314,6 +315,9 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         const newContent = file.content.replace(oldString, newString);
         getProjectStore().getState().updateFileContent(path, newContent);
         return null;
+      },
+      requestRender: (trigger: string, opts) => {
+        requestRender(trigger as Parameters<typeof requestRender>[0], opts);
       },
       setRenderTarget: (path: string) => {
         const state = getProjectState();
