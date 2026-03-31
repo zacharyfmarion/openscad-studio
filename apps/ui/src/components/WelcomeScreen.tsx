@@ -279,7 +279,7 @@ export function WelcomeScreen({
             <Button
               variant="secondary"
               onClick={onOpenFile}
-              className="text-sm"
+              className="text-sm gap-1.5"
               data-testid="welcome-open-file"
             >
               <TbFileText className="size-4" />
@@ -290,7 +290,7 @@ export function WelcomeScreen({
             <Button
               variant="secondary"
               onClick={onOpenFolder}
-              className="text-sm"
+              className="text-sm gap-1.5"
               data-testid="welcome-open-folder"
             >
               <TbFolder className="size-4" />
