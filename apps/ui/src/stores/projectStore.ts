@@ -183,7 +183,7 @@ export function createProjectStore(initialState?: ProjectStoreState) {
     setRenderTarget: (relativePath) => {
       const state = get();
       if (!(relativePath in state.files)) return;
-      set({ renderTargetPath: relativePath });
+      set({ renderTargetPath: relativePath, contentVersion: state.contentVersion + 1 });
     },
 
     revertFile: (relativePath) => {
