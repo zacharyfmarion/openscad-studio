@@ -29,7 +29,7 @@ interface WelcomeScreenProps {
   onDraftRemoveAttachment: (attachmentId: string, sourceSurface?: ModelSelectionSurface) => void;
   onStartWithDraft: (draftOverride?: AiDraft) => void;
   onStartManually: () => void;
-  onOpenRecent: (path: string) => Promise<RecentFileOpenResult>;
+  onOpenRecent: (path: string, type?: 'file' | 'folder') => Promise<RecentFileOpenResult>;
   onOpenFile?: () => void;
   onOpenFolder?: () => void;
   onOpenSettings?: () => void;
@@ -119,10 +119,10 @@ export function WelcomeScreen({
     };
   }, [showRecentFiles]);
 
-  const handleOpenRecent = async (path: string) => {
-    const result = await onOpenRecent(path);
+  const handleOpenRecent = async (file: RecentFile) => {
+    const result = await onOpenRecent(file.path, file.type);
     if (result === 'removed') {
-      setRecentFiles(removeRecentFile(path));
+      setRecentFiles(removeRecentFile(file.path));
     }
   };
 
@@ -218,7 +218,7 @@ export function WelcomeScreen({
         {showRecentFiles && recentFilesReady && recentFiles.length > 0 && (
           <div className="space-y-3 -mt-2">
             <Text variant="section-heading" weight="medium" color="secondary">
-              Recent files:
+              Recent:
             </Text>
             <div className="space-y-2">
               {/* eslint-disable no-restricted-syntax -- recent file rows are card-like list items with internal layout (icon + text + chevron); <Button> doesn't support full-width card layouts with multiple child columns */}
@@ -226,7 +226,7 @@ export function WelcomeScreen({
                 <button
                   key={file.path}
                   onClick={() => {
-                    void handleOpenRecent(file.path);
+                    void handleOpenRecent(file);
                   }}
                   className="w-full text-left px-4 py-3 rounded-lg transition-colors border flex items-center justify-between group"
                   style={{
@@ -240,7 +240,7 @@ export function WelcomeScreen({
                       style={{ color: 'var(--text-tertiary)' }}
                       aria-hidden="true"
                     >
-                      <TbFileText size={22} />
+                      {file.type === 'folder' ? <TbFolder size={22} /> : <TbFileText size={22} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>

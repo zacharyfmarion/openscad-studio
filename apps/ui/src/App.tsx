@@ -61,7 +61,7 @@ import { useWorkspaceStore, getWorkspaceState } from './stores/workspaceStore';
 import { getProjectStore, useProjectStore, getRenderTargetContent } from './stores/projectStore';
 import { DEFAULT_TAB_NAME } from './stores/workspaceFactories';
 import { formatOpenScadCode } from './utils/formatter';
-import { addRecentFile, removeRecentFile } from './utils/recentFiles';
+import { addRecentFile, addRecentFolder, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview } from './utils/capturePreview';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { exportProjectZip } from './utils/projectZip';
@@ -1182,8 +1182,33 @@ function App() {
   }, []);
 
   const handleOpenRecent = useCallback(
-    async (path: string) => {
+    async (path: string, type?: 'file' | 'folder') => {
       try {
+        // Handle recent folders by opening the directory
+        if (type === 'folder') {
+          const platform = getPlatform();
+          if (!platform.capabilities.hasFileSystem) return 'cancelled' as const;
+
+          const files = await platform.readDirectoryFiles(path, ['.scad'], true);
+          const scadFiles = Object.keys(files);
+          if (scadFiles.length === 0) return 'removed' as const;
+
+          const renderTarget =
+            scadFiles.find((p) => p === 'main.scad') ??
+            scadFiles.sort((a, b) => a.localeCompare(b))[0];
+
+          getProjectStore().getState().openProject(path, files, renderTarget);
+          createNewTab(`${path}/${renderTarget}`, files[renderTarget], renderTarget);
+          hideWelcomeScreen();
+          addRecentFolder(path);
+          analytics.track('folder opened', { source: 'recent', file_count: scadFiles.length });
+
+          if (renderWithTriggerRef.current) {
+            setTimeout(() => renderWithTriggerRef.current?.('file_open'), 100);
+          }
+          return 'opened' as const;
+        }
+
         const existingTab = tabs.find((t) => t.filePath === path);
         if (existingTab) {
           await switchTab(existingTab.id);
@@ -1494,6 +1519,7 @@ function App() {
             renderTarget
           );
           hideWelcomeScreen();
+          addRecentFolder(dirPath);
 
           analytics.track('folder opened', { file_count: scadFiles.length });
 

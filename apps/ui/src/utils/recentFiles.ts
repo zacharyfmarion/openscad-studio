@@ -2,6 +2,8 @@ export interface RecentFile {
   path: string;
   name: string;
   lastOpened: number;
+  /** 'file' (default) or 'folder' for recently opened project directories */
+  type?: 'file' | 'folder';
 }
 
 const RECENT_FILES_KEY = 'openscad-studio-recent-files';
@@ -79,6 +81,27 @@ export function addRecentFile(path: string): RecentFile[] {
       path,
       name: fileName,
       lastOpened: Date.now(),
+    });
+  }
+
+  return saveRecentFiles(files);
+}
+
+export function addRecentFolder(path: string): RecentFile[] {
+  const files = loadRecentFiles();
+  const folderName = path.split('/').pop() || path;
+  const existing = files.find((file) => file.path === path);
+
+  if (existing) {
+    existing.lastOpened = Date.now();
+    existing.name = folderName;
+    existing.type = 'folder';
+  } else {
+    files.push({
+      path,
+      name: folderName,
+      lastOpened: Date.now(),
+      type: 'folder',
     });
   }
 
