@@ -132,6 +132,11 @@ class BootstrapBridge implements PlatformBridge {
   async writeTextFile(): Promise<void> {}
   async deleteFile(): Promise<void> {}
   async renameFile(): Promise<void> {}
+  async readSubdirectories(): Promise<string[]> {
+    return [];
+  }
+  async createDirectory(): Promise<void> {}
+  async removeDirectory(): Promise<void> {}
   async watchDirectory(): Promise<() => void> {
     return () => {};
   }

@@ -91,6 +91,18 @@ export class WebBridge implements PlatformBridge {
     // Web: file renames happen in-memory via projectStore
   }
 
+  async readSubdirectories(): Promise<string[]> {
+    return [];
+  }
+
+  async createDirectory(): Promise<void> {
+    // Web: directories are virtual — no filesystem to create them in
+  }
+
+  async removeDirectory(): Promise<void> {
+    // Web: directories are virtual — no filesystem to remove from
+  }
+
   async watchDirectory(): Promise<() => void> {
     // Web: no filesystem watching
     return () => {};

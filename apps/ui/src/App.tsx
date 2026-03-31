@@ -15,6 +15,7 @@ import {
 } from './components/HeaderWorkspaceControls';
 import { WebMenuBar } from './components/WebMenuBar';
 import { FileTreePanel } from './components/FileTree';
+import { isValidDrop } from './components/FileTree/FileTree';
 import {
   Button,
   IconButton,
@@ -115,8 +116,7 @@ function pickFolder(): Promise<{ files: Record<string, string>; renderTargetPath
       }
 
       const renderTargetPath =
-        scadFiles.find((p) => p === 'main.scad') ??
-        scadFiles.sort((a, b) => a.localeCompare(b))[0];
+        scadFiles.find((p) => p === 'main.scad') ?? scadFiles.sort((a, b) => a.localeCompare(b))[0];
 
       resolve({ files, renderTargetPath });
     };
@@ -229,6 +229,33 @@ function HeaderIconLink({
   );
 }
 
+/**
+ * Returns a path that does not conflict with any path in `existing`.
+ * Appends _1, _2, … to the filename stem until a free slot is found.
+ */
+function resolvePathConflict(candidatePath: string, existing: Set<string>): string {
+  if (!existing.has(candidatePath)) return candidatePath;
+  const lastSlash = candidatePath.lastIndexOf('/');
+  const lastDot = candidatePath.lastIndexOf('.');
+  const hasExt = lastDot > lastSlash + 1;
+  const stem = hasExt ? candidatePath.slice(0, lastDot) : candidatePath;
+  const ext = hasExt ? candidatePath.slice(lastDot) : '';
+  let i = 1;
+  while (existing.has(`${stem}_${i}${ext}`)) i++;
+  return `${stem}_${i}${ext}`;
+}
+
+/**
+ * Given all subdirectory paths and all file paths in a project,
+ * return the directories that have no file descendants (empty folders).
+ */
+function findEmptyFolders(allDirs: string[], filePaths: string[]): string[] {
+  return allDirs.filter((dir) => {
+    const prefix = dir + '/';
+    return !filePaths.some((f) => f.startsWith(prefix));
+  });
+}
+
 function App() {
   const { isMobile } = useMobileLayout();
   const [isHeaderWorkspaceSwitcherHidden, setIsHeaderWorkspaceSwitcherHidden] = useState(
@@ -324,9 +351,7 @@ function App() {
     createRenderOwner: () => {
       // Always render into the render target tab, not the active editor tab
       const rtPath = getProjectStore().getState().renderTargetPath;
-      const rtTab = rtPath
-        ? getWorkspaceState().tabs.find((t) => t.projectPath === rtPath)
-        : null;
+      const rtTab = rtPath ? getWorkspaceState().tabs.find((t) => t.projectPath === rtPath) : null;
       const tabId = rtTab?.id ?? activeTabRef.current?.id;
       if (!tabId) {
         return null;
@@ -417,6 +442,17 @@ function App() {
         }
 
         store.getState().openProject(projectRoot, files, relativeName);
+
+        // Discover empty folders on disk
+        if (projectRoot && platform.capabilities.hasFileSystem) {
+          try {
+            const allDirs = await platform.readSubdirectories(projectRoot);
+            const empty = findEmptyFolders(allDirs, Object.keys(files));
+            for (const dir of empty) store.getState().addFolder(dir);
+          } catch {
+            // Non-critical — empty folders just won't appear
+          }
+        }
       } else {
         // Web: single file project with no disk root
         const name = fileName || 'Untitled.scad';
@@ -635,9 +671,7 @@ function App() {
       const projectFile = store.files[filePath];
       if (projectFile) {
         // Resolve absolute disk path so Cmd+S can save without a dialog
-        const absolutePath = store.projectRoot
-          ? `${store.projectRoot}/${filePath}`
-          : null;
+        const absolutePath = store.projectRoot ? `${store.projectRoot}/${filePath}` : null;
         createNewTab(absolutePath, undefined, filePath);
       }
     },
@@ -646,20 +680,17 @@ function App() {
 
   // Editor onChange: single write to projectStore. The render pipeline reacts
   // automatically via the source prop (render target content) and contentVersion.
-  const handleEditorChange = useCallback(
-    (content: string) => {
-      const projectPath = activeTabRef.current.projectPath;
-      getProjectStore().getState().updateFileContent(projectPath, content);
-    },
-    []
-  );
+  const handleEditorChange = useCallback((content: string) => {
+    const projectPath = activeTabRef.current.projectPath;
+    getProjectStore().getState().updateFileContent(projectPath, content);
+  }, []);
 
   const handleToggleFileTree = useCallback(() => {
     updateSetting('ui', { fileTreeVisible: !settings.ui.fileTreeVisible });
   }, [settings.ui.fileTreeVisible]);
 
   const handleCreateFile = useCallback(
-    async (parentDir: string) => {
+    async (parentDir: string): Promise<string> => {
       let baseName = 'new_file.scad';
       const store = getProjectStore().getState();
       const prefix = parentDir ? `${parentDir}/` : '';
@@ -688,8 +719,22 @@ function App() {
       // Open in a new tab
       const absolutePath = store.projectRoot ? `${store.projectRoot}/${path}` : null;
       createNewTab(absolutePath, content, path);
+
+      return path;
     },
     [createNewTab]
+  );
+
+  const handleCreateFolder = useCallback(
+    async (parentDir: string, folderName: string): Promise<void> => {
+      const store = getProjectStore().getState();
+      const folderPath = parentDir ? `${parentDir}/${folderName}` : folderName;
+      if (store.projectRoot) {
+        await getPlatform().createDirectory(`${store.projectRoot}/${folderPath}`);
+      }
+      store.addFolder(folderPath);
+    },
+    []
   );
 
   const handleRenameFile = useCallback(
@@ -728,10 +773,12 @@ function App() {
       const platform = getPlatform();
       const fileName = filePath.split('/').pop() || filePath;
 
-      const confirmed = await platform.confirm(
-        `Are you sure you want to delete "${fileName}"?`,
-        { title: 'Delete File', kind: 'warning', okLabel: 'Delete', cancelLabel: 'Cancel' }
-      );
+      const confirmed = await platform.confirm(`Are you sure you want to delete "${fileName}"?`, {
+        title: 'Delete File',
+        kind: 'warning',
+        okLabel: 'Delete',
+        cancelLabel: 'Cancel',
+      });
       if (!confirmed) return;
 
       const store = getProjectStore().getState();
@@ -760,9 +807,165 @@ function App() {
     [tabs, closeTabLocal, createNewTab]
   );
 
+  const handleDeleteFolder = useCallback(
+    async (folderPath: string) => {
+      const platform = getPlatform();
+      const store = getProjectStore().getState();
+      const prefix = folderPath + '/';
+      const affected = Object.keys(store.files).filter((p) => p.startsWith(prefix));
+      const folderName = folderPath.split('/').pop() || folderPath;
+
+      const message =
+        affected.length > 0
+          ? `Delete "${folderName}" and its ${affected.length} file${affected.length === 1 ? '' : 's'}?`
+          : `Delete empty folder "${folderName}"?`;
+
+      const confirmed = await platform.confirm(message, {
+        title: 'Delete Folder',
+        kind: 'warning',
+        okLabel: 'Delete',
+        cancelLabel: 'Cancel',
+      });
+      if (!confirmed) return;
+
+      // Disk delete first (atomic recursive remove)
+      if (store.projectRoot) {
+        try {
+          await platform.removeDirectory(`${store.projectRoot}/${folderPath}`);
+        } catch (error) {
+          notifyError({ operation: 'delete-folder', error });
+          return;
+        }
+      }
+
+      // Close tabs for affected files
+      for (const fp of affected) {
+        const tab = tabs.find((t) => t.projectPath === fp);
+        if (tab) {
+          revokeBlobUrl(tab.render.previewSrc);
+          closeTabLocal(tab.id);
+        }
+      }
+
+      store.removeFolder(folderPath);
+
+      // If we deleted everything, reset to a fresh untitled project
+      if (Object.keys(store.files).length === 0) {
+        store.resetToUntitledProject();
+        createNewTab(null, undefined, DEFAULT_TAB_NAME);
+      }
+    },
+    [tabs, closeTabLocal, createNewTab]
+  );
+
   const handleSetRenderTarget = useCallback((filePath: string) => {
     getProjectStore().getState().setRenderTarget(filePath);
   }, []);
+
+  const handleMoveItem = useCallback(
+    async (sourcePath: string, destFolderPath: string, isFolder: boolean) => {
+      const store = getProjectStore().getState();
+      if (!isValidDrop(sourcePath, isFolder, destFolderPath)) return;
+      try {
+        const platform = getPlatform();
+        if (isFolder) {
+          const folderName = sourcePath.split('/').pop()!;
+          const newFolderPath = destFolderPath ? `${destFolderPath}/${folderName}` : folderName;
+          if (store.projectRoot) {
+            const affected = Object.keys(store.files).filter(
+              (p) => p.startsWith(sourcePath + '/') || p === sourcePath
+            );
+            // Ensure destination parent directories exist before moving
+            const destDirs = new Set(
+              affected
+                .map((p) => {
+                  const newRel = newFolderPath + p.slice(sourcePath.length);
+                  const parent = newRel.includes('/')
+                    ? newRel.substring(0, newRel.lastIndexOf('/'))
+                    : '';
+                  return parent ? `${store.projectRoot}/${parent}` : null;
+                })
+                .filter((d): d is string => d !== null)
+            );
+            for (const dir of destDirs) {
+              await platform.createDirectory(dir);
+            }
+            for (const oldRel of affected) {
+              const newRel = newFolderPath + oldRel.slice(sourcePath.length);
+              await platform.renameFile(
+                `${store.projectRoot}/${oldRel}`,
+                `${store.projectRoot}/${newRel}`
+              );
+            }
+          }
+          store.moveFolder(sourcePath, newFolderPath);
+          // Update any open tabs whose paths were under the moved folder
+          for (const tab of tabs) {
+            if (!tab.projectPath) continue;
+            if (tab.projectPath.startsWith(sourcePath + '/') || tab.projectPath === sourcePath) {
+              const newRel = newFolderPath + tab.projectPath.slice(sourcePath.length);
+              const absPath = store.projectRoot ? `${store.projectRoot}/${newRel}` : null;
+              markTabSaved(tab.id, { filePath: absPath, name: newRel.split('/').pop()! });
+              renameTab(tab.id, newRel.split('/').pop()!, newRel);
+            }
+          }
+        } else {
+          const fileName = sourcePath.split('/').pop()!;
+          const rawDest = destFolderPath ? `${destFolderPath}/${fileName}` : fileName;
+          const existingPaths = new Set(Object.keys(store.files));
+          existingPaths.delete(sourcePath);
+          const newPath = resolvePathConflict(rawDest, existingPaths);
+          if (store.projectRoot) {
+            const parentDir = newPath.includes('/')
+              ? newPath.substring(0, newPath.lastIndexOf('/'))
+              : '';
+            if (parentDir) await platform.createDirectory(`${store.projectRoot}/${parentDir}`);
+            await platform.renameFile(
+              `${store.projectRoot}/${sourcePath}`,
+              `${store.projectRoot}/${newPath}`
+            );
+          }
+          store.renameFile(sourcePath, newPath);
+          const tab = tabs.find((t) => t.projectPath === sourcePath);
+          if (tab) {
+            const absPath = store.projectRoot ? `${store.projectRoot}/${newPath}` : null;
+            markTabSaved(tab.id, { filePath: absPath, name: newPath.split('/').pop()! });
+            renameTab(tab.id, newPath.split('/').pop()!, newPath);
+          }
+        }
+      } catch (err) {
+        notifyError({ operation: 'Move failed', error: err });
+      }
+    },
+    [tabs, markTabSaved, renameTab]
+  );
+
+  const handleAddExternalFiles = useCallback(
+    async (files: Record<string, string>, targetFolderPath: string) => {
+      const store = getProjectStore().getState();
+      const existing = new Set(Object.keys(store.files));
+      try {
+        const platform = getPlatform();
+        for (const [relName, content] of Object.entries(files)) {
+          const rawPath = targetFolderPath ? `${targetFolderPath}/${relName}` : relName;
+          const finalPath = resolvePathConflict(rawPath, existing);
+          existing.add(finalPath);
+          store.addFile(finalPath, content, { isVirtual: store.projectRoot === null });
+          if (store.projectRoot) {
+            const parentDir = finalPath.includes('/')
+              ? finalPath.substring(0, finalPath.lastIndexOf('/'))
+              : '';
+            if (parentDir) await platform.createDirectory(`${store.projectRoot}/${parentDir}`);
+            await platform.writeTextFile(`${store.projectRoot}/${finalPath}`, content);
+            store.markFileSaved(finalPath, content);
+          }
+        }
+      } catch (err) {
+        notifyError({ operation: 'Add external files', error: err });
+      }
+    },
+    []
+  );
 
   // Note: Tree-sitter formatter is initialized in main.tsx for optimal performance
 
@@ -841,74 +1044,71 @@ function App() {
   // No separate sync effects needed.
 
   // Helper function to save file to current path or prompt for new path
-  const saveProjectToDirectory = useCallback(
-    async (): Promise<boolean> => {
-      try {
-        const platform = getPlatform();
-        const dirPath = await platform.pickDirectory();
-        if (!dirPath) return false;
+  const saveProjectToDirectory = useCallback(async (): Promise<boolean> => {
+    try {
+      const platform = getPlatform();
+      const dirPath = await platform.pickDirectory();
+      if (!dirPath) return false;
 
-        const store = getProjectStore().getState();
-        const currentSettings = loadSettings();
+      const store = getProjectStore().getState();
+      const currentSettings = loadSettings();
 
-        // Write all files to the selected directory
-        for (const [relativePath, file] of Object.entries(store.files)) {
-          let content = file.content;
+      // Write all files to the selected directory
+      for (const [relativePath, file] of Object.entries(store.files)) {
+        let content = file.content;
 
-          if (currentSettings.editor.formatOnSave) {
-            try {
-              content = await formatOpenScadCode(content, {
-                indentSize: currentSettings.editor.indentSize,
-                useTabs: currentSettings.editor.useTabs,
-              });
-              if (content !== file.content) {
-                getProjectStore().getState().updateFileContent(relativePath, content);
-                getProjectStore().getState().setCustomizerBase(relativePath, content);
-              }
-            } catch {
-              // Continue with unformatted content
+        if (currentSettings.editor.formatOnSave) {
+          try {
+            content = await formatOpenScadCode(content, {
+              indentSize: currentSettings.editor.indentSize,
+              useTabs: currentSettings.editor.useTabs,
+            });
+            if (content !== file.content) {
+              getProjectStore().getState().updateFileContent(relativePath, content);
+              getProjectStore().getState().setCustomizerBase(relativePath, content);
             }
+          } catch {
+            // Continue with unformatted content
           }
-
-          const absolutePath = `${dirPath}/${relativePath}`;
-          await platform.writeTextFile(absolutePath, content);
         }
 
-        // Transition project from virtual to disk-backed
-        const updatedStore = getProjectStore().getState();
-        updatedStore.openProject(
-          dirPath,
-          Object.fromEntries(
-            Object.entries(updatedStore.files).map(([path, file]) => [path, file.content])
-          ),
-          updatedStore.renderTargetPath ?? DEFAULT_TAB_NAME
-        );
-
-        // Update workspace tabs with their new disk paths
-        for (const tab of tabsRef.current) {
-          const absolutePath = `${dirPath}/${tab.projectPath}`;
-          markTabSaved(tab.id, { filePath: absolutePath, name: tab.name });
-        }
-
-        if (renderOnSaveRef.current) {
-          renderOnSaveRef.current();
-        }
-
-        notifySuccess('Project saved to folder', { toastId: 'save-project-dir-success' });
-        return true;
-      } catch (err) {
-        notifyError({
-          operation: 'save-project-to-directory',
-          error: err,
-          fallbackMessage: 'Failed to save project to folder',
-          toastId: 'save-project-dir-error',
-          logLabel: 'Save project to directory failed',
-        });
-        return false;
+        const absolutePath = `${dirPath}/${relativePath}`;
+        await platform.writeTextFile(absolutePath, content);
       }
-    },
-    [markTabSaved]
-  );
+
+      // Transition project from virtual to disk-backed
+      const updatedStore = getProjectStore().getState();
+      updatedStore.openProject(
+        dirPath,
+        Object.fromEntries(
+          Object.entries(updatedStore.files).map(([path, file]) => [path, file.content])
+        ),
+        updatedStore.renderTargetPath ?? DEFAULT_TAB_NAME
+      );
+
+      // Update workspace tabs with their new disk paths
+      for (const tab of tabsRef.current) {
+        const absolutePath = `${dirPath}/${tab.projectPath}`;
+        markTabSaved(tab.id, { filePath: absolutePath, name: tab.name });
+      }
+
+      if (renderOnSaveRef.current) {
+        renderOnSaveRef.current();
+      }
+
+      notifySuccess('Project saved to folder', { toastId: 'save-project-dir-success' });
+      return true;
+    } catch (err) {
+      notifyError({
+        operation: 'save-project-to-directory',
+        error: err,
+        fallbackMessage: 'Failed to save project to folder',
+        toastId: 'save-project-dir-error',
+        logLabel: 'Save project to directory failed',
+      });
+      return false;
+    }
+  }, [markTabSaved]);
 
   const saveFile = useCallback(
     async (promptForPath: boolean = false): Promise<boolean> => {
@@ -1041,9 +1241,7 @@ function App() {
       }
 
       // Build absolute path for desktop projects
-      const absolutePath = store.projectRoot
-        ? `${store.projectRoot}/${relativePath}`
-        : null;
+      const absolutePath = store.projectRoot ? `${store.projectRoot}/${relativePath}` : null;
 
       const savePath = await platform.fileSave(content, absolutePath, filters, relativePath);
       if (savePath) {
@@ -1200,6 +1398,15 @@ function App() {
 
           getProjectStore().getState().openProject(path, files, renderTarget);
 
+          // Discover empty folders
+          try {
+            const allDirs = await platform.readSubdirectories(path);
+            const empty = findEmptyFolders(allDirs, scadFiles);
+            for (const dir of empty) getProjectStore().getState().addFolder(dir);
+          } catch {
+            // Non-critical
+          }
+
           const firstTab = tabs[0];
           const shouldReplace = firstTab && !firstTab.filePath && tabs.length === 1;
           if (shouldReplace) {
@@ -1254,8 +1461,7 @@ function App() {
         void initializeProject(result.path, result.name, result.content);
 
         const firstTab = tabs[0];
-        const shouldReplaceFirstTab =
-          showWelcome && tabs.length === 1 && !firstTab.filePath;
+        const shouldReplaceFirstTab = showWelcome && tabs.length === 1 && !firstTab.filePath;
 
         if (shouldReplaceFirstTab) {
           revokeBlobUrl(firstTab.render.previewSrc);
@@ -1342,8 +1548,7 @@ function App() {
       void initializeProject(result.path, result.name, result.content);
 
       const firstTab = tabs[0];
-      const shouldReplaceFirstTab =
-        showWelcome && tabs.length === 1 && !firstTab.filePath;
+      const shouldReplaceFirstTab = showWelcome && tabs.length === 1 && !firstTab.filePath;
 
       if (shouldReplaceFirstTab) {
         revokeBlobUrl(firstTab.render.previewSrc);
@@ -1397,7 +1602,8 @@ function App() {
   const checkUnsavedChangesRef = useRef<() => Promise<boolean>>();
 
   checkUnsavedChangesRef.current = async (): Promise<boolean> => {
-    const isDirty = getProjectStore().getState().files[activeTabRef.current.projectPath]?.isDirty ?? false;
+    const isDirty =
+      getProjectStore().getState().files[activeTabRef.current.projectPath]?.isDirty ?? false;
     if (!isDirty) return true;
 
     const platform = getPlatform();
@@ -1526,6 +1732,15 @@ function App() {
             scadFiles.sort((a, b) => a.localeCompare(b))[0];
 
           getProjectStore().getState().openProject(dirPath, files, renderTarget);
+
+          // Discover empty folders
+          try {
+            const allDirs = await platform.readSubdirectories(dirPath);
+            const empty = findEmptyFolders(allDirs, scadFiles);
+            for (const dir of empty) getProjectStore().getState().addFolder(dir);
+          } catch {
+            // Non-critical
+          }
 
           const firstTab = tabsRef.current[0];
           const shouldReplace = firstTab && !firstTab.filePath && tabsRef.current.length === 1;
@@ -1692,7 +1907,16 @@ function App() {
       unlistenFns.forEach((fn) => fn());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analytics, createNewTab, hideWelcomeScreen, initializeProject, saveAllFiles, showWelcome, showWelcomeScreen, switchTab]);
+  }, [
+    analytics,
+    createNewTab,
+    hideWelcomeScreen,
+    initializeProject,
+    saveAllFiles,
+    showWelcome,
+    showWelcomeScreen,
+    switchTab,
+  ]);
 
   useEffect(() => {
     const platform = getPlatform();
@@ -1708,12 +1932,8 @@ function App() {
     };
   }, []);
 
-  const activeFileDirty = useProjectStore(
-    (s) => s.files[activeTab.projectPath]?.isDirty ?? false
-  );
-  const anyFileDirty = useProjectStore(
-    (s) => Object.values(s.files).some((f) => f.isDirty)
-  );
+  const activeFileDirty = useProjectStore((s) => s.files[activeTab.projectPath]?.isDirty ?? false);
+  const anyFileDirty = useProjectStore((s) => Object.values(s.files).some((f) => f.isDirty));
 
   useEffect(() => {
     const fileName = activeTab.name;
@@ -1737,29 +1957,31 @@ function App() {
 
     let unwatchFn: (() => void) | null = null;
 
-    platform.watchDirectory(projectRoot, (relativePath, content) => {
-      const store = getProjectStore().getState();
-      if (content === null) {
-        // File was deleted externally — only remove if it exists and isn't dirty
-        if (relativePath in store.files && !store.files[relativePath].isDirty) {
-          store.removeFile(relativePath);
+    platform
+      .watchDirectory(projectRoot, (relativePath, content) => {
+        const store = getProjectStore().getState();
+        if (content === null) {
+          // File was deleted externally — only remove if it exists and isn't dirty
+          if (relativePath in store.files && !store.files[relativePath].isDirty) {
+            store.removeFile(relativePath);
+          }
+          return;
         }
-        return;
-      }
-      // File was created or modified externally
-      if (relativePath in store.files) {
-        // Only update if the file isn't dirty (don't overwrite unsaved user edits)
-        if (!store.files[relativePath].isDirty && store.files[relativePath].content !== content) {
-          store.updateFileContent(relativePath, content);
+        // File was created or modified externally
+        if (relativePath in store.files) {
+          // Only update if the file isn't dirty (don't overwrite unsaved user edits)
+          if (!store.files[relativePath].isDirty && store.files[relativePath].content !== content) {
+            store.updateFileContent(relativePath, content);
+            store.markFileSaved(relativePath, content);
+          }
+        } else {
+          store.addFile(relativePath, content);
           store.markFileSaved(relativePath, content);
         }
-      } else {
-        store.addFile(relativePath, content);
-        store.markFileSaved(relativePath, content);
-      }
-    }).then((fn) => {
-      unwatchFn = fn;
-    });
+      })
+      .then((fn) => {
+        unwatchFn = fn;
+      });
 
     return () => {
       unwatchFn?.();
@@ -1786,7 +2008,10 @@ function App() {
       // Render immediately — don't wait for debounce. Use render target content
       // which may be the same as `code` (if this file is the target) or unchanged.
       const renderContent = store.files[store.renderTargetPath ?? '']?.content ?? code;
-      renderCodeRef.current(renderContent, eventSource === 'history' ? 'history_restore' : 'code_update');
+      renderCodeRef.current(
+        renderContent,
+        eventSource === 'history' ? 'history_restore' : 'code_update'
+      );
     });
     return unlisten;
   }, []);
@@ -2127,7 +2352,9 @@ function App() {
         onOpenRecent={handleOpenRecent}
         onOpenFile={handleOpenFile}
         onOpenFolder={() => {
-          eventBus.emit(capabilities.hasFileSystem ? 'menu:file:open_folder' : 'menu:file:open_project');
+          eventBus.emit(
+            capabilities.hasFileSystem ? 'menu:file:open_folder' : 'menu:file:open_project'
+          );
         }}
         showRecentFiles={capabilities.hasFileSystem}
         currentModel={currentModel}
@@ -2297,19 +2524,12 @@ function App() {
             onFileClick={handleFileTreeClick}
             onRenameFile={handleRenameFile}
             onDeleteFile={handleDeleteFile}
+            onDeleteFolder={handleDeleteFolder}
             onSetRenderTarget={handleSetRenderTarget}
             onCreateFile={handleCreateFile}
-            onDropFolder={(files, renderTarget) => {
-              getProjectStore().getState().openProject(null, files, renderTarget);
-              createNewTab(null, files[renderTarget], renderTarget);
-              hideWelcomeScreen();
-              notifySuccess(`Opened project with ${Object.keys(files).length} files`, {
-                toastId: 'drop-folder-success',
-              });
-              if (renderWithTriggerRef.current) {
-                setTimeout(() => renderWithTriggerRef.current?.('file_open'), 100);
-              }
-            }}
+            onCreateFolder={handleCreateFolder}
+            onMoveItem={handleMoveItem}
+            onAddExternalFiles={handleAddExternalFiles}
             collapsed={!settings.ui.fileTreeVisible}
             onToggleCollapse={handleToggleFileTree}
             width={settings.ui.fileTreeWidth}

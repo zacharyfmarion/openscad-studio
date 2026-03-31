@@ -36,6 +36,12 @@ export interface ProjectStoreState {
    * included file that isn't the render target).
    */
   contentVersion: number;
+
+  /**
+   * Folder paths that exist but have no file descendants in `files`.
+   * Lets empty folders appear in the file tree without needing a placeholder file.
+   */
+  emptyFolders: string[];
 }
 
 export interface ProjectStoreActions {
@@ -78,6 +84,19 @@ export interface ProjectStoreActions {
 
   /** Reset to a fresh virtual "Untitled" project with default content. */
   resetToUntitledProject: () => void;
+
+  /**
+   * Move all files under oldFolderPath to newFolderPath atomically.
+   * Also updates renderTargetPath if it was inside the moved folder.
+   * No-op if newFolderPath equals or is a descendant of oldFolderPath.
+   */
+  moveFolder: (oldFolderPath: string, newFolderPath: string) => void;
+
+  /** Register an empty folder so it appears in the file tree. No-op if files already exist under it. */
+  addFolder: (relativePath: string) => void;
+
+  /** Remove a folder, all its files, and all its tracked sub-folders. */
+  removeFolder: (folderPath: string) => void;
 }
 
 export type ProjectStore = ProjectStoreState & ProjectStoreActions;

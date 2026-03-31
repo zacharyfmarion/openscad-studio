@@ -142,6 +142,19 @@ export interface PlatformBridge {
   /** Rename/move a file. Web bridge is a no-op. */
   renameFile(oldPath: string, newPath: string): Promise<void>;
 
+  /**
+   * List all subdirectory paths (relative) under a directory, recursively.
+   * Used to discover empty folders on project open.
+   * Web bridge returns empty array.
+   */
+  readSubdirectories(dirPath: string): Promise<string[]>;
+
+  /** Create a directory (and any missing parents). Web bridge is a no-op. */
+  createDirectory(absolutePath: string): Promise<void>;
+
+  /** Remove a directory and all its contents recursively. Web bridge is a no-op. */
+  removeDirectory(absolutePath: string): Promise<void>;
+
   // -- File watching --
 
   /**

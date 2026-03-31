@@ -13,6 +13,7 @@ function createInitialProjectState(): ProjectStoreState {
     files: {},
     renderTargetPath: null,
     contentVersion: 0,
+    emptyFolders: [],
   };
 }
 
@@ -27,6 +28,33 @@ function createProjectFile(
     isVirtual: options?.isVirtual ?? false,
     customizerBaseContent: content,
   };
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+/**
+ * Walk up the parent chain from a removed file path, returning ancestor folder
+ * paths that have no remaining children (files or tracked empty sub-folders).
+ */
+export function computeOrphanedAncestors(
+  removedPath: string,
+  files: Record<string, ProjectFile>,
+  emptyFolders: string[]
+): string[] {
+  const added: string[] = [];
+  let dir = removedPath.includes('/') ? removedPath.substring(0, removedPath.lastIndexOf('/')) : '';
+  while (dir) {
+    const prefix = dir + '/';
+    const hasFiles = Object.keys(files).some((p) => p.startsWith(prefix));
+    const hasSubFolders = emptyFolders.some((f) => f.startsWith(prefix) && f !== dir);
+    const alsoAdded = added.some((a) => a.startsWith(prefix));
+    if (hasFiles || hasSubFolders || alsoAdded) break;
+    if (!emptyFolders.includes(dir)) added.push(dir);
+    dir = dir.includes('/') ? dir.substring(0, dir.lastIndexOf('/')) : '';
+  }
+  return added;
 }
 
 // ============================================================================
@@ -48,6 +76,7 @@ export function createProjectStore(initialState?: ProjectStoreState) {
         files: projectFiles,
         renderTargetPath,
         contentVersion: get().contentVersion + 1,
+        emptyFolders: [],
       });
     },
 
@@ -56,6 +85,8 @@ export function createProjectStore(initialState?: ProjectStoreState) {
       if (relativePath in state.files) return;
 
       const isVirtual = options?.isVirtual ?? state.projectRoot === null;
+      // Remove any empty folder ancestors that this file now makes non-empty
+      const newEmptyFolders = state.emptyFolders.filter((f) => !relativePath.startsWith(f + '/'));
       set({
         files: {
           ...state.files,
@@ -65,6 +96,7 @@ export function createProjectStore(initialState?: ProjectStoreState) {
             isDirty: isVirtual ? false : true,
           }),
         },
+        emptyFolders: newEmptyFolders,
         contentVersion: state.contentVersion + 1,
       });
     },
@@ -118,6 +150,12 @@ export function createProjectStore(initialState?: ProjectStoreState) {
       if (state.renderTargetPath === relativePath) {
         const remaining = Object.keys(rest);
         updates.renderTargetPath = remaining.length > 0 ? remaining[0] : null;
+      }
+
+      // Persist parent folders that just became empty
+      const orphaned = computeOrphanedAncestors(relativePath, rest, state.emptyFolders);
+      if (orphaned.length > 0) {
+        updates.emptyFolders = [...state.emptyFolders, ...orphaned];
       }
 
       set(updates);
@@ -194,6 +232,87 @@ export function createProjectStore(initialState?: ProjectStoreState) {
         },
         renderTargetPath: DEFAULT_TAB_NAME,
         contentVersion: get().contentVersion + 1,
+        emptyFolders: [],
+      });
+    },
+
+    moveFolder: (oldFolderPath, newFolderPath) => {
+      // Guard: no-op if same path or destination is a descendant of source
+      if (newFolderPath === oldFolderPath) return;
+      if (newFolderPath.startsWith(oldFolderPath + '/')) return;
+
+      const state = get();
+      const prefix = oldFolderPath + '/';
+      const newFiles: typeof state.files = {};
+
+      for (const [path, file] of Object.entries(state.files)) {
+        if (path.startsWith(prefix)) {
+          const newPath = newFolderPath + '/' + path.slice(prefix.length);
+          newFiles[newPath] = file;
+        } else {
+          newFiles[path] = file;
+        }
+      }
+
+      let newRenderTargetPath = state.renderTargetPath;
+      if (state.renderTargetPath?.startsWith(prefix)) {
+        newRenderTargetPath = newFolderPath + '/' + state.renderTargetPath.slice(prefix.length);
+      }
+
+      // Remap emptyFolders under the moved folder
+      const newEmptyFolders = state.emptyFolders.map((f) => {
+        if (f === oldFolderPath) return newFolderPath;
+        if (f.startsWith(prefix)) return newFolderPath + '/' + f.slice(prefix.length);
+        return f;
+      });
+
+      set({
+        files: newFiles,
+        renderTargetPath: newRenderTargetPath,
+        emptyFolders: newEmptyFolders,
+        contentVersion: state.contentVersion + 1,
+      });
+    },
+
+    addFolder: (relativePath) => {
+      const state = get();
+      // No-op if folder already has files underneath
+      const prefix = relativePath + '/';
+      if (Object.keys(state.files).some((p) => p.startsWith(prefix))) return;
+      // No-op if already tracked
+      if (state.emptyFolders.includes(relativePath)) return;
+      set({ emptyFolders: [...state.emptyFolders, relativePath] });
+    },
+
+    removeFolder: (folderPath) => {
+      const state = get();
+      const prefix = folderPath + '/';
+
+      // Remove all files under this folder
+      const newFiles = { ...state.files };
+      for (const path of Object.keys(newFiles)) {
+        if (path.startsWith(prefix)) {
+          delete newFiles[path];
+        }
+      }
+
+      // Remove this folder and any sub-folders from emptyFolders
+      const newEmptyFolders = state.emptyFolders.filter(
+        (f) => f !== folderPath && !f.startsWith(prefix)
+      );
+
+      // Handle render target
+      let newRenderTarget = state.renderTargetPath;
+      if (newRenderTarget && newRenderTarget.startsWith(prefix)) {
+        const remaining = Object.keys(newFiles);
+        newRenderTarget = remaining.length > 0 ? remaining[0] : null;
+      }
+
+      set({
+        files: newFiles,
+        emptyFolders: newEmptyFolders,
+        renderTargetPath: newRenderTarget,
+        contentVersion: state.contentVersion + 1,
       });
     },
   }));
