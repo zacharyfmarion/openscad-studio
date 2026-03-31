@@ -1459,6 +1459,64 @@ function App() {
     );
 
     unlistenFns.push(
+      eventBus.on('menu:file:open_folder', async () => {
+        try {
+          const canProceed = checkUnsavedChangesRef.current
+            ? await checkUnsavedChangesRef.current()
+            : true;
+          if (!canProceed) return;
+
+          const platform = getPlatform();
+          const dirPath = await platform.pickDirectory();
+          if (!dirPath) return;
+
+          const files = await platform.readDirectoryFiles(dirPath, ['.scad'], true);
+          const scadFiles = Object.keys(files);
+          if (scadFiles.length === 0) {
+            notifyError({
+              operation: 'open-folder',
+              error: new Error('No .scad files found'),
+              fallbackMessage: 'No .scad files found in the selected folder',
+              toastId: 'open-folder-empty',
+              logLabel: 'Open folder empty',
+            });
+            return;
+          }
+
+          const renderTarget =
+            scadFiles.find((p) => p === 'main.scad') ??
+            scadFiles.sort((a, b) => a.localeCompare(b))[0];
+
+          getProjectStore().getState().openProject(dirPath, files, renderTarget);
+          createNewTab(
+            `${dirPath}/${renderTarget}`,
+            files[renderTarget],
+            renderTarget
+          );
+          hideWelcomeScreen();
+
+          analytics.track('folder opened', { file_count: scadFiles.length });
+
+          if (renderWithTriggerRef.current) {
+            setTimeout(() => {
+              if (renderWithTriggerRef.current) {
+                renderWithTriggerRef.current('file_open');
+              }
+            }, 100);
+          }
+        } catch (err) {
+          notifyError({
+            operation: 'open-folder',
+            error: err,
+            fallbackMessage: 'Failed to open folder',
+            toastId: 'open-folder-error',
+            logLabel: 'Open folder failed',
+          });
+        }
+      })
+    );
+
+    unlistenFns.push(
       eventBus.on('menu:file:save', async () => {
         await saveFile(false);
       })

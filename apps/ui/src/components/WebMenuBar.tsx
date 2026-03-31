@@ -21,6 +21,8 @@ function getMenuBarDef(): MenuDef[] {
       items: [
         { type: 'action', id: 'file.new', label: 'New File', shortcut: `${mod}+N` },
         { type: 'action', id: 'file.open', label: 'Open File...', shortcut: `${mod}+O` },
+        { type: 'action', id: 'file.openProject', label: 'Open Folder...' },
+        { type: 'separator' },
         { type: 'action', id: 'file.save', label: 'Save', shortcut: `${mod}+S` },
         { type: 'action', id: 'file.saveAs', label: 'Save As...', shortcut: `${mod}+\u21E7+S` },
         { type: 'action', id: 'file.saveAll', label: 'Save All', shortcut: `${mod}+\u2325+S` },
@@ -103,24 +105,21 @@ export function WebMenuBar({
   const barRef = useRef<HTMLDivElement>(null);
   const menuDef = useMemo(() => {
     const nextMenuDef = getMenuBarDef();
-    // Insert project-level items after "Save As..."
-    const fileMenu = nextMenuDef[0]?.items;
-    if (fileMenu) {
-      const saveAsIdx = fileMenu.findIndex(
-        (item) => item.type === 'action' && item.id === 'file.saveAs'
-      );
-      const insertIdx = saveAsIdx >= 0 ? saveAsIdx + 1 : 4;
-      const projectItems: MenuItemDef[] = [
-        { type: 'action', id: 'file.openProject', label: 'Open Folder...' },
-      ];
-      if (hasMultipleFiles) {
-        projectItems.push({
-          type: 'action',
-          id: 'file.saveProject',
-          label: 'Save Project (.zip)...',
-        });
+    // Insert "Save Project (.zip)..." after "Save All" when there are multiple files
+    if (hasMultipleFiles) {
+      const fileMenu = nextMenuDef[0]?.items;
+      if (fileMenu) {
+        const saveAllIdx = fileMenu.findIndex(
+          (item) => item.type === 'action' && item.id === 'file.saveAll'
+        );
+        if (saveAllIdx >= 0) {
+          fileMenu.splice(saveAllIdx + 1, 0, {
+            type: 'action',
+            id: 'file.saveProject',
+            label: 'Save Project (.zip)...',
+          });
+        }
       }
-      fileMenu.splice(insertIdx, 0, ...projectItems);
     }
     if (onShare) {
       const exportIdx = nextMenuDef[0]?.items.findIndex(

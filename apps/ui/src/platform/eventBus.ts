@@ -7,6 +7,7 @@ interface EventMap {
   'menu:file:save_as': void;
   'menu:file:export': ExportFormat;
   'menu:file:save_project': void;
+  'menu:file:open_folder': void;
   'menu:file:open_project': void;
   'menu:file:save_all': void;
   'render-requested': void;

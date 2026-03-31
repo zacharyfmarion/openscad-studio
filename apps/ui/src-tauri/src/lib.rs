@@ -56,6 +56,10 @@ pub fn run() {
                         .accelerator("CmdOrCtrl+O")
                         .build(app)?,
                 )
+                .item(
+                    &MenuItemBuilder::with_id("open_folder", "Open Folder...")
+                        .build(app)?,
+                )
                 .separator()
                 .item(
                     &MenuItemBuilder::with_id("save", "Save")
@@ -65,6 +69,11 @@ pub fn run() {
                 .item(
                     &MenuItemBuilder::with_id("save_as", "Save As...")
                         .accelerator("CmdOrCtrl+Shift+S")
+                        .build(app)?,
+                )
+                .item(
+                    &MenuItemBuilder::with_id("save_all", "Save All")
+                        .accelerator("CmdOrCtrl+Alt+S")
                         .build(app)?,
                 )
                 .separator()
@@ -109,11 +118,17 @@ pub fn run() {
                 "open" => {
                     window.emit("menu:file:open", ()).unwrap();
                 }
+                "open_folder" => {
+                    window.emit("menu:file:open_folder", ()).unwrap();
+                }
                 "save" => {
                     window.emit("menu:file:save", ()).unwrap();
                 }
                 "save_as" => {
                     window.emit("menu:file:save_as", ()).unwrap();
+                }
+                "save_all" => {
+                    window.emit("menu:file:save_all", ()).unwrap();
                 }
                 "export_stl" => {
                     window.emit("menu:file:export", "stl").unwrap();
