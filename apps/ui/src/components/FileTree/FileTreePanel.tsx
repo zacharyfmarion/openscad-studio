@@ -85,10 +85,11 @@ export function FileTreePanel({
       }}
     >
       <div
-        className="flex items-center justify-between px-2 shrink-0"
+        className="flex items-center justify-between px-2 shrink-0 box-border"
         style={{
           height: 'var(--dv-tabs-and-actions-container-height, 35px)',
           borderBottom: '1px solid var(--border-subtle)',
+          boxSizing: 'border-box',
         }}
       >
         <span
