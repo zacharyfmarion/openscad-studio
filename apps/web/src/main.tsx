@@ -28,16 +28,15 @@ window.__SHARE_ENABLED =
   import.meta.env.PROD || import.meta.env.VITE_ENABLE_PROD_SHARE_DEV === 'true';
 
 // Prevent accidental tab close when there are unsaved changes.
-// Registered here (not in a React effect) to guarantee it's never missed
-// due to platform bridge initialization timing.
+// We import the store module at the top level (it's a singleton) and read
+// state in the beforeunload handler. Registered here rather than in a React
+// effect to guarantee it's never missed due to platform bridge timing.
+import { getProjectState } from '@ui/stores/projectStore';
+
 window.addEventListener('beforeunload', (e) => {
   try {
-    // Dynamic import to avoid circular deps at module load time
-    const { getProjectState } = require('@ui/stores/projectStore');
     const files = getProjectState().files;
-    const anyDirty = Object.values(files).some(
-      (f: { content: string; savedContent: string }) => f.content !== f.savedContent
-    );
+    const anyDirty = Object.values(files).some((f) => f.content !== f.savedContent);
     if (anyDirty) {
       e.preventDefault();
       e.returnValue = '';
