@@ -462,8 +462,16 @@ function App() {
   );
 
   const handleOpenSharedDocument = useCallback(
-    (share: { title: string; code: string }) => {
+    (share: { title: string; code: string; files?: Record<string, string>; renderTarget?: string }) => {
       setShowNux(false);
+      if (share.files && share.renderTarget) {
+        const store = getProjectStore();
+        store.getState().openProject(null, share.files, share.renderTarget);
+        return openSharedDocument({
+          name: share.title,
+          projectPath: share.renderTarget,
+        });
+      }
       void initializeProject(null, share.title, share.code);
       return openSharedDocument({
         name: share.title,

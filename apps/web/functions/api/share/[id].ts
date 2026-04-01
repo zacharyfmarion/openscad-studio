@@ -1,4 +1,12 @@
-import { decompressSource, getThumbnailUrl, json, readShare, type Env } from '../../_lib/share';
+import {
+  decompressSource,
+  extractPrimaryCode,
+  getThumbnailUrl,
+  json,
+  readShare,
+  type Env,
+  type ProjectSharePayload,
+} from '../../_lib/share';
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const shareId = context.params.id;
@@ -11,15 +19,31 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return json({ error: 'Design not found' }, { status: 404 });
   }
 
-  const code = await decompressSource(share.code);
+  const decompressed = await decompressSource(share.code);
+  const thumbnailUrl = share.thumbnailKey
+    ? getThumbnailUrl(new URL(context.request.url).origin, share.id)
+    : null;
+
+  if (share.format === 'project') {
+    const payload = JSON.parse(decompressed) as ProjectSharePayload;
+    return json({
+      id: share.id,
+      code: payload.files[payload.renderTarget] ?? '',
+      files: payload.files,
+      renderTarget: payload.renderTarget,
+      title: share.title,
+      createdAt: share.createdAt,
+      forkedFrom: share.forkedFrom,
+      thumbnailUrl,
+    });
+  }
+
   return json({
     id: share.id,
-    code,
+    code: decompressed,
     title: share.title,
     createdAt: share.createdAt,
     forkedFrom: share.forkedFrom,
-    thumbnailUrl: share.thumbnailKey
-      ? getThumbnailUrl(new URL(context.request.url).origin, share.id)
-      : null,
+    thumbnailUrl,
   });
 };

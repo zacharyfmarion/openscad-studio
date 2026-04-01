@@ -22,12 +22,22 @@ export interface ShareData {
   createdAt: string;
   forkedFrom: string | null;
   thumbnailUrl: string | null;
+  files?: Record<string, string>;
+  renderTarget?: string;
 }
 
 export interface CreateShareRequest {
-  code: string;
+  code?: string;
+  files?: Record<string, string>;
+  renderTarget?: string;
   title: string;
   forkedFrom?: string | null;
+}
+
+export function isMultiFileShare(
+  data: ShareData
+): data is ShareData & { files: Record<string, string>; renderTarget: string } {
+  return data.files !== undefined && data.renderTarget !== undefined;
 }
 
 export interface CreateShareResponse {

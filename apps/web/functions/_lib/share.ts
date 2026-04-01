@@ -12,6 +12,23 @@ export interface ShareRecord {
   thumbnailKey: string | null;
   thumbnailUploadTokenHash: string | null;
   codeSize: number;
+  format?: 'project';
+}
+
+export interface ProjectSharePayload {
+  files: Record<string, string>;
+  renderTarget: string;
+}
+
+export function extractPrimaryCode(
+  share: ShareRecord,
+  decompressed: string
+): string {
+  if (share.format === 'project') {
+    const payload = JSON.parse(decompressed) as ProjectSharePayload;
+    return payload.files[payload.renderTarget] ?? '';
+  }
+  return decompressed;
 }
 
 const encoder = new TextEncoder();
