@@ -301,6 +301,7 @@ function App() {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [isProjectLoading, setIsProjectLoading] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsSection | undefined>(
     undefined
   );
@@ -1454,6 +1455,7 @@ function App() {
         const result = await platform.fileRead(path);
         if (!result) return 'cancelled' as const;
 
+        setIsProjectLoading(true);
         // Initialize project store and wait for all sibling files to load
         // before proceeding — otherwise the render fires with missing includes
         await initializeProject(result.path, result.name, result.content);
@@ -1473,6 +1475,7 @@ function App() {
         }
 
         hideWelcomeScreen();
+        setIsProjectLoading(false);
         if (result.path) addRecentFile(result.path);
         analytics.track('file opened', {
           source: 'recent',
@@ -1536,6 +1539,9 @@ function App() {
         }
       }
 
+      // Show the rendering spinner while project files load from disk
+      setIsProjectLoading(true);
+
       // Initialize project store and wait for all sibling files to load
       // before proceeding — otherwise the render fires with missing includes
       await initializeProject(result.path, result.name, result.content);
@@ -1555,6 +1561,7 @@ function App() {
       }
 
       hideWelcomeScreen();
+      setIsProjectLoading(false);
       if (result.path) addRecentFile(result.path);
       analytics.track('file opened', {
         source: 'open',
@@ -1660,10 +1667,12 @@ function App() {
             }
           }
 
+          setIsProjectLoading(true);
           // Initialize project store and wait for all sibling files to load
           await initializeProject(result.path, result.name, result.content);
           createNewTab(result.path, result.content, result.name);
           hideWelcomeScreen();
+          setIsProjectLoading(false);
 
           if (result.path) addRecentFile(result.path);
           analytics.track('file opened', {
@@ -2124,7 +2133,7 @@ function App() {
       onReorderTabs: reorderTabs,
       previewSrc: activePreviewSrc,
       previewKind: activePreviewKind,
-      isRendering,
+      isRendering: isRendering || isProjectLoading,
       error: activeError,
       renderReady: ready,
       onPreviewVisualReady: isShareEntry ? markSharePreviewReady : undefined,
@@ -2185,6 +2194,7 @@ function App() {
       activePreviewSrc,
       activePreviewKind,
       isRendering,
+      isProjectLoading,
       activeError,
       ready,
       isShareEntry,
@@ -2378,7 +2388,7 @@ function App() {
         )}
 
         <div className="flex items-center gap-1.5 px-3 py-1 shrink-0">
-          {isRendering && (
+          {(isRendering || isProjectLoading) && (
             <div
               data-testid="render-spinner"
               className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full"
