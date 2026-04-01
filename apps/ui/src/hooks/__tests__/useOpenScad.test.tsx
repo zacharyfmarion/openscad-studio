@@ -96,7 +96,7 @@ describe('useOpenScad', () => {
     });
 
     await waitFor(() => {
-      expect(hook.current().error).toContain('Failed to initialize OpenSCAD WASM');
+      expect(hook.current().error).toContain('Failed to initialize OpenSCAD');
     });
 
     expect(notify).toHaveBeenCalledWith(

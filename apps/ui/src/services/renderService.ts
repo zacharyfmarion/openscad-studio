@@ -475,39 +475,43 @@ function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
+// Promise that resolves once the NativeRenderService module is loaded (Tauri only).
+// Kicked off eagerly at module load time so it's ready before first use.
+let nativeServicePromise: Promise<typeof import('./nativeRenderService')> | null = null;
+if (isTauri()) {
+  nativeServicePromise = import('./nativeRenderService').catch((err) => {
+    console.warn('[getRenderService] Failed to load NativeRenderService:', err);
+    return null;
+  }) as Promise<typeof import('./nativeRenderService')>;
+}
+
 /**
  * Get the singleton render service instance.
  * Returns NativeRenderService on desktop (Tauri), WasmRenderService on web.
- *
- * On Tauri, the NativeRenderService is created lazily via dynamic import on
- * first access. Before the import resolves, a WasmRenderService is returned
- * as a temporary fallback (the first `init()` call will warm up whichever
- * service is active).
  */
 export function getRenderService(): IRenderService {
   if (!globalInstance) {
-    // Start with WASM as the default. On Tauri, the async bootstrap
-    // (below) will replace it with NativeRenderService once loaded.
     globalInstance = new WasmRenderService();
+  }
+  return globalInstance;
+}
 
-    if (isTauri()) {
-      // Fire-and-forget dynamic import — replaces the instance once loaded.
-      // This happens before the first render because useOpenScad calls
-      // init() which is async and gives us time to swap.
-      import('./nativeRenderService').then(({ NativeRenderService }) => {
-        // Only swap if the current instance hasn't been initialized yet
-        // (i.e., no render has started using the WASM fallback)
-        const current = globalInstance;
-        const native = new NativeRenderService();
-        globalInstance = native;
-        // Dispose the unused WASM instance
-        if (current && current !== native) {
-          current.dispose();
-        }
-      }).catch((err) => {
-        console.warn('[getRenderService] Failed to load NativeRenderService, using WASM:', err);
-      });
+/**
+ * Ensure the correct render service is loaded.
+ * On Tauri, waits for NativeRenderService to load and swaps it in.
+ * On web, resolves immediately.
+ * Call this once at startup before the first render.
+ */
+export async function ensureRenderService(): Promise<IRenderService> {
+  if (nativeServicePromise) {
+    const mod = await nativeServicePromise;
+    if (mod && (!globalInstance || globalInstance instanceof WasmRenderService)) {
+      if (globalInstance) globalInstance.dispose();
+      globalInstance = new mod.NativeRenderService();
     }
+  }
+  if (!globalInstance) {
+    globalInstance = new WasmRenderService();
   }
   return globalInstance;
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAnalytics, type RenderTrigger } from '../analytics/runtime';
-import { getRenderService, type IRenderService, type Diagnostic } from '../services/renderService';
+import { getRenderService, ensureRenderService, type IRenderService, type Diagnostic } from '../services/renderService';
 import { getPlatform } from '../platform';
 import type { LibrarySettings } from '../stores/settingsStore';
 import { resolveWorkingDirDeps } from '../utils/resolveWorkingDirDeps';
@@ -160,25 +160,33 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     workingDirRef.current = options.workingDir;
   }, [options.workingDir]);
 
-  // Initialize WASM on mount
+  // Initialize render service on mount.
+  // On Tauri, this waits for NativeRenderService to load before calling init().
+  // On web, ensureRenderService() resolves immediately with WasmRenderService.
   useEffect(() => {
-    const service = renderServiceRef.current;
-    service
-      .init()
+    const initService = testOverrides?.renderService
+      ? Promise.resolve(testOverrides.renderService)
+      : ensureRenderService();
+
+    initService
+      .then((service) => {
+        renderServiceRef.current = service;
+        return service.init();
+      })
       .then(() => {
         setReady(true);
       })
       .catch((err) => {
-        setError(`Failed to initialize OpenSCAD WASM: ${err}`);
+        setError(`Failed to initialize OpenSCAD: ${err}`);
         notifyErrorImpl({
           operation: 'openscad-init',
           error: err,
           fallbackMessage: 'Failed to initialize OpenSCAD rendering',
           toastId: 'openscad-init-error',
-          logLabel: '[useOpenScad] WASM init error',
+          logLabel: '[useOpenScad] render service init error',
         });
       });
-  }, [notifyErrorImpl]);
+  }, [notifyErrorImpl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doRender = useCallback(
     async (code: string, dimension: '2d' | '3d' = '3d', trigger: RenderTrigger = 'manual') => {
