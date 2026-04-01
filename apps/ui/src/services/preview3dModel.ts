@@ -328,6 +328,7 @@ export function buildPreview3dObject(args: {
           wireframe: true,
           transparent: materialTransparent,
           opacity: materialOpacity,
+          side: THREE.DoubleSide,
         })
       : new THREE.MeshStandardMaterial({
           color: materialColor,
@@ -336,6 +337,7 @@ export function buildPreview3dObject(args: {
           envMapIntensity: sceneStyle.material.envMapIntensity,
           transparent: materialTransparent,
           opacity: materialOpacity,
+          side: THREE.DoubleSide,
         });
 
     materials.push(material);
