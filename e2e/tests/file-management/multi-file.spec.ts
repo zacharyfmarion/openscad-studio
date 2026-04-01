@@ -73,15 +73,12 @@ test.describe('Multi-file project', () => {
     const renameInput = app.page.getByTestId('rename-input');
     await renameInput.fill('utils.scad');
     await renameInput.press('Enter');
-    await app.page.waitForTimeout(500);
+
+    // Wait for the new file to appear in the tree before checking render target
+    const utilsBtn = app.page.locator('button[title="utils.scad"]');
+    await expect(utilsBtn).toBeVisible({ timeout: 10_000 });
 
     // main.scad should still be the render target (shown with play icon)
-    // The render target has a play icon with title="Render target"
-    // Wait longer for the file tree to update with render target state
-    const renderTargetIcon = app.page.locator('[title="Render target"]');
-    await expect(renderTargetIcon).toBeVisible({ timeout: 10_000 });
-
-    // The play icon should be on main.scad, not utils.scad
     const mainRow = app.page.locator('button[title="main.scad"]');
     const mainHasPlayIcon = mainRow.locator('[title="Render target"]');
     await expect(mainHasPlayIcon).toBeVisible({ timeout: 10_000 });
@@ -108,14 +105,16 @@ test.describe('Multi-file project', () => {
     const renameInput = app.page.getByTestId('rename-input');
     await renameInput.fill('alt.scad');
     await renameInput.press('Enter');
-    await app.page.waitForTimeout(500);
+
+    // Wait for the new file to appear in the tree
+    const altBtn = app.page.locator('button[title="alt.scad"]');
+    await expect(altBtn).toBeVisible({ timeout: 10_000 });
 
     // Put renderable content in alt.scad
     await setMonacoValue(app.page, 'sphere(10);');
     await app.page.waitForTimeout(300);
 
     // Right-click alt.scad to open context menu
-    const altBtn = app.page.locator('button[title="alt.scad"]');
     await altBtn.click({ button: 'right' });
     await app.page.waitForTimeout(300);
 
