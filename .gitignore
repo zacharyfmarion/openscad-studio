@@ -40,6 +40,9 @@ packages/**/Cargo.lock
 src-tauri/target/
 src-tauri/WixTools/
 
+# OpenSCAD binary bundle (downloaded at build time, ~148MB)
+apps/ui/src-tauri/binaries/OpenSCAD.app
+
 # Jest cache
 .jest-cache/
 .jest-cache-formatter/

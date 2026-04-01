@@ -159,6 +159,7 @@ Vercel AI SDK → Anthropic/OpenAI API (HTTPS)
 
 1. **pnpm**: `npm install -g pnpm`
 2. **Rust** toolchain (desktop only): `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+3. **OpenSCAD binary** (desktop only): `bash apps/ui/src-tauri/scripts/download-openscad.sh`
 
 ### Running the App
 
@@ -169,13 +170,37 @@ pnpm install
 # Web development (no Rust needed)
 pnpm web:dev
 
-# Desktop development (requires Rust)
+# Desktop development (requires Rust + OpenSCAD binary)
+bash apps/ui/src-tauri/scripts/download-openscad.sh   # one-time setup
 pnpm tauri:dev
 
 # Build for production
 pnpm web:build      # Web
-pnpm tauri:build    # Desktop
+pnpm tauri:build    # Desktop (downloads OpenSCAD binary automatically in CI)
 ```
+
+### OpenSCAD Binary (Desktop)
+
+The desktop app bundles a native OpenSCAD binary for rendering instead of WASM. This gives full filesystem access (so `import()` resolves files from disk), system fonts, and faster rendering.
+
+- **Binary source**: OpenSCAD snapshot builds from `files.openscad.org/snapshots/`
+- **Current version**: `2026.03.16` (pinned in `apps/ui/src-tauri/scripts/download-openscad.sh`)
+- **Bundle size**: ~148MB (binary + Qt6 frameworks + dylibs)
+- **Location**: `apps/ui/src-tauri/binaries/OpenSCAD.app` (gitignored, downloaded at build time)
+
+**Local development**:
+```bash
+# Download the binary (only needed once, re-run to update)
+cd apps/ui/src-tauri
+bash scripts/download-openscad.sh
+
+# To force re-download:
+rm -rf binaries/OpenSCAD.app && bash scripts/download-openscad.sh
+```
+
+The script handles quarantine stripping and ad-hoc signing for local development. In CI, Tauri's build process signs the bundled `.app` with the Apple Developer certificate and the DMG is notarized.
+
+**Web**: continues using openscad-wasm (no binary needed).
 
 ### Project Scripts
 

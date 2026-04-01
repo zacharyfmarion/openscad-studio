@@ -41,19 +41,36 @@ impl Default for OpenScadBinaryState {
 
 /// Resolve the path to the OpenSCAD binary.
 /// Tries (in order):
-/// 1. Bundled sidecar binary (apps/ui/src-tauri/binaries/openscad)
-/// 2. System-installed binary via PATH
+/// 1. Bundled OpenSCAD.app resource (Tauri resource bundling)
+/// 2. Dev-mode OpenSCAD.app in src-tauri/binaries/
+/// 3. System-installed binary via PATH
 fn resolve_binary_path(app: &AppHandle) -> Option<PathBuf> {
-    // Try bundled sidecar first
+    // Production: bundled as a Tauri resource at OpenSCAD.app/Contents/MacOS/OpenSCAD
     if let Ok(resource_dir) = app.path().resource_dir() {
-        let sidecar = resource_dir.join("binaries").join("openscad");
-        if sidecar.exists() {
-            eprintln!("[render] Found bundled OpenSCAD at {:?}", sidecar);
-            return Some(sidecar);
+        let bundled = resource_dir
+            .join("OpenSCAD.app")
+            .join("Contents")
+            .join("MacOS")
+            .join("OpenSCAD");
+        if bundled.exists() {
+            eprintln!("[render] Found bundled OpenSCAD at {:?}", bundled);
+            return Some(bundled);
         }
     }
 
-    // Try system PATH
+    // Dev mode: look in src-tauri/binaries/OpenSCAD.app
+    let dev_app = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("binaries")
+        .join("OpenSCAD.app")
+        .join("Contents")
+        .join("MacOS")
+        .join("OpenSCAD");
+    if dev_app.exists() {
+        eprintln!("[render] Found dev OpenSCAD at {:?}", dev_app);
+        return Some(dev_app);
+    }
+
+    // Fallback: system-installed OpenSCAD via PATH
     if let Ok(output) = Command::new("which").arg("openscad").output() {
         if output.status.success() {
             let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
