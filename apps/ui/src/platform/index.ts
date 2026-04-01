@@ -102,9 +102,24 @@ class BootstrapBridge implements PlatformBridge {
     document.title = title;
   }
 
-  onCloseRequested(handler: () => Promise<boolean>): () => void {
-    void handler;
-    return () => {};
+  private _hasDirtyState = false;
+
+  setDirtyState(dirty: boolean): void {
+    this._hasDirtyState = dirty;
+  }
+
+  onCloseRequested(_handler: () => Promise<boolean>): () => void {
+    const bridge = this;
+    const beforeUnload = (e: BeforeUnloadEvent) => {
+      if (bridge._hasDirtyState) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnload);
+    };
   }
 
   async fileExists(absolutePath: string): Promise<boolean> {
