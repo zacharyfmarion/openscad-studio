@@ -27,6 +27,26 @@ window.__SHARE_API_BASE = import.meta.env.VITE_SHARE_API_URL || window.location.
 window.__SHARE_ENABLED =
   import.meta.env.PROD || import.meta.env.VITE_ENABLE_PROD_SHARE_DEV === 'true';
 
+// Prevent accidental tab close when there are unsaved changes.
+// Registered here (not in a React effect) to guarantee it's never missed
+// due to platform bridge initialization timing.
+window.addEventListener('beforeunload', (e) => {
+  try {
+    // Dynamic import to avoid circular deps at module load time
+    const { getProjectState } = require('@ui/stores/projectStore');
+    const files = getProjectState().files;
+    const anyDirty = Object.values(files).some(
+      (f: { content: string; savedContent: string }) => f.content !== f.savedContent
+    );
+    if (anyDirty) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  } catch {
+    // Store not initialized yet — nothing to protect
+  }
+});
+
 if (window.__UNSUPPORTED_BROWSER) {
   // eslint-disable-next-line no-console
   console.warn('[main] Browser unsupported — skipping app render');
