@@ -143,11 +143,12 @@ export function FileTreeItem({
           title={name}
         >
           {isRenderTarget ? (
-            <TbPlayerPlayFilled
-              size={11}
-              style={{ color: 'var(--accent-primary)', flexShrink: 0 }}
-              title="Render target"
-            />
+            <span title="Render target" style={{ display: 'inline-flex', flexShrink: 0 }}>
+              <TbPlayerPlayFilled
+                size={11}
+                style={{ color: 'var(--accent-primary)' }}
+              />
+            </span>
           ) : (
             <FileIcon name={name} />
           )}

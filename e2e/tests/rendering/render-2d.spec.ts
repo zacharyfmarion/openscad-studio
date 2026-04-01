@@ -123,6 +123,16 @@ test.describe('2D Rendering', () => {
     app,
   }) => {
     await app.waitForRender();
+
+    // Collapse the file tree to give the 2D viewport maximum width — the
+    // floating Measure tool panel (280px, bottom-right) can otherwise overlap
+    // with the coordinate-based click positions used below.
+    const hideBtn = app.page.locator('button[title="Hide file tree"]');
+    if (await hideBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await hideBtn.click();
+      await app.page.waitForTimeout(300);
+    }
+
     await setMonacoValue(app.page, 'square([20, 10], center = true);');
     await app.triggerRender();
     await app.waitForRender();
@@ -138,19 +148,27 @@ test.describe('2D Rendering', () => {
     await app.page.getByTestId('preview-2d-tool-measure').click();
     await expect(app.page.getByTestId('preview-2d-measure-help')).toBeVisible();
 
-    await viewport.click({ position: { x: box!.width * 0.35, y: box!.height * 0.5 } });
-    await viewport.hover({ position: { x: box!.width * 0.65, y: box!.height * 0.5 } });
+    // Use page.mouse for measurement interactions — measurement labels and
+    // overlays can intercept Playwright's locator actionability checks, causing
+    // flaky timeouts. Raw mouse events dispatch at absolute coordinates and
+    // always reach the viewport's pointer handlers.
+    const abs = (rx: number, ry: number) => ({
+      x: box!.x + box!.width * rx,
+      y: box!.y + box!.height * ry,
+    });
+
+    await app.page.mouse.click(abs(0.35, 0.5).x, abs(0.35, 0.5).y);
+    await app.page.mouse.move(abs(0.65, 0.5).x, abs(0.65, 0.5).y);
     await expect(app.page.getByTestId('preview-2d-measurement-readout')).toBeVisible();
-    await viewport.click({ position: { x: box!.width * 0.65, y: box!.height * 0.5 } });
+    await app.page.mouse.click(abs(0.65, 0.5).x, abs(0.65, 0.5).y);
 
     await expect(app.page.getByTestId('preview-2d-measurements-tray')).toBeVisible();
     await expect(app.page.getByTestId('preview-2d-measurement-readout')).toBeHidden();
 
-    // Keep the second segment in the upper-left quadrant so it stays clear of
-    // both the legacy footer tray and the floating tool panel introduced by this PR.
-    await viewport.click({ position: { x: box!.width * 0.25, y: box!.height * 0.25 } });
-    await viewport.hover({ position: { x: box!.width * 0.45, y: box!.height * 0.25 } });
-    await viewport.click({ position: { x: box!.width * 0.45, y: box!.height * 0.25 } });
+    // Second measurement in the upper-left quadrant, clear of overlays.
+    await app.page.mouse.click(abs(0.25, 0.25).x, abs(0.25, 0.25).y);
+    await app.page.mouse.move(abs(0.45, 0.25).x, abs(0.45, 0.25).y);
+    await app.page.mouse.click(abs(0.45, 0.25).x, abs(0.45, 0.25).y);
 
     const measurementItems = app.page.getByTestId('preview-2d-measurement-list-item');
     const countBeforeClear = await measurementItems.count();
