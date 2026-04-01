@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { RoomEnvironment, STLLoader } from 'three-stdlib';
+import { RoomEnvironment } from 'three-stdlib';
 import { FALLBACK_PREVIEW_SCENE_STYLE, type PreviewSceneStyle } from './previewSceneConfig';
 import {
-  buildModelFrame,
   derivePreviewAxisMetrics,
   derivePreviewFramingMetrics,
   derivePreviewGridMetrics,
   getExpandedFitBox,
 } from './previewFraming';
 import { createPreviewAxesOverlay, disposePreviewAxesOverlay } from './previewAxes';
+import { buildPreview3dObject, loadOffPreviewModelFromUrl } from './preview3dModel';
 
 export type PresetView = 'front' | 'back' | 'top' | 'bottom' | 'left' | 'right' | 'isometric';
 
@@ -19,6 +19,7 @@ export interface CaptureOptions {
   width?: number;
   height?: number;
   sceneStyle?: PreviewSceneStyle;
+  useModelColors?: boolean;
 }
 
 const PRESET_DIRECTIONS: Record<PresetView, [number, number, number]> = {
@@ -51,17 +52,22 @@ function azimuthElevationToDirection(
 }
 
 export async function captureOffscreen(
-  stlBlobUrl: string,
+  preview3dUrl: string,
   options: CaptureOptions = {}
 ): Promise<string> {
   const sceneStyle = options.sceneStyle ?? FALLBACK_PREVIEW_SCENE_STYLE;
+  const useModelColors = options.useModelColors ?? true;
   const { width = sceneStyle.screenshot.width, height = sceneStyle.screenshot.height } = options;
-
-  const geometry = await new Promise<THREE.BufferGeometry>((resolve, reject) => {
-    const loader = new STLLoader();
-    loader.load(stlBlobUrl, resolve, undefined, reject);
+  const parsedModel = await loadOffPreviewModelFromUrl({
+    url: preview3dUrl,
+    fallbackColor: sceneStyle.modelColor,
+    version: 'offscreen-capture',
   });
-  geometry.computeVertexNormals();
+  const previewObject = buildPreview3dObject({
+    parsed: parsedModel,
+    sceneStyle,
+    useModelColors,
+  });
 
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -85,17 +91,7 @@ export async function captureOffscreen(
   const environmentTarget = pmremGenerator.fromScene(environmentScene, 0.04);
   scene.environment = environmentTarget.texture;
 
-  const material = new THREE.MeshStandardMaterial({
-    color: sceneStyle.modelColor,
-    metalness: sceneStyle.material.metalness,
-    roughness: sceneStyle.material.roughness,
-    envMapIntensity: sceneStyle.material.envMapIntensity,
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  scene.add(mesh);
+  scene.add(previewObject.root);
 
   const ambientLight = new THREE.AmbientLight(
     sceneStyle.ambientLight.color,
@@ -112,7 +108,7 @@ export async function captureOffscreen(
   directionalLight.shadow.mapSize.set(...sceneStyle.directionalLight.shadowMapSize);
   scene.add(directionalLight);
 
-  const modelFrame = buildModelFrame(geometry, 'offscreen-capture');
+  const modelFrame = parsedModel.frame;
   const framing = derivePreviewFramingMetrics(modelFrame.box, sceneStyle);
   const gridMetrics = derivePreviewGridMetrics(modelFrame);
   const axisMetrics = derivePreviewAxisMetrics(modelFrame, gridMetrics);
@@ -149,8 +145,8 @@ export async function captureOffscreen(
   const dataUrl = canvas.toDataURL('image/png');
 
   disposePreviewAxesOverlay(axesOverlay);
-  geometry.dispose();
-  material.dispose();
+  previewObject.dispose();
+  parsedModel.dispose();
   environmentTarget.dispose();
   pmremGenerator.dispose();
   environmentScene.traverse((child) => {

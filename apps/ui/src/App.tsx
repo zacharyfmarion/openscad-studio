@@ -423,11 +423,12 @@ function App() {
     handleRestoreCheckpoint,
     updateSourceRef,
     updateCapturePreview,
-    updateStlBlobUrl,
+    update3dPreviewUrl,
     updateWorkingDir,
     updateCurrentFilePath,
     updateAuxiliaryFiles,
     updatePreviewSceneStyle,
+    updateUseModelColors,
     loadModelAndProviders,
   } = useAiAgent();
 
@@ -560,8 +561,8 @@ function App() {
   }, [source, updateSourceRef]);
 
   useEffect(() => {
-    updateStlBlobUrl(activePreviewKind === 'mesh' && activePreviewSrc ? activePreviewSrc : null);
-  }, [activePreviewKind, activePreviewSrc, updateStlBlobUrl]);
+    update3dPreviewUrl(activePreviewKind === 'mesh' && activePreviewSrc ? activePreviewSrc : null);
+  }, [activePreviewKind, activePreviewSrc, update3dPreviewUrl]);
   useEffect(() => {
     updateCapturePreview(() =>
       captureCurrentPreview({
@@ -589,6 +590,10 @@ function App() {
   useEffect(() => {
     updatePreviewSceneStyle(previewSceneStyle);
   }, [previewSceneStyle, updatePreviewSceneStyle]);
+
+  useEffect(() => {
+    updateUseModelColors(settings.viewer.showModelColors);
+  }, [settings.viewer.showModelColors, updateUseModelColors]);
 
   useEffect(() => {
     renderOnSaveRef.current = renderOnSave;
@@ -1789,8 +1794,9 @@ function App() {
             targetHeight: 630,
           })
         }
-        stlBlobUrl={activePreviewKind === 'mesh' ? activePreviewSrc : null}
+        preview3dUrl={activePreviewKind === 'mesh' ? activePreviewSrc : null}
         previewKind={activePreviewKind}
+        useModelColors={settings.viewer.showModelColors}
       />
 
       <SettingsDialog

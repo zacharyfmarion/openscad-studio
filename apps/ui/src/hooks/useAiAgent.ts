@@ -254,11 +254,12 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
 
   const sourceRef = useRef<string>('');
   const capturePreviewRef = useRef<(() => Promise<string | null>) | null>(null);
-  const stlBlobUrlRef = useRef<string | null>(null);
+  const preview3dUrlRef = useRef<string | null>(null);
   const workingDirRef = useRef<string | null>(null);
   const currentFilePathRef = useRef<string | null>(null);
   const auxiliaryFilesRef = useRef<Record<string, string>>({});
   const previewSceneStyleRef = useRef<PreviewSceneStyle>(FALLBACK_PREVIEW_SCENE_STYLE);
+  const useModelColorsRef = useRef<boolean>(loadSettingsImpl().viewer.showModelColors);
   const measurementUnitRef = useRef<MeasurementUnit>(loadSettingsImpl().viewer.measurementUnit);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeTurnRef = useRef<ActiveTurnState | null>(null);
@@ -286,8 +287,9 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         }
         return null;
       },
-      getStlBlobUrl: () => stlBlobUrlRef.current,
+      get3dPreviewUrl: () => preview3dUrlRef.current,
       getPreviewSceneStyle: () => previewSceneStyleRef.current,
+      getUseModelColors: () => useModelColorsRef.current,
       hasProjectFileAccess: () => {
         try {
           return Boolean(workingDirRef.current) && getPlatformImpl().capabilities.hasFileSystem;
@@ -356,8 +358,8 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
     capturePreviewRef.current = fn;
   }, []);
 
-  const updateStlBlobUrl = useCallback((url: string | null) => {
-    stlBlobUrlRef.current = url;
+  const update3dPreviewUrl = useCallback((url: string | null) => {
+    preview3dUrlRef.current = url;
   }, []);
 
   const updateWorkingDir = useCallback((dir: string | null) => {
@@ -374,6 +376,10 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
 
   const updatePreviewSceneStyle = useCallback((sceneStyle: PreviewSceneStyle) => {
     previewSceneStyleRef.current = sceneStyle;
+  }, []);
+
+  const updateUseModelColors = useCallback((enabled: boolean) => {
+    useModelColorsRef.current = enabled;
   }, []);
 
   const loadModelAndProviders = useCallback(() => {
@@ -1023,11 +1029,12 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
     handleRestoreCheckpoint,
     updateSourceRef,
     updateCapturePreview,
-    updateStlBlobUrl,
+    update3dPreviewUrl,
     updateWorkingDir,
     updateCurrentFilePath,
     updateAuxiliaryFiles,
     updatePreviewSceneStyle,
+    updateUseModelColors,
     setDraftText,
     setDraft,
     clearDraft,

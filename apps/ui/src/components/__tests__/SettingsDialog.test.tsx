@@ -111,6 +111,7 @@ describe('SettingsDialog privacy copy', () => {
           showAxisLabels: false,
           show3DGrid: false,
           showShadows: false,
+          showModelColors: false,
           showViewcube: false,
           measurementSnapEnabled: false,
           showSelectionInfo: false,
@@ -135,6 +136,7 @@ describe('SettingsDialog privacy copy', () => {
     const axisLabelsToggle = screen.getByLabelText('Show axis labels');
     const threeDGridToggle = screen.getByLabelText('Show 3D grid');
     const shadowsToggle = screen.getByLabelText('Show shadows');
+    const modelColorsToggle = screen.getByLabelText('Show model colors');
     const viewcubeToggle = screen.getByLabelText('Show viewcube');
     const snapToggle = screen.getByLabelText('Snap 3D measurements');
     const inspectionHudToggle = screen.getByLabelText('Show inspection HUD');
@@ -144,6 +146,10 @@ describe('SettingsDialog privacy copy', () => {
     expect(axisLabelsToggle).toBeDisabled();
     expect(threeDGridToggle).toHaveAttribute('data-state', 'unchecked');
     expect(shadowsToggle).toHaveAttribute('data-state', 'unchecked');
+    expect(modelColorsToggle).toHaveAttribute('data-state', 'unchecked');
+    expect(
+      screen.getByText(/turn this off to render all geometry with the theme preview material/i)
+    ).toBeTruthy();
     expect(viewcubeToggle).toHaveAttribute('data-state', 'unchecked');
     expect(snapToggle).toHaveAttribute('data-state', 'unchecked');
     expect(inspectionHudToggle).toHaveAttribute('data-state', 'unchecked');
@@ -203,6 +209,7 @@ describe('SettingsDialog privacy copy', () => {
 
     await screen.findByText('Show axes');
     fireEvent.click(screen.getByLabelText('Snap 3D measurements'));
+    fireEvent.click(screen.getByLabelText('Show model colors'));
     fireEvent.click(screen.getByRole('button', { name: 'Project' }));
     fireEvent.click(screen.getByLabelText('Measurement Unit'));
     fireEvent.click(await screen.findByRole('option', { name: /in \(inches\)/i }));
@@ -218,6 +225,13 @@ describe('SettingsDialog privacy copy', () => {
       'viewer preference changed',
       expect.objectContaining({
         setting: 'measurement_snap_enabled',
+        enabled: false,
+      })
+    );
+    expect(mockTrack).toHaveBeenCalledWith(
+      'viewer preference changed',
+      expect.objectContaining({
+        setting: 'show_model_colors',
         enabled: false,
       })
     );

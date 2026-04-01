@@ -81,7 +81,7 @@ export function Preview({
     return (
       <InlineErrorBoundary fallbackMessage="3D preview failed to render (WebGL error)">
         <ThreeViewer
-          stlPath={src}
+          preview3dPath={src}
           isLoading={isRendering}
           viewerId={viewerId}
           onVisualReady={onVisualReady}
