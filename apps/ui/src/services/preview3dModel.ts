@@ -349,7 +349,6 @@ export function buildPreview3dObject(args: {
     root.add(mesh);
     return mesh;
   });
-
   root.updateMatrixWorld(true);
 
   return {
