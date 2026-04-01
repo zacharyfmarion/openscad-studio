@@ -1584,9 +1584,12 @@ function App() {
   const checkUnsavedChangesRef = useRef<() => Promise<boolean>>();
 
   checkUnsavedChangesRef.current = async (): Promise<boolean> => {
-    const isDirty =
-      getProjectStore().getState().files[activeTabRef.current.projectPath]?.isDirty ?? false;
-    if (!isDirty) return true;
+    const file = getProjectStore().getState().files[activeTabRef.current.projectPath];
+    // Compare content directly rather than relying on isDirty — virtual files
+    // (web) keep isDirty false to suppress UI indicators, but we still want to
+    // warn before discarding in-memory edits.
+    const hasUnsavedEdits = file ? file.content !== file.savedContent : false;
+    if (!hasUnsavedEdits) return true;
 
     const platform = getPlatform();
 

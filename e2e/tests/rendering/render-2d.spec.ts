@@ -55,10 +55,7 @@ test.describe('2D Rendering', () => {
 
   test('renders 2D polygon as SVG', async ({ app }) => {
     await app.waitForRender();
-    await setMonacoValue(
-      app.page,
-      'polygon(points = [[0,0],[10,0],[5,8]]);'
-    );
+    await setMonacoValue(app.page, 'polygon(points = [[0,0],[10,0],[5,8]]);');
     await app.triggerRender();
     await app.waitForRender();
     await expect(app.previewSvg2D).toBeVisible();
@@ -71,20 +68,14 @@ test.describe('2D Rendering', () => {
     await app.waitForRender();
 
     const stage = app.page.getByTestId('preview-2d-stage');
-    const initialTransform = await stage.evaluate(
-      (element) => element.getAttribute('transform')
-    );
+    const initialTransform = await stage.evaluate((element) => element.getAttribute('transform'));
 
     await app.page.getByTestId('preview-2d-zoom-in').click();
-    const zoomedTransform = await stage.evaluate(
-      (element) => element.getAttribute('transform')
-    );
+    const zoomedTransform = await stage.evaluate((element) => element.getAttribute('transform'));
     expect(zoomedTransform).not.toBe(initialTransform);
 
     await app.page.getByTestId('preview-2d-fit').click();
-    const refitTransform = await stage.evaluate(
-      (element) => element.getAttribute('transform')
-    );
+    const refitTransform = await stage.evaluate((element) => element.getAttribute('transform'));
     expect(refitTransform).toBe(initialTransform);
   });
 
@@ -114,17 +105,23 @@ test.describe('2D Rendering', () => {
 
     const before = await app.page.locator('[data-testid="preview-2d-overlay"] line').count();
     await app.page.getByTestId('preview-2d-toggle-grid').click();
-    const afterToolbarToggle = await app.page.locator('[data-testid="preview-2d-overlay"] line').count();
+    const afterToolbarToggle = await app.page
+      .locator('[data-testid="preview-2d-overlay"] line')
+      .count();
     expect(afterToolbarToggle).toBeLessThan(before);
 
     const root = app.page.getByTestId('preview-2d-root');
     await root.click();
     await app.page.keyboard.press('g');
-    const afterKeyboardToggle = await app.page.locator('[data-testid="preview-2d-overlay"] line').count();
+    const afterKeyboardToggle = await app.page
+      .locator('[data-testid="preview-2d-overlay"] line')
+      .count();
     expect(afterKeyboardToggle).toBeGreaterThan(afterToolbarToggle);
   });
 
-  test('measurement mode supports snapping, repeated measurements, and tray management', async ({ app }) => {
+  test('measurement mode supports snapping, repeated measurements, and tray management', async ({
+    app,
+  }) => {
     await app.waitForRender();
     await setMonacoValue(app.page, 'square([20, 10], center = true);');
     await app.triggerRender();

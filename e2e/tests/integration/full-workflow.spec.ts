@@ -91,7 +91,10 @@ test.describe('Full workflow integration', () => {
     await app.page.getByText('Format on Save').waitFor({ state: 'visible' });
 
     const newRow = app.page.getByText('Format on Save').locator('..').locator('..');
-    const newChecked = await newRow.getByRole('switch').isChecked().catch(() => false);
+    const newChecked = await newRow
+      .getByRole('switch')
+      .isChecked()
+      .catch(() => false);
     expect(newChecked).not.toBe(initialChecked);
 
     // Restore original state

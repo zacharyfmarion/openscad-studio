@@ -61,10 +61,9 @@ test.describe('File operations (web)', () => {
     await app.page.getByText('Save As').click();
 
     // Wait for the download intercept to fire
-    await app.page.waitForFunction(
-      () => (window as any).__downloadCalled__ !== null,
-      { timeout: 10_000 },
-    );
+    await app.page.waitForFunction(() => (window as any).__downloadCalled__ !== null, {
+      timeout: 10_000,
+    });
 
     const result = await app.page.evaluate(() => (window as any).__downloadCalled__);
     expect(result.filename).toMatch(/\.scad$/);

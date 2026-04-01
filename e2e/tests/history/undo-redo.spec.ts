@@ -25,7 +25,6 @@ async function triggerRedo(page: import('@playwright/test').Page) {
 }
 
 test.describe('Undo / Redo', () => {
-
   test('undo reverts editor change', async ({ app }) => {
     const initial = await getMonacoValue(app.page);
 

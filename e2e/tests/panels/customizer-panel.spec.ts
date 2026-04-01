@@ -144,7 +144,9 @@ test.describe('Customizer Panel', () => {
 
     await app.page.locator('.dv-tab').filter({ hasText: 'Customizer' }).click();
     await app.page.waitForTimeout(300);
-    await expect(app.page.getByTestId('customizer-download-button')).toBeVisible({ timeout: 10_000 });
+    await expect(app.page.getByTestId('customizer-download-button')).toBeVisible({
+      timeout: 10_000,
+    });
     await app.page.getByTestId('customizer-refine-button').click();
     await expect(app.page.getByText('Add an API key to get started')).toBeVisible({
       timeout: 10_000,
