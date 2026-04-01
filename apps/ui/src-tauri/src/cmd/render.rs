@@ -109,71 +109,144 @@ fn get_binary_version(binary_path: &Path) -> Option<String> {
 }
 
 // ============================================================================
-// Temp directory helpers
+// Workspace helpers
 // ============================================================================
 
-/// Create a temp directory for a render, write input files, return the paths.
 struct RenderWorkspace {
-    dir: PathBuf,
+    /// Temp directory to clean up after render
+    temp_dir: PathBuf,
+    /// Path to the input .scad file (may be in project dir or temp dir)
     input_path: PathBuf,
+    /// Path where OpenSCAD will write the output
     output_path: PathBuf,
+    /// Temp files written into the project directory (need cleanup)
+    project_temp_files: Vec<PathBuf>,
 }
 
+/// Create workspace for a native render.
+///
+/// When a `working_dir` (project root) is provided, the input file is written
+/// as a temp file *inside the project directory* so that all relative paths
+/// (`import()`, `include`, `use`) resolve against the real filesystem.
+/// Only the output goes to a temp dir.
+///
+/// When no `working_dir` is provided (e.g., unsaved single-file), everything
+/// goes in a temp dir (same as the WASM approach).
 fn create_render_workspace(
     code: &str,
     output_filename: &str,
     auxiliary_files: &Option<HashMap<String, String>>,
     input_path: &Option<String>,
+    working_dir: &Option<String>,
 ) -> Result<RenderWorkspace, String> {
     let render_id = uuid::Uuid::new_v4().to_string();
-    let base_dir = std::env::temp_dir()
+    let temp_dir = std::env::temp_dir()
         .join("openscad-studio")
         .join(&render_id);
+    fs::create_dir_all(&temp_dir).map_err(|e| format!("Failed to create temp dir: {}", e))?;
 
-    // Create the input_dir subdirectory (mirrors WASM's /input_dir/)
-    let input_dir = base_dir.join("input_dir");
-    fs::create_dir_all(&input_dir).map_err(|e| format!("Failed to create temp dir: {}", e))?;
+    let output_file_path = temp_dir.join(output_filename);
+    let mut project_temp_files = Vec::new();
 
-    // Determine input file path
-    let relative_input = input_path
-        .as_deref()
-        .unwrap_or("input.scad");
-    let input_file_path = input_dir.join(relative_input);
+    let input_file_path = if let Some(wd) = working_dir {
+        // Write the input file into the project directory so all relative
+        // paths (import, include, use) resolve against the real filesystem.
+        let project_root = PathBuf::from(wd);
+        let relative_input = input_path.as_deref().unwrap_or("input.scad");
 
-    // Create parent directories for nested input paths
-    if let Some(parent) = input_file_path.parent() {
+        // Use a temp filename next to the real file to avoid overwriting it
+        // (the editor content may have unsaved changes).
+        let real_path = project_root.join(relative_input);
+        let parent = real_path.parent().unwrap_or(&project_root);
+        let stem = real_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("input");
+        let temp_input = parent.join(format!(".openscad-studio-{}-{}.scad", stem, &render_id[..8]));
+
         fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create input parent dirs: {}", e))?;
-    }
+        let mut file = fs::File::create(&temp_input)
+            .map_err(|e| format!("Failed to create temp input file: {}", e))?;
+        file.write_all(code.as_bytes())
+            .map_err(|e| format!("Failed to write temp input file: {}", e))?;
 
-    // Write the main input file
-    let mut file = fs::File::create(&input_file_path)
-        .map_err(|e| format!("Failed to create input file: {}", e))?;
-    file.write_all(code.as_bytes())
-        .map_err(|e| format!("Failed to write input file: {}", e))?;
+        project_temp_files.push(temp_input.clone());
 
-    // Write auxiliary files (library files, project .scad files)
-    if let Some(aux_files) = auxiliary_files {
-        for (rel_path, content) in aux_files {
-            let aux_path = input_dir.join(rel_path);
-            if let Some(parent) = aux_path.parent() {
-                fs::create_dir_all(parent)
-                    .map_err(|e| format!("Failed to create aux dir for {}: {}", rel_path, e))?;
+        // Write any auxiliary files with unsaved changes into the project dir too
+        if let Some(aux_files) = auxiliary_files {
+            for (rel_path, content) in aux_files {
+                // Only write project .scad files (skip library files like BOSL2/)
+                if !rel_path.ends_with(".scad") {
+                    continue;
+                }
+                let real_aux = project_root.join(rel_path);
+                // Check if the content differs from what's on disk
+                let disk_content = fs::read_to_string(&real_aux).unwrap_or_default();
+                if disk_content != *content {
+                    let aux_parent = real_aux.parent().unwrap_or(&project_root);
+                    let aux_stem = real_aux
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("aux");
+                    let temp_aux = aux_parent.join(format!(
+                        ".openscad-studio-{}-{}.scad",
+                        aux_stem,
+                        &render_id[..8]
+                    ));
+                    if let Some(p) = temp_aux.parent() {
+                        fs::create_dir_all(p).ok();
+                    }
+                    let mut f = fs::File::create(&temp_aux)
+                        .map_err(|e| format!("Failed to create temp aux file: {}", e))?;
+                    f.write_all(content.as_bytes())
+                        .map_err(|e| format!("Failed to write temp aux file: {}", e))?;
+                    project_temp_files.push(temp_aux);
+                }
             }
-            let mut aux_file = fs::File::create(&aux_path)
-                .map_err(|e| format!("Failed to create aux file {}: {}", rel_path, e))?;
-            aux_file
-                .write_all(content.as_bytes())
-                .map_err(|e| format!("Failed to write aux file {}: {}", rel_path, e))?;
         }
-    }
 
-    let output_file_path = base_dir.join(output_filename);
+        temp_input
+    } else {
+        // No project root — use temp dir for everything (like WASM)
+        let input_dir = temp_dir.join("input_dir");
+        fs::create_dir_all(&input_dir)
+            .map_err(|e| format!("Failed to create input_dir: {}", e))?;
+
+        let relative_input = input_path.as_deref().unwrap_or("input.scad");
+        let input_file = input_dir.join(relative_input);
+
+        if let Some(parent) = input_file.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create input parent dirs: {}", e))?;
+        }
+        let mut file = fs::File::create(&input_file)
+            .map_err(|e| format!("Failed to create input file: {}", e))?;
+        file.write_all(code.as_bytes())
+            .map_err(|e| format!("Failed to write input file: {}", e))?;
+
+        // Write auxiliary files to temp dir
+        if let Some(aux_files) = auxiliary_files {
+            for (rel_path, content) in aux_files {
+                let aux_path = input_dir.join(rel_path);
+                if let Some(parent) = aux_path.parent() {
+                    fs::create_dir_all(parent).ok();
+                }
+                let mut f = fs::File::create(&aux_path)
+                    .map_err(|e| format!("Failed to create aux file {}: {}", rel_path, e))?;
+                f.write_all(content.as_bytes())
+                    .map_err(|e| format!("Failed to write aux file {}: {}", rel_path, e))?;
+            }
+        }
+
+        input_file
+    };
 
     Ok(RenderWorkspace {
-        dir: base_dir,
+        temp_dir,
         input_path: input_file_path,
         output_path: output_file_path,
+        project_temp_files,
     })
 }
 
@@ -230,15 +303,20 @@ pub async fn render_native(
         .map(|w| w[1].trim_start_matches('/').to_string())
         .unwrap_or_else(|| "output.off".to_string());
 
-    // Create workspace with input files
-    let workspace =
-        create_render_workspace(&code, &output_filename, &auxiliary_files, &input_path)?;
+    // Create workspace — when working_dir is set, input files are written
+    // into the project directory so all relative paths resolve naturally.
+    let workspace = create_render_workspace(
+        &code,
+        &output_filename,
+        &auxiliary_files,
+        &input_path,
+        &working_dir,
+    )?;
 
     // Build the command
     let mut cmd = Command::new(&binary_path);
 
-    // Replace the original input path in args with our temp file path
-    // and the output path with our temp output path
+    // Replace placeholder paths in args with actual workspace paths
     for arg in &args {
         if arg == "/input.scad" || arg.starts_with("/input_dir/") {
             cmd.arg(workspace.input_path.to_str().unwrap());
@@ -249,13 +327,6 @@ pub async fn render_native(
         } else {
             cmd.arg(arg);
         }
-    }
-
-    // Add working directory as a search path so import() can find assets
-    if let Some(ref wd) = working_dir {
-        // OpenSCAD uses the file's directory as default search path,
-        // but we also add the project root explicitly
-        cmd.arg("-p").arg(wd);
     }
 
     eprintln!(
@@ -307,9 +378,16 @@ pub async fn render_native(
         Vec::new()
     };
 
-    // Clean up temp directory (best-effort)
-    if let Err(e) = fs::remove_dir_all(&workspace.dir) {
-        eprintln!("[render] Failed to clean up temp dir {:?}: {}", workspace.dir, e);
+    // Clean up project temp files first (these are in the user's project dir)
+    for temp_file in &workspace.project_temp_files {
+        if let Err(e) = fs::remove_file(temp_file) {
+            eprintln!("[render] Failed to clean up project temp file {:?}: {}", temp_file, e);
+        }
+    }
+
+    // Clean up temp output directory
+    if let Err(e) = fs::remove_dir_all(&workspace.temp_dir) {
+        eprintln!("[render] Failed to clean up temp dir {:?}: {}", workspace.temp_dir, e);
     }
 
     Ok(RenderNativeResult {
