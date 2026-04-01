@@ -56,6 +56,13 @@ function parseFaceColor(
     return fallbackColor;
   }
 
+  // OpenSCAD writes "0 0 0 0" for faces with no assigned color (and emits
+  // "Invalid color in OFF export" warnings). Treat fully-zero RGBA as
+  // "no color" and use the fallback instead of rendering invisible faces.
+  if (values.length >= 4 && values[0] === 0 && values[1] === 0 && values[2] === 0 && values[3] === 0) {
+    return fallbackColor;
+  }
+
   return [
     normalizeColorChannel(values[0], false),
     normalizeColorChannel(values[1], false),
