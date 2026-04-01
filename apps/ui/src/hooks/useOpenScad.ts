@@ -299,6 +299,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           backend: 'manifold',
           auxiliaryFiles: Object.keys(renderAuxFiles).length > 0 ? renderAuxFiles : undefined,
           inputPath: getProjectState().renderTargetPath ?? undefined,
+          workingDir: workingDir || undefined,
         });
 
         setDimensionMode(resolvedDimension);

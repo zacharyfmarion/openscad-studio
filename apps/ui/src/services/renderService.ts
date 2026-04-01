@@ -27,6 +27,9 @@ export interface RenderOptions {
   /** Project-relative path of the render target (e.g. "examples/keebcu/foo.scad").
    *  Passed to the worker so the input file is written at the correct nested path. */
   inputPath?: string;
+  /** Absolute path to the project root directory (desktop only).
+   *  Passed to the native binary as a search path for import() resolution. */
+  workingDir?: string;
 }
 
 export interface RenderResult {
@@ -104,7 +107,7 @@ interface CacheEntry {
 
 const MAX_CACHE_ENTRIES = 50;
 
-class RenderCache {
+export class RenderCache {
   private entries = new Map<string, CacheEntry>();
 
   async generateKey(
@@ -468,15 +471,43 @@ export class WasmRenderService implements IRenderService {
 
 let globalInstance: IRenderService | null = null;
 
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
 /**
  * Get the singleton render service instance.
  * Returns NativeRenderService on desktop (Tauri), WasmRenderService on web.
+ *
+ * On Tauri, the NativeRenderService is created lazily via dynamic import on
+ * first access. Before the import resolves, a WasmRenderService is returned
+ * as a temporary fallback (the first `init()` call will warm up whichever
+ * service is active).
  */
 export function getRenderService(): IRenderService {
   if (!globalInstance) {
-    // TODO: When NativeRenderService is implemented, use it on desktop:
-    // globalInstance = isTauri() ? new NativeRenderService() : new WasmRenderService();
+    // Start with WASM as the default. On Tauri, the async bootstrap
+    // (below) will replace it with NativeRenderService once loaded.
     globalInstance = new WasmRenderService();
+
+    if (isTauri()) {
+      // Fire-and-forget dynamic import — replaces the instance once loaded.
+      // This happens before the first render because useOpenScad calls
+      // init() which is async and gives us time to swap.
+      import('./nativeRenderService').then(({ NativeRenderService }) => {
+        // Only swap if the current instance hasn't been initialized yet
+        // (i.e., no render has started using the WASM fallback)
+        const current = globalInstance;
+        const native = new NativeRenderService();
+        globalInstance = native;
+        // Dispose the unused WASM instance
+        if (current && current !== native) {
+          current.dispose();
+        }
+      }).catch((err) => {
+        console.warn('[getRenderService] Failed to load NativeRenderService, using WASM:', err);
+      });
+    }
   }
   return globalInstance;
 }
