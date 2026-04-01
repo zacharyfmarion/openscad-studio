@@ -194,7 +194,7 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       return printModifierChain(node, options);
 
     case 'comment':
-      return text;
+      return printComment(text);
 
     case 'parameter':
     case 'identifier':
@@ -214,6 +214,23 @@ function printNode(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
       }
       return text;
   }
+}
+
+function printComment(text: string): Doc {
+  // Tree-sitter can merge continued `//` comments into a single node when a
+  // line ends with `\`. Split embedded newlines into formatter-managed
+  // hardlines so continuation lines inherit the surrounding indentation.
+  if (!text.includes('\n') || text.startsWith('/*')) {
+    return text;
+  }
+
+  const lines = text.split('\n');
+  return concat(
+    lines.flatMap((line, index) => {
+      const normalizedLine = index === 0 ? line : line.trimStart();
+      return index === 0 ? [normalizedLine] : [hardline(), normalizedLine];
+    })
+  );
 }
 
 function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>): Doc {
@@ -630,9 +647,9 @@ function printParenthesizedAssignments(
         }
 
         if (isInlineComment) {
-          parts.push('  ', child.text);
+          parts.push('  ', printNode(child, options));
         } else {
-          parts.push(child.text);
+          parts.push(printNode(child, options));
         }
 
         if (next) {
@@ -937,9 +954,9 @@ function printList(node: TreeSitter.Node, options: Required<FormatOptions>): Doc
         }
 
         if (isInlineComment) {
-          parts.push('  ', child.text);
+          parts.push('  ', printNode(child, options));
         } else {
-          parts.push(child.text);
+          parts.push(printNode(child, options));
         }
 
         if (next) {
