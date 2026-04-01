@@ -246,6 +246,24 @@ function printSourceFile(node: TreeSitter.Node, options: Required<FormatOptions>
       continue;
     }
 
+    const numericPrefixedCall = getNumericPrefixedModuleCall(node, i);
+    if (numericPrefixedCall) {
+      let blankLineBefore = false;
+      if (prevChild) {
+        const lineDiff = child.startPosition.row - prevChild.endPosition.row;
+        blankLineBefore = lineDiff > 1;
+      }
+
+      if (blankLineBefore && parts.length > 0) {
+        parts.push(hardline());
+      }
+
+      parts.push(numericPrefixedCall.text, hardline());
+      prevChild = numericPrefixedCall.endNode;
+      i = numericPrefixedCall.consumedUntil;
+      continue;
+    }
+
     // Check if this is an inline comment (comment on same line as previous statement)
     const isInlineComment =
       child.type === 'comment' &&
@@ -418,7 +436,8 @@ function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Do
   }> = [];
   let prevChild: TreeSitter.Node | null = null;
 
-  for (const child of node.children) {
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
     if (!child) continue;
     if (child.type === '{' || child.type === '}' || child.type === ';') {
       continue;
@@ -427,11 +446,15 @@ function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Do
       continue;
     }
 
-    const stmt = printNode(child, options);
+    const numericPrefixedCall = getNumericPrefixedModuleCall(node, i);
+    const stmt = numericPrefixedCall ? numericPrefixedCall.text : printNode(child, options);
+    const effectiveChild = numericPrefixedCall?.endNode ?? child;
 
     // Determine if this statement needs a semicolon
     let needsSemi = false;
-    if (child.type === 'assignment') {
+    if (numericPrefixedCall) {
+      needsSemi = false;
+    } else if (child.type === 'assignment') {
       needsSemi = true;
     } else if (child.type === 'assert_statement' || child.type === 'assert_expression') {
       needsSemi = true;
@@ -477,8 +500,12 @@ function printBlock(node: TreeSitter.Node, options: Required<FormatOptions>): Do
       blankLineBefore = lineDiff > 1;
     }
 
-    items.push({ stmt, needsSemi, blankLineBefore, child });
-    prevChild = child;
+    items.push({ stmt, needsSemi, blankLineBefore, child: effectiveChild });
+    prevChild = effectiveChild;
+
+    if (numericPrefixedCall) {
+      i = numericPrefixedCall.consumedUntil;
+    }
   }
 
   if (items.length === 0) {
@@ -732,8 +759,26 @@ function printTransformChain(node: TreeSitter.Node, options: Required<FormatOpti
 
   const isMultiline = lastCallLine > firstCallLine;
 
-  for (const child of node.children) {
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
     if (!child) continue;
+
+    const numericPrefixedCall = getNumericPrefixedModuleCall(node, i);
+    if (numericPrefixedCall) {
+      const callText = stripTrailingSemicolon(numericPrefixedCall.text);
+
+      if (isMultiline && parts.length > 0 && child.startPosition.row > firstCallLine) {
+        parts.push(indent(concat([hardline(), callText])));
+      } else {
+        if (parts.length > 0) {
+          parts.push(' ');
+        }
+        parts.push(callText);
+      }
+
+      i = numericPrefixedCall.consumedUntil;
+      continue;
+    }
 
     if (child.type === 'module_call' || child.type === 'function_call') {
       // Check if this call is on a new line
@@ -1278,6 +1323,44 @@ function printChildren(node: TreeSitter.Node, options: Required<FormatOptions>):
 }
 
 // Helper functions
+
+function getNumericPrefixedModuleCall(
+  node: TreeSitter.Node,
+  index: number
+): { text: string; endNode: TreeSitter.Node; consumedUntil: number } | null {
+  const current = node.child(index);
+  if (!current || current.type !== 'ERROR' || !/^\d+$/.test(current.text)) {
+    return null;
+  }
+
+  for (let nextIndex = index + 1; nextIndex < node.childCount; nextIndex++) {
+    const next = node.child(nextIndex);
+    if (!next) {
+      continue;
+    }
+    if (next.type === 'whitespace' || next.type === '\n') {
+      continue;
+    }
+    if (
+      next.type === 'transform_chain' &&
+      current.endPosition.row === next.startPosition.row &&
+      /^[_A-Za-z][_A-Za-z0-9]*\s*\(/.test(next.text)
+    ) {
+      return {
+        text: `${current.text}${next.text}`,
+        endNode: next,
+        consumedUntil: nextIndex,
+      };
+    }
+    return null;
+  }
+
+  return null;
+}
+
+function stripTrailingSemicolon(text: string): string {
+  return text.endsWith(';') ? text.slice(0, -1) : text;
+}
 
 function needsSemicolon(type: string, node?: TreeSitter.Node): boolean {
   if (type === 'assignment') {
