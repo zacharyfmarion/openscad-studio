@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAnalytics, type RenderTrigger } from '../analytics/runtime';
-import { getRenderService, ensureRenderService, type IRenderService, type Diagnostic } from '../services/renderService';
+import {
+  getRenderService,
+  ensureRenderService,
+  type IRenderService,
+  type Diagnostic,
+} from '../services/renderService';
 import { getPlatform } from '../platform';
 import type { LibrarySettings } from '../stores/settingsStore';
 import { resolveWorkingDirDeps } from '../utils/resolveWorkingDirDeps';

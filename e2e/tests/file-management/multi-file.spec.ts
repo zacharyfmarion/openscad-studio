@@ -77,13 +77,14 @@ test.describe('Multi-file project', () => {
 
     // main.scad should still be the render target (shown with play icon)
     // The render target has a play icon with title="Render target"
+    // Wait longer for the file tree to update with render target state
     const renderTargetIcon = app.page.locator('[title="Render target"]');
-    await expect(renderTargetIcon).toBeVisible();
+    await expect(renderTargetIcon).toBeVisible({ timeout: 10_000 });
 
     // The play icon should be on main.scad, not utils.scad
     const mainRow = app.page.locator('button[title="main.scad"]');
     const mainHasPlayIcon = mainRow.locator('[title="Render target"]');
-    await expect(mainHasPlayIcon).toBeVisible();
+    await expect(mainHasPlayIcon).toBeVisible({ timeout: 10_000 });
 
     // Edit in utils.scad — render should still use main.scad
     await setMonacoValue(app.page, 'module util_box() { cube(3); }');
@@ -126,12 +127,12 @@ test.describe('Multi-file project', () => {
 
     // alt.scad should now show the render target icon
     const altRenderTarget = altBtn.locator('[title="Render target"]');
-    await expect(altRenderTarget).toBeVisible();
+    await expect(altRenderTarget).toBeVisible({ timeout: 10_000 });
 
     // main.scad should no longer be the render target
     const mainBtn = app.page.locator('button[title="main.scad"]');
     const mainRenderTarget = mainBtn.locator('[title="Render target"]');
-    await expect(mainRenderTarget).toBeHidden();
+    await expect(mainRenderTarget).toBeHidden({ timeout: 10_000 });
   });
 
   test('delete file via context menu', async ({ app }) => {

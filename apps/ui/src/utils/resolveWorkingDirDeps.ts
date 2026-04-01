@@ -102,9 +102,7 @@ export async function resolveWorkingDirDeps(
    * the same fallback logic as lookupProjectFile).
    * Returns [matchedKey, content] or null if the file can't be found.
    */
-  async function resolveFile(
-    normalizedPath: string
-  ): Promise<[string, string] | null> {
+  async function resolveFile(normalizedPath: string): Promise<[string, string] | null> {
     // Check project store first (works on both web and desktop)
     const match = lookupProjectFile(normalizedPath);
     if (match) return match;
@@ -135,11 +133,7 @@ export async function resolveWorkingDirDeps(
    *   Empty string for files at the project root.
    * @param depth - Current recursion depth
    */
-  async function resolve(
-    sourceCode: string,
-    currentFileDir: string,
-    depth: number
-  ): Promise<void> {
+  async function resolve(sourceCode: string, currentFileDir: string, depth: number): Promise<void> {
     if (depth > MAX_DEPTH) {
       console.warn('[resolveWorkingDirDeps] Max recursion depth reached');
       return;
@@ -177,9 +171,7 @@ export async function resolveWorkingDirDeps(
     for (const imp of imports) {
       // Resolve the import path relative to the directory of the file that
       // contains the import() call, then normalize to a project-relative path.
-      const joinedPath = currentFileDir
-        ? currentFileDir + '/' + imp.path
-        : imp.path;
+      const joinedPath = currentFileDir ? currentFileDir + '/' + imp.path : imp.path;
       const normalizedPath = normalizePath(joinedPath);
 
       if (visited.has(normalizedPath)) continue;

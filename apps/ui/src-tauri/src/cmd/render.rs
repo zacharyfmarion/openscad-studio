@@ -89,10 +89,7 @@ fn resolve_binary_path(app: &AppHandle) -> Option<PathBuf> {
 
 /// Get the OpenSCAD version string from the binary.
 fn get_binary_version(binary_path: &Path) -> Option<String> {
-    let output = Command::new(binary_path)
-        .arg("--version")
-        .output()
-        .ok()?;
+    let output = Command::new(binary_path).arg("--version").output().ok()?;
 
     // OpenSCAD prints version to stderr
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -162,7 +159,11 @@ fn create_render_workspace(
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("input");
-        let temp_input = parent.join(format!(".openscad-studio-{}-{}.scad", stem, &render_id[..8]));
+        let temp_input = parent.join(format!(
+            ".openscad-studio-{}-{}.scad",
+            stem,
+            &render_id[..8]
+        ));
 
         fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create input parent dirs: {}", e))?;
@@ -210,8 +211,7 @@ fn create_render_workspace(
     } else {
         // No project root — use temp dir for everything (like WASM)
         let input_dir = temp_dir.join("input_dir");
-        fs::create_dir_all(&input_dir)
-            .map_err(|e| format!("Failed to create input_dir: {}", e))?;
+        fs::create_dir_all(&input_dir).map_err(|e| format!("Failed to create input_dir: {}", e))?;
 
         let relative_input = input_path.as_deref().unwrap_or("input.scad");
         let input_file = input_dir.join(relative_input);
@@ -269,8 +269,7 @@ pub async fn render_init(
     let version = get_binary_version(&binary_path).unwrap_or_else(|| "unknown".to_string());
     eprintln!(
         "[render] OpenSCAD initialized: {:?} ({})",
-        binary_path,
-        version
+        binary_path, version
     );
 
     *state.path.lock().unwrap() = Some(binary_path);
@@ -331,8 +330,7 @@ pub async fn render_native(
 
     eprintln!(
         "[render] Executing: {:?} (working_dir: {:?})",
-        cmd,
-        working_dir
+        cmd, working_dir
     );
 
     let start = Instant::now();
@@ -342,7 +340,12 @@ pub async fn render_native(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to spawn OpenSCAD: {} (binary: {:?})", e, binary_path))?;
+        .map_err(|e| {
+            format!(
+                "Failed to spawn OpenSCAD: {} (binary: {:?})",
+                e, binary_path
+            )
+        })?;
 
     // Wait with timeout
     let output = tokio_timeout_wait(child, Duration::from_secs(RENDER_TIMEOUT_SECS))
@@ -381,13 +384,19 @@ pub async fn render_native(
     // Clean up project temp files first (these are in the user's project dir)
     for temp_file in &workspace.project_temp_files {
         if let Err(e) = fs::remove_file(temp_file) {
-            eprintln!("[render] Failed to clean up project temp file {:?}: {}", temp_file, e);
+            eprintln!(
+                "[render] Failed to clean up project temp file {:?}: {}",
+                temp_file, e
+            );
         }
     }
 
     // Clean up temp output directory
     if let Err(e) = fs::remove_dir_all(&workspace.temp_dir) {
-        eprintln!("[render] Failed to clean up temp dir {:?}: {}", workspace.temp_dir, e);
+        eprintln!(
+            "[render] Failed to clean up temp dir {:?}: {}",
+            workspace.temp_dir, e
+        );
     }
 
     Ok(RenderNativeResult {

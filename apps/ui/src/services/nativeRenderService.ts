@@ -220,9 +220,8 @@ export class NativeRenderService implements IRenderService {
     const result = await invoke<RenderNativeResult>('render_native', {
       code,
       args,
-      auxiliaryFiles: auxiliaryFiles && Object.keys(auxiliaryFiles).length > 0
-        ? auxiliaryFiles
-        : null,
+      auxiliaryFiles:
+        auxiliaryFiles && Object.keys(auxiliaryFiles).length > 0 ? auxiliaryFiles : null,
       inputPath: inputPath ?? null,
       workingDir: workingDir ?? null,
     });

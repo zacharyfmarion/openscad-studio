@@ -78,14 +78,7 @@ describe('parseOffPreviewModel', () => {
 
   it('treats 0 0 0 0 color as fallback (OpenSCAD "Invalid color in OFF export")', () => {
     const parsed = parseOffPreviewModel({
-      content: [
-        'OFF 4 1 0',
-        '0 0 0',
-        '1 0 0',
-        '1 1 0',
-        '0 1 0',
-        '4 0 1 2 3 0 0 0 0',
-      ].join('\n'),
+      content: ['OFF 4 1 0', '0 0 0', '1 0 0', '1 1 0', '0 1 0', '4 0 1 2 3 0 0 0 0'].join('\n'),
       fallbackColor: '#123456',
       version: 'zero-color',
     });

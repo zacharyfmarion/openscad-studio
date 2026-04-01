@@ -64,10 +64,7 @@ export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDia
       const selectedFormat = formatOptions.find((f) => f.value === format);
       if (!selectedFormat) return;
 
-      const exportBytes = await getRenderService().exportModel(
-        source,
-        format as WasmExportFormat
-      );
+      const exportBytes = await getRenderService().exportModel(source, format as WasmExportFormat);
 
       await getPlatform().fileExport(exportBytes, `export.${selectedFormat.ext}`, [
         { name: selectedFormat.label, extensions: [selectedFormat.ext] },
