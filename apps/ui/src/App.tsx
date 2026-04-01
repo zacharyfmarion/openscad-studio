@@ -454,7 +454,7 @@ function App() {
         }
       } else {
         // Web: single file project with no disk root
-        const name = fileName || 'Untitled.scad';
+        const name = fileName || DEFAULT_TAB_NAME;
         store.getState().openProject(null, { [name]: content }, name);
       }
     },
@@ -576,7 +576,7 @@ function App() {
   // Tab management functions
   const createNewTab = useCallback(
     (filePath?: string | null, content?: string, name?: string): string => {
-      const projectPath = name ?? 'Untitled';
+      const projectPath = name ?? DEFAULT_TAB_NAME;
       const defaultContent = '// Type your OpenSCAD code here\ncube([10, 10, 10]);';
 
       // Ensure the file exists in projectStore

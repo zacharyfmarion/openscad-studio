@@ -172,7 +172,7 @@ describe('resetToUntitledProject', () => {
     store.getState().resetToUntitledProject();
 
     expect(Object.keys(store.getState().files)).toHaveLength(1);
-    expect(store.getState().files['main.scad']).toBeUndefined();
+    expect(Object.keys(store.getState().files)).toEqual([DEFAULT_TAB_NAME]);
     expect(store.getState().files['lib/utils.scad']).toBeUndefined();
   });
 
