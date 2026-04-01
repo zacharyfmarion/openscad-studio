@@ -92,8 +92,7 @@ export function createProjectStore(initialState?: ProjectStoreState) {
           ...state.files,
           [relativePath]: createProjectFile(content, {
             isVirtual,
-            // Virtual files (web) have no disk to save to, so dirty is meaningless
-            isDirty: isVirtual ? false : true,
+            isDirty: true,
           }),
         },
         emptyFolders: newEmptyFolders,
@@ -112,8 +111,7 @@ export function createProjectStore(initialState?: ProjectStoreState) {
           [relativePath]: {
             ...file,
             content,
-            // Virtual files (web) have no disk to save to, so dirty is meaningless
-            isDirty: file.isVirtual ? false : content !== file.savedContent,
+            isDirty: content !== file.savedContent,
           },
         },
         contentVersion: state.contentVersion + 1,
