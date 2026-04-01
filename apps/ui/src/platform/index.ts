@@ -108,10 +108,11 @@ class BootstrapBridge implements PlatformBridge {
     this._hasDirtyState = dirty;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onCloseRequested(_handler: () => Promise<boolean>): () => void {
-    const bridge = this;
+    const hasDirty = () => this._hasDirtyState;
     const beforeUnload = (e: BeforeUnloadEvent) => {
-      if (bridge._hasDirtyState) {
+      if (hasDirty()) {
         e.preventDefault();
         e.returnValue = '';
       }

@@ -263,9 +263,9 @@ export class WebBridge implements PlatformBridge {
   }
 
   onCloseRequested(handler: () => Promise<boolean>): () => void {
-    const bridge = this;
+    const hasDirty = () => this._hasDirtyState;
     const beforeUnload = (e: BeforeUnloadEvent) => {
-      if (bridge._hasDirtyState) {
+      if (hasDirty()) {
         e.preventDefault();
         // Required by some browsers (Safari, legacy Chrome) to show the dialog
         e.returnValue = '';
