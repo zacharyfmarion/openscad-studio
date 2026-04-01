@@ -1454,8 +1454,9 @@ function App() {
         const result = await platform.fileRead(path);
         if (!result) return 'cancelled' as const;
 
-        // Initialize project store first so content is available
-        void initializeProject(result.path, result.name, result.content);
+        // Initialize project store and wait for all sibling files to load
+        // before proceeding — otherwise the render fires with missing includes
+        await initializeProject(result.path, result.name, result.content);
 
         const firstTab = tabs[0];
         const shouldReplaceFirstTab = showWelcome && tabs.length === 1 && !firstTab.filePath;
@@ -1535,8 +1536,9 @@ function App() {
         }
       }
 
-      // Initialize project store first so content is available
-      void initializeProject(result.path, result.name, result.content);
+      // Initialize project store and wait for all sibling files to load
+      // before proceeding — otherwise the render fires with missing includes
+      await initializeProject(result.path, result.name, result.content);
 
       const firstTab = tabs[0];
       const shouldReplaceFirstTab = showWelcome && tabs.length === 1 && !firstTab.filePath;
@@ -1658,8 +1660,8 @@ function App() {
             }
           }
 
-          // Initialize project store first so content is available
-          void initializeProject(result.path, result.name, result.content);
+          // Initialize project store and wait for all sibling files to load
+          await initializeProject(result.path, result.name, result.content);
           createNewTab(result.path, result.content, result.name);
           hideWelcomeScreen();
 
