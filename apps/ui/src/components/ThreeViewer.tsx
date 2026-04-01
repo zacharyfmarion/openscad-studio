@@ -12,17 +12,14 @@ import {
   Line,
   OrthographicCamera,
   PerspectiveCamera,
-  Wireframe as DreiWireframe,
 } from '@react-three/drei';
 import type { CameraControls as CameraControlsType } from '@react-three/drei';
-import { STLLoader } from 'three-stdlib';
 import * as THREE from 'three';
 import { useTheme } from '../contexts/ThemeContext';
 import { getPreviewSceneStyle, type PreviewSceneStyle } from '../services/previewSceneConfig';
 import {
   boxFitsCameraView,
   boxUnderfillsCameraView,
-  buildModelFrame,
   derivePreviewAxisMetrics,
   derivePreviewFramingMetrics,
   derivePreviewGridMetrics,
@@ -36,6 +33,12 @@ import {
   disposePreviewAxesOverlay,
   type PreviewAxisLabelVisibility,
 } from '../services/previewAxes';
+import {
+  buildPreview3dObject,
+  loadOffPreviewModelFromUrl,
+  type BuiltPreview3dObject,
+  type ParsedPreview3dModel,
+} from '../services/preview3dModel';
 import { threeToOpenScadDelta } from '../services/coordinateTransform';
 import { createViewerInteractionConfig } from './viewerInteractionConfig';
 import { ViewerToolPalette } from './three-viewer/ViewerToolPalette';
@@ -89,7 +92,7 @@ import { notifyError, notifySuccess } from '../utils/notifications';
 import type Konva from 'konva';
 
 interface ThreeViewerProps {
-  stlPath: string;
+  preview3dPath: string;
   isLoading?: boolean;
   viewerId?: string;
   onVisualReady?: () => void;
@@ -158,133 +161,104 @@ function formatVector3(vector: THREE.Vector3 | null) {
   return `x ${formatValue(vector.x)}  y ${formatValue(vector.y)}  z ${formatValue(vector.z)}`;
 }
 
-function STLModel({
+function Preview3DModel({
   url,
   wireframe,
   sceneStyle,
-  sectionPlane,
+  useModelColors,
   onModelFrameChange,
   onModelChange,
 }: {
   url: string;
   wireframe: boolean;
   sceneStyle: PreviewSceneStyle;
-  sectionPlane: THREE.Plane | null;
+  useModelColors: boolean;
   onModelFrameChange: (frame: ModelFrame | null) => void;
   onModelChange: (model: LoadedPreviewModel | null) => void;
 }) {
-  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
-  const meshRef = useRef<THREE.Mesh>(null);
-  const groupRef = useRef<THREE.Group>(null);
+  const [parsedModel, setParsedModel] = useState<ParsedPreview3dModel | null>(null);
 
   useEffect(() => {
-    const loader = new STLLoader();
     let cancelled = false;
-
-    loader.load(
+    void loadOffPreviewModelFromUrl({
       url,
-      (loadedGeometry) => {
-        loadedGeometry.computeVertexNormals();
-
+      fallbackColor: sceneStyle.modelColor,
+      version: url,
+    })
+      .then((model) => {
         if (cancelled) {
-          loadedGeometry.dispose();
+          model.dispose();
           return;
         }
 
-        setGeometry((previousGeometry) => {
-          previousGeometry?.dispose();
-          return loadedGeometry;
+        setParsedModel((previousModel) => {
+          previousModel?.dispose();
+          return model;
         });
-      },
-      undefined,
-      (error) => {
+      })
+      .catch((error) => {
         if (!cancelled) {
           onModelFrameChange(null);
           onModelChange(null);
-          console.error('Error loading STL:', error);
+          console.error('Error loading OFF preview:', error);
         }
-      }
-    );
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [onModelChange, onModelFrameChange, url]);
+  }, [onModelChange, onModelFrameChange, sceneStyle.modelColor, url]);
 
   useEffect(() => {
     return () => {
-      geometry?.dispose();
+      parsedModel?.dispose();
       onModelChange(null);
       onModelFrameChange(null);
     };
-  }, [geometry, onModelChange, onModelFrameChange]);
+  }, [onModelChange, onModelFrameChange, parsedModel]);
+
+  const builtModel = useMemo<BuiltPreview3dObject | null>(() => {
+    if (!parsedModel) {
+      return null;
+    }
+
+    return buildPreview3dObject({
+      parsed: parsedModel,
+      sceneStyle,
+      useModelColors,
+      wireframe,
+    });
+  }, [parsedModel, sceneStyle, useModelColors, wireframe]);
 
   useEffect(() => {
-    if (!geometry || !meshRef.current || !groupRef.current) {
+    if (!builtModel || !parsedModel) {
       return;
     }
 
-    const modelFrame = buildModelFrame(geometry, url);
-    onModelFrameChange(modelFrame);
+    onModelFrameChange(parsedModel.frame);
     onModelChange({
-      root: groupRef.current,
-      meshes: [meshRef.current],
-      bounds: modelFrame.box.clone(),
-      size: modelFrame.size.clone(),
-      center: modelFrame.center.clone(),
-      diagonal: modelFrame.size.length(),
-      version: modelFrame.version,
+      root: builtModel.root,
+      meshes: builtModel.meshes,
+      bounds: parsedModel.frame.box.clone(),
+      size: parsedModel.frame.size.clone(),
+      center: parsedModel.frame.center.clone(),
+      diagonal: parsedModel.frame.size.length(),
+      version: parsedModel.frame.version,
     });
-  }, [geometry, onModelChange, onModelFrameChange, url]);
+  }, [builtModel, onModelChange, onModelFrameChange, parsedModel]);
 
-  if (!geometry) {
+  useEffect(
+    () => () => {
+      builtModel?.dispose();
+    },
+    [builtModel]
+  );
+
+  if (!builtModel) {
     return null;
   }
 
-  return (
-    <group ref={groupRef} name="modelContainer">
-      <mesh
-        ref={meshRef}
-        geometry={geometry}
-        castShadow
-        receiveShadow
-        rotation={[-Math.PI / 2, 0, 0]}
-      >
-        {wireframe ? (
-          sectionPlane ? (
-            <meshBasicMaterial
-              wireframe
-              color={sceneStyle.modelColor}
-              clippingPlanes={[sectionPlane]}
-            />
-          ) : (
-            <>
-              <meshBasicMaterial
-                color={sceneStyle.modelColor}
-                transparent
-                opacity={0.2}
-                side={THREE.DoubleSide}
-              />
-              <DreiWireframe
-                geometry={geometry}
-                stroke={sceneStyle.modelColor}
-                thickness={0.05}
-                fillOpacity={0}
-                strokeOpacity={0.9}
-              />
-            </>
-          )
-        ) : (
-          <meshStandardMaterial
-            color={sceneStyle.modelColor}
-            metalness={sceneStyle.material.metalness}
-            roughness={sceneStyle.material.roughness}
-            envMapIntensity={sceneStyle.material.envMapIntensity}
-          />
-        )}
-      </mesh>
-    </group>
-  );
+  return <primitive object={builtModel.root} />;
 }
 
 function SelectionBoundsOverlay({
@@ -1052,7 +1026,7 @@ function EnvironmentWithFallback({ preset }: { preset: string }) {
 }
 
 export function ThreeViewer({
-  stlPath,
+  preview3dPath,
   isLoading,
   viewerId,
   onVisualReady,
@@ -1074,6 +1048,7 @@ export function ThreeViewer({
   const [modelFrame, setModelFrame] = useState<ModelFrame | null>(null);
   const [loadedModel, setLoadedModel] = useState<LoadedPreviewModel | null>(null);
   const lastVisualReadyVersionRef = useRef<string | null>(null);
+  const lastLoadedGeometryVersionRef = useRef<string | null>(null);
   const [orthographic, setOrthographic] = useState(false);
   const [wireframe, setWireframe] = useState(false);
   const [previewSurfaceSize, setPreviewSurfaceSize] = useState({ width: 0, height: 0 });
@@ -1108,6 +1083,7 @@ export function ThreeViewer({
   const showAxisLabels = settings.viewer.showAxisLabels;
   const showGrid = settings.viewer.show3DGrid;
   const showShadows = settings.viewer.showShadows;
+  const showModelColors = settings.viewer.showModelColors;
   const showViewcube = settings.viewer.showViewcube;
   const snapEnabled = settings.viewer.measurementSnapEnabled;
   const showSelectionInfo = settings.viewer.showSelectionInfo;
@@ -1156,6 +1132,7 @@ export function ThreeViewer({
 
   useEffect(() => {
     if (!loadedModel) {
+      lastLoadedGeometryVersionRef.current = null;
       setSelection(EMPTY_SELECTION);
       setHoverSelection(EMPTY_SELECTION);
       setMeasurements([]);
@@ -1166,6 +1143,11 @@ export function ThreeViewer({
       setIsAttachingAnnotation(false);
       return;
     }
+
+    if (lastLoadedGeometryVersionRef.current === loadedModel.version) {
+      return;
+    }
+    lastLoadedGeometryVersionRef.current = loadedModel.version;
 
     setSelection(EMPTY_SELECTION);
     setHoverSelection(EMPTY_SELECTION);
@@ -1563,7 +1545,7 @@ export function ThreeViewer({
   };
 
   useEffect(() => {
-    if (loadedModel?.version !== stlPath) {
+    if (loadedModel?.version !== preview3dPath) {
       return;
     }
 
@@ -1573,7 +1555,7 @@ export function ThreeViewer({
 
     lastVisualReadyVersionRef.current = loadedModel.version;
     onVisualReady?.();
-  }, [loadedModel, onVisualReady, stlPath]);
+  }, [loadedModel, onVisualReady, preview3dPath]);
 
   const selectionSource = selection.objectUuid ? selection : hoverSelection;
 
@@ -1721,7 +1703,7 @@ export function ThreeViewer({
               style={{
                 backgroundColor: 'rgba(0, 0, 0, 0.32)',
                 border: '1px solid var(--border-secondary)',
-                color: 'var(--text-tertiary)',
+                color: 'var(--text-primary)',
                 backdropFilter: 'blur(8px)',
                 maxWidth: '360px',
                 padding: '10px 38px 10px 12px',
@@ -1736,7 +1718,7 @@ export function ThreeViewer({
                 style={{
                   width: '20px',
                   height: '20px',
-                  color: 'var(--text-tertiary)',
+                  color: 'var(--text-secondary)',
                 }}
                 title="Dismiss controls hint"
                 aria-label="Dismiss controls hint"
@@ -1836,11 +1818,11 @@ export function ThreeViewer({
               )}
             </group>
 
-            <STLModel
-              url={stlPath}
+            <Preview3DModel
+              url={preview3dPath}
               wireframe={wireframe}
               sceneStyle={sceneStyle}
-              sectionPlane={sectionPlane}
+              useModelColors={showModelColors}
               onModelFrameChange={setModelFrame}
               onModelChange={setLoadedModel}
             />

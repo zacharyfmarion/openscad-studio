@@ -462,7 +462,12 @@ function App() {
   );
 
   const handleOpenSharedDocument = useCallback(
-    (share: { title: string; code: string; files?: Record<string, string>; renderTarget?: string }) => {
+    (share: {
+      title: string;
+      code: string;
+      files?: Record<string, string>;
+      renderTarget?: string;
+    }) => {
       setShowNux(false);
       if (share.files && share.renderTarget) {
         const store = getProjectStore();
@@ -568,8 +573,9 @@ function App() {
     setCurrentModel,
     handleRestoreCheckpoint,
     updateCapturePreview,
-    updateStlBlobUrl,
+    update3dPreviewUrl,
     updatePreviewSceneStyle,
+    updateUseModelColors,
     loadModelAndProviders,
   } = useAiAgent();
 
@@ -999,8 +1005,8 @@ function App() {
   }, [tabs]);
 
   useEffect(() => {
-    updateStlBlobUrl(activePreviewKind === 'mesh' && activePreviewSrc ? activePreviewSrc : null);
-  }, [activePreviewKind, activePreviewSrc, updateStlBlobUrl]);
+    update3dPreviewUrl(activePreviewKind === 'mesh' && activePreviewSrc ? activePreviewSrc : null);
+  }, [activePreviewKind, activePreviewSrc, update3dPreviewUrl]);
   useEffect(() => {
     updateCapturePreview(() =>
       captureCurrentPreview({
@@ -1015,6 +1021,10 @@ function App() {
   useEffect(() => {
     updatePreviewSceneStyle(previewSceneStyle);
   }, [previewSceneStyle, updatePreviewSceneStyle]);
+
+  useEffect(() => {
+    updateUseModelColors(settings.viewer.showModelColors);
+  }, [settings.viewer.showModelColors, updateUseModelColors]);
 
   useEffect(() => {
     if (isShareEntry) {
@@ -1957,10 +1967,9 @@ function App() {
       if (eventSource !== 'customizer') {
         store.setCustomizerBase(projectPath, code);
       }
-      requestRender(
-        eventSource === 'history' ? 'history_restore' : 'code_update',
-        { immediate: true }
-      );
+      requestRender(eventSource === 'history' ? 'history_restore' : 'code_update', {
+        immediate: true,
+      });
     });
     return unlisten;
   }, []);
@@ -2518,8 +2527,9 @@ function App() {
             targetHeight: 630,
           })
         }
-        stlBlobUrl={activePreviewKind === 'mesh' ? activePreviewSrc : null}
+        preview3dUrl={activePreviewKind === 'mesh' ? activePreviewSrc : null}
         previewKind={activePreviewKind}
+        useModelColors={settings.viewer.showModelColors}
       />
 
       <SettingsDialog

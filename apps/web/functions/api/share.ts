@@ -31,15 +31,10 @@ function isStringRecord(value: unknown): value is Record<string, string> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return false;
   }
-  return Object.entries(value as Record<string, unknown>).every(
-    ([, v]) => typeof v === 'string'
-  );
+  return Object.entries(value as Record<string, unknown>).every(([, v]) => typeof v === 'string');
 }
 
-function validateProjectFiles(
-  files: Record<string, string>,
-  renderTarget: string
-): string | null {
+function validateProjectFiles(files: Record<string, string>, renderTarget: string): string | null {
   const paths = Object.keys(files);
   if (paths.length === 0) {
     return 'Project must contain at least one file.';

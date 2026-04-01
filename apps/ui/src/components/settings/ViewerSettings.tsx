@@ -39,6 +39,14 @@ const VIEWER_3D_ROWS: ViewerRow[] = [
     description: 'Keep contact shadows enabled in the 3D viewer.',
   },
   {
+    key: 'showModelColors',
+    id: 'viewer-show-model-colors',
+    testId: 'settings-viewer-show-model-colors',
+    label: 'Show model colors',
+    description:
+      'Use OpenSCAD color() and alpha values in the 3D preview. Turn this off to render all geometry with the theme preview material instead.',
+  },
+  {
     key: 'showViewcube',
     id: 'viewer-show-viewcube',
     label: 'Show viewcube',

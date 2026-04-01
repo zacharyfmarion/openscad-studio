@@ -74,10 +74,7 @@ const DEFAULT_AXIS_METRICS: PreviewAxisMetrics = {
   labelPrecision: 0,
 };
 
-export function buildModelFrame(geometry: THREE.BufferGeometry, version: string): ModelFrame {
-  geometry.computeBoundingBox();
-
-  const sourceBox = geometry.boundingBox?.clone() ?? new THREE.Box3();
+export function buildModelFrameFromSourceBox(sourceBox: THREE.Box3, version: string): ModelFrame {
   const rotatedBox = sourceBox.clone().applyMatrix4(MODEL_ROTATION);
   const center = rotatedBox.getCenter(new THREE.Vector3());
   const rawSize = rotatedBox.getSize(new THREE.Vector3());
@@ -95,6 +92,13 @@ export function buildModelFrame(geometry: THREE.BufferGeometry, version: string)
     maxDim: Math.max(size.x, size.y, size.z),
     version,
   };
+}
+
+export function buildModelFrame(geometry: THREE.BufferGeometry, version: string): ModelFrame {
+  geometry.computeBoundingBox();
+
+  const sourceBox = geometry.boundingBox?.clone() ?? new THREE.Box3();
+  return buildModelFrameFromSourceBox(sourceBox, version);
 }
 
 export function derivePreviewFramingMetrics(

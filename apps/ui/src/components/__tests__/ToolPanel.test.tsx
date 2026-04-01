@@ -9,6 +9,13 @@ describe('ToolPanel', () => {
     expect(screen.getByText('Measure')).toBeInTheDocument();
   });
 
+  it('keeps a bounded flex layout so child panels can scroll internally', () => {
+    render(<ToolPanel label="Measure">content</ToolPanel>);
+    const panel = screen.getByRole('button').parentElement;
+
+    expect(panel).toHaveClass('flex', 'flex-col', 'max-h-[calc(100%-1.5rem)]');
+  });
+
   it('shows children when expanded (default)', () => {
     render(<ToolPanel label="Test">child content</ToolPanel>);
     expect(screen.getByText('child content')).toBeInTheDocument();

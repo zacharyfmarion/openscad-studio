@@ -20,10 +20,7 @@ export interface ProjectSharePayload {
   renderTarget: string;
 }
 
-export function extractPrimaryCode(
-  share: ShareRecord,
-  decompressed: string
-): string {
+export function extractPrimaryCode(share: ShareRecord, decompressed: string): string {
   if (share.format === 'project') {
     const payload = JSON.parse(decompressed) as ProjectSharePayload;
     return payload.files[payload.renderTarget] ?? '';

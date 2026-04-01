@@ -11,8 +11,9 @@ import type { MeasurementUnit } from '../stores/settingsStore';
 
 export interface AiToolCallbacks {
   captureCurrentView: () => Promise<string | null>;
-  getStlBlobUrl: () => string | null;
+  get3dPreviewUrl: () => string | null;
   getPreviewSceneStyle: () => PreviewSceneStyle;
+  getUseModelColors: () => boolean;
   /** Returns all project file paths sorted alphabetically */
   listProjectFiles: () => string[];
   /** Read a file's content by relative path (returns null if not found) */
@@ -201,7 +202,9 @@ export function buildTools(callbacks: AiToolCallbacks) {
             const lines = content.split('\n');
             if (lines.length > MAX_CONTEXT_LINES) {
               const truncated = lines.slice(0, TRUNCATION_LINES).join('\n');
-              parts.push(`\n--- ${renderTarget} (showing ${TRUNCATION_LINES} of ${lines.length} lines) ---\n${truncated}\n\n[Truncated. Use read_file to see the full content.]`);
+              parts.push(
+                `\n--- ${renderTarget} (showing ${TRUNCATION_LINES} of ${lines.length} lines) ---\n${truncated}\n\n[Truncated. Use read_file to see the full content.]`
+              );
             } else {
               parts.push(`\n--- ${renderTarget} ---\n${content}`);
             }
@@ -303,8 +306,8 @@ export function buildTools(callbacks: AiToolCallbacks) {
           };
         }
 
-        const stlUrl = callbacks.getStlBlobUrl();
-        if (!stlUrl) {
+        const preview3dUrl = callbacks.get3dPreviewUrl();
+        if (!preview3dUrl) {
           return {
             error:
               'No 3D model available for angle-specific views. Render the code first, or use view="current" to capture the 2D SVG preview.',
@@ -320,7 +323,8 @@ export function buildTools(callbacks: AiToolCallbacks) {
             opts.view = view;
           }
           opts.sceneStyle = callbacks.getPreviewSceneStyle();
-          const dataUrl = await captureOffscreen(stlUrl, opts);
+          opts.useModelColors = callbacks.getUseModelColors();
+          const dataUrl = await captureOffscreen(preview3dUrl, opts);
           return { image_data_url: dataUrl };
         } catch (err) {
           return {

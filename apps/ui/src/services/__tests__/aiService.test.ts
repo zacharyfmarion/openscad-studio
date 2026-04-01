@@ -1,11 +1,17 @@
 import { jest } from '@jest/globals';
 
+const mockCaptureOffscreen = jest.fn(async () => 'data:image/png;base64,AAA=');
+
 jest.unstable_mockModule('@/services/renderService', () => ({
   RenderService: {
     getInstance: () => ({
       checkSyntax: async () => ({ diagnostics: [] }),
     }),
   },
+}));
+
+jest.unstable_mockModule('@/services/offscreenRenderer', () => ({
+  captureOffscreen: (...args: unknown[]) => mockCaptureOffscreen(...args),
 }));
 
 import { FALLBACK_PREVIEW_SCENE_STYLE } from '../previewSceneConfig';
@@ -20,8 +26,9 @@ type ExecutableTool = {
 function createCallbacks(overrides: Partial<AiToolCallbacks> = {}): AiToolCallbacks {
   return {
     captureCurrentView: async () => null,
-    getStlBlobUrl: () => null,
+    get3dPreviewUrl: () => null,
     getPreviewSceneStyle: () => FALLBACK_PREVIEW_SCENE_STYLE,
+    getUseModelColors: () => true,
     listProjectFiles: () => ['lib/utils.scad', 'main.scad', 'parts/base.scad', 'parts/lid.scad'],
     readProjectFile: (path: string) => {
       const files: Record<string, string> = {
@@ -77,9 +84,10 @@ describe('buildTools', () => {
     });
 
     it('handles no render target', async () => {
-      const tools = buildTools(
-        createCallbacks({ getRenderTargetPath: () => null })
-      ) as Record<string, ExecutableTool>;
+      const tools = buildTools(createCallbacks({ getRenderTargetPath: () => null })) as Record<
+        string,
+        ExecutableTool
+      >;
 
       const result = (await tools.get_project_context.execute({})) as string;
 
@@ -144,9 +152,10 @@ describe('buildTools', () => {
     });
 
     it('returns message for empty project', async () => {
-      const tools = buildTools(
-        createCallbacks({ listProjectFiles: () => [] })
-      ) as Record<string, ExecutableTool>;
+      const tools = buildTools(createCallbacks({ listProjectFiles: () => [] })) as Record<
+        string,
+        ExecutableTool
+      >;
 
       const result = (await tools.list_folder_contents.execute({})) as string;
 
@@ -313,5 +322,27 @@ describe('buildTools', () => {
 
       expect(result).toContain('✅ No errors or warnings');
     });
+  });
+
+  it('captures off-angle screenshots through the generic 3D preview callback', async () => {
+    const tools = buildTools(
+      createCallbacks({
+        get3dPreviewUrl: () => 'blob:preview-3d',
+      })
+    ) as Record<string, ExecutableTool>;
+
+    const result = (await tools.get_preview_screenshot.execute({
+      view: 'isometric',
+    })) as { image_data_url: string };
+
+    expect(result.image_data_url).toBe('data:image/png;base64,AAA=');
+    expect(mockCaptureOffscreen).toHaveBeenCalledWith(
+      'blob:preview-3d',
+      expect.objectContaining({
+        view: 'isometric',
+        sceneStyle: FALLBACK_PREVIEW_SCENE_STYLE,
+        useModelColors: true,
+      })
+    );
   });
 });

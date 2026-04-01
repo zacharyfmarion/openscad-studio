@@ -228,7 +228,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           setDiagnostics(cached.diagnostics);
           setPreviewKind(cached.kind);
 
-          const mimeType = cached.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
+          const mimeType = cached.kind === 'mesh' ? 'text/plain;charset=utf-8' : 'image/svg+xml';
           const blob = new Blob([cached.output], { type: mimeType });
           const blobUrl = URL.createObjectURL(blob);
           prevBlobUrlRef.current = blobUrl;
@@ -292,7 +292,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         // Revoke previous Blob URL to prevent memory leaks
         if (result.output.length > 0) {
           // Create Blob URL from output bytes
-          const mimeType = result.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
+          const mimeType = result.kind === 'mesh' ? 'text/plain;charset=utf-8' : 'image/svg+xml';
           const blob = new Blob([result.output], { type: mimeType });
           const blobUrl = URL.createObjectURL(blob);
           prevBlobUrlRef.current = blobUrl;
@@ -344,7 +344,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
               setPreviewKind(retryResult.kind);
 
               const mimeType =
-                retryResult.kind === 'mesh' ? 'application/octet-stream' : 'image/svg+xml';
+                retryResult.kind === 'mesh' ? 'text/plain;charset=utf-8' : 'image/svg+xml';
               const blob = new Blob([retryResult.output], { type: mimeType });
               const blobUrl = URL.createObjectURL(blob);
               prevBlobUrlRef.current = blobUrl;

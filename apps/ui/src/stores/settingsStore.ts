@@ -30,6 +30,7 @@ export interface ViewerSettings {
   showAxisLabels: boolean;
   show3DGrid: boolean;
   showShadows: boolean;
+  showModelColors: boolean;
   showViewcube: boolean;
   measurementSnapEnabled: boolean;
   showSelectionInfo: boolean;
@@ -111,6 +112,7 @@ const DEFAULT_SETTINGS: Settings = {
     showAxisLabels: true,
     show3DGrid: true,
     showShadows: true,
+    showModelColors: true,
     showViewcube: true,
     measurementSnapEnabled: true,
     showSelectionInfo: true,

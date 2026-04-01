@@ -96,8 +96,9 @@ describe('useAiAgent', () => {
     let capturedCallbacks:
       | {
           captureCurrentView: () => Promise<string | null>;
-          getStlBlobUrl: () => string | null;
+          get3dPreviewUrl: () => string | null;
           getPreviewSceneStyle: () => unknown;
+          getUseModelColors: () => boolean;
           listProjectFiles: () => string[];
           readProjectFile: (path: string) => string | null;
           getRenderTargetPath: () => string | null;
@@ -124,14 +125,16 @@ describe('useAiAgent', () => {
 
     act(() => {
       hook.current().updateCapturePreview(async () => 'data:image/png;base64,abc');
-      hook.current().updateStlBlobUrl('blob:mesh');
+      hook.current().update3dPreviewUrl('blob:mesh');
       hook.current().updatePreviewSceneStyle({ type: 'presentation' } as never);
+      hook.current().updateUseModelColors(false);
     });
 
     expect(capturedCallbacks).toBeDefined();
     expect(await capturedCallbacks!.captureCurrentView()).toBe('data:image/png;base64,abc');
-    expect(capturedCallbacks!.getStlBlobUrl()).toBe('blob:mesh');
+    expect(capturedCallbacks!.get3dPreviewUrl()).toBe('blob:mesh');
     expect(capturedCallbacks!.getPreviewSceneStyle()).toEqual({ type: 'presentation' });
+    expect(capturedCallbacks!.getUseModelColors()).toBe(false);
     expect(capturedCallbacks!.listProjectFiles()).toEqual(['lib/utils.scad', 'main.scad']);
     expect(capturedCallbacks!.readProjectFile('lib/utils.scad')).toBe('module helper() {}');
     expect(capturedCallbacks!.readProjectFile('main.scad')).toBe('cube(42);');

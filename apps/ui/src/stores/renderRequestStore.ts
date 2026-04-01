@@ -20,10 +20,7 @@ interface RenderRequestState {
 
 interface RenderRequestActions {
   /** Request a render. The orchestrator will pick it up and dispatch to useOpenScad. */
-  requestRender: (
-    trigger: RenderTrigger,
-    opts?: { immediate?: boolean; code?: string }
-  ) => void;
+  requestRender: (trigger: RenderTrigger, opts?: { immediate?: boolean; code?: string }) => void;
   /** Mark the current request as consumed (called by the orchestrator). */
   consumeRequest: () => void;
 }
