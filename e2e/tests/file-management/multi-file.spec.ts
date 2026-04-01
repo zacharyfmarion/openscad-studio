@@ -229,4 +229,55 @@ test.describe('Multi-file project', () => {
     // Preview should show the sphere without include errors
     await expect(app.previewCanvas3D).toBeVisible();
   });
+
+  test('saving a nested file preserves its folder structure', async ({ app }) => {
+    await app.waitForRender();
+    await ensureFileTreeVisible(app.page);
+
+    // Create a file inside a subfolder by typing a path with slash
+    await app.page.locator('button[title="New file"]').click();
+    await app.page.waitForTimeout(500);
+    const renameInput = app.page.getByTestId('rename-input');
+    await renameInput.fill('lib/shapes.scad');
+    await renameInput.press('Enter');
+    await app.page.waitForTimeout(500);
+
+    // A "lib" folder should appear in the tree — expand it to see the file
+    const libFolder = app.page.locator('span:has-text("lib")').first();
+    await expect(libFolder).toBeVisible();
+    await libFolder.click();
+    await app.page.waitForTimeout(300);
+
+    // The nested file should be visible inside the expanded folder
+    const shapesBtn = app.page.locator('button[title="shapes.scad"]');
+    await expect(shapesBtn).toBeVisible();
+
+    // The file should already be active (just created), type content and save
+    await setMonacoValue(app.page, 'module my_shape() { sphere(5); }');
+    await app.page.waitForTimeout(300);
+    await app.page.keyboard.press('Meta+S');
+    await app.page.waitForTimeout(500);
+
+    // Switch to main.scad, then back to the nested file
+    await app.page.locator('button[title="main.scad"]').click();
+    await app.page.waitForTimeout(500);
+
+    // The nested file should still be under "lib" — not moved to root
+    await expect(shapesBtn).toBeVisible();
+    await shapesBtn.click();
+    await app.page.waitForTimeout(500);
+
+    // Content should persist after save + tab switch
+    const content = await getMonacoValue(app.page);
+    expect(content).toContain('my_shape');
+
+    // Verify include resolution still works from main.scad
+    await app.page.locator('button[title="main.scad"]').click();
+    await app.page.waitForTimeout(500);
+    await setMonacoValue(app.page, 'use <lib/shapes.scad>\nmy_shape();');
+    await app.page.waitForTimeout(300);
+    await app.triggerRender();
+    await app.waitForRender();
+    await expect(app.previewCanvas3D).toBeVisible();
+  });
 });

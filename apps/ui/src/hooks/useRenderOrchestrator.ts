@@ -4,7 +4,7 @@ import { useRenderRequestStore } from '../stores/renderRequestStore';
 import { useProjectStore } from '../stores/projectStore';
 import type { RenderTrigger } from '../analytics/runtime';
 import type { LibrarySettings } from '../stores/settingsStore';
-import type { RenderService } from '../services/renderService';
+import type { IRenderService } from '../services/renderService';
 import { useAnalytics } from '../analytics/runtime';
 import { getPlatform } from '../platform';
 import { resolveWorkingDirDeps } from '../utils/resolveWorkingDirDeps';
@@ -27,7 +27,7 @@ interface UseRenderOrchestratorOptions {
   }) => void;
   testOverrides?: {
     analytics?: ReturnType<typeof useAnalytics>;
-    renderService?: RenderService;
+    renderService?: IRenderService;
     getPlatform?: typeof getPlatform;
     resolveWorkingDirDeps?: typeof resolveWorkingDirDeps;
     notifyError?: typeof notifyError;

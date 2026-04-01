@@ -3,7 +3,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { eventBus, historyService } from '../platform';
-import { RenderService } from './renderService';
+import { getRenderService } from './renderService';
 import { captureOffscreen, type CaptureOptions } from './offscreenRenderer';
 import type { PreviewSceneStyle } from './previewSceneConfig';
 import type { AiProvider } from '../stores/apiKeyStore';
@@ -415,7 +415,7 @@ export function buildTools(callbacks: AiToolCallbacks) {
       execute: async () => {
         const renderTarget = callbacks.getRenderTargetPath();
         const currentCode = renderTarget ? (callbacks.readProjectFile(renderTarget) ?? '') : '';
-        const result = await RenderService.getInstance().checkSyntax(currentCode);
+        const result = await getRenderService().checkSyntax(currentCode);
 
         if (result.diagnostics.length === 0) {
           return '✅ No errors or warnings. The code compiles successfully.';

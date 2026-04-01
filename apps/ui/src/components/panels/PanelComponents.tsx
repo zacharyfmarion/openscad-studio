@@ -12,7 +12,7 @@ import { PanelErrorBoundary } from '../ErrorBoundary';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useProjectStore } from '../../stores/projectStore';
 import { isExportValidationError } from '../../services/exportErrors';
-import { RenderService } from '../../services/renderService';
+import { getRenderService } from '../../services/renderService';
 import { getPlatform } from '../../platform';
 import { notifyError } from '../../utils/notifications';
 import { useAnalytics } from '../../analytics/runtime';
@@ -168,7 +168,7 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
     if (isDownloadingStl) return;
     setIsDownloadingStl(true);
     try {
-      const exportBytes = await RenderService.getInstance().exportModel(source, 'stl');
+      const exportBytes = await getRenderService().exportModel(source, 'stl');
       await getPlatform().fileExport(exportBytes, 'export.stl', [
         { name: 'STL Files', extensions: ['stl'] },
       ]);
@@ -191,7 +191,7 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
     if (isDownloadingSvg) return;
     setIsDownloadingSvg(true);
     try {
-      const exportBytes = await RenderService.getInstance().exportModel(source, 'svg');
+      const exportBytes = await getRenderService().exportModel(source, 'svg');
       await getPlatform().fileExport(exportBytes, 'export.svg', [
         { name: 'SVG Files', extensions: ['svg'] },
       ]);

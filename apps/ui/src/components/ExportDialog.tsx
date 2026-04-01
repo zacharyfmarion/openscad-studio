@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAnalytics } from '../analytics/runtime';
 import { getPlatform, type ExportFormat } from '../platform';
 import { isExportValidationError } from '../services/exportErrors';
-import { RenderService, type ExportFormat as WasmExportFormat } from '../services/renderService';
+import { getRenderService, type ExportFormat as WasmExportFormat } from '../services/renderService';
 import {
   Button,
   IconButton,
@@ -64,7 +64,7 @@ export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDia
       const selectedFormat = formatOptions.find((f) => f.value === format);
       if (!selectedFormat) return;
 
-      const exportBytes = await RenderService.getInstance().exportModel(
+      const exportBytes = await getRenderService().exportModel(
         source,
         format as WasmExportFormat
       );

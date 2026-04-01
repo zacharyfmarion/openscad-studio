@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAnalytics, type RenderTrigger } from '../analytics/runtime';
-import { RenderService, type Diagnostic } from '../services/renderService';
+import { getRenderService, type IRenderService, type Diagnostic } from '../services/renderService';
 import { getPlatform } from '../platform';
 import type { LibrarySettings } from '../stores/settingsStore';
 import { resolveWorkingDirDeps } from '../utils/resolveWorkingDirDeps';
@@ -44,7 +44,7 @@ interface UseOpenScadOptions {
   }) => void;
   testOverrides?: {
     analytics?: ReturnType<typeof useAnalytics>;
-    renderService?: RenderService;
+    renderService?: IRenderService;
     getPlatform?: typeof getPlatform;
     resolveWorkingDirDeps?: typeof resolveWorkingDirDeps;
     notifyError?: typeof notifyError;
@@ -83,8 +83,8 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   // Track Blob URLs for cleanup
   const prevBlobUrlRef = useRef<string>('');
 
-  const renderServiceRef = useRef<RenderService>(
-    testOverrides?.renderService ?? RenderService.getInstance()
+  const renderServiceRef = useRef<IRenderService>(
+    testOverrides?.renderService ?? getRenderService()
   );
   const [auxiliaryFiles, setAuxiliaryFiles] = useState<Record<string, string>>({});
   const auxiliaryFilesRef = useRef<Record<string, string>>({});
@@ -256,17 +256,32 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         let renderAuxFiles = libraryFilesRef.current;
         const projectFiles = getAuxiliaryFilesForRender(getProjectState());
 
-        if (workingDir || Object.keys(projectFiles).length > 0) {
+        // Always include all project files so sibling includes resolve for
+        // nested render targets (e.g. examples/keebcu/foo.scad including
+        // constants.scad).  The resolver adds any additional disk-only files
+        // (e.g. library deps not in the project store).
+        if (Object.keys(projectFiles).length > 0) {
+          renderAuxFiles = { ...libraryFilesRef.current, ...projectFiles };
+        }
+
+        if (workingDir) {
           const platform = getPlatformImpl();
+          const renderTargetPath = getProjectState().renderTargetPath;
+          const rtLastSlash = renderTargetPath?.lastIndexOf('/') ?? -1;
+          const renderTargetDir =
+            renderTargetPath && rtLastSlash > 0
+              ? renderTargetPath.substring(0, rtLastSlash)
+              : undefined;
           const workingDirFiles = await resolveWorkingDirDepsImpl(code, {
-            workingDir: workingDir ?? '/virtual',
+            workingDir,
             libraryFiles: libraryFilesRef.current,
             platform,
             projectFiles,
+            renderTargetDir,
           });
 
           if (Object.keys(workingDirFiles).length > 0) {
-            renderAuxFiles = { ...libraryFilesRef.current, ...workingDirFiles };
+            renderAuxFiles = { ...renderAuxFiles, ...workingDirFiles };
           }
         }
 
@@ -283,6 +298,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           view: dimension,
           backend: 'manifold',
           auxiliaryFiles: Object.keys(renderAuxFiles).length > 0 ? renderAuxFiles : undefined,
+          inputPath: getProjectState().renderTargetPath ?? undefined,
         });
 
         setDimensionMode(resolvedDimension);

@@ -24,6 +24,9 @@ export interface RenderOptions {
   view?: '2d' | '3d';
   backend?: 'manifold' | 'cgal' | 'auto';
   auxiliaryFiles?: Record<string, string>;
+  /** Project-relative path of the render target (e.g. "examples/keebcu/foo.scad").
+   *  Passed to the worker so the input file is written at the correct nested path. */
+  inputPath?: string;
 }
 
 export interface RenderResult {
@@ -146,7 +149,26 @@ class RenderCache {
 }
 
 // ============================================================================
-// RenderService
+// IRenderService interface
+// ============================================================================
+
+export interface IRenderService {
+  init(): Promise<void>;
+  render(code: string, options?: RenderOptions): Promise<RenderResult>;
+  getCached(code: string, options?: RenderOptions): Promise<RenderResult | null>;
+  exportModel(
+    code: string,
+    format: ExportFormat,
+    options?: { backend?: 'manifold' | 'cgal' | 'auto' }
+  ): Promise<Uint8Array>;
+  checkSyntax(code: string): Promise<SyntaxCheckResult>;
+  cancel(): void;
+  clearCache(): void;
+  dispose(): void;
+}
+
+// ============================================================================
+// WasmRenderService (Web Worker–based, used on web)
 // ============================================================================
 
 type PendingRequest = {
@@ -154,22 +176,13 @@ type PendingRequest = {
   reject: (error: Error) => void;
 };
 
-let globalInstance: RenderService | null = null;
-
-export class RenderService {
+export class WasmRenderService implements IRenderService {
   private worker: Worker | null = null;
   private pending = new Map<string, PendingRequest>();
   private cache = new RenderCache();
   private idCounter = 0;
   private initPromise: Promise<void> | null = null;
   private disposed = false;
-
-  static getInstance(): RenderService {
-    if (!globalInstance) {
-      globalInstance = new RenderService();
-    }
-    return globalInstance;
-  }
 
   private createWorker(): Worker {
     return new Worker(new URL('./openscad-worker.ts', import.meta.url), {
@@ -260,7 +273,8 @@ export class RenderService {
   private async sendRequest(
     code: string,
     args: string[],
-    auxiliaryFiles?: Record<string, string>
+    auxiliaryFiles?: Record<string, string>,
+    inputPath?: string
   ): Promise<WorkerRenderResult> {
     if (this.disposed) {
       throw new Error('RenderService has been disposed');
@@ -283,6 +297,7 @@ export class RenderService {
         code,
         args,
         auxiliaryFiles,
+        inputPath,
       };
 
       this.worker!.postMessage(request);
@@ -333,7 +348,7 @@ export class RenderService {
   }
 
   async render(code: string, options: RenderOptions = {}): Promise<RenderResult> {
-    const { view = '3d', backend = 'manifold', auxiliaryFiles } = options;
+    const { view = '3d', backend = 'manifold', auxiliaryFiles, inputPath } = options;
 
     // Check cache
     const auxFileCount = auxiliaryFiles ? Object.keys(auxiliaryFiles).length : 0;
@@ -353,7 +368,7 @@ export class RenderService {
     const kind: 'mesh' | 'svg' = is3d ? 'mesh' : 'svg';
 
     const args = this.buildArgs(outputPath, { view, backend });
-    const result = await this.sendRequest(code, args, auxiliaryFiles);
+    const result = await this.sendRequest(code, args, auxiliaryFiles, inputPath);
 
     const diagnostics = parseOpenScadStderr(result.stderr);
 
@@ -444,6 +459,34 @@ export class RenderService {
   dispose(): void {
     this.disposed = true;
     this.cancel();
-    globalInstance = null;
   }
 }
+
+// ============================================================================
+// Factory
+// ============================================================================
+
+let globalInstance: IRenderService | null = null;
+
+/**
+ * Get the singleton render service instance.
+ * Returns NativeRenderService on desktop (Tauri), WasmRenderService on web.
+ */
+export function getRenderService(): IRenderService {
+  if (!globalInstance) {
+    // TODO: When NativeRenderService is implemented, use it on desktop:
+    // globalInstance = isTauri() ? new NativeRenderService() : new WasmRenderService();
+    globalInstance = new WasmRenderService();
+  }
+  return globalInstance;
+}
+
+/**
+ * Replace the global render service instance (for testing).
+ */
+export function setRenderServiceForTesting(service: IRenderService | null): void {
+  globalInstance = service;
+}
+
+// Keep backward compat alias during migration
+export { WasmRenderService as RenderService };

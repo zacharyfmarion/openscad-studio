@@ -3,6 +3,9 @@ import { jest } from '@jest/globals';
 const mockCaptureOffscreen = jest.fn(async () => 'data:image/png;base64,AAA=');
 
 jest.unstable_mockModule('@/services/renderService', () => ({
+  getRenderService: () => ({
+    checkSyntax: async () => ({ diagnostics: [] }),
+  }),
   RenderService: {
     getInstance: () => ({
       checkSyntax: async () => ({ diagnostics: [] }),

@@ -12,7 +12,7 @@
  * working-directory files needed for rendering.
  */
 
-import { parseIncludes } from './includeParser';
+import { parseIncludes, parseImports } from './includeParser';
 import type { PlatformBridge } from '../platform/types';
 
 /** Safety limits to prevent runaway resolution */
@@ -31,6 +31,13 @@ export interface ResolveOptions {
    * Checked before hitting disk. On web (no disk), this is the only source.
    */
   projectFiles?: Record<string, string>;
+  /**
+   * Directory prefix of the render target relative to the project root
+   * (e.g. "examples/keebcu" for render target "examples/keebcu/foo.scad").
+   * When set, includes like `constants.scad` are also looked up as
+   * `examples/keebcu/constants.scad` in projectFiles.
+   */
+  renderTargetDir?: string;
 }
 
 /**
@@ -69,59 +76,130 @@ export async function resolveWorkingDirDeps(
   code: string,
   options: ResolveOptions
 ): Promise<Record<string, string>> {
-  const { workingDir, libraryFiles, platform, projectFiles } = options;
+  const { workingDir, libraryFiles, platform, projectFiles, renderTargetDir } = options;
   const result: Record<string, string> = {};
   const visited = new Set<string>();
 
-  async function resolve(sourceCode: string, depth: number): Promise<void> {
+  /**
+   * Look up a path in projectFiles, trying both the bare path and the
+   * render-target-relative path.  Returns [matchedKey, content] or null.
+   */
+  function lookupProjectFile(path: string): [string, string] | null {
+    if (!projectFiles) return null;
+    if (path in projectFiles) return [path, projectFiles[path]];
+    // Try prefixing with the render target's directory so that sibling
+    // includes like `constants.scad` match `examples/keebcu/constants.scad`.
+    if (renderTargetDir) {
+      const prefixed = renderTargetDir + '/' + path;
+      if (prefixed in projectFiles) return [prefixed, projectFiles[prefixed]];
+    }
+    return null;
+  }
+
+  /**
+   * Resolve a single file path: check project store, then fall back to disk.
+   * Tries both the bare path and the renderTargetDir-prefixed path (matching
+   * the same fallback logic as lookupProjectFile).
+   * Returns [matchedKey, content] or null if the file can't be found.
+   */
+  async function resolveFile(
+    normalizedPath: string
+  ): Promise<[string, string] | null> {
+    // Check project store first (works on both web and desktop)
+    const match = lookupProjectFile(normalizedPath);
+    if (match) return match;
+
+    // Fall back to reading from disk (desktop only, web returns null)
+    const absolutePath = workingDir + '/' + normalizedPath;
+    const content = await platform.readTextFile(absolutePath);
+    if (content !== null) return [normalizedPath, content];
+
+    // Try renderTargetDir-prefixed path on disk (e.g. include <lib/foo.scad>
+    // from render target examples/poly555/openscad/poly555.scad resolves to
+    // examples/poly555/openscad/lib/foo.scad on disk).
+    if (renderTargetDir) {
+      const prefixed = renderTargetDir + '/' + normalizedPath;
+      const prefixedAbsolute = workingDir + '/' + prefixed;
+      const prefixedContent = await platform.readTextFile(prefixedAbsolute);
+      if (prefixedContent !== null) return [prefixed, prefixedContent];
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolve include/use directives and import() calls from source code.
+   * @param sourceCode - The OpenSCAD source code to parse
+   * @param currentFileDir - Directory of the file being processed (project-relative,
+   *   e.g. "examples/poly555/openscad/lib"), used to resolve import() paths.
+   *   Empty string for files at the project root.
+   * @param depth - Current recursion depth
+   */
+  async function resolve(
+    sourceCode: string,
+    currentFileDir: string,
+    depth: number
+  ): Promise<void> {
     if (depth > MAX_DEPTH) {
       console.warn('[resolveWorkingDirDeps] Max recursion depth reached');
       return;
     }
 
+    // --- include/use directives (paths relative to project root) ---
     const directives = parseIncludes(sourceCode);
 
     for (const directive of directives) {
       const normalizedPath = normalizePath(directive.path);
 
-      // Skip if already resolved
       if (visited.has(normalizedPath)) continue;
       visited.add(normalizedPath);
-
-      // Skip if satisfied by library files
       if (normalizedPath in libraryFiles) continue;
-
-      // Skip if we've hit the file limit
       if (Object.keys(result).length >= MAX_FILES) {
         console.warn('[resolveWorkingDirDeps] Max file limit reached');
         return;
       }
 
-      // Check project store first (works on both web and desktop)
-      if (projectFiles && normalizedPath in projectFiles) {
-        const content = projectFiles[normalizedPath];
-        result[normalizedPath] = content;
-        await resolve(content, depth + 1);
-        continue;
+      const resolved = await resolveFile(normalizedPath);
+      if (!resolved) continue;
+
+      const [matchedKey, content] = resolved;
+      result[matchedKey] = content;
+
+      // Derive the directory of this included file for its own import() resolution
+      const lastSlash = matchedKey.lastIndexOf('/');
+      const childDir = lastSlash > 0 ? matchedKey.substring(0, lastSlash) : '';
+      await resolve(content, childDir, depth + 1);
+    }
+
+    // --- import() calls (paths relative to the containing file) ---
+    const imports = parseImports(sourceCode);
+
+    for (const imp of imports) {
+      // Resolve the import path relative to the directory of the file that
+      // contains the import() call, then normalize to a project-relative path.
+      const joinedPath = currentFileDir
+        ? currentFileDir + '/' + imp.path
+        : imp.path;
+      const normalizedPath = normalizePath(joinedPath);
+
+      if (visited.has(normalizedPath)) continue;
+      visited.add(normalizedPath);
+      if (Object.keys(result).length >= MAX_FILES) {
+        console.warn('[resolveWorkingDirDeps] Max file limit reached');
+        return;
       }
 
-      // Fall back to reading from disk (desktop only, web returns null)
-      const absolutePath = workingDir + '/' + normalizedPath;
-      const content = await platform.readTextFile(absolutePath);
+      const resolved = await resolveFile(normalizedPath);
+      if (!resolved) continue;
 
-      if (content === null) {
-        // File doesn't exist in working dir — might be resolved by OpenSCAD
-        // via other means, or it's a genuine error that OpenSCAD will report
-        continue;
-      }
-
-      result[normalizedPath] = content;
-
-      // Recursively resolve this file's own includes
-      await resolve(content, depth + 1);
+      const [matchedKey, content] = resolved;
+      result[matchedKey] = content;
+      // Do NOT recurse — imported files are assets (SVG/STL/DXF), not OpenSCAD code
     }
   }
 
-  await resolve(code, 0);
+  // Determine the render target's directory for the initial resolve call
+  const initialDir = renderTargetDir ?? '';
+  await resolve(code, initialDir, 0);
   return result;
 }

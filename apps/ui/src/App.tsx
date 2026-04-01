@@ -45,7 +45,7 @@ import { useHistory } from './hooks/useHistory';
 import { useMobileLayout } from './hooks/useMobileLayout';
 import { getPlatform, eventBus, type ExportFormat } from './platform';
 import { isExportValidationError } from './services/exportErrors';
-import { RenderService } from './services/renderService';
+import { getRenderService } from './services/renderService';
 import { getPreviewSceneStyle } from './services/previewSceneConfig';
 import { isShareEnabled } from './services/shareService';
 import { useSettings, loadSettings, updateSetting } from './stores/settingsStore';
@@ -67,6 +67,7 @@ import { addRecentFile, addRecentFolder, removeRecentFile } from './utils/recent
 import { captureCurrentPreview } from './utils/capturePreview';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { exportProjectZip } from './utils/projectZip';
+import { getRelativeProjectPath } from './utils/projectFilePaths';
 import { useShareEntry } from './hooks/useShareEntry';
 import { TbBrandGithub, TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
 import { Toaster } from 'sonner';
@@ -1158,7 +1159,9 @@ function App() {
         if (!savePath) return false;
 
         const shouldNotifySaveSuccess = promptForPath || !currentTab.filePath;
-        const fileName = savePath.split('/').pop() || savePath;
+        const projectRoot = getProjectStore().getState().projectRoot;
+        const relativePath = getRelativeProjectPath(projectRoot, savePath);
+        const fileName = relativePath || savePath.split('/').pop() || savePath;
 
         // If the file was renamed (e.g., "Untitled" → "lamp.scad"), update projectStore
         if (fileName !== currentTab.projectPath) {
@@ -1174,7 +1177,7 @@ function App() {
 
         const dockPanel = getDockviewApi()?.getPanel(currentTab.id);
         if (dockPanel) {
-          dockPanel.api.setTitle(fileName);
+          dockPanel.api.setTitle(savePath.split('/').pop() || fileName);
         }
 
         addRecentFile(savePath);
@@ -1783,7 +1786,7 @@ function App() {
           };
           const formatInfo = formatLabels[format];
           const rtContent = getRenderTargetContent(getProjectStore().getState()) ?? '';
-          const exportBytes = await RenderService.getInstance().exportModel(
+          const exportBytes = await getRenderService().exportModel(
             rtContent,
             format as 'stl' | 'obj' | 'amf' | '3mf' | 'svg' | 'dxf'
           );

@@ -201,6 +201,46 @@ describe('resetToUntitledProject', () => {
   });
 });
 
+// ── markFileSaved with nested paths ──────────────────────────────────────────
+
+describe('markFileSaved with nested paths', () => {
+  it('marks a nested file as saved using its full relative path', () => {
+    const store = createDesktopProject();
+    // Make the nested file dirty
+    store.getState().updateFileContent('lib/utils.scad', 'module helper() { cube(10); }');
+    expect(store.getState().files['lib/utils.scad'].isDirty).toBe(true);
+
+    // Save using the full relative path (as the fixed saveFile handler does)
+    store.getState().markFileSaved('lib/utils.scad', 'module helper() { cube(10); }');
+    expect(store.getState().files['lib/utils.scad'].isDirty).toBe(false);
+  });
+
+  it('does nothing when called with basename instead of full relative path', () => {
+    const store = createDesktopProject();
+    store.getState().updateFileContent('lib/utils.scad', 'module helper() { cube(10); }');
+    expect(store.getState().files['lib/utils.scad'].isDirty).toBe(true);
+
+    // Calling with just the basename (the old bug) does not find the file
+    store.getState().markFileSaved('utils.scad', 'module helper() { cube(10); }');
+
+    // The nested file is still dirty — basename lookup missed it
+    expect(store.getState().files['lib/utils.scad'].isDirty).toBe(true);
+    // And no spurious root-level entry was created
+    expect(store.getState().files['utils.scad']).toBeUndefined();
+  });
+
+  it('renameFile with basename loses the nested path', () => {
+    const store = createDesktopProject();
+
+    // Renaming from 'lib/utils.scad' to just 'utils.scad' (the old bug)
+    // would move the file to the root level
+    store.getState().renameFile('lib/utils.scad', 'utils.scad');
+
+    expect(store.getState().files['lib/utils.scad']).toBeUndefined();
+    expect(store.getState().files['utils.scad']).toBeDefined();
+  });
+});
+
 // ── addFolder ─────────────────────────────────────────────────────────────────
 
 describe('addFolder', () => {

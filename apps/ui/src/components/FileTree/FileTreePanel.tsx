@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarLeftExpand, TbPlus } from 'react-icons/tb';
 import { FileTree } from './FileTree';
 import { useProjectStore } from '../../stores/projectStore';
@@ -40,33 +40,12 @@ export function FileTreePanel({
     : 'Files';
   const [pendingRenameFile, setPendingRenameFile] = useState<string | null>(null);
 
-  // Track which folders are collapsed. Folders NOT in this set are expanded (default).
-  // This state lives here (not in FileTree) so it survives panel collapse/expand.
-  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
-
-  // Use stable store references for deriving folder paths
-  const files = useProjectStore((s) => s.files);
-  const emptyFolders = useProjectStore((s) => s.emptyFolders);
-
-  // expandedFolders = all folders that aren't explicitly collapsed
-  const expandedFolders = useMemo(() => {
-    const allFolders = new Set<string>();
-    for (const filePath of Object.keys(files)) {
-      const parts = filePath.split('/');
-      for (let i = 1; i < parts.length; i++) {
-        allFolders.add(parts.slice(0, i).join('/'));
-      }
-    }
-    if (emptyFolders) {
-      for (const folder of emptyFolders) {
-        allFolders.add(folder);
-      }
-    }
-    return new Set([...allFolders].filter((p) => !collapsedFolders.has(p)));
-  }, [files, emptyFolders, collapsedFolders]);
+  // Track which folders the user has explicitly expanded. All folders start
+  // collapsed so large directory trees don't overwhelm the sidebar.
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   const toggleFolder = useCallback((path: string) => {
-    setCollapsedFolders((prev) => {
+    setExpandedFolders((prev) => {
       const next = new Set(prev);
       if (next.has(path)) {
         next.delete(path);
@@ -77,19 +56,33 @@ export function FileTreePanel({
     });
   }, []);
 
+  /** Expand a folder and all its ancestor folders. */
+  const expandPathAncestors = useCallback((path: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      const parts = path.split('/');
+      for (let i = 1; i < parts.length; i++) {
+        next.add(parts.slice(0, i).join('/'));
+      }
+      return next;
+    });
+  }, []);
+
   const handleCreateFile = useCallback(
     async (parentDir: string) => {
       const newPath = await onCreateFile(parentDir);
+      if (parentDir) expandPathAncestors(newPath);
       setPendingRenameFile(newPath);
     },
-    [onCreateFile]
+    [onCreateFile, expandPathAncestors]
   );
 
   const handleCreateFolder = useCallback(
     async (parentDir: string, folderName: string) => {
       await onCreateFolder(parentDir, folderName);
+      if (parentDir) expandPathAncestors(parentDir + '/' + folderName);
     },
-    [onCreateFolder]
+    [onCreateFolder, expandPathAncestors]
   );
 
   if (collapsed) {

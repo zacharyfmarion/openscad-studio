@@ -1,12 +1,13 @@
 /**
- * Parse `include <…>` and `use <…>` statements from OpenSCAD source code.
+ * Parse `include <…>`, `use <…>`, and `import("…")` statements from OpenSCAD
+ * source code.
  *
  * Handles:
  * - Stripping single-line comments (//)
  * - Stripping block comments
- * - Ignoring string literals ("…")
- * - Both `include` and `use` directives
- * - Angle-bracket paths: include <path/to/file.scad>
+ * - Ignoring string literals ("…") for include/use parsing
+ * - Both `include` and `use` directives (angle-bracket paths)
+ * - `import("path")` function calls (quoted string paths)
  */
 
 export interface IncludeDirective {
@@ -14,6 +15,72 @@ export interface IncludeDirective {
   type: 'include' | 'use';
   /** The path exactly as written between angle brackets */
   path: string;
+}
+
+export interface ImportDirective {
+  /** Always 'import' */
+  type: 'import';
+  /** The path exactly as written in the quoted string */
+  path: string;
+}
+
+/**
+ * Strip only comments from OpenSCAD code, preserving string literals.
+ * Used by `parseImports()` since import paths live inside strings.
+ */
+export function stripComments(code: string): string {
+  const result: string[] = [];
+  let i = 0;
+  let inString = false;
+
+  while (i < code.length) {
+    if (inString) {
+      if (code[i] === '\\' && i + 1 < code.length) {
+        result.push(code[i], code[i + 1]);
+        i += 2;
+        continue;
+      }
+      if (code[i] === '"') {
+        inString = false;
+      }
+      result.push(code[i]);
+      i++;
+      continue;
+    }
+
+    // Single-line comment
+    if (code[i] === '/' && code[i + 1] === '/') {
+      while (i < code.length && code[i] !== '\n') {
+        result.push(' ');
+        i++;
+      }
+      continue;
+    }
+
+    // Block comment
+    if (code[i] === '/' && code[i + 1] === '*') {
+      result.push(' ', ' ');
+      i += 2;
+      while (i < code.length) {
+        if (code[i] === '*' && code[i + 1] === '/') {
+          result.push(' ', ' ');
+          i += 2;
+          break;
+        }
+        result.push(code[i] === '\n' ? '\n' : ' ');
+        i++;
+      }
+      continue;
+    }
+
+    if (code[i] === '"') {
+      inString = true;
+    }
+    result.push(code[i]);
+    i++;
+  }
+
+  return result.join('');
 }
 
 /**
@@ -100,6 +167,29 @@ export function parseIncludes(code: string): IncludeDirective[] {
     const path = match[2].trim();
     if (path) {
       directives.push({ type, path });
+    }
+  }
+
+  return directives;
+}
+
+/**
+ * Extract all `import("path")` calls from OpenSCAD code.
+ * Only comments are stripped (not strings) since the paths live inside strings.
+ */
+export function parseImports(code: string): ImportDirective[] {
+  const stripped = stripComments(code);
+  const directives: ImportDirective[] = [];
+
+  // Match: import("path") or import("path", ...)
+  // OpenSCAD import() uses quoted strings for the file path.
+  const regex = /\bimport\s*\(\s*"([^"]+)"\s*[,)]/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(stripped)) !== null) {
+    const path = match[1].trim();
+    if (path) {
+      directives.push({ type: 'import', path });
     }
   }
 

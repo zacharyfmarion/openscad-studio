@@ -1,4 +1,9 @@
-import { parseIncludes, stripCommentsAndStrings } from '../includeParser';
+import {
+  parseIncludes,
+  parseImports,
+  stripCommentsAndStrings,
+  stripComments,
+} from '../includeParser';
 
 describe('stripCommentsAndStrings', () => {
   it('strips single-line comments', () => {
@@ -166,5 +171,90 @@ describe('parseIncludes', () => {
     ].join('\n');
     const result = parseIncludes(code);
     expect(result).toEqual([{ type: 'include', path: 'BOSL2/std.scad' }]);
+  });
+});
+
+describe('stripComments', () => {
+  it('strips single-line comments but preserves strings', () => {
+    const code = 'import("file.svg"); // a comment';
+    const result = stripComments(code);
+    expect(result).toContain('"file.svg"');
+    expect(result).not.toContain('a comment');
+  });
+
+  it('strips block comments but preserves strings', () => {
+    const code = '/* import("hidden.svg") */\nimport("visible.svg");';
+    const result = stripComments(code);
+    expect(result).not.toContain('hidden.svg');
+    expect(result).toContain('"visible.svg"');
+  });
+
+  it('preserves escaped quotes in strings', () => {
+    const code = 'echo("a \\"quoted\\" thing"); import("real.svg");';
+    const result = stripComments(code);
+    expect(result).toContain('"real.svg"');
+  });
+
+  it('handles empty input', () => {
+    expect(stripComments('')).toBe('');
+  });
+});
+
+describe('parseImports', () => {
+  it('parses a simple import', () => {
+    const result = parseImports('import("branding.svg");');
+    expect(result).toEqual([{ type: 'import', path: 'branding.svg' }]);
+  });
+
+  it('parses import with relative path', () => {
+    const result = parseImports('import("../../branding.svg");');
+    expect(result).toEqual([{ type: 'import', path: '../../branding.svg' }]);
+  });
+
+  it('parses import with additional parameters', () => {
+    const result = parseImports('import("model.stl", convexity=10);');
+    expect(result).toEqual([{ type: 'import', path: 'model.stl' }]);
+  });
+
+  it('parses multiple imports', () => {
+    const code = 'import("a.svg");\nimport("b.dxf");\nimport("c.stl");';
+    const result = parseImports(code);
+    expect(result).toEqual([
+      { type: 'import', path: 'a.svg' },
+      { type: 'import', path: 'b.dxf' },
+      { type: 'import', path: 'c.stl' },
+    ]);
+  });
+
+  it('ignores commented-out imports', () => {
+    const code = '// import("hidden.svg");\nimport("visible.svg");';
+    const result = parseImports(code);
+    expect(result).toEqual([{ type: 'import', path: 'visible.svg' }]);
+  });
+
+  it('ignores block-commented imports', () => {
+    const code = '/* import("hidden.svg"); */\nimport("visible.svg");';
+    const result = parseImports(code);
+    expect(result).toEqual([{ type: 'import', path: 'visible.svg' }]);
+  });
+
+  it('returns empty array for code with no imports', () => {
+    const result = parseImports('cube(10);\ninclude <foo.scad>');
+    expect(result).toEqual([]);
+  });
+
+  it('handles whitespace around path', () => {
+    const result = parseImports('import( "file.svg" );');
+    expect(result).toEqual([{ type: 'import', path: 'file.svg' }]);
+  });
+
+  it('handles subdirectory paths', () => {
+    const result = parseImports('import("assets/models/part.stl");');
+    expect(result).toEqual([{ type: 'import', path: 'assets/models/part.stl' }]);
+  });
+
+  it('does not match non-import uses of parentheses with strings', () => {
+    const result = parseImports('echo("import is not this");');
+    expect(result).toEqual([]);
   });
 });

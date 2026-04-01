@@ -27,6 +27,20 @@ describe('getRelativeProjectPath', () => {
     expect(getRelativeProjectPath('/project', '/project/lib/utils.scad')).toBe('lib/utils.scad');
   });
 
+  it('preserves nested directory structure', () => {
+    expect(getRelativeProjectPath('/project', '/project/lib/shapes/utils.scad')).toBe(
+      'lib/shapes/utils.scad'
+    );
+  });
+
+  it('returns just the filename for root-level files', () => {
+    expect(getRelativeProjectPath('/project', '/project/main.scad')).toBe('main.scad');
+  });
+
+  it('handles working directory with trailing slash', () => {
+    expect(getRelativeProjectPath('/project/', '/project/lib/utils.scad')).toBe('lib/utils.scad');
+  });
+
   it('falls back to the file name for paths outside the working directory', () => {
     expect(getRelativeProjectPath('/project', '/other/main.scad')).toBe('main.scad');
   });
