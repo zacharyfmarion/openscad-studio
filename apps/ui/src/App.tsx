@@ -343,7 +343,7 @@ function App() {
   } = useRenderOrchestrator({
     source: renderTargetContent,
     contentVersion,
-    suppressInitialRender: Boolean(initialShareContext),
+    suppressInitialRender: Boolean(initialShareContext) || showWelcome,
     workingDir,
     autoRenderOnIdle: settings.editor.autoRenderOnIdle,
     autoRenderDelayMs: settings.editor.autoRenderDelayMs,
