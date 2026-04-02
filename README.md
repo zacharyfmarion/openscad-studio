@@ -16,7 +16,7 @@
   <img src="https://img.shields.io/badge/React-18-61DAFB.svg" alt="React">
 </p>
 
-> **🌐 Try it now** — OpenSCAD Studio is available as a [web app](https://openscad-studio.pages.dev) (no install needed) or as a [macOS desktop app](#desktop-macos). The web version runs entirely in your browser using WebAssembly.
+> **🌐 Try it now** — OpenSCAD Studio is available as a [web app](https://openscad-studio.pages.dev) (no install needed) or as a [macOS desktop app](#desktop-macos). The web version runs entirely in your browser using WebAssembly. The desktop app bundles a native OpenSCAD binary for faster rendering and full filesystem access.
 >
 > **Desktop:** macOS 10.15 (Catalina) or later.
 
@@ -40,6 +40,7 @@ As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precis
 - 🔍 **Real-time diagnostics** - Inline error markers with line/column precision
 - ⚙️ **Customizer panel** - Interactive controls for OpenSCAD parameters with auto-rendering
 - 🔗 **Share links** - Publish browser-based share links with thumbnail support for remixable examples
+- 📁 **Multi-file projects** - File tree, multiple tabs, include/use resolution, and auto-created project directories (desktop)
 - 🌈 **Theme library** - 22 built-in themes including Solarized, Dracula, GitHub, Nord, Tokyo Night, Catppuccin, and more
 
 **Limitations:** Special operators (!, #, %, \*) preview not yet implemented
@@ -81,7 +82,7 @@ For detailed development guidelines, see [CLAUDE.md](CLAUDE.md) and [CONTRIBUTIN
 
 This project is licensed under the GNU General Public License v2.0 - see [LICENSE](LICENSE) for details.
 
-This license change was made to comply with OpenSCAD's GPL-2.0 license, as the project now bundles openscad-wasm.
+This license change was made to comply with OpenSCAD's GPL-2.0 license, as the project bundles openscad-wasm (web) and the native OpenSCAD binary (desktop).
 
 ## 🙏 Acknowledgments
 
