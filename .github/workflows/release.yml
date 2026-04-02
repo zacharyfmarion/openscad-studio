@@ -246,7 +246,7 @@ jobs:
           fi
 
           bash apps/ui/src-tauri/scripts/resign-bundled-openscad.sh "$NESTED_APP"
-          codesign --force --sign "$APPLE_SIGNING_IDENTITY" --timestamp --options runtime "$OUTER_APP"
+          codesign --force --deep --sign "$APPLE_SIGNING_IDENTITY" --timestamp --options runtime "$OUTER_APP"
 
           echo "Verifying $OUTER_APP"
           codesign --verify --deep --strict --verbose=2 "$OUTER_APP"

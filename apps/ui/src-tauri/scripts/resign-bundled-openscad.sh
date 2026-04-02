@@ -30,8 +30,8 @@ sign_path() {
 sign_runtime_path() {
   local path="$1"
 
-  echo "Signing with hardened runtime $path"
-  codesign --force --sign "$IDENTITY" --timestamp --options runtime "$path"
+  echo "Signing with hardened runtime and deep sealing $path"
+  codesign --force --deep --sign "$IDENTITY" --timestamp --options runtime "$path"
 }
 
 echo "Preparing bundled OpenSCAD app at $APP_PATH"
