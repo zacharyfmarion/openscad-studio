@@ -1,0 +1,36 @@
+# Release MacOS Workflow Fixes
+
+## Goal
+
+Stabilize the macOS release pipeline after the failed `v1.0.0` release by fixing runner selection, improving signing/notarization diagnostics, and adding a manual smoke-test path that can validate the release workflow before cutting `1.0.1`.
+
+## Approach
+
+- Update the release workflow to support both tag-driven publishing and manual smoke-test runs.
+- Pin explicit GitHub-hosted macOS runner labels per target architecture.
+- Add a CI-only signing helper that re-signs the bundled `OpenSCAD.app` resource before the Tauri build.
+- Add verification and better notarization logging so Apple rejection details are visible in the workflow output.
+
+## Affected Areas
+
+- `.github/workflows/release.yml`
+- `apps/ui/src-tauri/scripts/`
+
+## Checklist
+
+- [x] Create implementation plan record.
+- [x] Add explicit per-arch macOS runners and workflow-dispatch smoke mode to the release workflow.
+- [x] Add a helper to re-sign and verify the bundled `OpenSCAD.app` resource in CI.
+- [x] Add post-build signing verification and richer notarization diagnostics.
+- [x] Run targeted validation and record results.
+
+## Validation Notes
+
+- `bash scripts/validate-changes.sh --dry-run --changed-file .github/workflows/release.yml --changed-file apps/ui/src-tauri/scripts/resign-bundled-openscad.sh`
+- `bash scripts/validate-changes.sh --changed-file .github/workflows/release.yml --changed-file apps/ui/src-tauri/scripts/resign-bundled-openscad.sh`
+- `bash -n apps/ui/src-tauri/scripts/resign-bundled-openscad.sh`
+- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/release.yml"); puts "yaml-ok"'`
+- `pnpm exec prettier --check .github/workflows/release.yml implementation-plans/release-macos-fixes.md`
+- `git diff --check`
+
+GitHub-side smoke validation was not run from this session because the new workflow path requires pushing the branch and dispatching the workflow remotely.
