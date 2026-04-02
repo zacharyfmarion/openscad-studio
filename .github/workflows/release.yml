@@ -220,16 +220,28 @@ jobs:
         run: |
           set -euo pipefail
 
+          SOURCE_APP="apps/ui/src-tauri/binaries/OpenSCAD.app"
           OUTER_APP="apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/macos/OpenSCAD Studio.app"
           NESTED_APP="$OUTER_APP/Contents/Resources/OpenSCAD.app"
+
+          if [ ! -d "$SOURCE_APP" ]; then
+            echo "::error::Missing source OpenSCAD app bundle at $SOURCE_APP"
+            exit 1
+          fi
 
           if [ ! -d "$OUTER_APP" ]; then
             echo "::error::Missing outer app bundle at $OUTER_APP"
             exit 1
           fi
 
-          if [ ! -d "$NESTED_APP" ]; then
-            echo "::error::Missing bundled OpenSCAD app at $NESTED_APP"
+          # Tauri's resource copy flattens framework symlinks inside OpenSCAD.app,
+          # which breaks Qt framework validation. Replace it with a bundle copy that
+          # preserves the framework layout before re-signing.
+          rm -rf "$NESTED_APP"
+          ditto "$SOURCE_APP" "$NESTED_APP"
+
+          if [ ! -L "$NESTED_APP/Contents/Frameworks/QtPrintSupport.framework/Versions/Current" ]; then
+            echo "::error::Bundled OpenSCAD app lost Qt framework symlinks after copy"
             exit 1
           fi
 
