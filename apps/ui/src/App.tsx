@@ -49,6 +49,7 @@ import {
   initializeDesktopMcpBridge,
   notifyDesktopMcpRenderSettled,
   syncDesktopMcpConfig,
+  syncDesktopMcpWindowContext,
   updateDesktopMcpPreviewState,
 } from './services/desktopMcp';
 import { getRenderService } from './services/renderService';
@@ -281,6 +282,7 @@ function App() {
   // The render target tab holds the preview — use its render state regardless of
   // which tab is currently active in the editor.
   const renderTargetPath = useProjectStore((s) => s.renderTargetPath);
+  const projectRoot = useProjectStore((s) => s.projectRoot);
   const renderTargetTab = tabs.find((t) => t.projectPath === renderTargetPath);
   const renderTargetRender = renderTargetTab?.render ?? activeRender;
   const workingDir = useWorkspaceStore(selectWorkingDirectory);
@@ -2099,8 +2101,19 @@ function App() {
   useEffect(() => {
     const fileName = activeTab.name;
     const dirtyIndicator = activeFileDirty ? '\u2022 ' : '';
-    getPlatform().setWindowTitle(`${dirtyIndicator}${fileName} - OpenSCAD Studio`);
-  }, [activeTab.name, activeFileDirty]);
+    const title = `${dirtyIndicator}${fileName} - OpenSCAD Studio`;
+    getPlatform().setWindowTitle(title);
+
+    if (capabilities.hasFileSystem) {
+      void syncDesktopMcpWindowContext({
+        title,
+        workspaceRoot: projectRoot,
+        renderTargetPath,
+      }).catch((error) => {
+        console.error('[App] Failed to sync MCP window context:', error);
+      });
+    }
+  }, [activeFileDirty, activeTab.name, capabilities.hasFileSystem, projectRoot, renderTargetPath]);
 
   useEffect(() => {
     const platform = getPlatform();
@@ -2110,7 +2123,6 @@ function App() {
   }, [anyFileDirty]);
 
   // Watch project directory for external file changes (desktop only)
-  const projectRoot = useProjectStore((s) => s.projectRoot);
   useEffect(() => {
     if (!projectRoot) return;
     const platform = getPlatform();

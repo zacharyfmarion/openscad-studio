@@ -122,4 +122,34 @@ describe('WelcomeScreen', () => {
       { path: '/tmp/exists.scad', name: 'exists.scad', lastOpened: 2 },
     ]);
   });
+
+  it('keeps the desktop no-key welcome state focused on API key setup only', async () => {
+    clearApiKey('openai');
+    clearApiKey('anthropic');
+    mockGetPlatform.mockReturnValue({
+      capabilities: { hasFileSystem: true },
+      fileExists: jest.fn(async () => false),
+    });
+
+    renderWithProviders(
+      <WelcomeScreen
+        draft={{ text: '', attachmentIds: [] }}
+        attachments={{}}
+        draftErrors={[]}
+        canSubmitDraft={false}
+        isProcessingAttachments={false}
+        onDraftTextChange={() => {}}
+        onDraftFilesSelected={() => {}}
+        onDraftRemoveAttachment={() => {}}
+        onStartWithDraft={() => {}}
+        onStartManually={() => {}}
+        onOpenRecent={async () => 'opened'}
+        onOpenSettings={() => {}}
+        showRecentFiles={false}
+      />
+    );
+
+    expect(screen.getByText('Set up an API key to use the AI assistant')).toBeTruthy();
+    expect(screen.queryByText('Claude Code')).toBeNull();
+  });
 });

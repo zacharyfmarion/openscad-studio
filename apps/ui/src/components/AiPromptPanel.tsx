@@ -1,9 +1,10 @@
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { ChatImage, ChatImageGrid } from './ChatImage';
-import { Button, Text } from './ui';
+import { Button } from './ui';
 import { MarkdownMessage } from './MarkdownMessage';
 import { ModelSelector } from './ModelSelector';
 import { AiComposer, type AiComposerRef } from './AiComposer';
+import { AiAccessEmptyState } from './AiAccessEmptyState';
 import { useAnalytics, type ModelSelectionSurface } from '../analytics/runtime';
 import { useHistory } from '../hooks/useHistory';
 import { getPlatform } from '../platform';
@@ -235,19 +236,24 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
     };
 
     if (!hasApiKey) {
+      const isDesktop = getPlatform().capabilities.hasFileSystem;
       return (
         <div
           className="h-full flex items-center justify-center px-6"
           style={{ backgroundColor: 'var(--bg-primary)' }}
         >
-          <div className="text-center max-w-xs">
-            <Text variant="body" className="mb-3">
-              Add an API key to get started
-            </Text>
-            <Button type="button" variant="primary" onClick={() => onOpenSettings?.()}>
-              Open Settings
-            </Button>
-          </div>
+          {isDesktop ? (
+            <AiAccessEmptyState onOpenSettings={onOpenSettings} variant="panel" />
+          ) : (
+            <div className="text-center max-w-xs">
+              <div className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+                Add an API key to get started
+              </div>
+              <Button type="button" variant="primary" onClick={() => onOpenSettings?.()}>
+                Open Settings
+              </Button>
+            </div>
+          )}
         </div>
       );
     }

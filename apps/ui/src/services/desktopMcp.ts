@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import type { Diagnostic } from './renderService';
+import { getRenderService, type Diagnostic, type ExportFormat } from './renderService';
 import { FALLBACK_PREVIEW_SCENE_STYLE, type PreviewSceneStyle } from './previewSceneConfig';
 import { captureCurrentPreview } from '../utils/capturePreview';
 import {
@@ -9,13 +8,18 @@ import {
   type PreviewScreenshotOptions,
 } from './studioTooling';
 import {
+  getAuxiliaryFilesForRender,
   getProjectState,
+  getProjectWorkingDirectory,
   getProjectStore,
   getRenderTargetContent,
   listProjectFiles as listProjectFilesFromState,
 } from '../stores/projectStore';
+import { getPlatform } from '../platform';
+import { loadSettings } from '../stores/settingsStore';
 import { requestRender } from '../stores/renderRequestStore';
 import { normalizeProjectRelativePath } from '../utils/projectFilePaths';
+import { resolveWorkingDirDeps } from '../utils/resolveWorkingDirDeps';
 
 type PreviewKind = 'mesh' | 'svg';
 type RenderTrigger = Parameters<typeof requestRender>[0];
@@ -28,6 +32,14 @@ export interface McpServerStatus {
   status: McpServerState;
   endpoint: string | null;
   message: string | null;
+}
+
+export interface WorkspaceDescriptor {
+  windowId: string;
+  title: string;
+  workspaceRoot: string | null;
+  renderTargetPath: string | null;
+  isFocused: boolean;
 }
 
 interface McpToolRequestPayload {
@@ -276,6 +288,117 @@ async function handlePreviewScreenshot(
   };
 }
 
+function isAbsolutePath(path: string): boolean {
+  return path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path);
+}
+
+async function resolveExportDestination(filePath: string): Promise<string | null> {
+  if (isAbsolutePath(filePath)) {
+    return filePath;
+  }
+
+  const projectRoot = getProjectState().projectRoot;
+  if (!projectRoot) {
+    return null;
+  }
+
+  const { join } = await import('@tauri-apps/api/path');
+  return join(projectRoot, filePath);
+}
+
+async function loadLibraryExportContext() {
+  const platform = getPlatform();
+  const settings = loadSettings();
+  const systemPaths = settings.library.autoDiscoverSystem ? await platform.getLibraryPaths() : [];
+  const libraryPaths = [...systemPaths, ...settings.library.customPaths];
+  const libraryFiles: Record<string, string> = {};
+
+  for (const libPath of libraryPaths) {
+    try {
+      const files = await platform.readDirectoryFiles(libPath);
+      Object.assign(libraryFiles, files);
+    } catch (error) {
+      console.warn(`[desktopMcp] Failed to read library path ${libPath}:`, error);
+    }
+  }
+
+  return { libraryFiles, libraryPaths };
+}
+
+async function handleExportFile(argumentsValue: Record<string, unknown>): Promise<McpToolResponse> {
+  const format =
+    typeof argumentsValue.format === 'string' ? (argumentsValue.format as ExportFormat) : null;
+  const filePath =
+    typeof argumentsValue.file_path === 'string'
+      ? argumentsValue.file_path
+      : typeof argumentsValue.path === 'string'
+        ? argumentsValue.path
+        : null;
+
+  if (!format) {
+    return textResponse('`export_file` requires a `format` argument.', true);
+  }
+  if (!filePath) {
+    return textResponse('`export_file` requires a `file_path` argument.', true);
+  }
+
+  const state = getProjectState();
+  const source = getRenderTargetContent(state);
+  if (!source) {
+    return textResponse('❌ No active render target is available to export.', true);
+  }
+
+  const resolvedPath = await resolveExportDestination(filePath);
+  if (!resolvedPath) {
+    return textResponse(
+      '❌ Relative export paths require an open desktop workspace with a project root.',
+      true
+    );
+  }
+
+  const projectFiles = getAuxiliaryFilesForRender(state);
+  const workingDir = getProjectWorkingDirectory(state);
+  const renderTargetPath = state.renderTargetPath ?? undefined;
+  const renderTargetDir =
+    renderTargetPath && renderTargetPath.includes('/')
+      ? renderTargetPath.slice(0, renderTargetPath.lastIndexOf('/'))
+      : undefined;
+
+  const { libraryFiles, libraryPaths } = await loadLibraryExportContext();
+  let projectAuxFiles: Record<string, string> = { ...projectFiles };
+
+  if (workingDir) {
+    const workingDirFiles = await resolveWorkingDirDeps(source, {
+      workingDir,
+      libraryFiles,
+      platform: getPlatform(),
+      projectFiles,
+      renderTargetDir,
+    });
+
+    if (Object.keys(workingDirFiles).length > 0) {
+      projectAuxFiles = { ...projectAuxFiles, ...workingDirFiles };
+    }
+  }
+
+  const exportBytes = await getRenderService().exportModel(source, format, {
+    backend: 'manifold',
+    auxiliaryFiles: Object.keys(projectAuxFiles).length > 0 ? projectAuxFiles : undefined,
+    libraryFiles: Object.keys(libraryFiles).length > 0 ? libraryFiles : undefined,
+    libraryPaths: libraryPaths.length > 0 ? libraryPaths : undefined,
+    inputPath: renderTargetPath,
+    workingDir: workingDir || undefined,
+  });
+
+  const { dirname } = await import('@tauri-apps/api/path');
+  const { mkdir, writeFile } = await import('@tauri-apps/plugin-fs');
+  const parentDir = await dirname(resolvedPath);
+  await mkdir(parentDir, { recursive: true });
+  await writeFile(resolvedPath, exportBytes);
+
+  return textResponse(`✅ Exported ${format.toUpperCase()} to ${resolvedPath}`);
+}
+
 async function executeToolRequest(payload: McpToolRequestPayload): Promise<McpToolResponse> {
   const args = payload.arguments ?? {};
 
@@ -290,6 +413,8 @@ async function executeToolRequest(payload: McpToolRequestPayload): Promise<McpTo
       return handleTriggerRender();
     case 'get_preview_screenshot':
       return handlePreviewScreenshot(args);
+    case 'export_file':
+      return handleExportFile(args);
     default:
       return textResponse(`Unsupported MCP tool: ${payload.toolName}`, true);
   }
@@ -305,21 +430,44 @@ export async function initializeDesktopMcpBridge(): Promise<() => void> {
   }
 
   if (!bridgeUnlistenPromise) {
-    bridgeUnlistenPromise = listen<McpToolRequestPayload>('mcp:tool-request', async (event) => {
-      const payload = event.payload;
-      const response = await executeToolRequest(payload).catch((error: unknown) =>
-        textResponse(
-          error instanceof Error ? error.message : `Unexpected MCP tool error: ${String(error)}`,
-          true
-        )
+    bridgeUnlistenPromise = (async () => {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const currentWindow = getCurrentWindow();
+
+      const unlistenToolRequest = await currentWindow.listen<McpToolRequestPayload>(
+        'mcp:tool-request',
+        async (event) => {
+          const payload = event.payload;
+          const response = await executeToolRequest(payload).catch((error: unknown) =>
+            textResponse(
+              error instanceof Error
+                ? error.message
+                : `Unexpected MCP tool error: ${String(error)}`,
+              true
+            )
+          );
+
+          try {
+            await submitToolResponse(payload.requestId, response);
+          } catch (error) {
+            console.error('[desktopMcp] Failed to submit tool response:', error);
+          }
+        }
       );
 
-      try {
-        await submitToolResponse(payload.requestId, response);
-      } catch (error) {
-        console.error('[desktopMcp] Failed to submit tool response:', error);
-      }
-    });
+      const unlistenFocus = await currentWindow.onFocusChanged(() => {
+        void syncDesktopMcpWindowContext({
+          title: document.title || 'OpenSCAD Studio',
+          workspaceRoot: getProjectState().projectRoot,
+          renderTargetPath: getProjectState().renderTargetPath,
+        });
+      });
+
+      return () => {
+        unlistenToolRequest();
+        unlistenFocus();
+      };
+    })();
   }
 
   const unlisten = await bridgeUnlistenPromise;
@@ -358,6 +506,22 @@ export async function syncDesktopMcpConfig(config: {
   return invoke<McpServerStatus>('configure_mcp_server', config);
 }
 
+export async function syncDesktopMcpWindowContext(context: {
+  title: string;
+  workspaceRoot: string | null;
+  renderTargetPath: string | null;
+}): Promise<void> {
+  if (!isDesktopTauri()) return;
+  await invoke('mcp_update_window_context', {
+    payload: {
+      title: context.title,
+      workspaceRoot: context.workspaceRoot,
+      renderTargetPath: context.renderTargetPath,
+      ready: true,
+    },
+  });
+}
+
 export async function getDesktopMcpStatus(): Promise<McpServerStatus> {
   if (!isDesktopTauri()) return DEFAULT_STATUS;
   return invoke<McpServerStatus>('get_mcp_server_status');
@@ -371,6 +535,29 @@ export function buildCodexMcpCommand(port: number): string {
   return `codex mcp add openscad-studio --url http://127.0.0.1:${port}/mcp`;
 }
 
+export function buildCursorMcpConfig(port: number): string {
+  return `{
+  "mcpServers": {
+    "openscad-studio": {
+      "url": "http://127.0.0.1:${port}/mcp"
+    }
+  }
+}`;
+}
+
+export function buildOpenCodeMcpConfig(port: number): string {
+  return `{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "openscad-studio": {
+      "type": "remote",
+      "url": "http://127.0.0.1:${port}/mcp",
+      "enabled": true
+    }
+  }
+}`;
+}
+
 export function buildAgentSnippet(port: number): string {
-  return `Use the OpenSCAD Studio MCP server at http://127.0.0.1:${port}/mcp for project context, render-target switching, diagnostics, render refresh, and preview screenshots. Read and edit files directly in the repo; do not use Studio MCP for file reads or writes.`;
+  return `Use the OpenSCAD Studio MCP server at http://127.0.0.1:${port}/mcp for render-target switching, diagnostics, render refresh, preview screenshots, and exports. Read and edit files directly in the repo, then call select_workspace with the repo root before using Studio tools.`;
 }

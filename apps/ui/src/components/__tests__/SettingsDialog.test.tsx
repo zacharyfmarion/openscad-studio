@@ -47,12 +47,27 @@ jest.unstable_mockModule('@/stores/layoutStore', () => ({
 }));
 
 jest.unstable_mockModule('@/services/desktopMcp', () => ({
-  buildAgentSnippet: (port: number) =>
-    `Use the OpenSCAD Studio MCP server at http://127.0.0.1:${port}/mcp for render tasks only.`,
   buildClaudeMcpCommand: (port: number) =>
     `claude mcp add --transport http --scope user openscad-studio http://127.0.0.1:${port}/mcp`,
   buildCodexMcpCommand: (port: number) =>
     `codex mcp add openscad-studio --url http://127.0.0.1:${port}/mcp`,
+  buildCursorMcpConfig: (port: number) => `{
+  "mcpServers": {
+    "openscad-studio": {
+      "url": "http://127.0.0.1:${port}/mcp"
+    }
+  }
+}`,
+  buildOpenCodeMcpConfig: (port: number) => `{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "openscad-studio": {
+      "type": "remote",
+      "url": "http://127.0.0.1:${port}/mcp",
+      "enabled": true
+    }
+  }
+}`,
   getDesktopMcpStatus: (...args: unknown[]) => mockGetDesktopMcpStatus(...args),
   syncDesktopMcpConfig: (...args: unknown[]) => mockSyncDesktopMcpConfig(...args),
 }));
@@ -213,7 +228,10 @@ describe('SettingsDialog privacy copy', () => {
     expect(screen.getByText('Enable local MCP server')).toBeTruthy();
     expect(screen.getByText('Claude Code')).toBeTruthy();
     expect(screen.getByText('Codex')).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Copy' }).length).toBeGreaterThanOrEqual(4);
+    expect(screen.getByText('Cursor')).toBeTruthy();
+    expect(screen.getByText('OpenCode')).toBeTruthy();
+    expect(screen.getByText(/select_workspace/i)).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Copy' }).length).toBeGreaterThanOrEqual(5);
     expect(screen.getAllByText(/http:\/\/127\.0\.0\.1:32123\/mcp/i).length).toBeGreaterThan(0);
     expect(mockGetDesktopMcpStatus).toHaveBeenCalled();
   });

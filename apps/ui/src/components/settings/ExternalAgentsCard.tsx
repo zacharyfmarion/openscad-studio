@@ -3,9 +3,10 @@ import { Button, Input, Text, Toggle } from '../ui';
 import type { Settings } from '../../stores/settingsStore';
 import { updateSetting } from '../../stores/settingsStore';
 import {
-  buildAgentSnippet,
   buildClaudeMcpCommand,
   buildCodexMcpCommand,
+  buildCursorMcpConfig,
+  buildOpenCodeMcpConfig,
   getDesktopMcpStatus,
   syncDesktopMcpConfig,
   type McpServerStatus,
@@ -95,8 +96,9 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
 
   const endpoint = status.endpoint ?? `http://127.0.0.1:${status.port}/mcp`;
   const claudeCommand = useMemo(() => buildClaudeMcpCommand(status.port), [status.port]);
+  const cursorConfig = useMemo(() => buildCursorMcpConfig(status.port), [status.port]);
   const codexCommand = useMemo(() => buildCodexMcpCommand(status.port), [status.port]);
-  const agentSnippet = useMemo(() => buildAgentSnippet(status.port), [status.port]);
+  const openCodeConfig = useMemo(() => buildOpenCodeMcpConfig(status.port), [status.port]);
 
   const copyText = useCallback(async (label: string, value: string) => {
     try {
@@ -180,7 +182,7 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
     <SettingsCard className="ph-no-capture">
       <SettingsCardHeader
         title="External Agents"
-        description="Expose OpenSCAD Studio's project context, render target, diagnostics, renders, and preview screenshots to Claude Code, Codex, and similar local agents."
+        description="Expose one local OpenSCAD Studio MCP server for render-target switching, diagnostics, renders, preview screenshots, and exports. Each external agent session binds to a specific Studio workspace window."
         action={
           <span
             className="text-xs px-2 py-0.5 rounded-full font-medium"
@@ -238,7 +240,12 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
       >
         <Text variant="caption" color="tertiary">
           External agents should keep reading and editing files directly in your repo. OpenSCAD
-          Studio MCP is for render-oriented tasks only.
+          Studio MCP is for render-oriented tasks only, and each agent session should call
+          <Text as="code" variant="caption" className="font-mono">
+            {' '}
+            select_workspace
+          </Text>{' '}
+          before using render tools.
         </Text>
 
         <SettingsSupportBlock className="flex flex-col" style={{ gap: 'var(--space-helper-gap)' }}>
@@ -287,6 +294,34 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
 
         <SettingsSupportBlock className="flex flex-col" style={{ gap: 'var(--space-helper-gap)' }}>
           <Text variant="caption" weight="semibold">
+            Cursor
+          </Text>
+          <Text variant="caption" color="tertiary">
+            Add this to{' '}
+            <Text as="code" variant="caption" className="font-mono">
+              ~/.cursor/mcp.json
+            </Text>
+          </Text>
+          <div
+            className="flex items-start justify-between"
+            style={{ gap: 'var(--space-control-gap)' }}
+          >
+            <Text as="code" variant="caption" className="font-mono break-all whitespace-pre-wrap">
+              {cursorConfig}
+            </Text>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => void copyText('Cursor config', cursorConfig)}
+            >
+              Copy
+            </Button>
+          </div>
+        </SettingsSupportBlock>
+
+        <SettingsSupportBlock className="flex flex-col" style={{ gap: 'var(--space-helper-gap)' }}>
+          <Text variant="caption" weight="semibold">
             Codex
           </Text>
           <div
@@ -309,20 +344,26 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
 
         <SettingsSupportBlock className="flex flex-col" style={{ gap: 'var(--space-helper-gap)' }}>
           <Text variant="caption" weight="semibold">
-            Agent snippet
+            OpenCode
+          </Text>
+          <Text variant="caption" color="tertiary">
+            Add this to{' '}
+            <Text as="code" variant="caption" className="font-mono">
+              ~/.config/opencode/opencode.json
+            </Text>
           </Text>
           <div
             className="flex items-start justify-between"
             style={{ gap: 'var(--space-control-gap)' }}
           >
-            <Text as="code" variant="caption" className="font-mono break-all">
-              {agentSnippet}
+            <Text as="code" variant="caption" className="font-mono break-all whitespace-pre-wrap">
+              {openCodeConfig}
             </Text>
             <Button
               type="button"
               size="sm"
               variant="ghost"
-              onClick={() => void copyText('Agent snippet', agentSnippet)}
+              onClick={() => void copyText('OpenCode config', openCodeConfig)}
             >
               Copy
             </Button>

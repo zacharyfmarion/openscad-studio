@@ -271,6 +271,36 @@ describe('RenderService', () => {
     await expect(exportPromise).rejects.toThrow('Export produced no output');
   });
 
+  it('forwards export auxiliary files and input path to the worker', async () => {
+    const service = new RenderService();
+    const initPromise = service.init();
+    mockWorkers[0].emitMessage({ type: 'ready' });
+    await initPromise;
+
+    const exportPromise = service.exportModel('use <shared.scad>;\ncube(10);', 'obj', {
+      auxiliaryFiles: { 'shared.scad': 'module helper() {}' },
+      libraryFiles: { 'libraries/util.scad': 'module util() {}' },
+      inputPath: 'models/main.scad',
+    });
+    const { worker, request } = await takeLastPostedRenderRequest();
+
+    expect(request.args).toEqual(['/input.scad', '-o', '/output.obj', '--backend=manifold']);
+    expect((request as { inputPath?: string }).inputPath).toBe('models/main.scad');
+    expect((request as { auxiliaryFiles?: Record<string, string> }).auxiliaryFiles).toStrictEqual({
+      'shared.scad': 'module helper() {}',
+      'libraries/util.scad': 'module util() {}',
+    });
+
+    worker.emitMessage({
+      type: 'result',
+      id: request.id,
+      output: new Uint8Array([1, 2, 3]),
+      stderr: '',
+    });
+
+    await expect(exportPromise).resolves.toEqual(new Uint8Array([1, 2, 3]));
+  });
+
   it('rejects init when the worker reports an __init__ error', async () => {
     const service = new RenderService();
     const initPromise = service.init();

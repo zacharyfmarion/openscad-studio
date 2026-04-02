@@ -70,8 +70,10 @@ describe('platform bootstrap', () => {
   it('selects the tauri bridge when tauri internals are present', async () => {
     (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = {};
     const listen = jest.fn(async () => jest.fn());
-    jest.unstable_mockModule('@tauri-apps/api/event', () => ({
-      listen,
+    jest.unstable_mockModule('@tauri-apps/api/window', () => ({
+      getCurrentWindow: () => ({
+        listen,
+      }),
     }));
 
     const platform = await import('../index');
