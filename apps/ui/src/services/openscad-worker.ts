@@ -14,6 +14,10 @@ export interface WorkerRenderRequest {
   code: string;
   args: string[];
   auxiliaryFiles?: Record<string, string>;
+  /** Project-relative path of the render target (e.g. "examples/keebcu/foo.scad").
+   *  When provided with auxiliaryFiles, the input file is written at this path
+   *  inside /input_dir/ so that sibling includes resolve correctly. */
+  inputPath?: string;
 }
 
 export interface WorkerInitRequest {
@@ -77,7 +81,7 @@ function ensureParentDirs(fs: { mkdir(path: string): void }, filePath: string): 
 }
 
 async function handleRender(request: WorkerRenderRequest): Promise<void> {
-  const { id, code, args, auxiliaryFiles } = request;
+  const { id, code, args, auxiliaryFiles, inputPath: renderTargetPath } = request;
 
   try {
     const stderrLines: string[] = [];
@@ -101,8 +105,12 @@ async function handleRender(request: WorkerRenderRequest): Promise<void> {
       }
     }
 
-    // Write input file inside the same directory so relative includes resolve
-    const inputPath = auxiliaryFiles ? '/input_dir/input.scad' : '/input.scad';
+    // Write input file at its project-relative path so sibling includes resolve.
+    // e.g. "examples/keebcu/foo.scad" → "/input_dir/examples/keebcu/foo.scad"
+    const inputPath = auxiliaryFiles
+      ? '/input_dir/' + (renderTargetPath || 'input.scad')
+      : '/input.scad';
+    ensureParentDirs(wasm.FS, inputPath);
     wasm.FS.writeFile(inputPath, code);
 
     // Rewrite input path in args to match where we wrote the file

@@ -2,7 +2,7 @@ mod cmd;
 mod history;
 mod types;
 
-use cmd::{update_editor_state, update_working_dir, EditorState};
+use cmd::{update_editor_state, update_working_dir, EditorState, OpenScadBinaryState};
 use history::HistoryState;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Emitter, Manager};
@@ -11,6 +11,7 @@ use tauri::{Emitter, Manager};
 pub fn run() {
     let editor_state = EditorState::default();
     let history_state = HistoryState::new();
+    let openscad_state = OpenScadBinaryState::default();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
@@ -18,6 +19,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .manage(editor_state)
         .manage(history_state)
+        .manage(openscad_state)
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             update_editor_state,
@@ -31,6 +33,9 @@ pub fn run() {
             cmd::history::can_undo,
             cmd::history::can_redo,
             cmd::history::get_checkpoint_by_id,
+            cmd::render::render_init,
+            cmd::render::render_native,
+            cmd::render::render_cancel,
         ])
         .setup(|app| {
             // Create app menu (About, Hide, Quit, etc.)
@@ -56,6 +61,7 @@ pub fn run() {
                         .accelerator("CmdOrCtrl+O")
                         .build(app)?,
                 )
+                .item(&MenuItemBuilder::with_id("open_folder", "Open Folder...").build(app)?)
                 .separator()
                 .item(
                     &MenuItemBuilder::with_id("save", "Save")
@@ -65,6 +71,11 @@ pub fn run() {
                 .item(
                     &MenuItemBuilder::with_id("save_as", "Save As...")
                         .accelerator("CmdOrCtrl+Shift+S")
+                        .build(app)?,
+                )
+                .item(
+                    &MenuItemBuilder::with_id("save_all", "Save All")
+                        .accelerator("CmdOrCtrl+Alt+S")
                         .build(app)?,
                 )
                 .separator()
@@ -109,11 +120,17 @@ pub fn run() {
                 "open" => {
                     window.emit("menu:file:open", ()).unwrap();
                 }
+                "open_folder" => {
+                    window.emit("menu:file:open_folder", ()).unwrap();
+                }
                 "save" => {
                     window.emit("menu:file:save", ()).unwrap();
                 }
                 "save_as" => {
                     window.emit("menu:file:save_as", ()).unwrap();
+                }
+                "save_all" => {
+                    window.emit("menu:file:save_all", ()).unwrap();
                 }
                 "export_stl" => {
                     window.emit("menu:file:export", "stl").unwrap();

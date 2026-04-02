@@ -9,7 +9,7 @@ OpenSCAD Studio runs the AI copilot entirely on the client side.
 - The same React/TypeScript AI stack is used in both the standalone web app and the Tauri desktop app.
 - Tauri provides desktop shell features such as native file dialogs and filesystem access, but it does not proxy or execute AI requests.
 - Model requests are made from the frontend with the Vercel AI SDK.
-- OpenSCAD rendering remains client-side through `openscad-wasm` in a Web Worker.
+- OpenSCAD rendering is client-side: web uses `openscad-wasm` in a Web Worker, while the desktop app uses a bundled native OpenSCAD binary invoked via Tauri IPC commands.
 
 The top-level `README.md` is user-facing. Keep it focused on product-level information and avoid turning it into an engineering index; architecture, roadmap, analytics, and implementation details should live in assistant/developer docs instead.
 
@@ -64,6 +64,7 @@ Desktop-only shell services:
 │ Tauri / Rust                                                │
 │ ├── native menus                                            │
 │ ├── file open/save/export commands                          │
+│ ├── native OpenSCAD binary rendering (render.rs)            │
 │ ├── working-directory/history helpers                       │
 │ └── desktop packaging/runtime                               │
 └─────────────────────────────────────────────────────────────┘
@@ -129,11 +130,13 @@ Relevant code:
 
 The client-side AI agent currently exposes these tools through `aiService.ts`:
 
-- `get_current_code`
-- `list_project_files`
+- `get_project_context`
+- `list_folder_contents`
 - `read_file`
 - `get_preview_screenshot`
 - `apply_edit`
+- `create_file`
+- `set_render_target`
 - `get_diagnostics`
 - `trigger_render`
 
@@ -146,7 +149,6 @@ All tool execution is implemented in TypeScript and runs inside the app frontend
 - React UI
 - AI chat/composer state
 - Vercel AI SDK provider calls
-- OpenSCAD WASM rendering
 - diagnostics parsing
 - image attachment preprocessing
 
@@ -156,12 +158,17 @@ All tool execution is implemented in TypeScript and runs inside the app frontend
 - full filesystem reads/writes
 - native menus
 - desktop packaging/runtime
+- native OpenSCAD binary rendering
+- multi-file project directory management
+- library path resolution
 
 ### Web-only constraints
 
 - browser file APIs are limited compared to desktop
 - SharedArrayBuffer requires COOP/COEP headers
 - local storage and File System Access API behavior depends on browser support
+- rendering via openscad-wasm (no native binary)
+- no persistent project directories (files are in-memory)
 
 ## Parallel agents
 

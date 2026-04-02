@@ -21,8 +21,11 @@ function getMenuBarDef(): MenuDef[] {
       items: [
         { type: 'action', id: 'file.new', label: 'New File', shortcut: `${mod}+N` },
         { type: 'action', id: 'file.open', label: 'Open File...', shortcut: `${mod}+O` },
+        { type: 'action', id: 'file.openProject', label: 'Open Folder...' },
+        { type: 'separator' },
         { type: 'action', id: 'file.save', label: 'Save', shortcut: `${mod}+S` },
         { type: 'action', id: 'file.saveAs', label: 'Save As...', shortcut: `${mod}+\u21E7+S` },
+        { type: 'action', id: 'file.saveAll', label: 'Save All', shortcut: `${mod}+\u2325+S` },
         { type: 'separator' },
         { type: 'action', id: 'file.export', label: 'Export...' },
         { type: 'separator' },
@@ -87,18 +90,51 @@ interface WebMenuBarProps {
   onSettings: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  hasMultipleFiles?: boolean;
 }
 
-export function WebMenuBar({ onExport, onShare, onSettings, onUndo, onRedo }: WebMenuBarProps) {
+export function WebMenuBar({
+  onExport,
+  onShare,
+  onSettings,
+  onUndo,
+  onRedo,
+  hasMultipleFiles,
+}: WebMenuBarProps) {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const menuDef = useMemo(() => {
     const nextMenuDef = getMenuBarDef();
+    // Insert "Save Project (.zip)..." after "Save All" when there are multiple files
+    if (hasMultipleFiles) {
+      const fileMenu = nextMenuDef[0]?.items;
+      if (fileMenu) {
+        const saveAllIdx = fileMenu.findIndex(
+          (item) => item.type === 'action' && item.id === 'file.saveAll'
+        );
+        if (saveAllIdx >= 0) {
+          fileMenu.splice(saveAllIdx + 1, 0, {
+            type: 'action',
+            id: 'file.saveProject',
+            label: 'Save Project (.zip)...',
+          });
+        }
+      }
+    }
     if (onShare) {
-      nextMenuDef[0]?.items.splice(6, 0, { type: 'action', id: 'file.share', label: 'Share...' });
+      const exportIdx = nextMenuDef[0]?.items.findIndex(
+        (item) => item.type === 'action' && item.id === 'file.export'
+      );
+      if (exportIdx !== undefined && exportIdx >= 0) {
+        nextMenuDef[0]?.items.splice(exportIdx + 1, 0, {
+          type: 'action',
+          id: 'file.share',
+          label: 'Share...',
+        });
+      }
     }
     return nextMenuDef;
-  }, [onShare]);
+  }, [onShare, hasMultipleFiles]);
 
   const handleClose = useCallback(() => {
     setOpenMenu(null);
@@ -119,8 +155,17 @@ export function WebMenuBar({ onExport, onShare, onSettings, onUndo, onRedo }: We
         case 'file.saveAs':
           eventBus.emit('menu:file:save_as');
           break;
+        case 'file.saveAll':
+          eventBus.emit('menu:file:save_all');
+          break;
         case 'file.export':
           onExport();
+          break;
+        case 'file.saveProject':
+          eventBus.emit('menu:file:save_project');
+          break;
+        case 'file.openProject':
+          eventBus.emit('menu:file:open_project');
           break;
         case 'file.share':
           onShare?.();

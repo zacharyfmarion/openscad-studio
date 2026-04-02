@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { getPlatform, type ExportFormat } from '../platform';
-import { RenderService } from '../services/renderService';
+import { getRenderService } from '../services/renderService';
 import { normalizeAppError } from '../utils/notifications';
 
 interface MenuBarProps {
@@ -84,7 +84,7 @@ export function MenuBar({
       const formatInfo = EXPORT_FORMATS.find((f) => f.value === format);
       if (!formatInfo) return;
 
-      const exportBytes = await RenderService.getInstance().exportModel(
+      const exportBytes = await getRenderService().exportModel(
         source,
         format as 'stl' | 'obj' | 'amf' | '3mf' | 'svg' | 'dxf'
       );

@@ -131,6 +131,59 @@ export interface PlatformBridge {
    */
   pickDirectory(): Promise<string | null>;
 
+  // -- File CRUD (for project file management) --
+
+  /** Write a text file to the given absolute path. Web bridge is a no-op. */
+  writeTextFile(absolutePath: string, content: string): Promise<void>;
+
+  /** Delete a file at the given absolute path. Web bridge is a no-op. */
+  deleteFile(absolutePath: string): Promise<void>;
+
+  /** Rename/move a file. Web bridge is a no-op. */
+  renameFile(oldPath: string, newPath: string): Promise<void>;
+
+  /**
+   * List all subdirectory paths (relative) under a directory, recursively.
+   * Used to discover empty folders on project open.
+   * Web bridge returns empty array.
+   */
+  readSubdirectories(dirPath: string): Promise<string[]>;
+
+  /** Create a directory (and any missing parents). Web bridge is a no-op. */
+  createDirectory(absolutePath: string): Promise<void>;
+
+  /** Remove a directory and all its contents recursively. Web bridge is a no-op. */
+  removeDirectory(absolutePath: string): Promise<void>;
+
+  // -- File watching --
+
+  /**
+   * Watch a directory for changes to .scad files.
+   * Callback receives the relative path of the changed file and its new content.
+   * Returns an unsubscribe function. Web bridge is a no-op (returns no-op unsub).
+   */
+  watchDirectory(
+    dirPath: string,
+    onChange: (relativePath: string, content: string | null) => void
+  ): Promise<() => void>;
+
+  // -- Project directory --
+
+  /**
+   * Get the platform default base directory for new projects.
+   * Desktop: ~/Documents/OpenSCAD Studio/
+   * Web: returns null (no filesystem).
+   */
+  getDefaultProjectsDirectory(): Promise<string | null>;
+
+  /**
+   * Create a new project directory inside basePath with the given name.
+   * Deduplicates by appending -2, -3, etc. if the name already exists.
+   * Returns the absolute path of the created directory, or null on failure.
+   * Web: returns null.
+   */
+  createProjectDirectory(basePath: string, name: string): Promise<string | null>;
+
   // -- Lifecycle --
 
   /** Optional initialization (e.g., setting up native menu event forwarding) */

@@ -136,7 +136,6 @@ describe('CustomizerPanel', () => {
       <CustomizerPanel
         code="width = 60;"
         baselineCode="width = 60;"
-        onChange={() => {}}
         isCustomizerFirstMode
         previewKind="mesh"
         previewAvailable
@@ -178,7 +177,6 @@ describe('CustomizerPanel', () => {
       <CustomizerPanel
         code="cube(10);"
         baselineCode="cube(10);"
-        onChange={() => {}}
         onRefineWithAi={handleRefine}
         onEditCode={() => {}}
       />
@@ -232,7 +230,6 @@ describe('CustomizerPanel', () => {
       <CustomizerPanel
         code="width = 10;"
         baselineCode="width = 10;"
-        onChange={() => {}}
         isCustomizerFirstMode
         previewKind="svg"
         previewAvailable
@@ -268,7 +265,6 @@ describe('CustomizerPanel', () => {
       <CustomizerPanel
         code="width = 10;"
         baselineCode="width = 8;"
-        onChange={() => {}}
         isCustomizerFirstMode
         previewKind="mesh"
         previewAvailable
@@ -327,7 +323,6 @@ describe('CustomizerPanel', () => {
       <CustomizerPanel
         code="width = 60;\nheight = 30;"
         baselineCode="width = 60;\nheight = 30;"
-        onChange={() => {}}
         isCustomizerFirstMode
         previewKind="svg"
         previewAvailable
@@ -361,7 +356,6 @@ describe('CustomizerPanel', () => {
   });
 
   it('marks overridden fields and supports resetting a single parameter', () => {
-    const handleChange = jest.fn();
     mockParseCustomizerParams.mockImplementation((code: string) => [
       {
         name: 'Parameters',
@@ -380,22 +374,22 @@ describe('CustomizerPanel', () => {
     ]);
 
     const { rerender } = renderWithProviders(
-      <CustomizerPanel code="width = 60;" baselineCode="width = 60;" onChange={handleChange} />
+      <CustomizerPanel code="width = 60;" baselineCode="width = 60;" />
     );
 
-    rerender(
-      <CustomizerPanel code="width = 80;" baselineCode="width = 60;" onChange={handleChange} />
-    );
+    rerender(<CustomizerPanel code="width = 80;" baselineCode="width = 60;" />);
 
     expect(screen.getByText('Edited')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Reset Width' }));
 
-    expect(handleChange).toHaveBeenCalledWith('width = 60;');
+    expect(mockEmit).toHaveBeenCalledWith('code-updated', {
+      code: 'width = 60;',
+      source: 'customizer',
+    });
   });
 
   it('treats slider changes as resettable against the opened-file baseline', () => {
     jest.useFakeTimers();
-    const handleChange = jest.fn();
 
     mockParseCustomizerParams.mockImplementation((code: string) => [
       {
@@ -418,7 +412,7 @@ describe('CustomizerPanel', () => {
     ]);
 
     const { rerender } = renderWithProviders(
-      <CustomizerPanel code="width = 60;" baselineCode="width = 60;" onChange={handleChange} />
+      <CustomizerPanel code="width = 60;" baselineCode="width = 60;" />
     );
 
     fireEvent.change(screen.getByLabelText('Width slider'), { target: { value: '80' } });
@@ -427,11 +421,12 @@ describe('CustomizerPanel', () => {
       jest.advanceTimersByTime(150);
     });
 
-    expect(handleChange).toHaveBeenCalledWith('width = 80;');
+    expect(mockEmit).toHaveBeenCalledWith('code-updated', {
+      code: 'width = 80;',
+      source: 'customizer',
+    });
 
-    rerender(
-      <CustomizerPanel code="width = 80;" baselineCode="width = 60;" onChange={handleChange} />
-    );
+    rerender(<CustomizerPanel code="width = 80;" baselineCode="width = 60;" />);
 
     expect(screen.getByText('Edited')).toBeTruthy();
     expect(

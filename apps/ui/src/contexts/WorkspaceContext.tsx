@@ -16,6 +16,7 @@ export interface WorkspaceState {
   diagnostics: Diagnostic[];
   onManualRender: (() => void) | undefined;
   settings: Settings;
+  editorFocusRequestKey: number;
 
   // Tabs
   tabs: WorkspaceTab[];

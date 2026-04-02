@@ -34,7 +34,7 @@ function createBootstrapCapabilities(): PlatformCapabilities {
         canSetWindowTitle: true,
       }
     : {
-        multiFile: false,
+        multiFile: true,
         hasNativeMenu: false,
         hasFileSystem: false,
         canSetWindowTitle: true,
@@ -102,9 +102,25 @@ class BootstrapBridge implements PlatformBridge {
     document.title = title;
   }
 
-  onCloseRequested(handler: () => Promise<boolean>): () => void {
-    void handler;
-    return () => {};
+  private _hasDirtyState = false;
+
+  setDirtyState(dirty: boolean): void {
+    this._hasDirtyState = dirty;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onCloseRequested(_handler: () => Promise<boolean>): () => void {
+    const hasDirty = () => this._hasDirtyState;
+    const beforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasDirty()) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnload);
+    };
   }
 
   async fileExists(absolutePath: string): Promise<boolean> {
@@ -126,6 +142,24 @@ class BootstrapBridge implements PlatformBridge {
   }
 
   async pickDirectory(): Promise<string | null> {
+    return null;
+  }
+
+  async writeTextFile(): Promise<void> {}
+  async deleteFile(): Promise<void> {}
+  async renameFile(): Promise<void> {}
+  async readSubdirectories(): Promise<string[]> {
+    return [];
+  }
+  async createDirectory(): Promise<void> {}
+  async removeDirectory(): Promise<void> {}
+  async watchDirectory(): Promise<() => void> {
+    return () => {};
+  }
+  async getDefaultProjectsDirectory(): Promise<string | null> {
+    return null;
+  }
+  async createProjectDirectory(): Promise<string | null> {
     return null;
   }
 }

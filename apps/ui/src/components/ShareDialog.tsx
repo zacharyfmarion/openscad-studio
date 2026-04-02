@@ -10,6 +10,7 @@ import {
   ShareRequestError,
   uploadThumbnail,
 } from '../services/shareService';
+import { getProjectStore } from '../stores/projectStore';
 import type { ShareMode } from '../types/share';
 import { Button, IconButton, Input, Label, SegmentedControl, Text } from './ui';
 
@@ -87,6 +88,18 @@ async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
   return response.blob();
 }
 
+function getProjectSnapshot(): {
+  projectFiles: Record<string, string>;
+  renderTargetPath: string | null;
+} {
+  const state = getProjectStore().getState();
+  const projectFiles: Record<string, string> = {};
+  for (const [path, file] of Object.entries(state.files)) {
+    projectFiles[path] = file.content;
+  }
+  return { projectFiles, renderTargetPath: state.renderTargetPath };
+}
+
 export function ShareDialog({
   isOpen,
   onClose,
@@ -129,7 +142,21 @@ export function ShareDialog({
     }
   }, [analytics, forkedFrom, isOpen, tabName]);
 
-  const codeSize = useMemo(() => new TextEncoder().encode(source).length, [source]);
+  const snapshot = useMemo(() => (isOpen ? getProjectSnapshot() : null), [isOpen]);
+  const isMultiFile = Boolean(
+    snapshot && Object.keys(snapshot.projectFiles).length > 1 && snapshot.renderTargetPath
+  );
+  const fileCount = snapshot ? Object.keys(snapshot.projectFiles).length : 1;
+  const codeSize = useMemo(() => {
+    const enc = new TextEncoder();
+    if (isMultiFile && snapshot) {
+      return Object.values(snapshot.projectFiles).reduce(
+        (sum, content) => sum + enc.encode(content).length,
+        0
+      );
+    }
+    return enc.encode(source).length;
+  }, [isMultiFile, snapshot, source]);
   const shareLimitBytes = 51_200;
   const canShare = source.trim().length > 0 && codeSize <= shareLimitBytes && !isSharing;
   const currentShareUrl =
@@ -171,11 +198,20 @@ export function ShareDialog({
     setIsSharing(true);
 
     try {
-      const result = await createShare({
-        code: source,
-        title,
-        forkedFrom: includeAttribution ? forkedFrom : null,
-      });
+      const result = await createShare(
+        isMultiFile && snapshot?.renderTargetPath
+          ? {
+              files: snapshot.projectFiles,
+              renderTarget: snapshot.renderTargetPath,
+              title,
+              forkedFrom: includeAttribution ? forkedFrom : null,
+            }
+          : {
+              code: source,
+              title,
+              forkedFrom: includeAttribution ? forkedFrom : null,
+            }
+      );
 
       setShareId(result.id);
       setBaseShareUrl(new URL(result.url).origin || getShareApiBase());
@@ -266,6 +302,12 @@ export function ShareDialog({
               disabled={isSharing}
             />
           </div>
+
+          {isMultiFile && (
+            <Text variant="caption" style={{ color: 'var(--text-secondary)' }}>
+              Sharing {fileCount} files ({formatBytes(codeSize)} total)
+            </Text>
+          )}
 
           {codeSize > shareLimitBytes ? (
             <div

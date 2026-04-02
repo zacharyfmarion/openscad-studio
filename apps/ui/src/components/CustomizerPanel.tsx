@@ -21,7 +21,6 @@ import { useSettings } from '../stores/settingsStore';
 interface CustomizerPanelProps {
   code: string;
   baselineCode: string;
-  onChange: (newCode: string) => void;
   isCustomizerFirstMode?: boolean;
   previewKind?: RenderKind;
   previewAvailable?: boolean;
@@ -145,7 +144,6 @@ function LoadingState() {
 export function CustomizerPanel({
   code,
   baselineCode,
-  onChange,
   isCustomizerFirstMode = false,
   previewKind,
   previewAvailable = false,
@@ -286,10 +284,12 @@ export function CustomizerPanel({
     }
 
     if (newCode !== code) {
-      onChange(newCode);
+      // Emit code-updated so the App handler writes to the render target path
+      // and triggers a render. Do NOT call onChange (handleEditorChange) — it
+      // writes to the active editor tab, which may differ from the render target.
       eventBus.emit('code-updated', { code: newCode, source: 'customizer' });
     }
-  }, [code, onChange, tabs, baselineParams]);
+  }, [code, tabs, baselineParams]);
 
   const handleResetParameter = useCallback(
     (param: CustomizerParam) => {
@@ -300,11 +300,10 @@ export function CustomizerPanel({
 
       const newCode = replaceParamValue(code, param, baseline);
       if (newCode !== code) {
-        onChange(newCode);
         eventBus.emit('code-updated', { code: newCode, source: 'customizer' });
       }
     },
-    [code, onChange, baselineParams]
+    [code, baselineParams]
   );
 
   const handleParameterChange = useCallback(
@@ -328,13 +327,12 @@ export function CustomizerPanel({
       const newCode = replaceParamValue(code, param, formattedValue);
 
       if (newCode !== code) {
-        onChange(newCode);
         eventBus.emit('code-updated', { code: newCode, source: 'customizer' });
       } else {
         console.warn('[Customizer] Failed to update parameter:', param.name);
       }
     },
-    [code, onChange]
+    [code]
   );
 
   const downloadDisabledReason = getDownloadDisabledReason({

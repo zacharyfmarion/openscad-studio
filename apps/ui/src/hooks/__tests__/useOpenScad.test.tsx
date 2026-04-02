@@ -96,7 +96,7 @@ describe('useOpenScad', () => {
     });
 
     await waitFor(() => {
-      expect(hook.current().error).toContain('Failed to initialize OpenSCAD WASM');
+      expect(hook.current().error).toContain('Failed to initialize OpenSCAD');
     });
 
     expect(notify).toHaveBeenCalledWith(
@@ -220,6 +220,11 @@ describe('useOpenScad', () => {
           'system.scad': 'module helper() {}',
           'deps/shape.scad': 'square(10);',
         },
+        libraryFiles: {
+          'custom.scad': 'module custom() {}',
+          'system.scad': 'module helper() {}',
+        },
+        libraryPaths: ['/lib/system', '/lib/custom'],
       })
     );
     expect(renderService.render).toHaveBeenNthCalledWith(
@@ -243,9 +248,7 @@ describe('useOpenScad', () => {
     );
   });
 
-  it('reports diagnostic render errors and supports debounced auto-render with updateSourceAndRender', async () => {
-    jest.useFakeTimers();
-
+  it('reports diagnostic render errors and supports renderCode for immediate renders', async () => {
     const notify = jest.fn();
     const renderService = {
       init: jest.fn(async () => undefined),
@@ -262,18 +265,11 @@ describe('useOpenScad', () => {
           output: new Uint8Array([2]),
           kind: 'mesh',
           diagnostics: [],
-        })
-        .mockResolvedValueOnce({
-          output: new Uint8Array([3]),
-          kind: 'mesh',
-          diagnostics: [],
         }),
     };
 
     const hook = createHarness({
       suppressInitialRender: true,
-      autoRenderOnIdle: true,
-      autoRenderDelayMs: 250,
       testOverrides: {
         renderService: renderService as never,
         notifyError: notify,
@@ -300,25 +296,11 @@ describe('useOpenScad', () => {
     );
 
     await act(async () => {
-      await hook.current().updateSourceAndRender('cube(42);', 'code_update');
+      await hook.current().renderCode('cube(42);', 'code_update');
     });
     expect(renderService.render).toHaveBeenLastCalledWith(
       'cube(42);',
       expect.objectContaining({ view: '3d' })
     );
-
-    act(() => {
-      hook.current().updateSource('cube(99);');
-      jest.advanceTimersByTime(250);
-    });
-
-    await waitFor(() => {
-      expect(renderService.render).toHaveBeenCalledWith(
-        'cube(99);',
-        expect.objectContaining({ view: '3d' })
-      );
-    });
-
-    jest.useRealTimers();
   });
 });

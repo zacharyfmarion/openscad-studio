@@ -3,6 +3,12 @@ import { type ToolSet, stepCountIs } from 'ai';
 import { bucketCount, useAnalytics, type ModelSelectionSurface } from '../analytics/runtime';
 import { historyService, eventBus, getPlatform } from '../platform';
 import {
+  getProjectState,
+  getProjectStore,
+  listProjectFiles as listProjectFilesFromState,
+} from '../stores/projectStore';
+import { requestRender } from '../stores/renderRequestStore';
+import {
   createModel,
   SYSTEM_PROMPT,
   buildTools,
@@ -49,7 +55,7 @@ import {
   FALLBACK_PREVIEW_SCENE_STYLE,
   type PreviewSceneStyle,
 } from '../services/previewSceneConfig';
-import { getRelativeProjectPath, normalizeProjectRelativePath } from '../utils/projectFilePaths';
+import { normalizeProjectRelativePath } from '../utils/projectFilePaths';
 import { createRandomId } from '../utils/randomId';
 import { updateSetting, loadSettings, type MeasurementUnit } from '../stores/settingsStore';
 
@@ -193,7 +199,6 @@ interface UseAiAgentOptions {
   testOverrides?: {
     analytics?: ReturnType<typeof useAnalytics>;
     availableProviders?: ReturnType<typeof useAvailableProviders>;
-    getPlatform?: typeof getPlatform;
     createModel?: typeof createModel;
     buildTools?: typeof buildTools;
     startAiStream?: typeof startAiStream;
@@ -214,7 +219,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
   const overrides = options.testOverrides;
   const analytics = overrides?.analytics ?? defaultAnalytics;
   const availableProviders = overrides?.availableProviders ?? defaultAvailableProviders;
-  const getPlatformImpl = overrides?.getPlatform ?? getPlatform;
   const createModelImpl = overrides?.createModel ?? createModel;
   const buildToolsImpl = overrides?.buildTools ?? buildTools;
   const startAiStreamImpl = overrides?.startAiStream ?? startAiStream;
@@ -252,12 +256,8 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
     stateRef.current = state;
   }, [state]);
 
-  const sourceRef = useRef<string>('');
   const capturePreviewRef = useRef<(() => Promise<string | null>) | null>(null);
   const preview3dUrlRef = useRef<string | null>(null);
-  const workingDirRef = useRef<string | null>(null);
-  const currentFilePathRef = useRef<string | null>(null);
-  const auxiliaryFilesRef = useRef<Record<string, string>>({});
   const previewSceneStyleRef = useRef<PreviewSceneStyle>(FALLBACK_PREVIEW_SCENE_STYLE);
   const useModelColorsRef = useRef<boolean>(loadSettingsImpl().viewer.showModelColors);
   const measurementUnitRef = useRef<MeasurementUnit>(loadSettingsImpl().viewer.measurementUnit);
@@ -280,7 +280,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
 
   const callbacks: AiToolCallbacks = useMemo(
     () => ({
-      getCurrentCode: () => sourceRef.current,
       captureCurrentView: async () => {
         if (capturePreviewRef.current) {
           return capturePreviewRef.current();
@@ -290,54 +289,66 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
       get3dPreviewUrl: () => preview3dUrlRef.current,
       getPreviewSceneStyle: () => previewSceneStyleRef.current,
       getUseModelColors: () => useModelColorsRef.current,
-      hasProjectFileAccess: () => {
-        try {
-          return Boolean(workingDirRef.current) && getPlatformImpl().capabilities.hasFileSystem;
-        } catch {
-          return false;
-        }
-      },
-      getCurrentFileRelativePath: () =>
-        getRelativeProjectPath(workingDirRef.current, currentFilePathRef.current),
-      listProjectFiles: async () => {
-        const workingDir = workingDirRef.current;
-        if (!workingDir) {
-          return null;
-        }
-
-        const platform = getPlatformImpl();
-        if (!platform.capabilities.hasFileSystem) {
-          return null;
-        }
-
-        const files = await platform.readDirectoryFiles(workingDir, ['scad'], true);
-        return Object.keys(files).sort((a, b) => a.localeCompare(b));
-      },
-      readProjectFile: async (path: string) => {
-        const workingDir = workingDirRef.current;
-        if (!workingDir) {
-          return null;
-        }
-
-        const platform = getPlatformImpl();
-        if (!platform.capabilities.hasFileSystem) {
-          return null;
-        }
-
+      listProjectFiles: () => listProjectFilesFromState(getProjectState()),
+      readProjectFile: (path: string) => {
         const normalizedPath = normalizeProjectRelativePath(path);
-        if (!normalizedPath) {
-          return null;
+        if (!normalizedPath) return null;
+        const state = getProjectState();
+        return state.files[normalizedPath]?.content ?? null;
+      },
+      getRenderTargetPath: () => getProjectState().renderTargetPath,
+      createProjectFile: (path: string, content: string) => {
+        const normalizedPath = normalizeProjectRelativePath(path);
+        if (!normalizedPath) return false;
+        const state = getProjectState();
+        if (normalizedPath in state.files) return false;
+        getProjectStore().getState().addFile(normalizedPath, content);
+
+        // Auto-persist to disk when project is disk-backed
+        const { projectRoot } = getProjectState();
+        if (projectRoot) {
+          const platform = getPlatform();
+          void platform
+            .createDirectory(`${projectRoot}/${normalizedPath.split('/').slice(0, -1).join('/')}`)
+            .then(() => platform.writeTextFile(`${projectRoot}/${normalizedPath}`, content))
+            .then(() => getProjectStore().getState().markFileSaved(normalizedPath, content))
+            .catch((err) => console.warn('[createProjectFile] Failed to persist to disk:', err));
         }
 
-        const currentRelativePath = getRelativeProjectPath(
-          workingDirRef.current,
-          currentFilePathRef.current
-        );
-        if (currentRelativePath === normalizedPath) {
-          return sourceRef.current;
+        return true;
+      },
+      editProjectFile: (path: string, oldString: string, newString: string) => {
+        const state = getProjectState();
+        const file = state.files[path];
+        if (!file) return `File not found: ${path}`;
+
+        const occurrences = file.content.split(oldString).length - 1;
+        if (occurrences === 0) return 'old_string not found in the file';
+        if (occurrences > 1) return `old_string found ${occurrences} times — it must be unique`;
+
+        const newContent = file.content.replace(oldString, newString);
+        getProjectStore().getState().updateFileContent(path, newContent);
+
+        // Auto-persist to disk when project is disk-backed
+        const { projectRoot } = getProjectState();
+        if (projectRoot) {
+          const platform = getPlatform();
+          void platform
+            .writeTextFile(`${projectRoot}/${path}`, newContent)
+            .then(() => getProjectStore().getState().markFileSaved(path, newContent))
+            .catch((err) => console.warn('[editProjectFile] Failed to persist to disk:', err));
         }
 
-        return platform.readTextFile(`${workingDir}/${normalizedPath}`);
+        return null;
+      },
+      requestRender: (trigger: string, opts) => {
+        requestRender(trigger as Parameters<typeof requestRender>[0], opts);
+      },
+      setRenderTarget: (path: string) => {
+        const state = getProjectState();
+        if (!(path in state.files)) return false;
+        getProjectStore().getState().setRenderTarget(path);
+        return true;
       },
       getMeasurementUnit: () => measurementUnitRef.current,
       setMeasurementUnit: (unit: MeasurementUnit) => {
@@ -345,14 +356,10 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         updateSettingImpl('viewer', { measurementUnit: unit });
       },
     }),
-    [getPlatformImpl, updateSettingImpl]
+    [updateSettingImpl]
   );
 
   const tools: ToolSet = useMemo(() => buildToolsImpl(callbacks), [buildToolsImpl, callbacks]);
-
-  const updateSourceRef = useCallback((code: string) => {
-    sourceRef.current = code;
-  }, []);
 
   const updateCapturePreview = useCallback((fn: (() => Promise<string | null>) | null) => {
     capturePreviewRef.current = fn;
@@ -360,18 +367,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
 
   const update3dPreviewUrl = useCallback((url: string | null) => {
     preview3dUrlRef.current = url;
-  }, []);
-
-  const updateWorkingDir = useCallback((dir: string | null) => {
-    workingDirRef.current = dir;
-  }, []);
-
-  const updateCurrentFilePath = useCallback((path: string | null) => {
-    currentFilePathRef.current = path;
-  }, []);
-
-  const updateAuxiliaryFiles = useCallback((files: Record<string, string>) => {
-    auxiliaryFilesRef.current = files;
   }, []);
 
   const updatePreviewSceneStyle = useCallback((sceneStyle: PreviewSceneStyle) => {
@@ -750,7 +745,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         provider,
         model_id: currentState.currentModel,
         attachment_count: submittedReadyIds.length,
-        has_project_file_access: callbacks.hasProjectFileAccess(),
+        has_project_files: callbacks.listProjectFiles().length > 0,
         prompt_length_bucket: bucketCount(draft.text.trim().length, [20, 80, 200, 500]),
         conversation_length_bucket: bucketCount(updatedMessages.length, [2, 5, 10, 20]),
       });
@@ -1027,12 +1022,8 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
     setCurrentModel,
     loadModelAndProviders,
     handleRestoreCheckpoint,
-    updateSourceRef,
     updateCapturePreview,
     update3dPreviewUrl,
-    updateWorkingDir,
-    updateCurrentFilePath,
-    updateAuxiliaryFiles,
     updatePreviewSceneStyle,
     updateUseModelColors,
     setDraftText,

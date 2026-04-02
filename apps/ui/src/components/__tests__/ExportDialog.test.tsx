@@ -23,6 +23,7 @@ jest.unstable_mockModule('@/platform', () => ({
 }));
 
 jest.unstable_mockModule('@/services/renderService', () => ({
+  getRenderService: () => ({ exportModel: jest.fn() }),
   RenderService: { getInstance: () => ({ exportModel: jest.fn() }) },
 }));
 

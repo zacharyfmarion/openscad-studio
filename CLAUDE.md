@@ -4,7 +4,7 @@ This document helps AI assistants (like Claude) understand the OpenSCAD Studio c
 
 ## Project Overview
 
-**OpenSCAD Studio** is a modern OpenSCAD editor with live preview and AI copilot capabilities. It runs both as a **web app** (at [openscad-studio.pages.dev](https://openscad-studio.pages.dev)) and as a **macOS desktop app** (via Tauri). Both platforms share the same React codebase and use openscad-wasm for rendering.
+**OpenSCAD Studio** is a modern OpenSCAD editor with live preview and AI copilot capabilities. It runs both as a **web app** (at [openscad-studio.pages.dev](https://openscad-studio.pages.dev)) and as a **macOS desktop app** (via Tauri). Both platforms share the same React codebase; the web app uses openscad-wasm for rendering while the desktop app uses a bundled native OpenSCAD binary for faster rendering and full filesystem access.
 
 The top-level `README.md` is user-facing. Keep it focused on product overview, installation, and contribution entry points. Engineering details, architecture notes, analytics contracts, and roadmap material belong in files like `CLAUDE.md`, `AGENTS.md`, `DEVELOPMENT.md`, `engineering-roadmap.md`, and `docs/`.
 
@@ -12,7 +12,7 @@ The top-level `README.md` is user-facing. Keep it focused on product overview, i
 
 - **Frontend**: React 18 + TypeScript + Vite + Monaco Editor
 - **Desktop Runtime**: Rust + Tauri for native shell features, packaging, and filesystem access
-- **Rendering**: openscad-wasm via Web Worker (both platforms)
+- **Rendering**: Web uses openscad-wasm via Web Worker; desktop uses a bundled native OpenSCAD binary via Tauri IPC
 - **AI Agent**: TypeScript with Vercel AI SDK (`streamText`)
 - **Web Deployment**: Cloudflare Pages
 - **Package Manager**: pnpm (monorepo workspace)
@@ -65,8 +65,10 @@ openscad-studio/
 │   │   │   ├── services/           # Core services
 │   │   │   │   ├── aiService.ts    # AI agent (Vercel AI SDK)
 │   │   │   │   ├── renderService.ts # Render orchestration
+│   │   │   │   ├── nativeRenderService.ts # Native OpenSCAD binary IPC (desktop)
 │   │   │   │   └── openscad-worker.ts # OpenSCAD WASM Web Worker
 │   │   │   ├── stores/             # Zustand stores
+│   │   │   │   └── projectStore.ts # Multi-file project state
 │   │   │   ├── themes/             # Theme definitions
 │   │   │   └── utils/              # Utility functions
 │   │   └── src-tauri/              # Rust backend (desktop only)
@@ -89,39 +91,42 @@ User Input
     ↓
 React Frontend (TypeScript)
     ↓ (Platform Bridge)
-┌─────────────────┬──────────────────┐
-│  Desktop (Tauri) │  Web (Browser)   │
-│  Tauri shell      │  Browser runtime │
-│  Native file I/O  │  File System API │
-└─────────────────┴──────────────────┘
-    ↓
-OpenSCAD WASM (Web Worker) — shared by both platforms
+┌──────────────────────────┬──────────────────────────┐
+│  Desktop (Tauri)          │  Web (Browser)            │
+│  Tauri shell               │  Browser runtime          │
+│  Native file I/O           │  File System API          │
+│         ↓                  │         ↓                 │
+│  Native OpenSCAD binary    │  OpenSCAD WASM            │
+│  via Tauri IPC (render.rs) │  via Web Worker           │
+└──────────────────────────┴──────────────────────────┘
     ↓
 Vercel AI SDK → Anthropic/OpenAI API (HTTPS)
 ```
 
 ### Key Design Patterns
 
-1. **WASM Rendering**: OpenSCAD runs via openscad-wasm in a Web Worker on both platforms. No CLI binary needed.
+1. **Dual Rendering**: Web uses openscad-wasm in a Web Worker; desktop uses a bundled native OpenSCAD binary invoked via Tauri IPC (`render.rs`), which provides faster rendering and full filesystem access for `include`/`use` resolution.
 
-2. **Multi-format Preview**:
+2. **Multi-file Projects**: Projects can contain multiple `.scad` files with a designated render target. The desktop app manages project directories and resolves `include`/`use` paths against the project root.
+
+3. **Multi-format Preview**:
    - Interactive STL/3D mesh for manipulation
    - SVG for 2D designs
 
-3. **Shared Client-Side AI**: Both web and desktop use the same frontend AI stack. Requests are made directly from the React app with Vercel AI SDK's `streamText`, and API keys are currently stored in local storage state inside the browser/webview.
+4. **Shared Client-Side AI**: Both web and desktop use the same frontend AI stack. Requests are made directly from the React app with Vercel AI SDK's `streamText`, and API keys are currently stored in local storage state inside the browser/webview.
 
-4. **Diff-based AI Editing**: AI returns exact string replacements, not full file rewrites.
+5. **Diff-based AI Editing**: AI returns exact string replacements, not full file rewrites.
 
-5. **Content-hash Caching**: SHA-256 of source + params → cached artifact path. Avoids redundant renders.
+6. **Content-hash Caching**: SHA-256 of source + params → cached artifact path. Avoids redundant renders.
 
-6. **Platform Bridge**: Components use a `PlatformBridge` interface (`apps/ui/src/platform/types.ts`) and never import Tauri or web-specific APIs directly.
+7. **Platform Bridge**: Components use a `PlatformBridge` interface (`apps/ui/src/platform/types.ts`) and never import Tauri or web-specific APIs directly.
 
 ## Important Files
 
 ### Frontend (React)
 
 - **`apps/ui/src/App.tsx`**: Main application component. Handles tab management, menu events, keyboard shortcuts, file I/O, and layout.
-- **`apps/ui/src/hooks/useOpenScad.ts`**: Core rendering logic. Manages WASM rendering, debouncing, diagnostics parsing.
+- **`apps/ui/src/hooks/useOpenScad.ts`**: Core rendering logic. Orchestrates both WASM (web) and native binary (desktop) rendering, debouncing, and diagnostics parsing.
 - **`apps/ui/src/hooks/useAiAgent.ts`**: AI agent communication. Handles streaming responses, tool call visualization.
 - **`apps/ui/src/components/Editor.tsx`**: Monaco editor wrapper with OpenSCAD syntax highlighting.
 - **`apps/ui/src/components/Preview.tsx`**: Conditional preview renderer (STL/SVG) with customizer integration.
@@ -142,6 +147,8 @@ Vercel AI SDK → Anthropic/OpenAI API (HTTPS)
 - **`apps/ui/src/services/aiService.ts`**: AI agent using Vercel AI SDK (`streamText`). Handles streaming, tool calls, multi-turn conversations.
 - **`apps/ui/src/services/renderService.ts`**: Render orchestration — manages Web Worker communication, caching, diagnostics.
 - **`apps/ui/src/services/openscad-worker.ts`**: Web Worker that loads openscad-wasm and handles render requests off the main thread.
+- **`apps/ui/src/services/nativeRenderService.ts`**: Native OpenSCAD binary IPC bridge (desktop only). Communicates with the Tauri backend to invoke the bundled binary.
+- **`apps/ui/src/stores/projectStore.ts`**: Multi-file project state (files, render target, project root).
 
 ### Web App
 
@@ -152,6 +159,7 @@ Vercel AI SDK → Anthropic/OpenAI API (HTTPS)
 ### Backend (Rust — Desktop Only)
 
 - **`apps/ui/src-tauri/src/lib.rs`**: Tauri app initialization, command registration.
+- **`apps/ui/src-tauri/src/cmd/render.rs`**: Native render workspace management, binary invocation, and output collection.
 
 ## Development Workflow
 
@@ -159,6 +167,7 @@ Vercel AI SDK → Anthropic/OpenAI API (HTTPS)
 
 1. **pnpm**: `npm install -g pnpm`
 2. **Rust** toolchain (desktop only): `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+3. **OpenSCAD binary** (desktop only): `bash apps/ui/src-tauri/scripts/download-openscad.sh`
 
 ### Running the App
 
@@ -169,13 +178,37 @@ pnpm install
 # Web development (no Rust needed)
 pnpm web:dev
 
-# Desktop development (requires Rust)
+# Desktop development (requires Rust + OpenSCAD binary)
+bash apps/ui/src-tauri/scripts/download-openscad.sh   # one-time setup
 pnpm tauri:dev
 
 # Build for production
 pnpm web:build      # Web
-pnpm tauri:build    # Desktop
+pnpm tauri:build    # Desktop (downloads OpenSCAD binary automatically in CI)
 ```
+
+### OpenSCAD Binary (Desktop)
+
+The desktop app bundles a native OpenSCAD binary for rendering instead of WASM. This gives full filesystem access (so `import()` resolves files from disk), system fonts, and faster rendering.
+
+- **Binary source**: OpenSCAD snapshot builds from `files.openscad.org/snapshots/`
+- **Current version**: `2026.03.16` (pinned in `apps/ui/src-tauri/scripts/download-openscad.sh`)
+- **Bundle size**: ~148MB (binary + Qt6 frameworks + dylibs)
+- **Location**: `apps/ui/src-tauri/binaries/OpenSCAD.app` (gitignored, downloaded at build time)
+
+**Local development**:
+```bash
+# Download the binary (only needed once, re-run to update)
+cd apps/ui/src-tauri
+bash scripts/download-openscad.sh
+
+# To force re-download:
+rm -rf binaries/OpenSCAD.app && bash scripts/download-openscad.sh
+```
+
+The script handles quarantine stripping and ad-hoc signing for local development. In CI, Tauri's build process signs the bundled `.app` with the Apple Developer certificate and the DMG is notarized.
+
+**Web**: continues using openscad-wasm (no binary needed).
 
 ### Project Scripts
 
@@ -242,11 +275,17 @@ pnpm validate:changes   # Run the shared validation helper
 - **API keys**: Stored client-side in local storage state today, including in the Tauri webview. This is a convenience tradeoff, not hardened secret isolation.
 - **File I/O**: Desktop uses native file dialogs via Tauri. Web uses File System Access API with fallbacks.
 
-### WASM Rendering
+### WASM Rendering (Web)
 
-- **Web Worker**: Both platforms use openscad-wasm via a Web Worker (`apps/ui/src/services/openscad-worker.ts`). Rendering is async and off the main thread.
+- **Web Worker**: The web app uses openscad-wasm via a Web Worker (`apps/ui/src/services/openscad-worker.ts`). Rendering is async and off the main thread.
 - **Diagnostics**: OpenSCAD stderr is parsed in TypeScript to extract error/warning diagnostics.
 - **SharedArrayBuffer**: The web version requires COOP/COEP headers for SharedArrayBuffer support (configured in `apps/web/public/_headers`).
+
+### Native Rendering (Desktop)
+
+- **Bundled binary**: The desktop app invokes a bundled native OpenSCAD binary (`apps/ui/src-tauri/binaries/OpenSCAD.app`) via Tauri IPC commands defined in `render.rs`.
+- **Workspace management**: Source files are written to a temporary render workspace so the native binary can resolve `include`/`use` paths and multi-file projects.
+- **Diagnostics**: Stderr from the native binary is captured and parsed using the same TypeScript diagnostics pipeline as the WASM path.
 
 ### Performance
 
@@ -265,7 +304,7 @@ pnpm validate:changes   # Run the shared validation helper
 ### Current Capabilities (v0.13.1)
 
 ✅ Monaco editor with OpenSCAD syntax highlighting
-✅ Live STL/SVG preview via openscad-wasm
+✅ Live STL/SVG preview (web: openscad-wasm, desktop: native binary)
 ✅ Error diagnostics with inline markers
 ✅ 3D mesh viewer (Three.js) with wireframe/orthographic/shadows
 ✅ Export to STL, OBJ, AMF, 3MF, PNG, SVG, DXF
@@ -289,6 +328,9 @@ pnpm validate:changes   # Run the shared validation helper
 ✅ Share links with Cloudflare Pages Functions, KV, and R2-backed thumbnails
 ✅ PostHog analytics controls and Sentry error reporting
 ✅ 2D and 3D measurement tools plus 3D section planes
+✅ Multi-file project support with file tree, tabs, and include/use resolution
+✅ Auto-created project directories on desktop
+✅ Native OpenSCAD binary bundling for desktop (faster rendering, full filesystem access)
 
 ### Planned
 

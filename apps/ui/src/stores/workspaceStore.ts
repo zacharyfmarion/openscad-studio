@@ -58,7 +58,7 @@ export function createWorkspaceStore(
       const newTab = createWorkspaceTab({
         filePath: args.filePath,
         name: args.name,
-        content: args.content,
+        projectPath: args.projectPath,
       });
 
       set((state) => ({
@@ -83,28 +83,14 @@ export function createWorkspaceStore(
       });
     },
 
-    updateTabContent: (id, content) => {
+    renameTab: (id, name, projectPath) => {
       set((state) => ({
         ...state,
         tabs: state.tabs.map((tab) =>
-          tab.id === id ? { ...tab, content, isDirty: content !== tab.savedContent } : tab
+          tab.id === id
+            ? { ...tab, name, ...(projectPath !== undefined ? { projectPath } : {}) }
+            : tab
         ),
-      }));
-    },
-
-    setTabCustomizerBase: (id, content) => {
-      set((state) => ({
-        ...state,
-        tabs: state.tabs.map((tab) =>
-          tab.id === id ? { ...tab, customizerBaseContent: content } : tab
-        ),
-      }));
-    },
-
-    renameTab: (id, name) => {
-      set((state) => ({
-        ...state,
-        tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, name } : tab)),
       }));
     },
 
@@ -117,8 +103,6 @@ export function createWorkspaceStore(
                 ...tab,
                 filePath: args.filePath,
                 name: args.name,
-                savedContent: args.savedContent,
-                isDirty: tab.content !== args.savedContent,
               }
             : tab
         ),
@@ -132,14 +116,14 @@ export function createWorkspaceStore(
     replaceWelcomeTab: (args) => {
       const state = get();
       const firstTab = state.tabs[0];
-      const shouldReplaceFirstTab =
-        state.tabs.length === 1 && firstTab && !firstTab.filePath && !firstTab.isDirty;
+      // Replace if there's a single untitled, unsaved tab
+      const shouldReplaceFirstTab = state.tabs.length === 1 && firstTab && !firstTab.filePath;
 
       if (!shouldReplaceFirstTab) {
         return get().createTab({
           filePath: args.filePath,
           name: args.name,
-          content: args.content,
+          projectPath: args.projectPath,
         });
       }
 
@@ -151,10 +135,7 @@ export function createWorkspaceStore(
                 ...tab,
                 filePath: args.filePath,
                 name: args.name,
-                content: args.content,
-                customizerBaseContent: args.content,
-                savedContent: args.content,
-                isDirty: false,
+                projectPath: args.projectPath,
                 render: createEmptyRenderState(),
               }
             : tab
@@ -168,14 +149,13 @@ export function createWorkspaceStore(
     openSharedDocument: (args) => {
       const state = get();
       const firstTab = state.tabs[0];
-      const shouldReplaceFirstTab =
-        state.tabs.length === 1 && firstTab && !firstTab.filePath && !firstTab.isDirty;
+      const shouldReplaceFirstTab = state.tabs.length === 1 && firstTab && !firstTab.filePath;
 
       if (shouldReplaceFirstTab) {
         const nextTabId = get().replaceWelcomeTab({
           filePath: null,
           name: args.name,
-          content: args.content,
+          projectPath: args.projectPath,
         });
 
         set((current) => ({
@@ -190,7 +170,7 @@ export function createWorkspaceStore(
       const nextTabId = get().createTab({
         filePath: null,
         name: args.name,
-        content: args.content,
+        projectPath: args.projectPath,
       });
 
       set((current) => ({

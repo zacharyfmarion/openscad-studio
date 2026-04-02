@@ -222,4 +222,122 @@ describe('resolveWorkingDirDeps', () => {
       'sub/deep.scad': 'module deep() {}',
     });
   });
+
+  // --- import() resolution ---
+
+  it('resolves import() calls for SVG files', async () => {
+    const platform = createMockPlatform({
+      '/project/branding.svg': '<svg>...</svg>',
+    });
+
+    const code = 'import("branding.svg");';
+    const result = await resolveWorkingDirDeps(code, {
+      workingDir: '/project',
+      libraryFiles: {},
+      platform: platform as unknown as PlatformBridge,
+      renderTargetDir: '',
+    });
+
+    expect(result).toEqual({
+      'branding.svg': '<svg>...</svg>',
+    });
+  });
+
+  it('resolves import() with relative paths from render target directory', async () => {
+    const platform = createMockPlatform({
+      // ../../branding.svg from examples/poly555/openscad goes up 2 dirs
+      // → examples/branding.svg
+      '/project/examples/branding.svg': '<svg>brand</svg>',
+    });
+
+    // The render target is at examples/poly555/openscad/poly555.scad
+    // The code imports ../../branding.svg which resolves relative to renderTargetDir
+    const code = 'import("../../branding.svg");';
+    const result = await resolveWorkingDirDeps(code, {
+      workingDir: '/project',
+      libraryFiles: {},
+      platform: platform as unknown as PlatformBridge,
+      renderTargetDir: 'examples/poly555/openscad',
+    });
+
+    expect(result).toEqual({
+      'examples/branding.svg': '<svg>brand</svg>',
+    });
+  });
+
+  it('resolves import() from included files relative to included file directory', async () => {
+    const platform = createMockPlatform({
+      // lib/engraving.scad is included from the render target
+      '/project/examples/poly555/openscad/lib/engraving.scad':
+        'import("../../branding.svg");\nmodule engrave() {}',
+      // The import path ../../branding.svg from lib/ resolves to examples/poly555/branding.svg
+      '/project/examples/poly555/branding.svg': '<svg>brand</svg>',
+    });
+
+    const code = 'include <lib/engraving.scad>';
+    const result = await resolveWorkingDirDeps(code, {
+      workingDir: '/project',
+      libraryFiles: {},
+      platform: platform as unknown as PlatformBridge,
+      renderTargetDir: 'examples/poly555/openscad',
+    });
+
+    expect(result['examples/poly555/openscad/lib/engraving.scad']).toBeDefined();
+    expect(result['examples/poly555/branding.svg']).toBe('<svg>brand</svg>');
+  });
+
+  it('does not recurse into imported asset files', async () => {
+    const platform = createMockPlatform({
+      // SVG file that happens to contain text matching include syntax
+      '/project/logo.svg': '<svg>include <fake.scad></svg>',
+    });
+
+    const code = 'import("logo.svg");';
+    const result = await resolveWorkingDirDeps(code, {
+      workingDir: '/project',
+      libraryFiles: {},
+      platform: platform as unknown as PlatformBridge,
+      renderTargetDir: '',
+    });
+
+    // Should include the SVG but NOT try to resolve fake.scad from it
+    expect(result).toEqual({
+      'logo.svg': '<svg>include <fake.scad></svg>',
+    });
+    expect(platform.readTextFile).not.toHaveBeenCalledWith('/project/fake.scad');
+  });
+
+  it('resolves both includes and imports from the same file', async () => {
+    const platform = createMockPlatform({
+      '/project/helpers.scad': 'module helper() {}',
+      '/project/logo.svg': '<svg>logo</svg>',
+    });
+
+    const code = 'include <helpers.scad>\nimport("logo.svg");';
+    const result = await resolveWorkingDirDeps(code, {
+      workingDir: '/project',
+      libraryFiles: {},
+      platform: platform as unknown as PlatformBridge,
+      renderTargetDir: '',
+    });
+
+    expect(result).toEqual({
+      'helpers.scad': 'module helper() {}',
+      'logo.svg': '<svg>logo</svg>',
+    });
+  });
+
+  it('handles missing imported files gracefully', async () => {
+    const platform = createMockPlatform({});
+
+    const code = 'import("nonexistent.svg");';
+    const result = await resolveWorkingDirDeps(code, {
+      workingDir: '/project',
+      libraryFiles: {},
+      platform: platform as unknown as PlatformBridge,
+      renderTargetDir: '',
+    });
+
+    expect(result).toEqual({});
+  });
 });

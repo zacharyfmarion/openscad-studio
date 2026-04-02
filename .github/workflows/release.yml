@@ -156,6 +156,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Download OpenSCAD binary
+        run: bash apps/ui/src-tauri/scripts/download-openscad.sh
+
       - name: Import Apple certificate
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}

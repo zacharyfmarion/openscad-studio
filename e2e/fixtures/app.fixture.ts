@@ -144,10 +144,7 @@ export class AppHelper {
   ): Promise<RenderSnapshot | null> {
     const snapshot = await this.page.evaluate(
       async ({ nextCode, renderTrigger }) => {
-        return (
-          (window as any).__TEST_OPENSCAD__?.updateSourceAndRender?.(nextCode, renderTrigger) ??
-          null
-        );
+        return (window as any).__TEST_OPENSCAD__?.renderCode?.(nextCode, renderTrigger) ?? null;
       },
       { nextCode: code, renderTrigger: trigger }
     );

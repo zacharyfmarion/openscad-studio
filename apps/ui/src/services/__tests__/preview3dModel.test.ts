@@ -76,6 +76,22 @@ describe('parseOffPreviewModel', () => {
     parsed.dispose();
   });
 
+  it('treats 0 0 0 0 color as fallback (OpenSCAD "Invalid color in OFF export")', () => {
+    const parsed = parseOffPreviewModel({
+      content: ['OFF 4 1 0', '0 0 0', '1 0 0', '1 1 0', '0 1 0', '4 0 1 2 3 0 0 0 0'].join('\n'),
+      fallbackColor: '#123456',
+      version: 'zero-color',
+    });
+
+    expect(parsed.groups).toHaveLength(1);
+    // Should use fallback, not render as invisible (alpha=0)
+    expect(parsed.groups[0].color.getHexString()).toBe('123456');
+    expect(parsed.groups[0].opacity).toBe(1);
+    expect(parsed.groups[0].transparent).toBe(false);
+
+    parsed.dispose();
+  });
+
   it('falls back to the preview material color when a face omits explicit OFF color data', () => {
     const parsed = parseOffPreviewModel({
       content: ['OFF 4 1 0', '0 0 0', '1 0 0', '1 1 0', '0 1 0', '4 0 1 2 3'].join('\n'),

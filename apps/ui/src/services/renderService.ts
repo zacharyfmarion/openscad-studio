@@ -23,7 +23,20 @@ export type ExportFormat = 'stl' | 'obj' | 'amf' | '3mf' | 'svg' | 'dxf';
 export interface RenderOptions {
   view?: '2d' | '3d';
   backend?: 'manifold' | 'cgal' | 'auto';
+  /** Project and working-directory files to materialize for include/use resolution. */
   auxiliaryFiles?: Record<string, string>;
+  /** Project-relative path of the render target (e.g. "examples/keebcu/foo.scad").
+   *  Passed to the worker so the input file is written at the correct nested path. */
+  inputPath?: string;
+  /** Absolute path to the project root directory (desktop only).
+   *  Passed to the native binary as a search path for import() resolution. */
+  workingDir?: string;
+  /** Library file contents for WASM virtual FS. Native renderer ignores this
+   *  when libraryPaths is provided (uses -L flags instead). */
+  libraryFiles?: Record<string, string>;
+  /** Absolute paths to library directories for native OpenSCAD -L flag resolution.
+   *  WASM renderer ignores this. */
+  libraryPaths?: string[];
 }
 
 export interface RenderResult {
@@ -101,7 +114,7 @@ interface CacheEntry {
 
 const MAX_CACHE_ENTRIES = 50;
 
-class RenderCache {
+export class RenderCache {
   private entries = new Map<string, CacheEntry>();
 
   async generateKey(
@@ -146,7 +159,26 @@ class RenderCache {
 }
 
 // ============================================================================
-// RenderService
+// IRenderService interface
+// ============================================================================
+
+export interface IRenderService {
+  init(): Promise<void>;
+  render(code: string, options?: RenderOptions): Promise<RenderResult>;
+  getCached(code: string, options?: RenderOptions): Promise<RenderResult | null>;
+  exportModel(
+    code: string,
+    format: ExportFormat,
+    options?: { backend?: 'manifold' | 'cgal' | 'auto' }
+  ): Promise<Uint8Array>;
+  checkSyntax(code: string): Promise<SyntaxCheckResult>;
+  cancel(): void;
+  clearCache(): void;
+  dispose(): void;
+}
+
+// ============================================================================
+// WasmRenderService (Web Worker–based, used on web)
 // ============================================================================
 
 type PendingRequest = {
@@ -154,22 +186,13 @@ type PendingRequest = {
   reject: (error: Error) => void;
 };
 
-let globalInstance: RenderService | null = null;
-
-export class RenderService {
+export class WasmRenderService implements IRenderService {
   private worker: Worker | null = null;
   private pending = new Map<string, PendingRequest>();
   private cache = new RenderCache();
   private idCounter = 0;
   private initPromise: Promise<void> | null = null;
   private disposed = false;
-
-  static getInstance(): RenderService {
-    if (!globalInstance) {
-      globalInstance = new RenderService();
-    }
-    return globalInstance;
-  }
 
   private createWorker(): Worker {
     return new Worker(new URL('./openscad-worker.ts', import.meta.url), {
@@ -260,7 +283,8 @@ export class RenderService {
   private async sendRequest(
     code: string,
     args: string[],
-    auxiliaryFiles?: Record<string, string>
+    auxiliaryFiles?: Record<string, string>,
+    inputPath?: string
   ): Promise<WorkerRenderResult> {
     if (this.disposed) {
       throw new Error('RenderService has been disposed');
@@ -283,6 +307,7 @@ export class RenderService {
         code,
         args,
         auxiliaryFiles,
+        inputPath,
       };
 
       this.worker!.postMessage(request);
@@ -333,10 +358,16 @@ export class RenderService {
   }
 
   async render(code: string, options: RenderOptions = {}): Promise<RenderResult> {
-    const { view = '3d', backend = 'manifold', auxiliaryFiles } = options;
+    const { view = '3d', backend = 'manifold', auxiliaryFiles, libraryFiles, inputPath } = options;
+
+    // Merge library files into auxiliary files for WASM virtual FS
+    const allFiles =
+      libraryFiles || auxiliaryFiles
+        ? { ...(libraryFiles || {}), ...(auxiliaryFiles || {}) }
+        : undefined;
 
     // Check cache
-    const auxFileCount = auxiliaryFiles ? Object.keys(auxiliaryFiles).length : 0;
+    const auxFileCount = allFiles ? Object.keys(allFiles).length : 0;
     const cacheKey = await this.cache.generateKey(code, backend, view, auxFileCount);
     const cached = this.cache.get(cacheKey);
     if (cached) {
@@ -353,7 +384,7 @@ export class RenderService {
     const kind: 'mesh' | 'svg' = is3d ? 'mesh' : 'svg';
 
     const args = this.buildArgs(outputPath, { view, backend });
-    const result = await this.sendRequest(code, args, auxiliaryFiles);
+    const result = await this.sendRequest(code, args, allFiles, inputPath);
 
     const diagnostics = parseOpenScadStderr(result.stderr);
 
@@ -444,6 +475,66 @@ export class RenderService {
   dispose(): void {
     this.disposed = true;
     this.cancel();
-    globalInstance = null;
   }
 }
+
+// ============================================================================
+// Factory
+// ============================================================================
+
+let globalInstance: IRenderService | null = null;
+
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
+// Promise that resolves once the NativeRenderService module is loaded (Tauri only).
+// Kicked off eagerly at module load time so it's ready before first use.
+let nativeServicePromise: Promise<typeof import('./nativeRenderService')> | null = null;
+if (isTauri()) {
+  nativeServicePromise = import('./nativeRenderService').catch((err) => {
+    console.warn('[getRenderService] Failed to load NativeRenderService:', err);
+    return null;
+  }) as Promise<typeof import('./nativeRenderService')>;
+}
+
+/**
+ * Get the singleton render service instance.
+ * Returns NativeRenderService on desktop (Tauri), WasmRenderService on web.
+ */
+export function getRenderService(): IRenderService {
+  if (!globalInstance) {
+    globalInstance = new WasmRenderService();
+  }
+  return globalInstance;
+}
+
+/**
+ * Ensure the correct render service is loaded.
+ * On Tauri, waits for NativeRenderService to load and swaps it in.
+ * On web, resolves immediately.
+ * Call this once at startup before the first render.
+ */
+export async function ensureRenderService(): Promise<IRenderService> {
+  if (nativeServicePromise) {
+    const mod = await nativeServicePromise;
+    if (mod && (!globalInstance || globalInstance instanceof WasmRenderService)) {
+      if (globalInstance) globalInstance.dispose();
+      globalInstance = new mod.NativeRenderService();
+    }
+  }
+  if (!globalInstance) {
+    globalInstance = new WasmRenderService();
+  }
+  return globalInstance;
+}
+
+/**
+ * Replace the global render service instance (for testing).
+ */
+export function setRenderServiceForTesting(service: IRenderService | null): void {
+  globalInstance = service;
+}
+
+// Keep backward compat alias during migration
+export { WasmRenderService as RenderService };

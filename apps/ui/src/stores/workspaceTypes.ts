@@ -20,10 +20,8 @@ export interface WorkspaceTab {
   id: TabId;
   filePath: string | null;
   name: string;
-  content: string;
-  customizerBaseContent: string;
-  savedContent: string;
-  isDirty: boolean;
+  /** Key into projectStore.files — the relative path for content lookup. */
+  projectPath: string;
   render: TabRenderState;
 }
 
@@ -37,20 +35,19 @@ export interface WorkspaceStoreActions {
   createTab: (args?: {
     filePath?: string | null;
     name?: string;
-    content?: string;
+    projectPath?: string;
     activate?: boolean;
   }) => TabId;
   setActiveTab: (id: TabId) => void;
-  updateTabContent: (id: TabId, content: string) => void;
-  setTabCustomizerBase: (id: TabId, content: string) => void;
-  renameTab: (id: TabId, name: string) => void;
-  markTabSaved: (
-    id: TabId,
-    args: { filePath: string | null; name: string; savedContent: string }
-  ) => void;
+  renameTab: (id: TabId, name: string, projectPath?: string) => void;
+  markTabSaved: (id: TabId, args: { filePath: string | null; name: string }) => void;
   closeTabLocal: (id: TabId) => void;
-  replaceWelcomeTab: (args: { filePath: string | null; name: string; content: string }) => TabId;
-  openSharedDocument: (args: { name: string; content: string }) => TabId;
+  replaceWelcomeTab: (args: {
+    filePath: string | null;
+    name: string;
+    projectPath: string;
+  }) => TabId;
+  openSharedDocument: (args: { name: string; projectPath: string }) => TabId;
   reorderTabs: (tabIdsInOrder: TabId[]) => void;
   beginTabRender: (id: TabId, args?: { preferredDimension?: WorkspaceDimensionMode }) => number;
   commitTabRenderResult: (

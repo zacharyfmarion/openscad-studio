@@ -1,9 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAnalytics, type RenderTrigger } from '../analytics/runtime';
-import { RenderService, type Diagnostic } from '../services/renderService';
+import {
+  getRenderService,
+  ensureRenderService,
+  type IRenderService,
+  type Diagnostic,
+} from '../services/renderService';
 import { getPlatform } from '../platform';
 import type { LibrarySettings } from '../stores/settingsStore';
 import { resolveWorkingDirDeps } from '../utils/resolveWorkingDirDeps';
+import { getProjectState, getAuxiliaryFilesForRender } from '../stores/projectStore';
 import { notifyError } from '../utils/notifications';
 import { hasRenderableOutput } from './renderOutput';
 export type RenderKind = 'mesh' | 'svg';
@@ -21,7 +27,14 @@ export interface RenderSnapshot {
 }
 
 interface UseOpenScadOptions {
-  initialSource?: string;
+  /** Render target content — provided by the caller (derived from projectStore). */
+  source?: string;
+  /**
+   * Monotonically increasing counter that changes when any project file is
+   * mutated. Used to trigger re-renders when an included dependency (not the
+   * render target itself) changes.
+   */
+  contentVersion?: number;
   workingDir?: string | null;
   autoRenderOnIdle?: boolean;
   autoRenderDelayMs?: number;
@@ -36,7 +49,7 @@ interface UseOpenScadOptions {
   }) => void;
   testOverrides?: {
     analytics?: ReturnType<typeof useAnalytics>;
-    renderService?: RenderService;
+    renderService?: IRenderService;
     getPlatform?: typeof getPlatform;
     resolveWorkingDirDeps?: typeof resolveWorkingDirDeps;
     notifyError?: typeof notifyError;
@@ -47,7 +60,8 @@ interface UseOpenScadOptions {
 export function useOpenScad(options: UseOpenScadOptions = {}) {
   const defaultAnalytics = useAnalytics();
   const {
-    initialSource = '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
+    source = '// Type your OpenSCAD code here\ncube([10, 10, 10]);',
+    contentVersion = 0,
     autoRenderOnIdle = false,
     autoRenderDelayMs = 500,
     library,
@@ -60,7 +74,6 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   const getPlatformImpl = testOverrides?.getPlatform ?? getPlatform;
   const resolveWorkingDirDepsImpl = testOverrides?.resolveWorkingDirDeps ?? resolveWorkingDirDeps;
   const notifyErrorImpl = testOverrides?.notifyError ?? notifyError;
-  const [source, setSource] = useState<string>(initialSource);
   const [ready, setReady] = useState(false);
   const [previewSrc, setPreviewSrc] = useState<string>('');
   const [previewKind, setPreviewKind] = useState<RenderKind>('mesh');
@@ -75,8 +88,8 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   // Track Blob URLs for cleanup
   const prevBlobUrlRef = useRef<string>('');
 
-  const renderServiceRef = useRef<RenderService>(
-    testOverrides?.renderService ?? RenderService.getInstance()
+  const renderServiceRef = useRef<IRenderService>(
+    testOverrides?.renderService ?? getRenderService()
   );
   const [auxiliaryFiles, setAuxiliaryFiles] = useState<Record<string, string>>({});
   const auxiliaryFilesRef = useRef<Record<string, string>>({});
@@ -84,6 +97,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
   // Separate refs for library files and working directory files
   const libraryFilesRef = useRef<Record<string, string>>({});
+  const libraryPathsRef = useRef<string[]>([]);
   const workingDirFilesRef = useRef<Record<string, string>>({});
 
   // Serialize customPaths for stable dependency comparison
@@ -121,16 +135,18 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       if (library) {
         const systemPaths = library.autoDiscoverSystem ? await platform.getLibraryPaths() : [];
         const allLibPaths = [...systemPaths, ...library.customPaths];
+        libraryPathsRef.current = allLibPaths;
 
         for (const libPath of allLibPaths) {
           try {
             const libFiles = await platform.readDirectoryFiles(libPath);
             Object.assign(files, libFiles);
-            Object.assign(files, libFiles);
           } catch (err) {
             console.warn(`[useOpenScad] Failed to read library path ${libPath}:`, err);
           }
         }
+      } else {
+        libraryPathsRef.current = [];
       }
 
       libraryFilesRef.current = files;
@@ -152,25 +168,33 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     workingDirRef.current = options.workingDir;
   }, [options.workingDir]);
 
-  // Initialize WASM on mount
+  // Initialize render service on mount.
+  // On Tauri, this waits for NativeRenderService to load before calling init().
+  // On web, ensureRenderService() resolves immediately with WasmRenderService.
   useEffect(() => {
-    const service = renderServiceRef.current;
-    service
-      .init()
+    const initService = testOverrides?.renderService
+      ? Promise.resolve(testOverrides.renderService)
+      : ensureRenderService();
+
+    initService
+      .then((service) => {
+        renderServiceRef.current = service;
+        return service.init();
+      })
       .then(() => {
         setReady(true);
       })
       .catch((err) => {
-        setError(`Failed to initialize OpenSCAD WASM: ${err}`);
+        setError(`Failed to initialize OpenSCAD: ${err}`);
         notifyErrorImpl({
           operation: 'openscad-init',
           error: err,
           fallbackMessage: 'Failed to initialize OpenSCAD rendering',
           toastId: 'openscad-init-error',
-          logLabel: '[useOpenScad] WASM init error',
+          logLabel: '[useOpenScad] render service init error',
         });
       });
-  }, [notifyErrorImpl]);
+  }, [notifyErrorImpl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doRender = useCallback(
     async (code: string, dimension: '2d' | '3d' = '3d', trigger: RenderTrigger = 'manual') => {
@@ -242,36 +266,57 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         await auxFilesPromiseRef.current;
 
         // Resolve working directory dependencies by parsing include/use statements
-        // instead of blindly scanning the entire working directory
+        // instead of blindly scanning the entire working directory.
+        // On web (no workingDir), project store files are the only source.
         const workingDir = workingDirRef.current;
-        let renderAuxFiles = libraryFilesRef.current;
+        const projectFiles = getAuxiliaryFilesForRender(getProjectState());
+
+        // Build project-only auxiliary files (no library files — those are
+        // passed separately via libraryFiles/libraryPaths)
+        let projectAuxFiles: Record<string, string> = { ...projectFiles };
 
         if (workingDir) {
           const platform = getPlatformImpl();
+          const renderTargetPath = getProjectState().renderTargetPath;
+          const rtLastSlash = renderTargetPath?.lastIndexOf('/') ?? -1;
+          const renderTargetDir =
+            renderTargetPath && rtLastSlash > 0
+              ? renderTargetPath.substring(0, rtLastSlash)
+              : undefined;
           const workingDirFiles = await resolveWorkingDirDepsImpl(code, {
             workingDir,
             libraryFiles: libraryFilesRef.current,
             platform,
+            projectFiles,
+            renderTargetDir,
           });
 
           if (Object.keys(workingDirFiles).length > 0) {
-            renderAuxFiles = { ...libraryFilesRef.current, ...workingDirFiles };
+            projectAuxFiles = { ...projectAuxFiles, ...workingDirFiles };
           }
         }
 
         // Update refs so the cache check uses consistent data on next render
-        workingDirFilesRef.current =
-          renderAuxFiles === libraryFilesRef.current
-            ? {}
-            : Object.fromEntries(
-                Object.entries(renderAuxFiles).filter(([k]) => !(k in libraryFilesRef.current))
-              );
+        workingDirFilesRef.current = Object.fromEntries(
+          Object.entries(projectAuxFiles).filter(([k]) => !(k in projectFiles))
+        );
         mergeAndSetAuxFiles();
 
+        const libraryFiles = libraryFilesRef.current;
+        // Merge all files for the render call — both services need library
+        // file contents (WASM for virtual FS, native because -L is not
+        // supported by the bundled OpenSCAD snapshot).  libraryPaths is
+        // passed so the native renderer can avoid writing library files
+        // into the project directory.
+        const allAuxFiles = { ...libraryFiles, ...projectAuxFiles };
         const result = await renderServiceRef.current.render(code, {
           view: dimension,
           backend: 'manifold',
-          auxiliaryFiles: Object.keys(renderAuxFiles).length > 0 ? renderAuxFiles : undefined,
+          auxiliaryFiles: Object.keys(allAuxFiles).length > 0 ? allAuxFiles : undefined,
+          libraryFiles: Object.keys(libraryFiles).length > 0 ? libraryFiles : undefined,
+          libraryPaths: libraryPathsRef.current.length > 0 ? libraryPathsRef.current : undefined,
+          inputPath: getProjectState().renderTargetPath ?? undefined,
+          workingDir: workingDir || undefined,
         });
 
         setDimensionMode(resolvedDimension);
@@ -418,19 +463,15 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     ]
   );
 
-  const updateSource = useCallback((newSource: string) => {
-    setSource(newSource);
-  }, []);
-
-  // Atomically update source AND render with the new code.
-  // This bypasses the stale-closure problem where manualRender() would
-  // render with the previous `source` because React hasn't flushed the
-  // state update from updateSource() yet.
-  const updateSourceAndRender = useCallback(
-    (newSource: string, trigger: RenderTrigger = 'code_update') => {
-      setSource(newSource);
-      lastRenderedSourceRef.current = newSource;
-      return doRender(newSource, dimensionMode, trigger);
+  /**
+   * Render specific code immediately, bypassing debounce.
+   * Use this when you have the code in hand and can't wait for the prop to update
+   * (e.g., file open, AI edits, history restore).
+   */
+  const renderCode = useCallback(
+    (code: string, trigger: RenderTrigger = 'code_update') => {
+      lastRenderedSourceRef.current = code;
+      return doRender(code, dimensionMode, trigger);
     },
     [dimensionMode, doRender]
   );
@@ -457,6 +498,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
   // Debounced auto-render on idle
   const autoRenderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRenderedSourceRef = useRef<string>(source);
+  const lastRenderedVersionRef = useRef<number>(contentVersion);
 
   // Manual render function (stable callback)
   const manualRender = useCallback(() => {
@@ -478,9 +520,17 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     [dimensionMode, doRender, source]
   );
 
+  // contentVersion changes when ANY project file is mutated (including non-render-target
+  // includes). Together with source, this ensures the debounced auto-render fires for
+  // both render-target edits and dependency edits.
   useEffect(() => {
     if (!autoRenderOnIdle || !ready) return;
-    if (source === lastRenderedSourceRef.current) return;
+    // Skip if source AND version haven't changed since the last render.
+    if (
+      source === lastRenderedSourceRef.current &&
+      contentVersion === lastRenderedVersionRef.current
+    )
+      return;
 
     if (autoRenderTimerRef.current) {
       clearTimeout(autoRenderTimerRef.current);
@@ -488,6 +538,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
     autoRenderTimerRef.current = setTimeout(() => {
       lastRenderedSourceRef.current = source;
+      lastRenderedVersionRef.current = contentVersion;
       void doRender(source, dimensionMode, 'auto_idle');
     }, autoRenderDelayMs);
 
@@ -496,7 +547,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         clearTimeout(autoRenderTimerRef.current);
       }
     };
-  }, [source, autoRenderOnIdle, autoRenderDelayMs, ready, doRender, dimensionMode]);
+  }, [source, contentVersion, autoRenderOnIdle, autoRenderDelayMs, ready, doRender, dimensionMode]);
 
   // Cleanup Blob URLs on unmount
   useEffect(() => {
@@ -513,7 +564,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       window.__TEST_OPENSCAD__ = {
         doRender,
         manualRender,
-        updateSourceAndRender,
+        renderCode,
         renderWithTrigger,
         dimensionMode,
         renderService: renderServiceRef.current,
@@ -530,19 +581,9 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         delete window.__TEST_OPENSCAD__;
       }
     };
-  }, [
-    dimensionMode,
-    doRender,
-    isDevRuntime,
-    manualRender,
-    renderWithTrigger,
-    updateSourceAndRender,
-  ]);
+  }, [dimensionMode, doRender, isDevRuntime, manualRender, renderCode, renderWithTrigger]);
 
   return {
-    source,
-    updateSource,
-    updateSourceAndRender,
     previewSrc,
     previewKind,
     diagnostics,
@@ -553,6 +594,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     manualRender,
     renderOnSave,
     renderWithTrigger,
+    renderCode,
     clearPreview,
     auxiliaryFiles,
   };

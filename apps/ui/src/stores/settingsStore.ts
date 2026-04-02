@@ -19,6 +19,8 @@ export interface UiSettings {
   hasCompletedNux: boolean;
   defaultLayoutPreset: 'default' | 'ai-first' | 'customizer-first';
   hasDismissedViewerControlsHint: boolean;
+  fileTreeVisible: boolean;
+  fileTreeWidth: number;
 }
 
 export type MeasurementUnit = 'mm' | 'cm' | 'in' | 'units';
@@ -50,6 +52,11 @@ export interface PrivacySettings {
   analyticsEnabled: boolean;
 }
 
+export interface ProjectSettings {
+  /** User-configured base directory for new projects. Empty string = use platform default. */
+  defaultProjectDirectory: string;
+}
+
 export interface Settings {
   editor: EditorSettings;
   appearance: AppearanceSettings;
@@ -57,6 +64,7 @@ export interface Settings {
   viewer: ViewerSettings;
   library: LibrarySettings;
   privacy: PrivacySettings;
+  project: ProjectSettings;
 }
 
 const DEFAULT_VIM_CONFIG = `# Vim Configuration
@@ -102,6 +110,8 @@ const DEFAULT_SETTINGS: Settings = {
     hasCompletedNux: false,
     defaultLayoutPreset: 'default',
     hasDismissedViewerControlsHint: false,
+    fileTreeVisible: true,
+    fileTreeWidth: 200,
   },
   viewer: {
     showAxes: true,
@@ -126,6 +136,9 @@ const DEFAULT_SETTINGS: Settings = {
   },
   privacy: {
     analyticsEnabled: true,
+  },
+  project: {
+    defaultProjectDirectory: '',
   },
 };
 
@@ -166,6 +179,10 @@ export function loadSettings(): Settings {
         privacy: {
           ...DEFAULT_SETTINGS.privacy,
           ...(parsed.privacy || {}),
+        },
+        project: {
+          ...DEFAULT_SETTINGS.project,
+          ...(parsed.project || {}),
         },
       };
     }

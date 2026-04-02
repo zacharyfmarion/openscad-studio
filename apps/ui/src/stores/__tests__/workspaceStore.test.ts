@@ -10,7 +10,7 @@ describe('workspaceStore', () => {
     const newTabId = store.getState().createTab({
       name: 'part.scad',
       filePath: '/tmp/part.scad',
-      content: 'square([10, 10]);',
+      projectPath: 'part.scad',
     });
 
     const state = store.getState();
@@ -18,57 +18,23 @@ describe('workspaceStore', () => {
 
     expect(newTab).toBeDefined();
     expect(newTab?.render).toEqual(createEmptyRenderState());
-    expect(newTab?.customizerBaseContent).toBe('square([10, 10]);');
+    expect(newTab?.projectPath).toBe('part.scad');
     expect(state.activeTabId).toBe(newTabId);
     expect(state.activeTabId).not.toBe(initialActiveTabId);
   });
 
-  it('updates dirty state and saved state correctly', () => {
+  it('marks a tab as saved with new filePath and name', () => {
     const store = createWorkspaceStore();
     const tabId = store.getState().activeTabId!;
-
-    store.getState().updateTabContent(tabId, 'cube([5, 5, 5]);');
-    expect(store.getState().tabs[0].isDirty).toBe(true);
 
     store.getState().markTabSaved(tabId, {
       filePath: '/tmp/model.scad',
       name: 'model.scad',
-      savedContent: 'cube([5, 5, 5]);',
     });
 
     expect(store.getState().tabs[0]).toMatchObject({
       filePath: '/tmp/model.scad',
       name: 'model.scad',
-      savedContent: 'cube([5, 5, 5]);',
-      isDirty: false,
-    });
-  });
-
-  it('keeps customizer baseline separate from tab content updates', () => {
-    const store = createWorkspaceStore();
-    const tabId = store.getState().activeTabId!;
-    const initialBaseline = store.getState().tabs[0].customizerBaseContent;
-
-    store.getState().updateTabContent(tabId, 'cube([5, 5, 5]);');
-
-    expect(store.getState().tabs[0]).toMatchObject({
-      content: 'cube([5, 5, 5]);',
-      customizerBaseContent: initialBaseline,
-      isDirty: true,
-    });
-  });
-
-  it('updates customizer baseline without changing dirty state', () => {
-    const store = createWorkspaceStore();
-    const tabId = store.getState().activeTabId!;
-
-    store.getState().updateTabContent(tabId, 'cube([5, 5, 5]);');
-    store.getState().setTabCustomizerBase(tabId, 'cube([2, 2, 2]);');
-
-    expect(store.getState().tabs[0]).toMatchObject({
-      content: 'cube([5, 5, 5]);',
-      customizerBaseContent: 'cube([2, 2, 2]);',
-      isDirty: true,
     });
   });
 
@@ -102,12 +68,12 @@ describe('workspaceStore', () => {
     const replacedId = store.getState().replaceWelcomeTab({
       filePath: '/tmp/floorplan.scad',
       name: 'floorplan.scad',
-      content: 'square([20, 20]);',
+      projectPath: 'floorplan.scad',
     });
 
     const replacedTab = store.getState().tabs.find((tab) => tab.id === replacedId)!;
     expect(replacedTab.filePath).toBe('/tmp/floorplan.scad');
-    expect(replacedTab.customizerBaseContent).toBe('square([20, 20]);');
+    expect(replacedTab.projectPath).toBe('floorplan.scad');
     expect(replacedTab.render).toEqual(createEmptyRenderState());
   });
 
@@ -115,22 +81,18 @@ describe('workspaceStore', () => {
     const store = createWorkspaceStore();
     const openedId = store.getState().openSharedDocument({
       name: 'shared-part',
-      content: 'cube([8, 8, 8]);',
+      projectPath: 'shared-part',
     });
 
     const openedTab = store.getState().tabs.find((tab) => tab.id === openedId)!;
     expect(store.getState().showWelcome).toBe(false);
     expect(store.getState().activeTabId).toBe(openedId);
     expect(openedTab.name).toBe('shared-part');
-    expect(openedTab.content).toBe('cube([8, 8, 8]);');
+    expect(openedTab.projectPath).toBe('shared-part');
     expect(openedTab.render).toEqual(createEmptyRenderState());
   });
 
   it('replaces the initial tab even when showWelcome is already false (mobile regression)', () => {
-    // On mobile, useMobileLayout calls hideWelcomeScreen() before openSharedDocument runs.
-    // Previously this caused openSharedDocument to create a new tab instead of replacing
-    // the initial one, so the render result landed on the wrong tab and onVisualReady
-    // never fired — leaving the "Opening shared design…" overlay stuck forever.
     const store = createWorkspaceStore();
     const initialTabId = store.getState().activeTabId!;
 
@@ -140,14 +102,14 @@ describe('workspaceStore', () => {
 
     const returnedTabId = store.getState().openSharedDocument({
       name: 'My Design',
-      content: 'cube(10);',
+      projectPath: 'My Design',
     });
 
     // Must replace (same ID), not create a new tab
     expect(returnedTabId).toBe(initialTabId);
     expect(store.getState().tabs).toHaveLength(1);
     expect(store.getState().activeTabId).toBe(initialTabId);
-    expect(store.getState().tabs[0].content).toBe('cube(10);');
+    expect(store.getState().tabs[0].name).toBe('My Design');
   });
 
   it('ignores stale render results by request id', () => {

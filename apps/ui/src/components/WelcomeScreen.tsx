@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { ModelSelectionSurface } from '../analytics/runtime';
 import { Button, Text } from './ui';
 import { AiComposer } from './AiComposer';
 import { ModelSelector } from './ModelSelector';
-import { TbFileText } from 'react-icons/tb';
+import { TbFileText, TbFolder, TbFolderOpen } from 'react-icons/tb';
 import { getPlatform } from '../platform';
 import { useHasApiKey } from '../stores/apiKeyStore';
 import type { AiDraft, AttachmentStore } from '../types/aiChat';
@@ -29,13 +29,20 @@ interface WelcomeScreenProps {
   onDraftRemoveAttachment: (attachmentId: string, sourceSurface?: ModelSelectionSurface) => void;
   onStartWithDraft: (draftOverride?: AiDraft) => void;
   onStartManually: () => void;
-  onOpenRecent: (path: string) => Promise<RecentFileOpenResult>;
+  onOpenRecent: (path: string, type?: 'file' | 'folder') => Promise<RecentFileOpenResult>;
   onOpenFile?: () => void;
+  onOpenFolder?: () => void;
   onOpenSettings?: () => void;
   showRecentFiles?: boolean;
   currentModel?: string;
   availableProviders?: string[];
   onModelChange?: (model: string, sourceSurface?: ModelSelectionSurface) => void;
+  /** Resolved default project directory path (null on web → hidden) */
+  projectDirectory?: string | null;
+  /** Called when user clicks "Change" to pick a different default project directory */
+  onChangeProjectDirectory?: () => void;
+  /** Whether the user has explicitly configured a custom project directory */
+  hasCustomProjectDirectory?: boolean;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -61,15 +68,30 @@ export function WelcomeScreen({
   onStartManually,
   onOpenRecent,
   onOpenFile,
+  onOpenFolder,
   onOpenSettings,
   showRecentFiles = true,
   currentModel = 'claude-sonnet-4-5',
   availableProviders = [],
   onModelChange,
+  projectDirectory,
+  onChangeProjectDirectory,
+  hasCustomProjectDirectory,
 }: WelcomeScreenProps) {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [recentFilesReady, setRecentFilesReady] = useState(!showRecentFiles);
   const hasApiKey = useHasApiKey();
+
+  // Shorten home directory to ~/ for display
+  const displayPath = useMemo(() => {
+    if (!projectDirectory) return null;
+    try {
+      // Match /Users/<username>/ or /home/<username>/
+      return projectDirectory.replace(/^\/(?:Users|home)\/[^/]+/, '~');
+    } catch {
+      return projectDirectory;
+    }
+  }, [projectDirectory]);
 
   useEffect(() => {
     if (!showRecentFiles) {
@@ -117,10 +139,10 @@ export function WelcomeScreen({
     };
   }, [showRecentFiles]);
 
-  const handleOpenRecent = async (path: string) => {
-    const result = await onOpenRecent(path);
+  const handleOpenRecent = async (file: RecentFile) => {
+    const result = await onOpenRecent(file.path, file.type);
     if (result === 'removed') {
-      setRecentFiles(removeRecentFile(path));
+      setRecentFiles(removeRecentFile(file.path));
     }
   };
 
@@ -137,32 +159,66 @@ export function WelcomeScreen({
 
         {hasApiKey ? (
           <div data-testid="welcome-ai-entry" className="space-y-6 ph-no-capture">
-            <AiComposer
-              draft={draft}
-              attachments={attachments}
-              isProcessingAttachments={isProcessingAttachments}
-              canSubmit={canSubmitDraft}
-              blockedMessage={draftVisionBlockMessage}
-              warningMessage={draftVisionWarningMessage}
-              errors={draftErrors}
-              placeholder="Describe what you want to build..."
-              rows={3}
-              variant="welcome"
-              submitLabel="Build"
-              submitTitle="Build"
-              trailingControls={
-                <ModelSelector
-                  currentModel={currentModel}
-                  availableProviders={availableProviders}
-                  onChange={(model) => onModelChange?.(model, 'welcome')}
-                  compact
-                />
-              }
-              onTextChange={onDraftTextChange}
-              onFilesSelected={onDraftFilesSelected}
-              onRemoveAttachment={onDraftRemoveAttachment}
-              onSubmit={onStartWithDraft}
-            />
+            <div>
+              <AiComposer
+                draft={draft}
+                attachments={attachments}
+                isProcessingAttachments={isProcessingAttachments}
+                canSubmit={canSubmitDraft}
+                blockedMessage={draftVisionBlockMessage}
+                warningMessage={draftVisionWarningMessage}
+                errors={draftErrors}
+                placeholder="Describe what you want to build..."
+                rows={3}
+                variant="welcome"
+                submitLabel="Build"
+                submitTitle="Build"
+                trailingControls={
+                  <ModelSelector
+                    currentModel={currentModel}
+                    availableProviders={availableProviders}
+                    onChange={(model) => onModelChange?.(model, 'welcome')}
+                    compact
+                  />
+                }
+                onTextChange={onDraftTextChange}
+                onFilesSelected={onDraftFilesSelected}
+                onRemoveAttachment={onDraftRemoveAttachment}
+                onSubmit={onStartWithDraft}
+              />
+              {displayPath && (
+                <div
+                  className="flex items-center gap-2 mt-2"
+                  data-testid="welcome-project-directory"
+                >
+                  <TbFolderOpen
+                    size={14}
+                    style={{ color: 'var(--text-tertiary)', flexShrink: 0 }}
+                  />
+                  <Text
+                    variant="caption"
+                    color="tertiary"
+                    className="truncate"
+                    title={projectDirectory!}
+                  >
+                    {displayPath}
+                  </Text>
+                  {onChangeProjectDirectory && (
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onChangeProjectDirectory();
+                      }}
+                      className="text-xs shrink-0 underline hover:no-underline"
+                      style={{ color: 'var(--accent-primary)' }}
+                    >
+                      Change
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="space-y-3">
               <Text variant="section-heading" weight="medium" color="secondary">
                 Try an example:
@@ -216,7 +272,7 @@ export function WelcomeScreen({
         {showRecentFiles && recentFilesReady && recentFiles.length > 0 && (
           <div className="space-y-3 -mt-2">
             <Text variant="section-heading" weight="medium" color="secondary">
-              Recent files:
+              Recent:
             </Text>
             <div className="space-y-2">
               {/* eslint-disable no-restricted-syntax -- recent file rows are card-like list items with internal layout (icon + text + chevron); <Button> doesn't support full-width card layouts with multiple child columns */}
@@ -224,7 +280,7 @@ export function WelcomeScreen({
                 <button
                   key={file.path}
                   onClick={() => {
-                    void handleOpenRecent(file.path);
+                    void handleOpenRecent(file);
                   }}
                   className="w-full text-left px-4 py-3 rounded-lg transition-colors border flex items-center justify-between group"
                   style={{
@@ -238,7 +294,11 @@ export function WelcomeScreen({
                       style={{ color: 'var(--text-tertiary)' }}
                       aria-hidden="true"
                     >
-                      <TbFileText size={22} />
+                      {file.type === 'folder' || !file.path.endsWith('.scad') ? (
+                        <TbFolder size={22} />
+                      ) : (
+                        <TbFileText size={22} />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
@@ -277,10 +337,22 @@ export function WelcomeScreen({
             <Button
               variant="secondary"
               onClick={onOpenFile}
-              className="text-sm"
+              className="text-sm gap-1.5"
               data-testid="welcome-open-file"
             >
+              <TbFileText className="size-4" />
               Open File
+            </Button>
+          )}
+          {onOpenFolder && (
+            <Button
+              variant="secondary"
+              onClick={onOpenFolder}
+              className="text-sm gap-1.5"
+              data-testid="welcome-open-folder"
+            >
+              <TbFolder className="size-4" />
+              Open Folder
             </Button>
           )}
           <Button
@@ -289,7 +361,7 @@ export function WelcomeScreen({
             className="text-sm"
             data-testid="welcome-start-empty-project"
           >
-            Start with empty project →
+            {hasCustomProjectDirectory ? 'Start in folder →' : 'Start with empty project →'}
           </Button>
         </div>
       </div>

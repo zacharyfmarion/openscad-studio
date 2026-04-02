@@ -32,7 +32,7 @@ declare global {
 }
 
 const capabilities: PlatformCapabilities = {
-  multiFile: false,
+  multiFile: true,
   hasNativeMenu: false,
   hasFileSystem: false,
   canSetWindowTitle: true,
@@ -76,6 +76,43 @@ export class WebBridge implements PlatformBridge {
   }
 
   async pickDirectory(): Promise<string | null> {
+    return null;
+  }
+
+  async writeTextFile(): Promise<void> {
+    // Web: file writes happen in-memory via projectStore
+  }
+
+  async deleteFile(): Promise<void> {
+    // Web: file deletes happen in-memory via projectStore
+  }
+
+  async renameFile(): Promise<void> {
+    // Web: file renames happen in-memory via projectStore
+  }
+
+  async readSubdirectories(): Promise<string[]> {
+    return [];
+  }
+
+  async createDirectory(): Promise<void> {
+    // Web: directories are virtual — no filesystem to create them in
+  }
+
+  async removeDirectory(): Promise<void> {
+    // Web: directories are virtual — no filesystem to remove from
+  }
+
+  async watchDirectory(): Promise<() => void> {
+    // Web: no filesystem watching
+    return () => {};
+  }
+
+  async getDefaultProjectsDirectory(): Promise<string | null> {
+    return null;
+  }
+
+  async createProjectDirectory(): Promise<string | null> {
     return null;
   }
 
@@ -234,9 +271,12 @@ export class WebBridge implements PlatformBridge {
   }
 
   onCloseRequested(handler: () => Promise<boolean>): () => void {
+    const hasDirty = () => this._hasDirtyState;
     const beforeUnload = (e: BeforeUnloadEvent) => {
-      if (this._hasDirtyState) {
+      if (hasDirty()) {
         e.preventDefault();
+        // Required by some browsers (Safari, legacy Chrome) to show the dialog
+        e.returnValue = '';
       }
     };
 

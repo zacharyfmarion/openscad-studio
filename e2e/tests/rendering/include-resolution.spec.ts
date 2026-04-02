@@ -187,7 +187,10 @@ test.describe('BOSL2 Library Integration', () => {
   // Path where BOSL2 would be installed on macOS
   const bosl2Path = path.join(
     process.env.HOME || '',
-    'Documents', 'OpenSCAD', 'libraries', 'BOSL2'
+    'Documents',
+    'OpenSCAD',
+    'libraries',
+    'BOSL2'
   );
 
   test('loads and resolves BOSL2 std.scad includes', async ({ app }) => {
@@ -220,7 +223,9 @@ test.describe('BOSL2 Library Integration', () => {
     // Fail with useful info if includes didn't resolve
     const includeWarnings = (diagnosticsText || '')
       .split('\n')
-      .filter(line => line.includes("Can't open include file") || line.includes("Can't open library"));
+      .filter(
+        (line) => line.includes("Can't open include file") || line.includes("Can't open library")
+      );
     if (includeWarnings.length > 0) {
       console.error('Include resolution failures:', includeWarnings);
     }

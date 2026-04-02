@@ -216,6 +216,168 @@ export class TauriBridge implements PlatformBridge {
     return typeof selected === 'string' ? selected : (selected as { path: string }).path;
   }
 
+  async writeTextFile(absolutePath: string, content: string): Promise<void> {
+    const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+    await writeTextFile(absolutePath, content);
+  }
+
+  async deleteFile(absolutePath: string): Promise<void> {
+    const { remove } = await import('@tauri-apps/plugin-fs');
+    await remove(absolutePath);
+  }
+
+  async renameFile(oldPath: string, newPath: string): Promise<void> {
+    const { rename } = await import('@tauri-apps/plugin-fs');
+    await rename(oldPath, newPath);
+  }
+
+  async readSubdirectories(dirPath: string): Promise<string[]> {
+    const { readDir } = await import('@tauri-apps/plugin-fs');
+    const dirs: string[] = [];
+
+    const walk = async (currentDir: string, prefix: string) => {
+      let entries;
+      try {
+        entries = await readDir(currentDir);
+      } catch {
+        return;
+      }
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue;
+        if (entry.isDirectory) {
+          const relativePath = prefix ? prefix + '/' + entry.name : entry.name;
+          dirs.push(relativePath);
+          await walk(currentDir + '/' + entry.name, relativePath);
+        }
+      }
+    };
+
+    try {
+      await walk(dirPath, '');
+    } catch {
+      // Directory doesn't exist or can't be read
+    }
+
+    return dirs;
+  }
+
+  async createDirectory(absolutePath: string): Promise<void> {
+    const { mkdir } = await import('@tauri-apps/plugin-fs');
+    await mkdir(absolutePath, { recursive: true });
+  }
+
+  async removeDirectory(absolutePath: string): Promise<void> {
+    const { remove } = await import('@tauri-apps/plugin-fs');
+    await remove(absolutePath, { recursive: true });
+  }
+
+  async watchDirectory(
+    dirPath: string,
+    onChange: (relativePath: string, content: string | null) => void
+  ): Promise<() => void> {
+    const { watch } = await import('@tauri-apps/plugin-fs');
+    const { readTextFile } = await import('@tauri-apps/plugin-fs');
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const pendingPaths = new Set<string>();
+
+    const unwatch = await watch(
+      dirPath,
+      (event) => {
+        // event can be a single event or batch
+        const events = Array.isArray(event) ? event : [event];
+        for (const e of events) {
+          if (typeof e.type === 'object' && ('modify' in e.type || 'create' in e.type)) {
+            for (const path of e.paths) {
+              if (path.endsWith('.scad')) {
+                // Convert absolute path to relative
+                const relative = path.startsWith(dirPath + '/')
+                  ? path.slice(dirPath.length + 1)
+                  : path.startsWith(dirPath)
+                    ? path.slice(dirPath.length)
+                    : null;
+                if (relative) pendingPaths.add(relative);
+              }
+            }
+          }
+          if (typeof e.type === 'object' && 'remove' in e.type) {
+            for (const path of e.paths) {
+              if (path.endsWith('.scad')) {
+                const relative = path.startsWith(dirPath + '/')
+                  ? path.slice(dirPath.length + 1)
+                  : path.startsWith(dirPath)
+                    ? path.slice(dirPath.length)
+                    : null;
+                if (relative) {
+                  pendingPaths.delete(relative);
+                  onChange(relative, null);
+                }
+              }
+            }
+          }
+        }
+
+        // Debounce 300ms to batch rapid edits
+        if (pendingPaths.size > 0) {
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(async () => {
+            const paths = [...pendingPaths];
+            pendingPaths.clear();
+            for (const relPath of paths) {
+              try {
+                const content = await readTextFile(`${dirPath}/${relPath}`);
+                onChange(relPath, content);
+              } catch {
+                // File may have been deleted between event and read
+                onChange(relPath, null);
+              }
+            }
+          }, 300);
+        }
+      },
+      { recursive: true }
+    );
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unwatch();
+    };
+  }
+
+  async getDefaultProjectsDirectory(): Promise<string | null> {
+    try {
+      const { documentDir, join } = await import('@tauri-apps/api/path');
+      const docs = await documentDir();
+      return await join(docs, 'OpenSCAD Studio');
+    } catch (err) {
+      console.error('[getDefaultProjectsDirectory] Error:', err);
+      return null;
+    }
+  }
+
+  async createProjectDirectory(basePath: string, name: string): Promise<string | null> {
+    try {
+      const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
+
+      // Ensure base directory exists
+      await mkdir(basePath, { recursive: true });
+
+      // Deduplicate name
+      let candidate = `${basePath}/${name}`;
+      let suffix = 1;
+      while (await exists(candidate)) {
+        suffix++;
+        candidate = `${basePath}/${name}-${suffix}`;
+      }
+
+      await mkdir(candidate, { recursive: true });
+      return candidate;
+    } catch (err) {
+      console.error('[createProjectDirectory] Error:', err);
+      return null;
+    }
+  }
+
   setWindowTitle(title: string): void {
     import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
       getCurrentWindow().setTitle(title);
@@ -249,8 +411,10 @@ export class TauriBridge implements PlatformBridge {
 
     await listen('menu:file:new', () => eventBus.emit('menu:file:new'));
     await listen('menu:file:open', () => eventBus.emit('menu:file:open'));
+    await listen('menu:file:open_folder', () => eventBus.emit('menu:file:open_folder'));
     await listen('menu:file:save', () => eventBus.emit('menu:file:save'));
     await listen('menu:file:save_as', () => eventBus.emit('menu:file:save_as'));
+    await listen('menu:file:save_all', () => eventBus.emit('menu:file:save_all'));
     await listen<string>('menu:file:export', (event) => {
       eventBus.emit('menu:file:export', event.payload as import('./types').ExportFormat);
     });

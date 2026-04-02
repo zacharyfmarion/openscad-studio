@@ -134,7 +134,9 @@ test.describe('3D Rendering', () => {
       return preview?.cameraTarget && preview?.cameraPosition;
     });
 
-    const beforePan = (await app.page.evaluate(() => (window as any).__TEST_PREVIEW__)) as PreviewState;
+    const beforePan = (await app.page.evaluate(
+      () => (window as any).__TEST_PREVIEW__
+    )) as PreviewState;
     const canvas = app.previewCanvas3D;
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
@@ -150,7 +152,9 @@ test.describe('3D Rendering', () => {
       await app.page.waitForTimeout(800);
     }
 
-    const afterPan = (await app.page.evaluate(() => (window as any).__TEST_PREVIEW__)) as PreviewState;
+    const afterPan = (await app.page.evaluate(
+      () => (window as any).__TEST_PREVIEW__
+    )) as PreviewState;
 
     expect(afterPan.orthographic).toBe(false);
     expect(vectorDistance(afterPan.cameraTarget, beforePan.cameraTarget)).toBeGreaterThan(0.5);
@@ -163,7 +167,9 @@ test.describe('3D Rendering', () => {
       const preview = (window as any).__TEST_PREVIEW__;
       return preview?.cameraTarget && preview?.cameraPosition;
     });
-    const beforePan = (await app.page.evaluate(() => (window as any).__TEST_PREVIEW__)) as PreviewState;
+    const beforePan = (await app.page.evaluate(
+      () => (window as any).__TEST_PREVIEW__
+    )) as PreviewState;
     const canvas = app.previewCanvas3D;
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
@@ -182,7 +188,9 @@ test.describe('3D Rendering', () => {
       await app.page.waitForTimeout(800);
     }
 
-    const afterPan = (await app.page.evaluate(() => (window as any).__TEST_PREVIEW__)) as PreviewState;
+    const afterPan = (await app.page.evaluate(
+      () => (window as any).__TEST_PREVIEW__
+    )) as PreviewState;
 
     expect(vectorDistance(afterPan.cameraTarget, beforePan.cameraTarget)).toBeGreaterThan(0.5);
   });
@@ -306,7 +314,9 @@ test.describe('3D Rendering', () => {
     expect(previewState.axisLabelsVisible).toBe(false);
   });
 
-  test('small model edits preserve the current panned framing when still visible', async ({ app }) => {
+  test('small model edits preserve the current panned framing when still visible', async ({
+    app,
+  }) => {
     await app.waitForRender();
     const initialSnapshot = await app.updateSourceAndRender('cube([20, 20, 20]);');
     expect(initialSnapshot?.previewKind).toBe('mesh');
@@ -344,8 +354,12 @@ test.describe('3D Rendering', () => {
     });
 
     expect(afterEditState.fitCount).toBe(beforeEditState.fitCount);
-    expect(vectorDistance(afterEditState.cameraTarget, beforeEditState.cameraTarget)).toBeLessThan(0.5);
-    expect(vectorDistance(afterEditState.cameraPosition, beforeEditState.cameraPosition)).toBeLessThan(0.5);
+    expect(vectorDistance(afterEditState.cameraTarget, beforeEditState.cameraTarget)).toBeLessThan(
+      0.5
+    );
+    expect(
+      vectorDistance(afterEditState.cameraPosition, beforeEditState.cameraPosition)
+    ).toBeLessThan(0.5);
   });
 
   test('large shrink changes reframe the model back down', async ({ app }) => {

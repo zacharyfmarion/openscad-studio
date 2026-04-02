@@ -17,12 +17,15 @@ pnpm web:share:dev
 # Run desktop version in development mode (requires Rust toolchain)
 pnpm tauri:dev
 
+# First-time desktop setup: download the OpenSCAD binary
+bash apps/ui/src-tauri/scripts/download-openscad.sh
+
 # Build for production
 pnpm web:build    # Web
 pnpm tauri:build  # Desktop
 ```
 
-Desktop development requires the [Rust toolchain](https://rustup.rs/). Web development only needs Node.js 18+ and pnpm.
+Desktop development requires the [Rust toolchain](https://rustup.rs/) and the OpenSCAD binary (run `bash apps/ui/src-tauri/scripts/download-openscad.sh` once). Web development only needs Node.js 18+ and pnpm.
 
 ## Share Feature Testing
 
@@ -108,8 +111,8 @@ openscad-studio/
 │   │   │   │   ├── types.ts     # PlatformBridge interface
 │   │   │   │   ├── tauriBridge.ts # Desktop implementation
 │   │   │   │   └── webBridge.ts # Web implementation
-│   │   │   ├── services/        # OpenSCAD WASM worker, render service, AI service
-│   │   │   ├── stores/          # Zustand state management
+│   │   │   ├── services/        # Render services (WASM + native), AI service, OpenSCAD worker
+│   │   │   ├── stores/          # Zustand state (project files, workspace, settings)
 │   │   │   └── themes/          # 22 editor themes
 │   │   └── src-tauri/           # Rust backend (desktop only)
 │   └── web/                     # Web app entry point (Vite)
@@ -137,6 +140,7 @@ The AI can:
 - Make targeted code changes
 - Check for compilation errors
 - Generate new OpenSCAD designs from natural language
+- Browse and create files in multi-file projects
 
 ## Contributor References
 
