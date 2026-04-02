@@ -23,6 +23,7 @@ const EditorPanel: React.FC<IDockviewPanelProps> = () => {
     diagnostics,
     onManualRender,
     settings,
+    editorFocusRequestKey,
     tabs,
     activeTabId,
     onTabClick,
@@ -49,6 +50,7 @@ const EditorPanel: React.FC<IDockviewPanelProps> = () => {
         diagnostics={diagnostics.filter((d) => !d.message.match(/^ECHO:/i))}
         onManualRender={onManualRender}
         settings={settings}
+        focusRequestKey={editorFocusRequestKey}
       />
     </PanelErrorBoundary>
   );
@@ -145,7 +147,6 @@ const DiffViewerPanel: React.FC<IDockviewPanelProps> = () => {
 const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
   const {
     source,
-    updateSource,
     previewKind,
     previewSrc,
     isRendering,
@@ -216,7 +217,6 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
         <CustomizerPanel
           code={source}
           baselineCode={renderTargetBaselineCode}
-          onChange={updateSource}
           isCustomizerFirstMode={settings.ui.defaultLayoutPreset === 'customizer-first'}
           previewKind={previewKind}
           previewAvailable={Boolean(previewSrc)}

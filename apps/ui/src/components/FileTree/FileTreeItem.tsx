@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { TbPlayerPlayFilled, TbFile, TbCube } from 'react-icons/tb';
 import * as ContextMenu from '@radix-ui/react-context-menu';
+import { useProjectStore } from '../../stores/projectStore';
 
 function FileIcon({ name }: { name: string }) {
   if (name.endsWith('.scad')) {
@@ -46,6 +47,7 @@ export function FileTreeItem({
   onDragStart,
   onDragEnd,
 }: FileTreeItemProps) {
+  const projectRoot = useProjectStore((s) => s.projectRoot);
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -144,10 +146,7 @@ export function FileTreeItem({
         >
           {isRenderTarget ? (
             <span title="Render target" style={{ display: 'inline-flex', flexShrink: 0 }}>
-              <TbPlayerPlayFilled
-                size={11}
-                style={{ color: 'var(--accent-primary)' }}
-              />
+              <TbPlayerPlayFilled size={11} style={{ color: 'var(--accent-primary)' }} />
             </span>
           ) : (
             <FileIcon name={name} />
@@ -240,6 +239,37 @@ export function FileTreeItem({
           >
             Rename
           </ContextMenu.Item>
+          <ContextMenu.Separator
+            style={{ height: '1px', backgroundColor: 'var(--border-subtle)', margin: '4px 0' }}
+          />
+          <ContextMenu.Item
+            className="flex items-center px-3 py-1.5 text-xs rounded cursor-pointer outline-none"
+            style={{ color: 'var(--text-secondary)' }}
+            onSelect={() => navigator.clipboard.writeText(fullPath)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            Copy Path
+          </ContextMenu.Item>
+          {projectRoot && (
+            <ContextMenu.Item
+              className="flex items-center px-3 py-1.5 text-xs rounded cursor-pointer outline-none"
+              style={{ color: 'var(--text-secondary)' }}
+              onSelect={() => navigator.clipboard.writeText(`${projectRoot}/${fullPath}`)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              Copy Absolute Path
+            </ContextMenu.Item>
+          )}
           <ContextMenu.Separator
             style={{ height: '1px', backgroundColor: 'var(--border-subtle)', margin: '4px 0' }}
           />

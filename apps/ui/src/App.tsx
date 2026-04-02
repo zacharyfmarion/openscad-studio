@@ -1295,9 +1295,11 @@ function App() {
     }
   }, [markTabSaved]);
 
-  // When the user has explicitly configured a directory, use it directly.
-  // Otherwise use the platform default with a random subdirectory.
-  const hasCustomProjectDir = !!settings.project.defaultProjectDirectory;
+  // Track whether the user explicitly chose a directory (persisted setting
+  // or ephemeral welcome-screen pick). When true, we use the directory
+  // directly instead of creating a random-named subdirectory.
+  const [hasEphemeralProjectDir, setHasEphemeralProjectDir] = useState(false);
+  const hasCustomProjectDir = !!settings.project.defaultProjectDirectory || hasEphemeralProjectDir;
   const displayProjectDir = resolvedProjectDir
     ? hasCustomProjectDir
       ? resolvedProjectDir
@@ -1406,8 +1408,8 @@ function App() {
     const platform = getPlatform();
     const picked = await platform.pickDirectory();
     if (picked) {
-      updateSetting('project', { defaultProjectDirectory: picked });
       setResolvedProjectDir(picked);
+      setHasEphemeralProjectDir(true);
     }
   }, []);
 
