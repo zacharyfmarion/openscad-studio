@@ -256,9 +256,41 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$NESTED_APP"
           codesign -dv --verbose=4 "$NESTED_APP"
 
-      - name: Bundle DMG
-        run: pnpm tauri bundle --target ${{ matrix.rust_target }} --bundles dmg
-        working-directory: apps/ui
+      - name: Create DMG from signed app bundle
+        env:
+          TARGET_TRIPLE: ${{ matrix.rust_target }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          OUTER_APP="apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/macos/OpenSCAD Studio.app"
+          DMG_DIR="apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/dmg"
+          DMG_PATH="$DMG_DIR/OpenSCAD.Studio_${VERSION}_${{ matrix.arch }}.dmg"
+          STAGING_DIR="$RUNNER_TEMP/dmg-root-${{ matrix.arch }}"
+          STAGED_APP="$STAGING_DIR/OpenSCAD Studio.app"
+
+          if [ ! -d "$OUTER_APP" ]; then
+            echo "::error::Missing signed app bundle at $OUTER_APP"
+            exit 1
+          fi
+
+          rm -rf "$STAGING_DIR" "$DMG_DIR"
+          mkdir -p "$STAGING_DIR" "$DMG_DIR"
+
+          ditto "$OUTER_APP" "$STAGED_APP"
+          ln -s /Applications "$STAGING_DIR/Applications"
+
+          echo "Verifying staged app bundle"
+          codesign --verify --deep --strict --verbose=2 "$STAGED_APP"
+
+          hdiutil create \
+            -volname "OpenSCAD Studio" \
+            -srcfolder "$STAGING_DIR" \
+            -fs HFS+ \
+            -format UDZO \
+            -imagekey zlib-level=9 \
+            -ov \
+            "$DMG_PATH"
 
       - name: Sign DMG
         env:
@@ -289,12 +321,44 @@ jobs:
             exit 1
           fi
 
-          # The outer app and nested OpenSCAD.app are verified immediately after
-          # re-signing. `tauri bundle --bundles dmg` cleans the intermediate macOS
-          # bundle directory, so only the final DMG is still available here.
           echo "Verifying $DMG_PATH"
           codesign --verify --verbose=2 "$DMG_PATH"
           codesign -dv --verbose=4 "$DMG_PATH"
+
+          MOUNT_DIR="$RUNNER_TEMP/dmg-mount-${{ matrix.arch }}"
+          rm -rf "$MOUNT_DIR"
+          mkdir -p "$MOUNT_DIR"
+
+          cleanup_mount() {
+            hdiutil detach "$MOUNT_DIR" -quiet 2>/dev/null || true
+          }
+          trap cleanup_mount EXIT
+
+          hdiutil attach "$DMG_PATH" -mountpoint "$MOUNT_DIR" -nobrowse -quiet
+
+          MOUNTED_APP="$MOUNT_DIR/OpenSCAD Studio.app"
+          MOUNTED_NESTED_APP="$MOUNTED_APP/Contents/Resources/OpenSCAD.app"
+
+          if [ ! -d "$MOUNTED_APP" ]; then
+            echo "::error::Mounted DMG is missing OpenSCAD Studio.app"
+            exit 1
+          fi
+
+          if [ ! -d "$MOUNTED_NESTED_APP" ]; then
+            echo "::error::Mounted DMG is missing nested OpenSCAD.app"
+            exit 1
+          fi
+
+          echo "Verifying mounted $MOUNTED_APP"
+          codesign --verify --deep --strict --verbose=2 "$MOUNTED_APP"
+          codesign -dv --verbose=4 "$MOUNTED_APP"
+
+          echo "Verifying mounted $MOUNTED_NESTED_APP"
+          codesign --verify --deep --strict --verbose=2 "$MOUNTED_NESTED_APP"
+          codesign -dv --verbose=4 "$MOUNTED_NESTED_APP"
+
+          cleanup_mount
+          trap - EXIT
 
       - name: Notarize DMG
         env:
