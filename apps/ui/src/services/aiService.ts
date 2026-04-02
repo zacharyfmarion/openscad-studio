@@ -4,10 +4,14 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { eventBus, historyService } from '../platform';
 import { getRenderService } from './renderService';
-import { captureOffscreen, type CaptureOptions } from './offscreenRenderer';
 import type { PreviewSceneStyle } from './previewSceneConfig';
 import type { AiProvider } from '../stores/apiKeyStore';
 import type { MeasurementUnit } from '../stores/settingsStore';
+import {
+  buildProjectContextSummary,
+  capturePreviewScreenshot,
+  listFolderEntries,
+} from './studioTooling';
 
 export interface AiToolCallbacks {
   captureCurrentView: () => Promise<string | null>;
@@ -31,9 +35,6 @@ export interface AiToolCallbacks {
   getMeasurementUnit: () => MeasurementUnit;
   setMeasurementUnit: (unit: MeasurementUnit) => void;
 }
-
-const MAX_CONTEXT_LINES = 200;
-const TRUNCATION_LINES = 150;
 
 export const SYSTEM_PROMPT = `## OpenSCAD AI Assistant
 
@@ -143,45 +144,6 @@ export function createModel(provider: AiProvider, apiKey: string, modelId: strin
   return openai(modelId);
 }
 
-/**
- * List files and subfolders at a specific directory level.
- * Returns a formatted string with entries like:
- *   📁 lib/
- *   main.scad (render target)
- *   utils.scad
- */
-function listFolderEntries(
-  allFiles: string[],
-  folder: string,
-  renderTarget?: string | null
-): string {
-  const prefix = folder ? folder + '/' : '';
-  const folders = new Set<string>();
-  const files: string[] = [];
-
-  for (const filePath of allFiles) {
-    if (!filePath.startsWith(prefix)) continue;
-    const remainder = filePath.slice(prefix.length);
-    const slashIdx = remainder.indexOf('/');
-    if (slashIdx >= 0) {
-      folders.add(remainder.slice(0, slashIdx));
-    } else {
-      files.push(remainder);
-    }
-  }
-
-  const lines: string[] = [];
-  for (const dir of [...folders].sort()) {
-    lines.push(`  📁 ${dir}/`);
-  }
-  for (const file of files.sort()) {
-    const fullPath = prefix + file;
-    lines.push(fullPath === renderTarget ? `  ${file} (render target)` : `  ${file}`);
-  }
-
-  return lines.join('\n');
-}
-
 export function buildTools(callbacks: AiToolCallbacks) {
   return {
     get_project_context: tool({
@@ -191,37 +153,12 @@ export function buildTools(callbacks: AiToolCallbacks) {
       execute: async () => {
         const renderTarget = callbacks.getRenderTargetPath();
         const allFiles = callbacks.listProjectFiles();
-
-        const parts: string[] = [];
-
-        // Render target info
-        if (renderTarget) {
-          parts.push(`Render target: ${renderTarget}`);
-          const content = callbacks.readProjectFile(renderTarget);
-          if (content) {
-            const lines = content.split('\n');
-            if (lines.length > MAX_CONTEXT_LINES) {
-              const truncated = lines.slice(0, TRUNCATION_LINES).join('\n');
-              parts.push(
-                `\n--- ${renderTarget} (showing ${TRUNCATION_LINES} of ${lines.length} lines) ---\n${truncated}\n\n[Truncated. Use read_file to see the full content.]`
-              );
-            } else {
-              parts.push(`\n--- ${renderTarget} ---\n${content}`);
-            }
-          }
-        } else {
-          parts.push('No render target set.');
-        }
-
-        // Top-level file/folder listing
-        if (allFiles.length > 0) {
-          const topLevel = listFolderEntries(allFiles, '', renderTarget);
-          parts.push(`\nProject files (${allFiles.length} total):\n${topLevel}`);
-        } else {
-          parts.push('\nNo project files.');
-        }
-
-        return parts.join('\n');
+        return buildProjectContextSummary({
+          renderTarget,
+          renderTargetContent: renderTarget ? callbacks.readProjectFile(renderTarget) : null,
+          allFiles,
+          includeTopLevelListing: true,
+        }).replace('[Truncated.]', '[Truncated. Use read_file to see the full content.]');
       },
     }),
 
@@ -293,44 +230,15 @@ export function buildTools(callbacks: AiToolCallbacks) {
           .describe('Custom elevation in degrees (0=level, 90=top-down). Overrides view if set.'),
       }),
       execute: async ({ view, azimuth, elevation }) => {
-        const useOffscreen = view !== 'current' || azimuth !== undefined || elevation !== undefined;
-
-        if (!useOffscreen) {
-          const dataUrl = await callbacks.captureCurrentView();
-          if (dataUrl) {
-            return { image_data_url: dataUrl };
-          }
-          return {
-            error:
-              'No preview available. The code may not have been rendered yet, or the preview panel is not visible.',
-          };
-        }
-
-        const preview3dUrl = callbacks.get3dPreviewUrl();
-        if (!preview3dUrl) {
-          return {
-            error:
-              'No 3D model available for angle-specific views. Render the code first, or use view="current" to capture the 2D SVG preview.',
-          };
-        }
-
-        try {
-          const opts: CaptureOptions = {};
-          if (azimuth !== undefined || elevation !== undefined) {
-            opts.azimuth = azimuth;
-            opts.elevation = elevation;
-          } else if (view !== 'current') {
-            opts.view = view;
-          }
-          opts.sceneStyle = callbacks.getPreviewSceneStyle();
-          opts.useModelColors = callbacks.getUseModelColors();
-          const dataUrl = await captureOffscreen(preview3dUrl, opts);
-          return { image_data_url: dataUrl };
-        } catch (err) {
-          return {
-            error: `Failed to capture screenshot: ${err instanceof Error ? err.message : String(err)}`,
-          };
-        }
+        return capturePreviewScreenshot({
+          captureCurrentView: callbacks.captureCurrentView,
+          get3dPreviewUrl: callbacks.get3dPreviewUrl,
+          getPreviewSceneStyle: callbacks.getPreviewSceneStyle,
+          getUseModelColors: callbacks.getUseModelColors,
+          view,
+          azimuth,
+          elevation,
+        });
       },
       toModelOutput({ output }) {
         if (typeof output === 'object' && output !== null && 'image_data_url' in output) {

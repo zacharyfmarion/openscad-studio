@@ -1,9 +1,11 @@
 mod cmd;
 mod history;
+mod mcp;
 mod types;
 
 use cmd::{update_editor_state, update_working_dir, EditorState, OpenScadBinaryState};
 use history::HistoryState;
+use mcp::{shutdown_mcp_server, McpServerState};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Emitter, Manager};
 
@@ -12,6 +14,7 @@ pub fn run() {
     let editor_state = EditorState::default();
     let history_state = HistoryState::new();
     let openscad_state = OpenScadBinaryState::default();
+    let mcp_state = McpServerState::default();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
@@ -20,6 +23,7 @@ pub fn run() {
         .manage(editor_state)
         .manage(history_state)
         .manage(openscad_state)
+        .manage(mcp_state.clone())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             update_editor_state,
@@ -36,6 +40,9 @@ pub fn run() {
             cmd::render::render_init,
             cmd::render::render_native,
             cmd::render::render_cancel,
+            mcp::configure_mcp_server,
+            mcp::get_mcp_server_status,
+            mcp::mcp_submit_tool_response,
         ])
         .setup(|app| {
             // Create app menu (About, Hide, Quit, etc.)
@@ -154,6 +161,11 @@ pub fn run() {
                     window.emit("menu:file:export", "dxf").unwrap();
                 }
                 _ => {}
+            }
+        })
+        .on_window_event(move |_window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                shutdown_mcp_server(&mcp_state);
             }
         })
         .run(tauri::generate_context!())

@@ -7,10 +7,12 @@ import {
   hasApiKeyForProvider,
   getAvailableProviders as getAvailableProvidersFromStore,
 } from '../../stores/apiKeyStore';
+import { useSettings } from '../../stores/settingsStore';
 import { getPlatform } from '../../platform';
 import { notifyError, notifySuccess } from '../../utils/notifications';
 import { SettingsSupportBlock } from './SettingsPrimitives';
 import { ApiProviderCard } from './ApiProviderCard';
+import { ExternalAgentsCard } from './ExternalAgentsCard';
 
 const MASKED_KEY = '••••••••••••••••••••••••••••••••••••••••••••';
 
@@ -35,6 +37,7 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
     const [error, setError] = useState<string | null>(null);
     const [showKey, setShowKey] = useState(false);
     const analytics = useAnalytics();
+    const [settings] = useSettings();
 
     const loadKeys = useCallback(() => {
       const availableProviders = getAvailableProvidersFromStore();
@@ -212,6 +215,10 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
             {error}
           </SettingsSupportBlock>
         )}
+
+        {getPlatform().capabilities.hasFileSystem ? (
+          <ExternalAgentsCard settings={settings} isOpen={isOpen} />
+        ) : null}
       </div>
     );
   }

@@ -45,6 +45,12 @@ import { useHistory } from './hooks/useHistory';
 import { useMobileLayout } from './hooks/useMobileLayout';
 import { getPlatform, eventBus, type ExportFormat } from './platform';
 import { isExportValidationError } from './services/exportErrors';
+import {
+  initializeDesktopMcpBridge,
+  notifyDesktopMcpRenderSettled,
+  syncDesktopMcpConfig,
+  updateDesktopMcpPreviewState,
+} from './services/desktopMcp';
 import { getRenderService } from './services/renderService';
 import { getPreviewSceneStyle } from './services/previewSceneConfig';
 import { isShareEnabled } from './services/shareService';
@@ -338,6 +344,37 @@ function App() {
   }, [capabilities.hasFileSystem, settings.project.defaultProjectDirectory]);
 
   useEffect(() => {
+    if (!capabilities.hasFileSystem) return;
+
+    let disposed = false;
+    void syncDesktopMcpConfig({
+      enabled: settings.mcp.enabled,
+      port: settings.mcp.port,
+    }).catch((error) => {
+      if (!disposed) {
+        console.error('[App] Failed to sync MCP config:', error);
+      }
+    });
+
+    return () => {
+      disposed = true;
+    };
+  }, [capabilities.hasFileSystem, settings.mcp.enabled, settings.mcp.port]);
+
+  useEffect(() => {
+    if (!capabilities.hasFileSystem) return;
+
+    let dispose: (() => void) | null = null;
+    void initializeDesktopMcpBridge().then((cleanup) => {
+      dispose = cleanup;
+    });
+
+    return () => {
+      dispose?.();
+    };
+  }, [capabilities.hasFileSystem]);
+
+  useEffect(() => {
     const mq = window.matchMedia(HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY);
     const handleChange = (event: MediaQueryListEvent) => {
       setIsHeaderWorkspaceSwitcherHidden(event.matches);
@@ -388,6 +425,8 @@ function App() {
       };
     },
     onRenderSettled: ({ owner, code, snapshot }) => {
+      notifyDesktopMcpRenderSettled(snapshot);
+
       if (!owner) {
         return;
       }
@@ -1056,6 +1095,15 @@ function App() {
   useEffect(() => {
     updateUseModelColors(settings.viewer.showModelColors);
   }, [settings.viewer.showModelColors, updateUseModelColors]);
+
+  useEffect(() => {
+    updateDesktopMcpPreviewState({
+      previewKind: activePreviewKind,
+      previewSrc: activePreviewSrc,
+      previewSceneStyle,
+      useModelColors: settings.viewer.showModelColors,
+    });
+  }, [activePreviewKind, activePreviewSrc, previewSceneStyle, settings.viewer.showModelColors]);
 
   useEffect(() => {
     if (isShareEntry) {
