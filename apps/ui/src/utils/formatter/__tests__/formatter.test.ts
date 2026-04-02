@@ -111,5 +111,19 @@ describe('OpenSCAD Formatter', () => {
       expect(result).not.toContain('[ 1');
       expect(result).not.toContain('3 ]');
     });
+
+    it('should preserve standalone numeric-prefixed module calls', async () => {
+      const input = '6_25u();';
+      const result = await formatOpenScadCode(input);
+      expect(result).toBe('6_25u();\n');
+    });
+
+    it('should preserve numeric-prefixed module calls in transform chains', async () => {
+      const input = 'module t(){\ntranslate([0,0,0])\n1_25u();\n}';
+      const result = await formatOpenScadCode(input);
+      expect(result).toContain('1_25u();');
+      expect(result).not.toContain('\n        _25u();');
+      expect(result).not.toContain('])1');
+    });
   });
 });

@@ -7,6 +7,8 @@ jest.setTimeout(30000);
 
 const curatedFixtureNames = [
   'regressions/commented-let-and-list',
+  'regressions/keyboard-layout-inline-comments',
+  'regressions/numeric-prefixed-module-calls',
   'parameters/multiline',
   'openscad-examples/advanced/offset',
 ] as const;
