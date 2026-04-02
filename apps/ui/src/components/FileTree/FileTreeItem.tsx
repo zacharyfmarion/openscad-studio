@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { TbPlayerPlayFilled, TbFile, TbCube } from 'react-icons/tb';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { useProjectStore } from '../../stores/projectStore';
+import { getPlatform } from '../../platform';
 
 function FileIcon({ name }: { name: string }) {
   if (name.endsWith('.scad')) {
@@ -152,7 +153,7 @@ export function FileTreeItem({
             <FileIcon name={name} />
           )}
           <span className="truncate flex-1">{name}</span>
-          {isDirty && (
+          {isDirty && getPlatform().capabilities.hasFileSystem && (
             <div
               style={{
                 width: '6px',

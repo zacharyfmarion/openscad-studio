@@ -1,4 +1,5 @@
 import { TbX } from 'react-icons/tb';
+import { getPlatform } from '../platform';
 
 export interface EditorTab {
   id: string;
@@ -55,7 +56,7 @@ export function EditorTabs({ tabs, activeTabId, onTabClick, onTabClose }: Editor
                 }}
               />
             )}
-            {tab.isDirty && (
+            {tab.isDirty && getPlatform().capabilities.hasFileSystem && (
               <div
                 style={{
                   width: '6px',
