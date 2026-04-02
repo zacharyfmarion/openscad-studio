@@ -266,6 +266,7 @@ jobs:
           OUTER_APP="apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/macos/OpenSCAD Studio.app"
           DMG_DIR="apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/dmg"
           DMG_PATH="$DMG_DIR/OpenSCAD.Studio_${VERSION}_${{ matrix.arch }}.dmg"
+          TEMP_DMG_PATH="$RUNNER_TEMP/OpenSCAD.Studio_${VERSION}_${{ matrix.arch }}.dmg"
           STAGING_DIR="$RUNNER_TEMP/dmg-root-${{ matrix.arch }}"
           STAGED_APP="$STAGING_DIR/OpenSCAD Studio.app"
 
@@ -283,14 +284,28 @@ jobs:
           echo "Verifying staged app bundle"
           codesign --verify --deep --strict --verbose=2 "$STAGED_APP"
 
-          hdiutil create \
+          attempt=1
+          until hdiutil create \
             -volname "OpenSCAD Studio" \
             -srcfolder "$STAGING_DIR" \
             -fs HFS+ \
             -format UDZO \
             -imagekey zlib-level=9 \
             -ov \
-            "$DMG_PATH"
+            "$TEMP_DMG_PATH"; do
+            if [ "$attempt" -ge 3 ]; then
+              echo "::error::hdiutil create failed after $attempt attempts"
+              exit 1
+            fi
+
+            echo "Retrying hdiutil create after transient failure (attempt $attempt)"
+            rm -f "$TEMP_DMG_PATH"
+            pkill -x diskimages-helper 2>/dev/null || true
+            sleep $((attempt * 5))
+            attempt=$((attempt + 1))
+          done
+
+          mv "$TEMP_DMG_PATH" "$DMG_PATH"
 
       - name: Sign DMG
         env:
