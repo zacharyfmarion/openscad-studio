@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.1] - 2026-04-02
 
+### Added
+- Multi-file project workflows with a file tree and workspace switching for larger OpenSCAD projects.
+- Shareable design links with web loading, thumbnails, and better staging and review support.
+- Viewer annotations and color-aware 3D previews for clearer design inspection.
+
+### Changed
+- Refined desktop rendering and project management to better match native OpenSCAD workflows.
+- Reworked settings, customizer, diagnostics, and tool panels for a denser, more consistent editing experience.
+- Expanded automated validation, CI coverage, and pull request preview tooling.
+
 ### Fixed
-- Stabilized the macOS release pipeline so Apple Silicon and Intel release builds can create, sign, verify, and notarize DMG artifacts reliably.
-- Improved bundled OpenSCAD app signing and notarization handling in release CI to prevent the failures that blocked the 1.0.0 macOS release.
+- Improved mobile viewing with better pinch zoom, panel behavior, and share-screen loading.
+- Fixed export and save edge cases, including STL/customizer flows and 2D SVG defaults.
+- Corrected formatter/parser issues, AI error handling, and other rendering stability problems.
+
+Note: `1.0.0` was prepared but never published as a GitHub Release because the macOS release workflow failed. `1.0.1` ships the same product changes with the release pipeline fixed.
 
 ## [1.0.0] - 2026-04-02
 
