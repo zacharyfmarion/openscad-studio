@@ -220,6 +220,11 @@ describe('useOpenScad', () => {
           'system.scad': 'module helper() {}',
           'deps/shape.scad': 'square(10);',
         },
+        libraryFiles: {
+          'custom.scad': 'module custom() {}',
+          'system.scad': 'module helper() {}',
+        },
+        libraryPaths: ['/lib/system', '/lib/custom'],
       })
     );
     expect(renderService.render).toHaveBeenNthCalledWith(

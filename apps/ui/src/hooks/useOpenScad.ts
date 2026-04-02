@@ -97,6 +97,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
   // Separate refs for library files and working directory files
   const libraryFilesRef = useRef<Record<string, string>>({});
+  const libraryPathsRef = useRef<string[]>([]);
   const workingDirFilesRef = useRef<Record<string, string>>({});
 
   // Serialize customPaths for stable dependency comparison
@@ -134,16 +135,18 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       if (library) {
         const systemPaths = library.autoDiscoverSystem ? await platform.getLibraryPaths() : [];
         const allLibPaths = [...systemPaths, ...library.customPaths];
+        libraryPathsRef.current = allLibPaths;
 
         for (const libPath of allLibPaths) {
           try {
             const libFiles = await platform.readDirectoryFiles(libPath);
             Object.assign(files, libFiles);
-            Object.assign(files, libFiles);
           } catch (err) {
             console.warn(`[useOpenScad] Failed to read library path ${libPath}:`, err);
           }
         }
+      } else {
+        libraryPathsRef.current = [];
       }
 
       libraryFilesRef.current = files;
@@ -266,16 +269,11 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         // instead of blindly scanning the entire working directory.
         // On web (no workingDir), project store files are the only source.
         const workingDir = workingDirRef.current;
-        let renderAuxFiles = libraryFilesRef.current;
         const projectFiles = getAuxiliaryFilesForRender(getProjectState());
 
-        // Always include all project files so sibling includes resolve for
-        // nested render targets (e.g. examples/keebcu/foo.scad including
-        // constants.scad).  The resolver adds any additional disk-only files
-        // (e.g. library deps not in the project store).
-        if (Object.keys(projectFiles).length > 0) {
-          renderAuxFiles = { ...libraryFilesRef.current, ...projectFiles };
-        }
+        // Build project-only auxiliary files (no library files — those are
+        // passed separately via libraryFiles/libraryPaths)
+        let projectAuxFiles: Record<string, string> = { ...projectFiles };
 
         if (workingDir) {
           const platform = getPlatformImpl();
@@ -294,23 +292,29 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           });
 
           if (Object.keys(workingDirFiles).length > 0) {
-            renderAuxFiles = { ...renderAuxFiles, ...workingDirFiles };
+            projectAuxFiles = { ...projectAuxFiles, ...workingDirFiles };
           }
         }
 
         // Update refs so the cache check uses consistent data on next render
-        workingDirFilesRef.current =
-          renderAuxFiles === libraryFilesRef.current
-            ? {}
-            : Object.fromEntries(
-                Object.entries(renderAuxFiles).filter(([k]) => !(k in libraryFilesRef.current))
-              );
+        workingDirFilesRef.current = Object.fromEntries(
+          Object.entries(projectAuxFiles).filter(([k]) => !(k in projectFiles))
+        );
         mergeAndSetAuxFiles();
 
+        const libraryFiles = libraryFilesRef.current;
+        // Merge all files for the render call — both services need library
+        // file contents (WASM for virtual FS, native because -L is not
+        // supported by the bundled OpenSCAD snapshot).  libraryPaths is
+        // passed so the native renderer can avoid writing library files
+        // into the project directory.
+        const allAuxFiles = { ...libraryFiles, ...projectAuxFiles };
         const result = await renderServiceRef.current.render(code, {
           view: dimension,
           backend: 'manifold',
-          auxiliaryFiles: Object.keys(renderAuxFiles).length > 0 ? renderAuxFiles : undefined,
+          auxiliaryFiles: Object.keys(allAuxFiles).length > 0 ? allAuxFiles : undefined,
+          libraryFiles: Object.keys(libraryFiles).length > 0 ? libraryFiles : undefined,
+          libraryPaths: libraryPathsRef.current.length > 0 ? libraryPathsRef.current : undefined,
           inputPath: getProjectState().renderTargetPath ?? undefined,
           workingDir: workingDir || undefined,
         });

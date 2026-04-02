@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { ModelSelectionSurface } from '../analytics/runtime';
 import { Button, Text } from './ui';
 import { AiComposer } from './AiComposer';
 import { ModelSelector } from './ModelSelector';
-import { TbFileText, TbFolder } from 'react-icons/tb';
+import { TbFileText, TbFolder, TbFolderOpen } from 'react-icons/tb';
 import { getPlatform } from '../platform';
 import { useHasApiKey } from '../stores/apiKeyStore';
 import type { AiDraft, AttachmentStore } from '../types/aiChat';
@@ -37,6 +37,12 @@ interface WelcomeScreenProps {
   currentModel?: string;
   availableProviders?: string[];
   onModelChange?: (model: string, sourceSurface?: ModelSelectionSurface) => void;
+  /** Resolved default project directory path (null on web → hidden) */
+  projectDirectory?: string | null;
+  /** Called when user clicks "Change" to pick a different default project directory */
+  onChangeProjectDirectory?: () => void;
+  /** Whether the user has explicitly configured a custom project directory */
+  hasCustomProjectDirectory?: boolean;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -68,10 +74,24 @@ export function WelcomeScreen({
   currentModel = 'claude-sonnet-4-5',
   availableProviders = [],
   onModelChange,
+  projectDirectory,
+  onChangeProjectDirectory,
+  hasCustomProjectDirectory,
 }: WelcomeScreenProps) {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [recentFilesReady, setRecentFilesReady] = useState(!showRecentFiles);
   const hasApiKey = useHasApiKey();
+
+  // Shorten home directory to ~/ for display
+  const displayPath = useMemo(() => {
+    if (!projectDirectory) return null;
+    try {
+      // Match /Users/<username>/ or /home/<username>/
+      return projectDirectory.replace(/^\/(?:Users|home)\/[^/]+/, '~');
+    } catch {
+      return projectDirectory;
+    }
+  }, [projectDirectory]);
 
   useEffect(() => {
     if (!showRecentFiles) {
@@ -139,32 +159,66 @@ export function WelcomeScreen({
 
         {hasApiKey ? (
           <div data-testid="welcome-ai-entry" className="space-y-6 ph-no-capture">
-            <AiComposer
-              draft={draft}
-              attachments={attachments}
-              isProcessingAttachments={isProcessingAttachments}
-              canSubmit={canSubmitDraft}
-              blockedMessage={draftVisionBlockMessage}
-              warningMessage={draftVisionWarningMessage}
-              errors={draftErrors}
-              placeholder="Describe what you want to build..."
-              rows={3}
-              variant="welcome"
-              submitLabel="Build"
-              submitTitle="Build"
-              trailingControls={
-                <ModelSelector
-                  currentModel={currentModel}
-                  availableProviders={availableProviders}
-                  onChange={(model) => onModelChange?.(model, 'welcome')}
-                  compact
-                />
-              }
-              onTextChange={onDraftTextChange}
-              onFilesSelected={onDraftFilesSelected}
-              onRemoveAttachment={onDraftRemoveAttachment}
-              onSubmit={onStartWithDraft}
-            />
+            <div>
+              <AiComposer
+                draft={draft}
+                attachments={attachments}
+                isProcessingAttachments={isProcessingAttachments}
+                canSubmit={canSubmitDraft}
+                blockedMessage={draftVisionBlockMessage}
+                warningMessage={draftVisionWarningMessage}
+                errors={draftErrors}
+                placeholder="Describe what you want to build..."
+                rows={3}
+                variant="welcome"
+                submitLabel="Build"
+                submitTitle="Build"
+                trailingControls={
+                  <ModelSelector
+                    currentModel={currentModel}
+                    availableProviders={availableProviders}
+                    onChange={(model) => onModelChange?.(model, 'welcome')}
+                    compact
+                  />
+                }
+                onTextChange={onDraftTextChange}
+                onFilesSelected={onDraftFilesSelected}
+                onRemoveAttachment={onDraftRemoveAttachment}
+                onSubmit={onStartWithDraft}
+              />
+              {displayPath && (
+                <div
+                  className="flex items-center gap-2 mt-2"
+                  data-testid="welcome-project-directory"
+                >
+                  <TbFolderOpen
+                    size={14}
+                    style={{ color: 'var(--text-tertiary)', flexShrink: 0 }}
+                  />
+                  <Text
+                    variant="caption"
+                    color="tertiary"
+                    className="truncate"
+                    title={projectDirectory!}
+                  >
+                    {displayPath}
+                  </Text>
+                  {onChangeProjectDirectory && (
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onChangeProjectDirectory();
+                      }}
+                      className="text-xs shrink-0 underline hover:no-underline"
+                      style={{ color: 'var(--accent-primary)' }}
+                    >
+                      Change
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="space-y-3">
               <Text variant="section-heading" weight="medium" color="secondary">
                 Try an example:
@@ -307,7 +361,7 @@ export function WelcomeScreen({
             className="text-sm"
             data-testid="welcome-start-empty-project"
           >
-            Start with empty project →
+            {hasCustomProjectDirectory ? 'Start in folder →' : 'Start with empty project →'}
           </Button>
         </div>
       </div>

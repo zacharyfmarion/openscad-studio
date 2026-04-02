@@ -167,6 +167,23 @@ export interface PlatformBridge {
     onChange: (relativePath: string, content: string | null) => void
   ): Promise<() => void>;
 
+  // -- Project directory --
+
+  /**
+   * Get the platform default base directory for new projects.
+   * Desktop: ~/Documents/OpenSCAD Studio/
+   * Web: returns null (no filesystem).
+   */
+  getDefaultProjectsDirectory(): Promise<string | null>;
+
+  /**
+   * Create a new project directory inside basePath with the given name.
+   * Deduplicates by appending -2, -3, etc. if the name already exists.
+   * Returns the absolute path of the created directory, or null on failure.
+   * Web: returns null.
+   */
+  createProjectDirectory(basePath: string, name: string): Promise<string | null>;
+
   // -- Lifecycle --
 
   /** Optional initialization (e.g., setting up native menu event forwarding) */

@@ -111,6 +111,15 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
     [settings]
   );
 
+  const handleProjectChange = useCallback(
+    <K extends keyof Settings['project']>(key: K, value: Settings['project'][K]) => {
+      const updated = { ...settings, project: { ...settings.project, [key]: value } };
+      setSettings(updated);
+      saveSettings(updated);
+    },
+    [settings]
+  );
+
   const handleViewerChange = useCallback(
     <K extends keyof Settings['viewer']>(key: K, value: Settings['viewer'][K]) => {
       const updated = { ...settings, viewer: { ...settings.viewer, [key]: value } };
@@ -343,7 +352,11 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
               <ViewerSettings settings={settings} onViewerChange={handleViewerChange} />
             )}
             {activeSection === 'project' && (
-              <ProjectSettings settings={settings} onViewerChange={handleViewerChange} />
+              <ProjectSettings
+                settings={settings}
+                onViewerChange={handleViewerChange}
+                onProjectChange={handleProjectChange}
+              />
             )}
             {activeSection === 'editor' && (
               <EditorSettings

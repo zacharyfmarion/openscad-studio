@@ -23,6 +23,7 @@ export type ExportFormat = 'stl' | 'obj' | 'amf' | '3mf' | 'svg' | 'dxf';
 export interface RenderOptions {
   view?: '2d' | '3d';
   backend?: 'manifold' | 'cgal' | 'auto';
+  /** Project and working-directory files to materialize for include/use resolution. */
   auxiliaryFiles?: Record<string, string>;
   /** Project-relative path of the render target (e.g. "examples/keebcu/foo.scad").
    *  Passed to the worker so the input file is written at the correct nested path. */
@@ -30,6 +31,12 @@ export interface RenderOptions {
   /** Absolute path to the project root directory (desktop only).
    *  Passed to the native binary as a search path for import() resolution. */
   workingDir?: string;
+  /** Library file contents for WASM virtual FS. Native renderer ignores this
+   *  when libraryPaths is provided (uses -L flags instead). */
+  libraryFiles?: Record<string, string>;
+  /** Absolute paths to library directories for native OpenSCAD -L flag resolution.
+   *  WASM renderer ignores this. */
+  libraryPaths?: string[];
 }
 
 export interface RenderResult {
@@ -351,10 +358,16 @@ export class WasmRenderService implements IRenderService {
   }
 
   async render(code: string, options: RenderOptions = {}): Promise<RenderResult> {
-    const { view = '3d', backend = 'manifold', auxiliaryFiles, inputPath } = options;
+    const { view = '3d', backend = 'manifold', auxiliaryFiles, libraryFiles, inputPath } = options;
+
+    // Merge library files into auxiliary files for WASM virtual FS
+    const allFiles =
+      libraryFiles || auxiliaryFiles
+        ? { ...(libraryFiles || {}), ...(auxiliaryFiles || {}) }
+        : undefined;
 
     // Check cache
-    const auxFileCount = auxiliaryFiles ? Object.keys(auxiliaryFiles).length : 0;
+    const auxFileCount = allFiles ? Object.keys(allFiles).length : 0;
     const cacheKey = await this.cache.generateKey(code, backend, view, auxFileCount);
     const cached = this.cache.get(cacheKey);
     if (cached) {
@@ -371,7 +384,7 @@ export class WasmRenderService implements IRenderService {
     const kind: 'mesh' | 'svg' = is3d ? 'mesh' : 'svg';
 
     const args = this.buildArgs(outputPath, { view, backend });
-    const result = await this.sendRequest(code, args, auxiliaryFiles, inputPath);
+    const result = await this.sendRequest(code, args, allFiles, inputPath);
 
     const diagnostics = parseOpenScadStderr(result.stderr);
 

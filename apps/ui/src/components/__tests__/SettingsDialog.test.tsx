@@ -9,6 +9,8 @@ const mockTrack = jest.fn();
 const mockApplyWorkspacePreset = jest.fn();
 let platformMock: {
   getLibraryPaths: ReturnType<typeof jest.fn>;
+  getDefaultProjectsDirectory: ReturnType<typeof jest.fn>;
+  pickDirectory: ReturnType<typeof jest.fn>;
   capabilities: { hasFileSystem: boolean };
 };
 
@@ -54,6 +56,8 @@ describe('SettingsDialog privacy copy', () => {
     jest.clearAllMocks();
     platformMock = {
       getLibraryPaths: jest.fn(async () => []),
+      getDefaultProjectsDirectory: jest.fn(async () => '/Users/test/Documents/OpenSCAD Studio'),
+      pickDirectory: jest.fn(async () => null),
       capabilities: { hasFileSystem: true },
     };
     mockGetPlatform.mockReturnValue(platformMock);

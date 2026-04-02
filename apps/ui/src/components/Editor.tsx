@@ -21,6 +21,7 @@ interface EditorProps {
   diagnostics: Diagnostic[];
   onManualRender?: () => void;
   settings?: Settings;
+  focusRequestKey?: number;
 }
 
 interface ModelEntry {
@@ -38,6 +39,7 @@ export function Editor({
   diagnostics,
   onManualRender,
   settings: propSettings,
+  focusRequestKey = 0,
 }: EditorProps) {
   const [settings, setSettings] = useState<Settings>(propSettings || loadSettings());
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -192,6 +194,11 @@ export function Editor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFileId, editorMounted]);
 
+  useEffect(() => {
+    if (!editorMounted || !editorRef.current) return;
+    editorRef.current.focus();
+  }, [focusRequestKey, editorMounted]);
+
   // Replace model content while preserving the undo stack.
   // model.setValue() destroys undo history; pushEditOperations keeps it.
   const replaceModelContent = useCallback((model: Monaco.editor.ITextModel, newContent: string) => {
@@ -212,7 +219,9 @@ export function Editor({
     suppressOnChangeRef.current = false;
   }, []);
 
-  // Sync external value changes to the active model (e.g., AI updates)
+  // Sync external value changes to the active model (e.g., AI updates).
+  // Also re-runs on editorMounted so we catch value changes that arrived
+  // before Monaco was ready (e.g., async project initialization).
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
@@ -220,11 +229,15 @@ export function Editor({
     if (!model) return;
 
     replaceModelContent(model, value);
-  }, [value, replaceModelContent]);
+  }, [value, editorMounted, replaceModelContent]);
 
-  // Listen for code updates from AI agent
+  // Listen for code updates from AI agent / history restores.
+  // Customizer changes are excluded — they target the render target file which
+  // may differ from the active editor tab. The Editor picks up render-target
+  // changes via the React `value` prop when the active tab IS the render target.
   useEffect(() => {
-    const unlisten = eventBus.on('code-updated', ({ code }) => {
+    const unlisten = eventBus.on('code-updated', ({ code, source: eventSource }) => {
+      if (eventSource === 'customizer') return;
       if (import.meta.env.DEV)
         console.log('[Editor] Received code-updated event, payload length:', code.length);
       const model = editorRef.current?.getModel();

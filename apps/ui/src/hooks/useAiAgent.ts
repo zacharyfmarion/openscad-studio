@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { type ToolSet, stepCountIs } from 'ai';
 import { bucketCount, useAnalytics, type ModelSelectionSurface } from '../analytics/runtime';
-import { historyService, eventBus } from '../platform';
+import { historyService, eventBus, getPlatform } from '../platform';
 import {
   getProjectState,
   getProjectStore,
@@ -303,6 +303,18 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         const state = getProjectState();
         if (normalizedPath in state.files) return false;
         getProjectStore().getState().addFile(normalizedPath, content);
+
+        // Auto-persist to disk when project is disk-backed
+        const { projectRoot } = getProjectState();
+        if (projectRoot) {
+          const platform = getPlatform();
+          void platform
+            .createDirectory(`${projectRoot}/${normalizedPath.split('/').slice(0, -1).join('/')}`)
+            .then(() => platform.writeTextFile(`${projectRoot}/${normalizedPath}`, content))
+            .then(() => getProjectStore().getState().markFileSaved(normalizedPath, content))
+            .catch((err) => console.warn('[createProjectFile] Failed to persist to disk:', err));
+        }
+
         return true;
       },
       editProjectFile: (path: string, oldString: string, newString: string) => {
@@ -316,6 +328,17 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
 
         const newContent = file.content.replace(oldString, newString);
         getProjectStore().getState().updateFileContent(path, newContent);
+
+        // Auto-persist to disk when project is disk-backed
+        const { projectRoot } = getProjectState();
+        if (projectRoot) {
+          const platform = getPlatform();
+          void platform
+            .writeTextFile(`${projectRoot}/${path}`, newContent)
+            .then(() => getProjectStore().getState().markFileSaved(path, newContent))
+            .catch((err) => console.warn('[editProjectFile] Failed to persist to disk:', err));
+        }
+
         return null;
       },
       requestRender: (trigger: string, opts) => {

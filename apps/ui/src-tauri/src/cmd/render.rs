@@ -135,6 +135,7 @@ fn create_render_workspace(
     auxiliary_files: &Option<HashMap<String, String>>,
     input_path: &Option<String>,
     working_dir: &Option<String>,
+    library_paths: &Option<Vec<String>>,
 ) -> Result<RenderWorkspace, String> {
     let render_id = uuid::Uuid::new_v4().to_string();
     let temp_dir = std::env::temp_dir()
@@ -174,11 +175,25 @@ fn create_render_workspace(
 
         project_temp_files.push(temp_input.clone());
 
-        // Write any auxiliary files with unsaved changes into the project dir too
+        // Write any auxiliary files with unsaved changes into the project dir too.
+        // Skip library files — they already exist on disk at their library path
+        // and OpenSCAD resolves them from there.
         if let Some(aux_files) = auxiliary_files {
+            let lib_paths: Vec<PathBuf> = library_paths
+                .as_ref()
+                .map(|lp: &Vec<String>| lp.iter().map(PathBuf::from).collect::<Vec<_>>())
+                .unwrap_or_default();
+
             for (rel_path, content) in aux_files {
-                // Only write project .scad files (skip library files like BOSL2/)
                 if !rel_path.ends_with(".scad") {
+                    continue;
+                }
+
+                // Skip files that exist under any library path
+                let is_library_file = lib_paths
+                    .iter()
+                    .any(|lp: &PathBuf| lp.join(rel_path).exists());
+                if is_library_file {
                     continue;
                 }
                 let real_aux = project_root.join(rel_path);
@@ -286,6 +301,7 @@ pub async fn render_native(
     auxiliary_files: Option<HashMap<String, String>>,
     input_path: Option<String>,
     working_dir: Option<String>,
+    library_paths: Option<Vec<String>>,
     state: State<'_, OpenScadBinaryState>,
 ) -> Result<RenderNativeResult, String> {
     let binary_path = state
@@ -310,6 +326,7 @@ pub async fn render_native(
         &auxiliary_files,
         &input_path,
         &working_dir,
+        &library_paths,
     )?;
 
     // Build the command

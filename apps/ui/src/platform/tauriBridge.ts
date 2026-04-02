@@ -344,6 +344,40 @@ export class TauriBridge implements PlatformBridge {
     };
   }
 
+  async getDefaultProjectsDirectory(): Promise<string | null> {
+    try {
+      const { documentDir, join } = await import('@tauri-apps/api/path');
+      const docs = await documentDir();
+      return await join(docs, 'OpenSCAD Studio');
+    } catch (err) {
+      console.error('[getDefaultProjectsDirectory] Error:', err);
+      return null;
+    }
+  }
+
+  async createProjectDirectory(basePath: string, name: string): Promise<string | null> {
+    try {
+      const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
+
+      // Ensure base directory exists
+      await mkdir(basePath, { recursive: true });
+
+      // Deduplicate name
+      let candidate = `${basePath}/${name}`;
+      let suffix = 1;
+      while (await exists(candidate)) {
+        suffix++;
+        candidate = `${basePath}/${name}-${suffix}`;
+      }
+
+      await mkdir(candidate, { recursive: true });
+      return candidate;
+    } catch (err) {
+      console.error('[createProjectDirectory] Error:', err);
+      return null;
+    }
+  }
+
   setWindowTitle(title: string): void {
     import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
       getCurrentWindow().setTitle(title);

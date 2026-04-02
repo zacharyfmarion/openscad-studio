@@ -61,13 +61,14 @@ import {
 import { useWorkspaceStore, getWorkspaceState } from './stores/workspaceStore';
 import { getProjectStore, useProjectStore, getRenderTargetContent } from './stores/projectStore';
 import { requestRender } from './stores/renderRequestStore';
-import { DEFAULT_TAB_NAME } from './stores/workspaceFactories';
+import { DEFAULT_TAB_NAME, DEFAULT_OPENSCAD_CODE } from './stores/workspaceFactories';
 import { formatOpenScadCode } from './utils/formatter';
 import { addRecentFile, addRecentFolder, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview } from './utils/capturePreview';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { exportProjectZip } from './utils/projectZip';
 import { getRelativeProjectPath } from './utils/projectFilePaths';
+import { generateRandomProjectName } from './utils/projectNaming';
 import { useShareEntry } from './hooks/useShareEntry';
 import { TbBrandGithub, TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
 import { Toaster } from 'sonner';
@@ -311,10 +312,30 @@ function App() {
   const { capabilities } = getPlatform();
   const macDownloadUrl = useMacDownloadUrl();
   const { undo, redo } = useHistory();
+  const [resolvedProjectDir, setResolvedProjectDir] = useState<string | null>(null);
+  /** Pre-generated project name shown on welcome screen (not yet created on disk) */
+  const [pendingProjectName, setPendingProjectName] = useState<string>(() =>
+    generateRandomProjectName()
+  );
   const initialShareContext = useMemo(
     () => (typeof window === 'undefined' ? null : (window.__SHARE_CONTEXT ?? null)),
     []
   );
+
+  // Resolve the effective default project directory from settings or platform default
+  useEffect(() => {
+    if (!capabilities.hasFileSystem) return;
+    const configured = settings.project.defaultProjectDirectory;
+    if (configured) {
+      setResolvedProjectDir(configured);
+    } else {
+      void getPlatform()
+        .getDefaultProjectsDirectory()
+        .then((dir) => {
+          if (dir) setResolvedProjectDir(dir);
+        });
+    }
+  }, [capabilities.hasFileSystem, settings.project.defaultProjectDirectory]);
 
   useEffect(() => {
     const mq = window.matchMedia(HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY);
@@ -604,6 +625,12 @@ function App() {
   );
 
   const switchingRef = useRef(false);
+  const [editorFocusRequestKey, setEditorFocusRequestKey] = useState(0);
+
+  const focusEditorPanel = useCallback(() => {
+    openPanel('editor', 'editor', 'Editor');
+    setEditorFocusRequestKey((current) => current + 1);
+  }, []);
 
   const switchTab = useCallback(
     async (id: string) => {
@@ -675,6 +702,8 @@ function App() {
   // File tree handlers
   const handleFileTreeClick = useCallback(
     (filePath: string) => {
+      focusEditorPanel();
+
       // Find existing tab for this file (by projectPath)
       const existingTab = tabs.find((t) => t.projectPath === filePath);
       if (existingTab) {
@@ -691,7 +720,7 @@ function App() {
         createNewTab(absolutePath, undefined, filePath);
       }
     },
-    [tabs, switchTab, createNewTab]
+    [tabs, switchTab, createNewTab, focusEditorPanel]
   );
 
   // Editor onChange: single write to projectStore. The render pipeline reacts
@@ -1266,20 +1295,121 @@ function App() {
     }
   }, [markTabSaved]);
 
+  // When the user has explicitly configured a directory, use it directly.
+  // Otherwise use the platform default with a random subdirectory.
+  const hasCustomProjectDir = !!settings.project.defaultProjectDirectory;
+  const displayProjectDir = resolvedProjectDir
+    ? hasCustomProjectDir
+      ? resolvedProjectDir
+      : `${resolvedProjectDir}/${pendingProjectName}`
+    : null;
+
+  /**
+   * On desktop, create a project directory on disk and transition the project
+   * from virtual to disk-backed. Returns the created directory path, or null
+   * if on web or if directory creation failed.
+   */
+  const initProjectDirectory = useCallback(async (): Promise<string | null> => {
+    if (!capabilities.hasFileSystem || !resolvedProjectDir) return null;
+
+    const platform = getPlatform();
+    let dirPath: string | null;
+
+    if (hasCustomProjectDir) {
+      // User explicitly chose this directory — use it directly, loading existing files
+      await platform.createDirectory(resolvedProjectDir);
+      dirPath = resolvedProjectDir;
+
+      const diskFiles = await platform.readDirectoryFiles(dirPath, ['scad'], true);
+      const scadFiles = Object.keys(diskFiles);
+
+      if (scadFiles.length > 0) {
+        // Folder has existing .scad files — open as project
+        const renderTarget =
+          scadFiles.find((p) => p === 'main.scad') ??
+          scadFiles.sort((a, b) => a.localeCompare(b))[0];
+        getProjectStore().getState().openProject(dirPath, diskFiles, renderTarget);
+      } else {
+        // Empty folder — create a default main.scad
+        const files = { [DEFAULT_TAB_NAME]: DEFAULT_OPENSCAD_CODE };
+        getProjectStore().getState().openProject(dirPath, files, DEFAULT_TAB_NAME);
+        await platform.writeTextFile(`${dirPath}/${DEFAULT_TAB_NAME}`, DEFAULT_OPENSCAD_CODE);
+      }
+    } else {
+      // Default base dir — create a random-named subdirectory
+      dirPath = await platform.createProjectDirectory(resolvedProjectDir, pendingProjectName);
+      // Generate a fresh name for the next project
+      setPendingProjectName(generateRandomProjectName());
+
+      if (!dirPath) return null;
+
+      // Write default main.scad to disk
+      const files = { [DEFAULT_TAB_NAME]: DEFAULT_OPENSCAD_CODE };
+      getProjectStore().getState().openProject(dirPath, files, DEFAULT_TAB_NAME);
+      await platform.writeTextFile(`${dirPath}/${DEFAULT_TAB_NAME}`, DEFAULT_OPENSCAD_CODE);
+    }
+    if (!dirPath) return null;
+
+    // Update the welcome tab with real file path
+    const renderTarget = getProjectStore().getState().renderTargetPath || DEFAULT_TAB_NAME;
+    const firstTab = getWorkspaceState().tabs[0];
+    if (firstTab) {
+      replaceWelcomeTab({
+        filePath: `${dirPath}/${renderTarget}`,
+        name: renderTarget.split('/').pop() || renderTarget,
+        projectPath: renderTarget,
+      });
+    }
+
+    addRecentFolder(dirPath);
+
+    // Notify the editor to sync its model with the new content.
+    // This handles the case where the Monaco model was created before
+    // openProject updated the store (e.g. "Start in folder" with existing files).
+    const finalContent = getProjectStore().getState().files[renderTarget]?.content;
+    if (finalContent) {
+      eventBus.emit('code-updated', { code: finalContent, source: 'file-open' });
+    }
+
+    return dirPath;
+  }, [
+    capabilities.hasFileSystem,
+    resolvedProjectDir,
+    pendingProjectName,
+    hasCustomProjectDir,
+    replaceWelcomeTab,
+  ]);
+
   const handleStartWithDraft = useCallback(
     (draftOverride?: AiDraft) => {
       if (draftOverride) {
         setDraft(draftOverride);
       }
       hideWelcomeScreen();
-      void submitDraft(draftOverride);
+
+      // Create project directory before submitting AI draft
+      void initProjectDirectory().then(() => {
+        void submitDraft(draftOverride);
+      });
     },
-    [hideWelcomeScreen, setDraft, submitDraft]
+    [hideWelcomeScreen, setDraft, submitDraft, initProjectDirectory]
   );
 
   const handleStartManually = useCallback(() => {
     hideWelcomeScreen();
-  }, [hideWelcomeScreen]);
+    void initProjectDirectory().then(() => {
+      requestRender('file_open', { immediate: true });
+    });
+  }, [hideWelcomeScreen, initProjectDirectory]);
+
+  const handleChangeProjectDirectory = useCallback(async () => {
+    const platform = getPlatform();
+    const picked = await platform.pickDirectory();
+    if (picked) {
+      updateSetting('project', { defaultProjectDirectory: picked });
+      setResolvedProjectDir(picked);
+    }
+  }, []);
 
   const handleNuxSelect = useCallback(
     (preset: 'default' | 'ai-first' | 'customizer-first') => {
@@ -1365,8 +1495,8 @@ function App() {
   );
 
   const handleOpenEditorPanel = useCallback(() => {
-    openPanel('editor', 'editor', 'Editor');
-  }, []);
+    focusEditorPanel();
+  }, [focusEditorPanel]);
 
   const handleOpenExportDialog = useCallback(() => {
     setShowExportDialog(true);
@@ -1979,7 +2109,13 @@ function App() {
   useEffect(() => {
     const unlisten = eventBus.on('code-updated', ({ code, source: eventSource }) => {
       const store = getProjectStore().getState();
-      const projectPath = activeTabRef.current.projectPath;
+      // Customizer changes target the render target file, not the active editor
+      // tab — the user may be viewing a different file while the customizer
+      // operates on the render target.
+      const projectPath =
+        eventSource === 'customizer'
+          ? (store.renderTargetPath ?? activeTabRef.current.projectPath)
+          : activeTabRef.current.projectPath;
       store.updateFileContent(projectPath, code);
       if (eventSource !== 'customizer') {
         store.setCustomizerBase(projectPath, code);
@@ -2125,6 +2261,7 @@ function App() {
       diagnostics: activeDiagnostics,
       onManualRender: manualRender,
       settings,
+      editorFocusRequestKey,
       tabs,
       activeTabId,
       onTabClick: switchTab,
@@ -2185,6 +2322,7 @@ function App() {
       activeDiagnostics,
       manualRender,
       settings,
+      editorFocusRequestKey,
       tabs,
       activeTabId,
       switchTab,
@@ -2340,6 +2478,9 @@ function App() {
           setSettingsInitialTab('ai');
           setShowSettingsDialog(true);
         }}
+        projectDirectory={displayProjectDir}
+        onChangeProjectDirectory={handleChangeProjectDirectory}
+        hasCustomProjectDirectory={hasCustomProjectDir}
       />
       <SettingsDialog
         isOpen={showSettingsDialog}

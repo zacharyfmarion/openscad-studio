@@ -52,6 +52,11 @@ export interface PrivacySettings {
   analyticsEnabled: boolean;
 }
 
+export interface ProjectSettings {
+  /** User-configured base directory for new projects. Empty string = use platform default. */
+  defaultProjectDirectory: string;
+}
+
 export interface Settings {
   editor: EditorSettings;
   appearance: AppearanceSettings;
@@ -59,6 +64,7 @@ export interface Settings {
   viewer: ViewerSettings;
   library: LibrarySettings;
   privacy: PrivacySettings;
+  project: ProjectSettings;
 }
 
 const DEFAULT_VIM_CONFIG = `# Vim Configuration
@@ -131,6 +137,9 @@ const DEFAULT_SETTINGS: Settings = {
   privacy: {
     analyticsEnabled: true,
   },
+  project: {
+    defaultProjectDirectory: '',
+  },
 };
 
 const SETTINGS_KEY = 'openscad-studio-settings';
@@ -170,6 +179,10 @@ export function loadSettings(): Settings {
         privacy: {
           ...DEFAULT_SETTINGS.privacy,
           ...(parsed.privacy || {}),
+        },
+        project: {
+          ...DEFAULT_SETTINGS.project,
+          ...(parsed.project || {}),
         },
       };
     }

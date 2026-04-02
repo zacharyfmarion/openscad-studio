@@ -156,6 +156,12 @@ class BootstrapBridge implements PlatformBridge {
   async watchDirectory(): Promise<() => void> {
     return () => {};
   }
+  async getDefaultProjectsDirectory(): Promise<string | null> {
+    return null;
+  }
+  async createProjectDirectory(): Promise<string | null> {
+    return null;
+  }
 }
 
 const bootstrapBridge = new BootstrapBridge();

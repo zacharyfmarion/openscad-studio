@@ -93,7 +93,14 @@ export class NativeRenderService implements IRenderService {
    * Render OpenSCAD code using the native binary.
    */
   async render(code: string, options: RenderOptions = {}): Promise<RenderResult> {
-    const { view = '3d', backend = 'manifold', auxiliaryFiles, inputPath, workingDir } = options;
+    const {
+      view = '3d',
+      backend = 'manifold',
+      auxiliaryFiles,
+      inputPath,
+      workingDir,
+      libraryPaths,
+    } = options;
 
     // Check cache
     const auxFileCount = auxiliaryFiles ? Object.keys(auxiliaryFiles).length : 0;
@@ -118,7 +125,14 @@ export class NativeRenderService implements IRenderService {
     if (backend === 'manifold') args.push('--backend=manifold');
     else if (backend === 'cgal') args.push('--backend=cgal');
 
-    const result = await this.invokeRender(code, args, auxiliaryFiles, inputPath, workingDir);
+    const result = await this.invokeRender(
+      code,
+      args,
+      auxiliaryFiles,
+      inputPath,
+      workingDir,
+      libraryPaths
+    );
     const diagnostics = parseOpenScadStderr(result.stderr);
 
     const output = new Uint8Array(result.output);
@@ -211,7 +225,8 @@ export class NativeRenderService implements IRenderService {
     args: string[],
     auxiliaryFiles?: Record<string, string>,
     inputPath?: string,
-    workingDir?: string
+    workingDir?: string,
+    libraryPaths?: string[]
   ): Promise<RenderNativeResult> {
     if (this.disposed) {
       throw new Error('NativeRenderService has been disposed');
@@ -224,6 +239,7 @@ export class NativeRenderService implements IRenderService {
         auxiliaryFiles && Object.keys(auxiliaryFiles).length > 0 ? auxiliaryFiles : null,
       inputPath: inputPath ?? null,
       workingDir: workingDir ?? null,
+      libraryPaths: libraryPaths && libraryPaths.length > 0 ? libraryPaths : null,
     });
 
     return result;
