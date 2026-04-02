@@ -518,7 +518,9 @@ export function SvgViewer({
         }
 
         const text = await response.text();
-        const parsed = parseSvgMetrics(text);
+        const parsed = parseSvgMetrics(text, {
+          defaultFillColor: sceneStyle.modelColor,
+        });
         if (cancelled) {
           return;
         }
@@ -552,7 +554,7 @@ export function SvgViewer({
     return () => {
       cancelled = true;
     };
-  }, [resetAnnotationSession, src]);
+  }, [resetAnnotationSession, sceneStyle.modelColor, src]);
 
   useEffect(() => {
     if (!src || !loadedDocument || documentState.status === 'loading') {

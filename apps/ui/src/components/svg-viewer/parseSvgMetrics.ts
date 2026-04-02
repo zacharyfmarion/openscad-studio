@@ -2,6 +2,17 @@ import type { ParsedSvgDocument, SvgBounds } from './types';
 
 const GEOMETRY_SELECTOR = 'path, circle, ellipse, rect, polygon, polyline, line, text, use';
 const PREVIEW_STROKE_WIDTH_SCALE = 1.15;
+const OPENSCAD_DEFAULT_FILL_VALUES = new Set([
+  'lightgray',
+  'lightgrey',
+  '#d3d3d3',
+  'rgb(211,211,211)',
+  'rgba(211,211,211,1)',
+]);
+
+interface ParseSvgMetricsOptions {
+  defaultFillColor?: string;
+}
 
 function parseNumericLength(value: string | null): number | null {
   if (!value) {
@@ -36,6 +47,56 @@ function scaleStrokeWidth(value: string | null): string | null {
   return `${Number((numericValue * PREVIEW_STROKE_WIDTH_SCALE).toFixed(2))}${suffix}`;
 }
 
+function normalizeColorToken(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  return value.replace(/\s+/g, '').toLowerCase();
+}
+
+function styleContainsExplicitNonDefaultFill(styleValue: string | null) {
+  if (!styleValue) {
+    return false;
+  }
+
+  const fillDeclaration = styleValue
+    .split(';')
+    .map((declaration) => declaration.trim())
+    .find((declaration) => declaration.toLowerCase().startsWith('fill:'));
+
+  if (!fillDeclaration) {
+    return false;
+  }
+
+  const fillValue = normalizeColorToken(fillDeclaration.slice(fillDeclaration.indexOf(':') + 1));
+  return !!fillValue && fillValue !== 'none' && !OPENSCAD_DEFAULT_FILL_VALUES.has(fillValue);
+}
+
+function shouldApplyDefaultFill(
+  geometryElement: Element,
+  defaultFillColor: string | undefined
+): defaultFillColor is string {
+  if (!defaultFillColor) {
+    return false;
+  }
+
+  if (styleContainsExplicitNonDefaultFill(geometryElement.getAttribute('style'))) {
+    return false;
+  }
+
+  const fillValue = normalizeColorToken(geometryElement.getAttribute('fill'));
+  if (!fillValue) {
+    return true;
+  }
+
+  if (fillValue === 'none') {
+    return false;
+  }
+
+  return OPENSCAD_DEFAULT_FILL_VALUES.has(fillValue);
+}
+
 function isValidBounds(bounds: SvgBounds | null): bounds is SvgBounds {
   return !!bounds && bounds.width > 0 && bounds.height > 0;
 }
@@ -62,7 +123,10 @@ function parseViewBox(value: string | null): SvgBounds | null {
   return { minX, minY, width, height };
 }
 
-export function parseSvgMetrics(svgText: string): ParsedSvgDocument {
+export function parseSvgMetrics(
+  svgText: string,
+  options: ParseSvgMetricsOptions = {}
+): ParsedSvgDocument {
   const parser = new DOMParser();
   const document = parser.parseFromString(svgText, 'image/svg+xml');
   const parserError = document.querySelector('parsererror');
@@ -121,6 +185,10 @@ export function parseSvgMetrics(svgText: string): ParsedSvgDocument {
   svgElement.setAttribute('overflow', 'visible');
 
   for (const geometryElement of geometryElements) {
+    if (shouldApplyDefaultFill(geometryElement, options.defaultFillColor)) {
+      geometryElement.setAttribute('fill', options.defaultFillColor);
+    }
+
     if (!geometryElement.hasAttribute('vector-effect')) {
       geometryElement.setAttribute('vector-effect', 'non-scaling-stroke');
     }

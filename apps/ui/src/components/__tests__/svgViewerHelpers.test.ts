@@ -52,6 +52,38 @@ describe('svg viewer helpers', () => {
     expect(parsed.markup).not.toContain('data-viewer-stroke-normalization="true"');
   });
 
+  it('replaces the default OpenSCAD fill with the provided theme color', () => {
+    const parsed = parseSvgMetrics(
+      `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">
+          <path d="M 0,0 L 20,0 L 20,10 z" fill="lightgray" stroke="#000000" />
+        </svg>
+      `,
+      {
+        defaultFillColor: '#2aa198',
+      }
+    );
+
+    expect(parsed.markup).toContain('fill="#2aa198"');
+    expect(parsed.markup).not.toContain('fill="lightgray"');
+  });
+
+  it('keeps explicit non-default style fills intact when a theme fill is provided', () => {
+    const parsed = parseSvgMetrics(
+      `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">
+          <rect x="0" y="0" width="20" height="10" style="fill:#123456;stroke:#000000" />
+        </svg>
+      `,
+      {
+        defaultFillColor: '#2aa198',
+      }
+    );
+
+    expect(parsed.markup).toContain('style="fill:#123456;stroke:#000000"');
+    expect(parsed.markup).not.toContain('fill="#2aa198"');
+  });
+
   it('falls back to width and height when viewBox is missing', () => {
     const parsed = parseSvgMetrics(`
       <svg xmlns="http://www.w3.org/2000/svg" width="48" height="24">
