@@ -64,6 +64,7 @@ import {
   getSectionPlaneVisualTransform,
 } from './three-viewer/sectionPlaneController';
 import { useThreeViewerAnalytics } from './three-viewer/useThreeViewerAnalytics';
+import { useAnalytics } from '../analytics/runtime';
 import type {
   InteractionMode,
   LoadedPreviewModel,
@@ -1064,6 +1065,7 @@ export function ThreeViewer({
   const [isAttachingAnnotation, setIsAttachingAnnotation] = useState(false);
   const annotationSession = useViewerAnnotationSession();
   const resetAnnotationSession = annotationSession.resetSession;
+  const analytics = useAnalytics();
 
   const gridMetrics = useMemo(() => derivePreviewGridMetrics(modelFrame), [modelFrame]);
   const axisMetrics = useMemo(
@@ -1260,6 +1262,21 @@ export function ThreeViewer({
     setInteractionMode('orbit');
   }, [resetAnnotationSession]);
 
+  const handleAnnotationCommit = useCallback(() => {
+    const shape = annotationSession.completeDraft();
+    if (shape) {
+      analytics.track('annotation committed', { viewer_kind: '3d', shape_type: shape.kind });
+    }
+  }, [analytics, annotationSession]);
+
+  const handleAnnotationClear = useCallback(() => {
+    const count = annotationSession.shapes.length + (annotationSession.draft ? 1 : 0);
+    annotationSession.clearAll();
+    if (count > 0) {
+      analytics.track('annotations cleared', { viewer_kind: '3d', cleared_count: count });
+    }
+  }, [analytics, annotationSession]);
+
   const handleAnnotationAttach = useCallback(async () => {
     if (!previewSurfaceRef.current || !annotationStageRef.current) {
       notifyError({
@@ -1303,9 +1320,15 @@ export function ThreeViewer({
         composedDataUrl,
         'viewer-annotation-3d.png'
       );
+      const shapeCount = annotationSession.shapes.length;
       const result = await onAttachToAi(attachmentFile);
 
       if (result.status === 'attached') {
+        analytics.track('annotation attached', {
+          viewer_kind: '3d',
+          shape_count: shapeCount,
+          result: 'attached',
+        });
         notifySuccess('Annotation attached to AI', {
           toastId: 'viewer-annotation-attached',
         });
@@ -1314,6 +1337,11 @@ export function ThreeViewer({
       }
 
       if (result.status === 'missing-api-key') {
+        analytics.track('annotation attached', {
+          viewer_kind: '3d',
+          shape_count: shapeCount,
+          result: 'missing-api-key',
+        });
         notifyError({
           operation: 'viewer-annotation-attach',
           fallbackMessage: 'Add an AI API key in Settings to attach annotations to the chat panel.',
@@ -1323,6 +1351,11 @@ export function ThreeViewer({
       }
 
       if (result.status === 'busy') {
+        analytics.track('annotation attached', {
+          viewer_kind: '3d',
+          shape_count: shapeCount,
+          result: 'busy',
+        });
         notifyError({
           operation: 'viewer-annotation-attach',
           fallbackMessage: 'Wait for the current AI request or attachment processing to finish.',
@@ -1331,6 +1364,11 @@ export function ThreeViewer({
         return;
       }
 
+      analytics.track('annotation attached', {
+        viewer_kind: '3d',
+        shape_count: shapeCount,
+        result: 'error',
+      });
       notifyError({
         operation: 'viewer-annotation-attach',
         fallbackMessage: result.errors[0] ?? 'Failed to attach the annotation image.',
@@ -1346,7 +1384,13 @@ export function ThreeViewer({
     } finally {
       setIsAttachingAnnotation(false);
     }
-  }, [exitAnnotationMode, onAttachToAi, sceneStyle.backgroundColor]);
+  }, [
+    analytics,
+    annotationSession.shapes.length,
+    exitAnnotationMode,
+    onAttachToAi,
+    sceneStyle.backgroundColor,
+  ]);
 
   const handleMeasurementDelete = useCallback(
     (id: string) => {
@@ -1908,9 +1952,7 @@ export function ThreeViewer({
                 }
                 annotationSession.updateDraft(normalizeViewerPoint(point, previewSurfaceSize));
               }}
-              onEnd={() => {
-                annotationSession.completeDraft();
-              }}
+              onEnd={handleAnnotationCommit}
             />
           ) : null}
 
@@ -1931,7 +1973,7 @@ export function ThreeViewer({
               tool={annotationSession.tool}
               onToolChange={annotationSession.setTool}
               onUndo={annotationSession.undoLast}
-              onClear={annotationSession.clearAll}
+              onClear={handleAnnotationClear}
               onCancel={exitAnnotationMode}
               onAttach={handleAnnotationAttach}
               canUndo={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}

@@ -682,6 +682,7 @@ function App() {
 
       revokeBlobUrl(tab.render.previewSrc);
       closeTabLocal(id);
+      analytics.track('tab closed', { had_unsaved_changes: isDirty });
 
       // If closing this tab caused workspace to reset to welcome, also reset project
       const wsState = getWorkspaceState();
@@ -689,7 +690,7 @@ function App() {
         getProjectStore().getState().resetToUntitledProject();
       }
     },
-    [closeTabLocal, tabs, capabilities.hasFileSystem]
+    [analytics, closeTabLocal, tabs, capabilities.hasFileSystem]
   );
 
   const reorderTabs = useCallback(
@@ -764,10 +765,11 @@ function App() {
       // Open in a new tab
       const absolutePath = store.projectRoot ? `${store.projectRoot}/${path}` : null;
       createNewTab(absolutePath, content, path);
+      analytics.track('file created', { in_subfolder: parentDir !== '' });
 
       return path;
     },
-    [createNewTab]
+    [analytics, createNewTab]
   );
 
   const handleCreateFolder = useCallback(
@@ -778,8 +780,9 @@ function App() {
         await getPlatform().createDirectory(`${store.projectRoot}/${folderPath}`);
       }
       store.addFolder(folderPath);
+      analytics.track('folder created', { in_subfolder: parentDir !== '' });
     },
-    []
+    [analytics]
   );
 
   const handleRenameFile = useCallback(
@@ -809,8 +812,9 @@ function App() {
         markTabSaved(tab.id, { filePath: absolutePath, name: newName });
         renameTab(tab.id, newName, newPath);
       }
+      analytics.track('file renamed');
     },
-    [tabs, markTabSaved, renameTab]
+    [analytics, tabs, markTabSaved, renameTab]
   );
 
   const handleDeleteFile = useCallback(
@@ -841,6 +845,7 @@ function App() {
       }
 
       store.removeFile(filePath);
+      analytics.track('file deleted', { had_open_tab: Boolean(tab) });
 
       // If we deleted everything, reset to a fresh untitled project
       const remaining = Object.keys(store.files);
@@ -849,7 +854,7 @@ function App() {
         createNewTab(null, undefined, DEFAULT_TAB_NAME);
       }
     },
-    [tabs, closeTabLocal, createNewTab]
+    [analytics, tabs, closeTabLocal, createNewTab]
   );
 
   const handleDeleteFolder = useCallback(
@@ -893,6 +898,7 @@ function App() {
       }
 
       store.removeFolder(folderPath);
+      analytics.track('folder deleted', { file_count: affected.length });
 
       // If we deleted everything, reset to a fresh untitled project
       if (Object.keys(store.files).length === 0) {
@@ -900,12 +906,16 @@ function App() {
         createNewTab(null, undefined, DEFAULT_TAB_NAME);
       }
     },
-    [tabs, closeTabLocal, createNewTab]
+    [analytics, tabs, closeTabLocal, createNewTab]
   );
 
-  const handleSetRenderTarget = useCallback((filePath: string) => {
-    getProjectStore().getState().setRenderTarget(filePath);
-  }, []);
+  const handleSetRenderTarget = useCallback(
+    (filePath: string) => {
+      getProjectStore().getState().setRenderTarget(filePath);
+      analytics.track('render target changed');
+    },
+    [analytics]
+  );
 
   const handleMoveItem = useCallback(
     async (sourcePath: string, destFolderPath: string, isFolder: boolean) => {
@@ -978,11 +988,12 @@ function App() {
             renameTab(tab.id, newPath.split('/').pop()!, newPath);
           }
         }
+        analytics.track('item moved', { kind: isFolder ? 'folder' : 'file' });
       } catch (err) {
         notifyError({ operation: 'Move failed', error: err });
       }
     },
-    [tabs, markTabSaved, renameTab]
+    [analytics, tabs, markTabSaved, renameTab]
   );
 
   const handleAddExternalFiles = useCallback(

@@ -11,6 +11,7 @@ import { buildOverlayModel } from './svg-viewer/overlayModel';
 import { attachBrowserPinchZoomGuard } from './svg-viewer/browserPinchZoomGuard';
 import { SVG_2D_TOOLS } from './svg-viewer/toolRegistry';
 import { useSvgViewerAnalytics } from './svg-viewer/useSvgViewerAnalytics';
+import { useAnalytics } from '../analytics/runtime';
 import {
   createCommittedMeasurement,
   formatMeasurementReadout,
@@ -395,6 +396,7 @@ export function SvgViewer({
   const sceneStyle = useMemo(() => getPreviewSceneStyle(theme), [theme]);
   const annotationSession = useViewerAnnotationSession();
   const resetAnnotationSession = annotationSession.resetSession;
+  const analytics = useAnalytics();
 
   const themeColors = useMemo(
     () => ({
@@ -642,6 +644,21 @@ export function SvgViewer({
     setViewMode('pan');
   };
 
+  const handleAnnotationCommit = () => {
+    const shape = annotationSession.completeDraft();
+    if (shape) {
+      analytics.track('annotation committed', { viewer_kind: '2d', shape_type: shape.kind });
+    }
+  };
+
+  const handleAnnotationClear = () => {
+    const count = annotationSession.shapes.length + (annotationSession.draft ? 1 : 0);
+    annotationSession.clearAll();
+    if (count > 0) {
+      analytics.track('annotations cleared', { viewer_kind: '2d', cleared_count: count });
+    }
+  };
+
   const handleAnnotationAttach = async () => {
     if (!containerRef.current || !annotationStageRef.current) {
       notifyError({
@@ -696,8 +713,14 @@ export function SvgViewer({
         'viewer-annotation-2d.png'
       );
 
+      const shapeCount = annotationSession.shapes.length;
       const result = await onAttachToAi(attachmentFile);
       if (result.status === 'attached') {
+        analytics.track('annotation attached', {
+          viewer_kind: '2d',
+          shape_count: shapeCount,
+          result: 'attached',
+        });
         notifySuccess('Annotation attached to AI', {
           toastId: 'viewer-annotation-attached',
         });
@@ -706,6 +729,11 @@ export function SvgViewer({
       }
 
       if (result.status === 'missing-api-key') {
+        analytics.track('annotation attached', {
+          viewer_kind: '2d',
+          shape_count: shapeCount,
+          result: 'missing-api-key',
+        });
         notifyError({
           operation: 'viewer-annotation-attach',
           fallbackMessage: 'Add an AI API key in Settings to attach annotations to the chat panel.',
@@ -715,6 +743,11 @@ export function SvgViewer({
       }
 
       if (result.status === 'busy') {
+        analytics.track('annotation attached', {
+          viewer_kind: '2d',
+          shape_count: shapeCount,
+          result: 'busy',
+        });
         notifyError({
           operation: 'viewer-annotation-attach',
           fallbackMessage: 'Wait for the current AI request or attachment processing to finish.',
@@ -723,6 +756,11 @@ export function SvgViewer({
         return;
       }
 
+      analytics.track('annotation attached', {
+        viewer_kind: '2d',
+        shape_count: shapeCount,
+        result: 'error',
+      });
       notifyError({
         operation: 'viewer-annotation-attach',
         fallbackMessage: result.errors[0] ?? 'Failed to attach the annotation image.',
@@ -1567,9 +1605,7 @@ export function SvgViewer({
                 }
                 annotationSession.updateDraft(normalizeViewerPoint(point, containerSize));
               }}
-              onEnd={() => {
-                annotationSession.completeDraft();
-              }}
+              onEnd={handleAnnotationCommit}
             />
           ) : null}
 
@@ -1659,7 +1695,7 @@ export function SvgViewer({
               tool={annotationSession.tool}
               onToolChange={annotationSession.setTool}
               onUndo={annotationSession.undoLast}
-              onClear={annotationSession.clearAll}
+              onClear={handleAnnotationClear}
               onCancel={exitAnnotationMode}
               onAttach={handleAnnotationAttach}
               canUndo={Boolean(annotationSession.draft) || annotationSession.shapes.length > 0}
