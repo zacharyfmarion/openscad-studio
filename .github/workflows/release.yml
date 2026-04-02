@@ -207,10 +207,45 @@ jobs:
           bash apps/ui/src-tauri/scripts/resign-bundled-openscad.sh \
             apps/ui/src-tauri/binaries/OpenSCAD.app
 
-      - name: Build Tauri app
+      - name: Build Tauri app bundle
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: pnpm tauri build ${{ matrix.args }}
+        run: pnpm tauri build ${{ matrix.args }} --bundles app
+        working-directory: apps/ui
+
+      - name: Re-sign packaged OpenSCAD app
+        env:
+          TARGET_TRIPLE: ${{ matrix.rust_target }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+
+          OUTER_APP="apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/macos/OpenSCAD Studio.app"
+          NESTED_APP="$OUTER_APP/Contents/Resources/OpenSCAD.app"
+
+          if [ ! -d "$OUTER_APP" ]; then
+            echo "::error::Missing outer app bundle at $OUTER_APP"
+            exit 1
+          fi
+
+          if [ ! -d "$NESTED_APP" ]; then
+            echo "::error::Missing bundled OpenSCAD app at $NESTED_APP"
+            exit 1
+          fi
+
+          bash apps/ui/src-tauri/scripts/resign-bundled-openscad.sh "$NESTED_APP"
+          codesign --force --sign "$APPLE_SIGNING_IDENTITY" --timestamp --options runtime "$OUTER_APP"
+
+          echo "Verifying $OUTER_APP"
+          codesign --verify --deep --strict --verbose=2 "$OUTER_APP"
+          codesign -dv --verbose=4 "$OUTER_APP"
+
+          echo "Verifying $NESTED_APP"
+          codesign --verify --deep --strict --verbose=2 "$NESTED_APP"
+          codesign -dv --verbose=4 "$NESTED_APP"
+
+      - name: Bundle DMG
+        run: pnpm tauri bundle --target ${{ matrix.rust_target }} --bundles dmg
         working-directory: apps/ui
 
       - name: Verify signed release artifacts
@@ -240,12 +275,8 @@ jobs:
 
           echo "Verifying $OUTER_APP"
           codesign --verify --deep --strict --verbose=2 "$OUTER_APP"
-          codesign -dv --verbose=4 "$OUTER_APP"
-
           echo "Verifying $NESTED_APP"
           codesign --verify --deep --strict --verbose=2 "$NESTED_APP"
-          codesign -dv --verbose=4 "$NESTED_APP"
-
           echo "Verifying $DMG_PATH"
           codesign --verify --verbose=2 "$DMG_PATH"
           codesign -dv --verbose=4 "$DMG_PATH"

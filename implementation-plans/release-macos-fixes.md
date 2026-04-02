@@ -28,6 +28,9 @@ Stabilize the macOS release pipeline after the failed `v1.0.0` release by fixing
 
 - `bash scripts/validate-changes.sh --dry-run --changed-file .github/workflows/release.yml --changed-file apps/ui/src-tauri/scripts/resign-bundled-openscad.sh`
 - `bash scripts/validate-changes.sh --changed-file .github/workflows/release.yml --changed-file apps/ui/src-tauri/scripts/resign-bundled-openscad.sh`
+- `gh workflow run Release --ref codex/release-macos-fixes`
+- Smoke run `23918954126` exposed that the packaged nested `OpenSCAD.app` became signature-invalid after Tauri bundled the `.app`; the workflow was then updated to build the `.app` first, re-sign the packaged nested app, and only then bundle the DMG.
+- `bash scripts/validate-changes.sh --changed-file .github/workflows/release.yml --changed-file apps/ui/src-tauri/scripts/resign-bundled-openscad.sh` (post-smoke iteration)
 - `bash -n apps/ui/src-tauri/scripts/resign-bundled-openscad.sh`
 - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/release.yml"); puts "yaml-ok"'`
 - `pnpm exec prettier --check .github/workflows/release.yml implementation-plans/release-macos-fixes.md`
