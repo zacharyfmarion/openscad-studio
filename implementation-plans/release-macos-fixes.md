@@ -34,6 +34,7 @@ Stabilize the macOS release pipeline after the failed `v1.0.0` release by fixing
 - Smoke run `23919504410` exposed that Tauri's resource copy flattened Qt framework symlinks inside the packaged nested `OpenSCAD.app`; the workflow now replaces that copied app with a symlink-preserving `ditto` copy before re-signing and DMG bundling.
 - `rm -rf 'apps/ui/src-tauri/target/release/bundle/macos/OpenSCAD Studio.app/Contents/Resources/OpenSCAD.app' && ditto 'apps/ui/src-tauri/binaries/OpenSCAD.app' 'apps/ui/src-tauri/target/release/bundle/macos/OpenSCAD Studio.app/Contents/Resources/OpenSCAD.app'`
 - `APPLE_SIGNING_IDENTITY='-' bash apps/ui/src-tauri/scripts/resign-bundled-openscad.sh 'apps/ui/src-tauri/target/release/bundle/macos/OpenSCAD Studio.app/Contents/Resources/OpenSCAD.app'`
+- Smoke run `23919984429` confirmed the symlink-preserving copy fixed the packaged nested app, then exposed that `tauri bundle --bundles dmg` cleans the intermediate `bundle/macos/OpenSCAD Studio.app` path before the final verification step runs; the workflow now verifies the app bundles before DMG creation and the DMG afterward.
 - `bash -n apps/ui/src-tauri/scripts/resign-bundled-openscad.sh`
 - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/release.yml"); puts "yaml-ok"'`
 - `pnpm exec prettier --check .github/workflows/release.yml implementation-plans/release-macos-fixes.md`
