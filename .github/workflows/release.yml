@@ -260,6 +260,22 @@ jobs:
         run: pnpm tauri bundle --target ${{ matrix.rust_target }} --bundles dmg
         working-directory: apps/ui
 
+      - name: Sign DMG
+        env:
+          TARGET_TRIPLE: ${{ matrix.rust_target }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+
+          DMG_PATH=$(find "apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/dmg" -name "*.dmg" -type f | head -1)
+
+          if [ -z "$DMG_PATH" ]; then
+            echo "::error::Missing DMG output for $TARGET_TRIPLE"
+            exit 1
+          fi
+
+          codesign --force --sign "$APPLE_SIGNING_IDENTITY" --timestamp "$DMG_PATH"
+
       - name: Verify signed release artifacts
         env:
           TARGET_TRIPLE: ${{ matrix.rust_target }}
