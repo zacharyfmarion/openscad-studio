@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.version }}
+      is_release_tag: ${{ steps.get_version.outputs.is_release_tag }}
 
     steps:
       - name: Checkout
@@ -23,20 +25,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get version from tag
+      - name: Resolve version
         id: get_version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+            echo "is_release_tag=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$(jq -r '.version' package.json)" >> "$GITHUB_OUTPUT"
+            echo "is_release_tag=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Fetch main
         run: git fetch origin main
 
-      - name: Validate tagged commit
+      - name: Validate release version
         env:
           VERSION: ${{ steps.get_version.outputs.version }}
+          IS_RELEASE_TAG: ${{ steps.get_version.outputs.is_release_tag }}
         run: |
           set -euo pipefail
 
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/main"; then
+          if [ "$IS_RELEASE_TAG" = "true" ] && ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/main"; then
             echo "::error::Tagged commit $GITHUB_SHA is not reachable from origin/main"
             exit 1
           fi
@@ -49,12 +61,13 @@ jobs:
 
           for actual in "$ROOT_VERSION" "$UI_VERSION" "$TAURI_VERSION" "$CARGO_VERSION" "$APP_VERSION"; do
             if [ "$actual" != "$VERSION" ]; then
-              echo "::error::Tagged commit version mismatch. Expected $VERSION, found $actual"
+              echo "::error::Version mismatch. Expected $VERSION, found $actual"
               exit 1
             fi
           done
 
       - name: Extract release notes from CHANGELOG
+        if: steps.get_version.outputs.is_release_tag == 'true'
         env:
           VERSION: ${{ steps.get_version.outputs.version }}
         run: |
@@ -95,6 +108,7 @@ jobs:
           fi
 
       - name: Upload release notes artifact
+        if: steps.get_version.outputs.is_release_tag == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: release-notes
@@ -107,17 +121,17 @@ jobs:
       matrix:
         include:
           # macOS ARM (Apple Silicon)
-          - platform: 'macos-latest'
+          - runner: 'macos-15'
             args: '--target aarch64-apple-darwin'
             rust_target: 'aarch64-apple-darwin'
             arch: 'aarch64'
           # macOS Intel
-          - platform: 'macos-latest'
+          - runner: 'macos-15-intel'
             args: '--target x86_64-apple-darwin'
             rust_target: 'x86_64-apple-darwin'
             arch: 'x64'
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
     env:
       NODE_OPTIONS: --max-old-space-size=6144
       VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}
@@ -186,41 +200,255 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-      - name: Build Tauri app
+      - name: Re-sign bundled OpenSCAD app
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: pnpm tauri build ${{ matrix.args }}
+        run: |
+          bash apps/ui/src-tauri/scripts/resign-bundled-openscad.sh \
+            apps/ui/src-tauri/binaries/OpenSCAD.app
+
+      - name: Build Tauri app bundle
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: pnpm tauri build ${{ matrix.args }} --bundles app
         working-directory: apps/ui
+
+      - name: Re-sign packaged OpenSCAD app
+        env:
+          TARGET_TRIPLE: ${{ matrix.rust_target }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+
+          SOURCE_APP="apps/ui/src-tauri/binaries/OpenSCAD.app"
+          OUTER_APP="apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/macos/OpenSCAD Studio.app"
+          NESTED_APP="$OUTER_APP/Contents/Resources/OpenSCAD.app"
+
+          if [ ! -d "$SOURCE_APP" ]; then
+            echo "::error::Missing source OpenSCAD app bundle at $SOURCE_APP"
+            exit 1
+          fi
+
+          if [ ! -d "$OUTER_APP" ]; then
+            echo "::error::Missing outer app bundle at $OUTER_APP"
+            exit 1
+          fi
+
+          # Tauri's resource copy flattens framework symlinks inside OpenSCAD.app,
+          # which breaks Qt framework validation. Replace it with a bundle copy that
+          # preserves the framework layout before re-signing.
+          rm -rf "$NESTED_APP"
+          ditto "$SOURCE_APP" "$NESTED_APP"
+
+          if [ ! -L "$NESTED_APP/Contents/Frameworks/QtPrintSupport.framework/Versions/Current" ]; then
+            echo "::error::Bundled OpenSCAD app lost Qt framework symlinks after copy"
+            exit 1
+          fi
+
+          bash apps/ui/src-tauri/scripts/resign-bundled-openscad.sh "$NESTED_APP"
+          codesign --force --deep --sign "$APPLE_SIGNING_IDENTITY" --timestamp --options runtime "$OUTER_APP"
+
+          echo "Verifying $OUTER_APP"
+          codesign --verify --deep --strict --verbose=2 "$OUTER_APP"
+          codesign -dv --verbose=4 "$OUTER_APP"
+
+          echo "Verifying $NESTED_APP"
+          codesign --verify --deep --strict --verbose=2 "$NESTED_APP"
+          codesign -dv --verbose=4 "$NESTED_APP"
+
+      - name: Create DMG from signed app bundle
+        env:
+          TARGET_TRIPLE: ${{ matrix.rust_target }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          OUTER_APP="apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/macos/OpenSCAD Studio.app"
+          DMG_DIR="apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/dmg"
+          DMG_PATH="$DMG_DIR/OpenSCAD.Studio_${VERSION}_${{ matrix.arch }}.dmg"
+          TEMP_DMG_PATH="$RUNNER_TEMP/OpenSCAD.Studio_${VERSION}_${{ matrix.arch }}.dmg"
+          STAGING_DIR="$RUNNER_TEMP/dmg-root-${{ matrix.arch }}"
+          STAGED_APP="$STAGING_DIR/OpenSCAD Studio.app"
+
+          if [ ! -d "$OUTER_APP" ]; then
+            echo "::error::Missing signed app bundle at $OUTER_APP"
+            exit 1
+          fi
+
+          rm -rf "$STAGING_DIR" "$DMG_DIR"
+          mkdir -p "$STAGING_DIR" "$DMG_DIR"
+
+          ditto "$OUTER_APP" "$STAGED_APP"
+          ln -s /Applications "$STAGING_DIR/Applications"
+
+          echo "Verifying staged app bundle"
+          codesign --verify --deep --strict --verbose=2 "$STAGED_APP"
+
+          attempt=1
+          until hdiutil create \
+            -volname "OpenSCAD Studio" \
+            -srcfolder "$STAGING_DIR" \
+            -fs HFS+ \
+            -format UDZO \
+            -imagekey zlib-level=9 \
+            -ov \
+            "$TEMP_DMG_PATH"; do
+            if [ "$attempt" -ge 3 ]; then
+              echo "::error::hdiutil create failed after $attempt attempts"
+              exit 1
+            fi
+
+            echo "Retrying hdiutil create after transient failure (attempt $attempt)"
+            rm -f "$TEMP_DMG_PATH"
+            pkill -x diskimages-helper 2>/dev/null || true
+            sleep $((attempt * 5))
+            attempt=$((attempt + 1))
+          done
+
+          mv "$TEMP_DMG_PATH" "$DMG_PATH"
+
+      - name: Sign DMG
+        env:
+          TARGET_TRIPLE: ${{ matrix.rust_target }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+
+          DMG_PATH=$(find "apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/dmg" -name "*.dmg" -type f | head -1)
+
+          if [ -z "$DMG_PATH" ]; then
+            echo "::error::Missing DMG output for $TARGET_TRIPLE"
+            exit 1
+          fi
+
+          codesign --force --sign "$APPLE_SIGNING_IDENTITY" --timestamp "$DMG_PATH"
+
+      - name: Verify signed release artifacts
+        env:
+          TARGET_TRIPLE: ${{ matrix.rust_target }}
+        run: |
+          set -euo pipefail
+
+          DMG_PATH=$(find "apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/dmg" -name "*.dmg" -type f | head -1)
+
+          if [ -z "$DMG_PATH" ]; then
+            echo "::error::Missing DMG output for $TARGET_TRIPLE"
+            exit 1
+          fi
+
+          echo "Verifying $DMG_PATH"
+          codesign --verify --verbose=2 "$DMG_PATH"
+          codesign -dv --verbose=4 "$DMG_PATH"
+
+          MOUNT_DIR="$RUNNER_TEMP/dmg-mount-${{ matrix.arch }}"
+          rm -rf "$MOUNT_DIR"
+          mkdir -p "$MOUNT_DIR"
+
+          cleanup_mount() {
+            hdiutil detach "$MOUNT_DIR" -quiet 2>/dev/null || true
+          }
+          trap cleanup_mount EXIT
+
+          hdiutil attach "$DMG_PATH" -mountpoint "$MOUNT_DIR" -nobrowse -quiet
+
+          MOUNTED_APP="$MOUNT_DIR/OpenSCAD Studio.app"
+          MOUNTED_NESTED_APP="$MOUNTED_APP/Contents/Resources/OpenSCAD.app"
+
+          if [ ! -d "$MOUNTED_APP" ]; then
+            echo "::error::Mounted DMG is missing OpenSCAD Studio.app"
+            exit 1
+          fi
+
+          if [ ! -d "$MOUNTED_NESTED_APP" ]; then
+            echo "::error::Mounted DMG is missing nested OpenSCAD.app"
+            exit 1
+          fi
+
+          echo "Verifying mounted $MOUNTED_APP"
+          codesign --verify --deep --strict --verbose=2 "$MOUNTED_APP"
+          codesign -dv --verbose=4 "$MOUNTED_APP"
+
+          echo "Verifying mounted $MOUNTED_NESTED_APP"
+          codesign --verify --deep --strict --verbose=2 "$MOUNTED_NESTED_APP"
+          codesign -dv --verbose=4 "$MOUNTED_NESTED_APP"
+
+          cleanup_mount
+          trap - EXIT
 
       - name: Notarize DMG
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TARGET_TRIPLE: ${{ matrix.rust_target }}
         run: |
           set -euo pipefail
 
-          DMG_PATH=$(find apps/ui/src-tauri/target -name "*.dmg" -type f | head -1)
+          DMG_PATH=$(find "apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/dmg" -name "*.dmg" -type f | head -1)
+          if [ -z "$DMG_PATH" ]; then
+            echo "::error::No DMG found for notarization"
+            exit 1
+          fi
+
           echo "Notarizing: $DMG_PATH"
 
-          # Submit for notarization and wait for completion
+          SUBMISSION_JSON="$RUNNER_TEMP/notarytool-submit-${{ matrix.arch }}.json"
+          LOG_JSON="$RUNNER_TEMP/notarytool-log-${{ matrix.arch }}.json"
+
+          set +e
           xcrun notarytool submit "$DMG_PATH" \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
-            --wait
+            --wait \
+            --output-format json | tee "$SUBMISSION_JSON"
+          SUBMIT_EXIT=${PIPESTATUS[0]}
+          set -e
+
+          SUBMISSION_ID=$(jq -r '.id // empty' "$SUBMISSION_JSON" 2>/dev/null || true)
+          SUBMISSION_STATUS=$(jq -r '.status // empty' "$SUBMISSION_JSON" 2>/dev/null || true)
+
+          if [ -n "$SUBMISSION_ID" ] && { [ "$SUBMIT_EXIT" -ne 0 ] || [ "$SUBMISSION_STATUS" != "Accepted" ]; }; then
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --output-format json | tee "$LOG_JSON"
+          fi
+
+          if [ "$SUBMIT_EXIT" -ne 0 ]; then
+            echo "::error::notarytool submit exited with status $SUBMIT_EXIT"
+            exit "$SUBMIT_EXIT"
+          fi
+
+          if [ "$SUBMISSION_STATUS" != "Accepted" ]; then
+            echo "::error::Notarization failed with status '$SUBMISSION_STATUS'"
+            exit 1
+          fi
 
           # Staple the notarization ticket to the DMG
           xcrun stapler staple "$DMG_PATH"
           echo "Notarization complete"
 
+      - name: Upload notarization logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: notarization-logs-${{ matrix.arch }}
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/notarytool-submit-${{ matrix.arch }}.json
+            ${{ runner.temp }}/notarytool-log-${{ matrix.arch }}.json
+
       - name: Find DMG and calculate SHA256
         id: dmg_info
+        env:
+          TARGET_TRIPLE: ${{ matrix.rust_target }}
         run: |
           set -euo pipefail
 
           # Find the DMG file
-          DMG_PATH=$(find apps/ui/src-tauri/target -name "*.dmg" -type f | head -1)
+          DMG_PATH=$(find "apps/ui/src-tauri/target/$TARGET_TRIPLE/release/bundle/dmg" -name "*.dmg" -type f | head -1)
           if [ -z "$DMG_PATH" ]; then
             echo "::error::No DMG found after build"
             exit 1
@@ -270,6 +498,7 @@ jobs:
     needs:
       - validate
       - build
+    if: needs.validate.outputs.is_release_tag == 'true'
     runs-on: ubuntu-latest
 
     steps:
