@@ -2545,7 +2545,7 @@ dependencies = [
 
 [[package]]
 name = "openscad-studio"
-version = "0.13.1"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "diffy",

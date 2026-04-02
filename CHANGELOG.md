@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-04-02
+
+### Added
+- Multi-file project workflows with a file tree and workspace switching for larger OpenSCAD projects.
+- Shareable design links with web loading, thumbnails, and better staging and review support.
+- Viewer annotations and color-aware 3D previews for clearer design inspection.
+
+### Changed
+- Refined desktop rendering and project management to better match native OpenSCAD workflows.
+- Reworked settings, customizer, diagnostics, and tool panels for a denser, more consistent editing experience.
+- Expanded automated validation, CI coverage, and pull request preview tooling.
+
+### Fixed
+- Improved mobile viewing with better pinch zoom, panel behavior, and share-screen loading.
+- Fixed export and save edge cases, including STL/customizer flows and 2D SVG defaults.
+- Corrected formatter/parser issues, AI error handling, and other rendering stability problems.
+
 ## [0.13.1] - 2026-03-23
 
 ### Fixed
