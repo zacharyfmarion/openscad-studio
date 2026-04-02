@@ -652,7 +652,7 @@ function App() {
       if (!tab) return;
 
       const isDirty = getProjectStore().getState().files[tab.projectPath]?.isDirty ?? false;
-      if (isDirty) {
+      if (isDirty && capabilities.hasFileSystem) {
         const platform = getPlatform();
         const wantsToSave = await platform.ask(`Save changes to ${tab.name}?`, {
           title: 'Unsaved Changes',
@@ -689,7 +689,7 @@ function App() {
         getProjectStore().getState().resetToUntitledProject();
       }
     },
-    [closeTabLocal, tabs]
+    [closeTabLocal, tabs, capabilities.hasFileSystem]
   );
 
   const reorderTabs = useCallback(
