@@ -521,7 +521,7 @@ export function SvgViewer({
 
         const text = await response.text();
         const parsed = parseSvgMetrics(text, {
-          defaultFillColor: sceneStyle.modelColor,
+          defaultFillColor: sceneStyle.svgModelColor,
         });
         if (cancelled) {
           return;
@@ -556,7 +556,7 @@ export function SvgViewer({
     return () => {
       cancelled = true;
     };
-  }, [resetAnnotationSession, sceneStyle.modelColor, src]);
+  }, [resetAnnotationSession, sceneStyle.svgModelColor, src]);
 
   useEffect(() => {
     if (!src || !loadedDocument || documentState.status === 'loading') {
@@ -1358,10 +1358,8 @@ export function SvgViewer({
                 data-testid="preview-2d-scene"
               >
                 <g transform={stageStyle} data-testid="preview-2d-stage">
-                  <g data-preview-svg dangerouslySetInnerHTML={{ __html: loadedDocument.markup }} />
-
                   {overlayModel ? (
-                    <g data-testid="preview-2d-overlay">
+                    <g data-testid="preview-2d-grid-overlay" aria-hidden="true">
                       {overlayModel.minorGridLines.map((line) => (
                         <line
                           key={line.key}
@@ -1389,7 +1387,11 @@ export function SvgViewer({
                           vectorEffect="non-scaling-stroke"
                         />
                       ))}
+                    </g>
+                  ) : null}
 
+                  {overlayModel ? (
+                    <g data-testid="preview-2d-axis-overlay" aria-hidden="true">
                       {overlayModel.axesLines.map((line) => (
                         <line
                           key={line.key}
@@ -1404,7 +1406,13 @@ export function SvgViewer({
                           data-axis={line.tone === 'axis-x' ? 'x' : 'y'}
                         />
                       ))}
+                    </g>
+                  ) : null}
 
+                  <g data-preview-svg dangerouslySetInnerHTML={{ __html: loadedDocument.markup }} />
+
+                  {overlayModel ? (
+                    <g data-testid="preview-2d-overlay">
                       {overlayModel.boundsRect ? (
                         <rect
                           x={overlayModel.boundsRect.x}

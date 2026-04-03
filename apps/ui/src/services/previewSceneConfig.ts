@@ -5,6 +5,7 @@ export interface PreviewSceneStyle {
   gridColor: string;
   gridSectionColor: string;
   modelColor: string;
+  svgModelColor: string;
   environmentPreset: 'city';
   material: {
     metalness: number;
@@ -56,7 +57,7 @@ export interface PreviewSceneStyle {
 
 const SHARED_PREVIEW_SCENE_BASE: Omit<
   PreviewSceneStyle,
-  'backgroundColor' | 'gridColor' | 'gridSectionColor' | 'modelColor'
+  'backgroundColor' | 'gridColor' | 'gridSectionColor' | 'modelColor' | 'svgModelColor'
 > = {
   environmentPreset: 'city',
   material: {
@@ -113,6 +114,7 @@ export const FALLBACK_PREVIEW_SCENE_STYLE: PreviewSceneStyle = {
   gridColor: '#d0d0d0',
   gridSectionColor: '#b8b8b8',
   modelColor: '#6699cc',
+  svgModelColor: '#b8b8b8',
 };
 
 export function getPreviewSceneStyle(theme: Theme): PreviewSceneStyle {
@@ -122,6 +124,7 @@ export function getPreviewSceneStyle(theme: Theme): PreviewSceneStyle {
     gridColor: theme.colors.border.secondary,
     gridSectionColor: theme.colors.border.primary,
     modelColor: theme.colors.accent.secondary,
+    svgModelColor: theme.colors.bg.tertiary,
     axis: {
       xColor: theme.colors.accent.primary,
       yColor: theme.colors.accent.secondary,
