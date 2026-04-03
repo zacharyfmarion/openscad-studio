@@ -7,7 +7,7 @@ Reduce the visual contrast of the 2D SVG fill so previews stay legible without f
 ## Approach
 
 - Keep the 3D preview model color unchanged.
-- Add a dedicated 2D SVG fill token derived from background theme colors instead of the accent palette.
+- Add a dedicated 2D SVG fill token that reuses an existing background theme color instead of the accent palette.
 - Update the SVG viewer to use the quieter 2D fill token during default-fill normalization.
 - Extend tests around preview scene tokens and 2D SVG fill behavior.
 
