@@ -24,4 +24,4 @@ Reduce the visual contrast of the 2D SVG fill so previews stay legible without f
 - [x] Add a softer theme-derived 2D fill token in preview scene config.
 - [x] Route the SVG viewer through the quieter 2D fill token.
 - [x] Update unit coverage for the new token and viewer behavior.
-- [ ] Run validation, open a draft PR against `main`, and wait for the preview deployment.
+- [x] Run validation, open a draft PR against `main`, and wait for the preview deployment.
