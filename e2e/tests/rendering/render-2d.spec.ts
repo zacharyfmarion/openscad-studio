@@ -102,21 +102,35 @@ test.describe('2D Rendering', () => {
     await setMonacoValue(app.page, 'square([30, 15]);');
     await app.triggerRender();
     await app.waitForRender();
+    await app.page.getByTestId('preview-2d-zoom-out').click();
+    await app.page.getByTestId('preview-2d-zoom-out').click();
+    await app.page.waitForTimeout(150);
 
-    const before = await app.page.locator('[data-testid="preview-2d-overlay"] line').count();
-    await app.page.getByTestId('preview-2d-toggle-grid').click();
-    const afterToolbarToggle = await app.page
-      .locator('[data-testid="preview-2d-overlay"] line')
-      .count();
-    expect(afterToolbarToggle).toBeLessThan(before);
+    const scene = app.page.getByTestId('preview-2d-scene');
+    const gridToggle = app.page.getByTestId('preview-2d-toggle-grid');
+    const beforeButtonColor = await gridToggle.evaluate(
+      (element) => getComputedStyle(element).backgroundColor
+    );
+    const before = await scene.screenshot();
+    await gridToggle.click();
+    await app.page.waitForTimeout(150);
+    const afterToolbarButtonColor = await gridToggle.evaluate(
+      (element) => getComputedStyle(element).backgroundColor
+    );
+    const afterToolbarToggle = await scene.screenshot();
+    expect(afterToolbarButtonColor).not.toBe(beforeButtonColor);
+    expect(afterToolbarToggle.equals(before)).toBe(false);
 
     const root = app.page.getByTestId('preview-2d-root');
     await root.click();
     await app.page.keyboard.press('g');
-    const afterKeyboardToggle = await app.page
-      .locator('[data-testid="preview-2d-overlay"] line')
-      .count();
-    expect(afterKeyboardToggle).toBeGreaterThan(afterToolbarToggle);
+    await app.page.waitForTimeout(150);
+    const afterKeyboardButtonColor = await gridToggle.evaluate(
+      (element) => getComputedStyle(element).backgroundColor
+    );
+    const afterKeyboardToggle = await scene.screenshot();
+    expect(afterKeyboardButtonColor).toBe(beforeButtonColor);
+    expect(afterKeyboardToggle.equals(afterToolbarToggle)).toBe(false);
   });
 
   test('measurement mode supports snapping, repeated measurements, and tray management', async ({
