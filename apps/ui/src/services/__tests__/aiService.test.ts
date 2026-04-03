@@ -32,10 +32,17 @@ function createCallbacks(overrides: Partial<AiToolCallbacks> = {}): AiToolCallba
     get3dPreviewUrl: () => null,
     getPreviewSceneStyle: () => FALLBACK_PREVIEW_SCENE_STYLE,
     getUseModelColors: () => true,
-    listProjectFiles: () => ['lib/utils.scad', 'main.scad', 'parts/base.scad', 'parts/lid.scad'],
+    listProjectFiles: () => [
+      'lib/constants.h',
+      'lib/utils.scad',
+      'main.scad',
+      'parts/base.scad',
+      'parts/lid.scad',
+    ],
     readProjectFile: (path: string) => {
       const files: Record<string, string> = {
         'main.scad': 'use <lib/utils.scad>\ncube(10);',
+        'lib/constants.h': 'wall = 2;',
         'lib/utils.scad': 'module helper() { cube(5); }',
         'parts/base.scad': 'module base() { cube(20); }',
         'parts/lid.scad': 'module lid() { cube(5); }',
@@ -135,6 +142,16 @@ describe('buildTools', () => {
       expect(result).not.toContain('📁');
     });
 
+    it('lists header files inside subdirectories', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = (await tools.list_folder_contents.execute({ path: 'lib' })) as string;
+
+      expect(result).toContain('Contents of lib/');
+      expect(result).toContain('constants.h');
+      expect(result).toContain('utils.scad');
+    });
+
     it('strips trailing slash from path', async () => {
       const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
 
@@ -173,6 +190,14 @@ describe('buildTools', () => {
       const result = await tools.read_file.execute({ path: 'lib/utils.scad' });
 
       expect(result).toBe('module helper() { cube(5); }');
+    });
+
+    it('reads header files by path', async () => {
+      const tools = buildTools(createCallbacks()) as Record<string, ExecutableTool>;
+
+      const result = await tools.read_file.execute({ path: 'lib/constants.h' });
+
+      expect(result).toBe('wall = 2;');
     });
 
     it('includes available files when a file is missing', async () => {

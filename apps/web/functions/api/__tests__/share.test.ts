@@ -139,4 +139,58 @@ describe('POST /api/share', () => {
     await expect(decompressSource(stored.code)).resolves.toBe('cube([10, 10, 10]);');
     expect(kvStore.get('ratelimit:198.51.100.7:2026-3-29-18')).toBe('1');
   });
+
+  it('accepts .h files in multi-file project shares but requires a .scad render target', async () => {
+    const { env, kvStore } = createMockEnv();
+
+    const response = await onRequestPost(
+      createPagesContext({
+        request: new Request('https://studio.test/api/share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            files: {
+              'main.scad': 'include <lib/constants.h>\ncube([part_w, part_d, part_h]);',
+              'lib/constants.h': 'part_w = 12; part_d = 8; part_h = 4;',
+            },
+            renderTarget: 'main.scad',
+          }),
+        }),
+        env: env as never,
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as { id: string };
+    const stored = JSON.parse(kvStore.get(`share:${payload.id}`) ?? '{}') as { code: string };
+    const decoded = JSON.parse(await decompressSource(stored.code)) as {
+      files: Record<string, string>;
+      renderTarget: string;
+    };
+
+    expect(decoded.renderTarget).toBe('main.scad');
+    expect(decoded.files['lib/constants.h']).toContain('part_w');
+
+    const invalidRenderTarget = await onRequestPost(
+      createPagesContext({
+        request: new Request('https://studio.test/api/share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            files: {
+              'main.scad': 'cube(10);',
+              'lib/constants.h': 'size = 10;',
+            },
+            renderTarget: 'lib/constants.h',
+          }),
+        }),
+        env: env as never,
+      }) as never
+    );
+
+    expect(invalidRenderTarget.status).toBe(400);
+    await expect(invalidRenderTarget.json()).resolves.toEqual({
+      error: 'renderTarget must be a renderable .scad file in the project.',
+    });
+  });
 });

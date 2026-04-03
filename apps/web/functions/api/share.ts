@@ -14,6 +14,10 @@ import {
   validateForkedFrom,
   writeShare,
 } from '../_lib/share';
+import {
+  isOpenScadProjectFilePath,
+  isRenderableOpenScadFilePath,
+} from '../../../../packages/shared/src/openscadProjectFiles';
 
 type CreateShareBody = {
   code?: unknown;
@@ -25,7 +29,7 @@ type CreateShareBody = {
 
 const MAX_CODE_BYTES = 51_200;
 const MAX_PROJECT_FILES = 50;
-const SCAD_PATH_RE = /^(?!.*\.\.)(?!\/)[a-zA-Z0-9_\-./]+\.scad$/;
+const PROJECT_PATH_RE = /^(?!.*\.\.)(?!\/)[a-zA-Z0-9_\-./]+$/;
 
 function isStringRecord(value: unknown): value is Record<string, string> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -43,12 +47,15 @@ function validateProjectFiles(files: Record<string, string>, renderTarget: strin
     return `Too many files (${MAX_PROJECT_FILES} max).`;
   }
   for (const path of paths) {
-    if (!SCAD_PATH_RE.test(path)) {
+    if (!PROJECT_PATH_RE.test(path) || !isOpenScadProjectFilePath(path)) {
       return `Invalid file path: ${path}`;
     }
   }
   if (!(renderTarget in files)) {
     return 'renderTarget must be a file in the project.';
+  }
+  if (!isRenderableOpenScadFilePath(renderTarget)) {
+    return 'renderTarget must be a renderable .scad file in the project.';
   }
   return null;
 }

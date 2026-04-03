@@ -1,13 +1,15 @@
+import { isOpenScadProjectFilePath } from '../../../../packages/shared/src/openscadProjectFiles';
+
 /**
- * Read all .scad files from a DataTransferItemList (OS drag-and-drop).
+ * Read OpenSCAD project files from a DataTransferItemList (OS drag-and-drop).
  *
  * Unlike the old readDroppedFolder used in FileTreePanel, this utility:
  * - Preserves the top-level folder name (dropping "lib/" gives "lib/a.scad")
  * - Correctly paginates readEntries (the API returns at most 100 entries per
  *   call, so a single call misses files in large directories)
  *
- * Returns a Record of relative paths → file contents, or null if no .scad
- * files were found.
+ * Returns a Record of relative paths → file contents, or null if no OpenSCAD
+ * project files were found.
  */
 
 async function readAllEntries(reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {
@@ -28,7 +30,7 @@ async function walkEntry(
   files: Record<string, string>
 ): Promise<void> {
   if (entry.isFile) {
-    if (!entry.name.endsWith('.scad')) return;
+    if (!isOpenScadProjectFilePath(entry.name)) return;
     const file = await new Promise<File>((resolve, reject) => {
       (entry as FileSystemFileEntry).file(resolve, reject);
     });

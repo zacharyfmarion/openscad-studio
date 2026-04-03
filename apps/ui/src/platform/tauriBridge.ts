@@ -6,6 +6,11 @@ import type {
   ConfirmDialogOptions,
 } from './types';
 import { eventBus } from './eventBus';
+import {
+  OPENSCAD_PROJECT_FILE_EXTENSIONS,
+  hasAllowedExtension,
+  isOpenScadProjectFilePath,
+} from '../../../../packages/shared/src/openscadProjectFiles';
 
 const capabilities: PlatformCapabilities = {
   multiFile: true,
@@ -126,7 +131,7 @@ export class TauriBridge implements PlatformBridge {
 
   async readDirectoryFiles(
     dirPath: string,
-    extensions: string[] = ['scad'],
+    extensions: string[] = [...OPENSCAD_PROJECT_FILE_EXTENSIONS],
     recursive: boolean = true
   ): Promise<Record<string, string>> {
     const { readDir, readTextFile } = await import('@tauri-apps/plugin-fs');
@@ -151,7 +156,7 @@ export class TauriBridge implements PlatformBridge {
           if (recursive) {
             await walk(entryPath, relativePath);
           }
-        } else if (extensions.some((ext) => entry.name.endsWith('.' + ext))) {
+        } else if (hasAllowedExtension(entry.name, extensions)) {
           try {
             files[relativePath] = await readTextFile(entryPath);
           } catch (err) {
@@ -289,7 +294,7 @@ export class TauriBridge implements PlatformBridge {
         for (const e of events) {
           if (typeof e.type === 'object' && ('modify' in e.type || 'create' in e.type)) {
             for (const path of e.paths) {
-              if (path.endsWith('.scad')) {
+              if (isOpenScadProjectFilePath(path)) {
                 // Convert absolute path to relative
                 const relative = path.startsWith(dirPath + '/')
                   ? path.slice(dirPath.length + 1)
@@ -302,7 +307,7 @@ export class TauriBridge implements PlatformBridge {
           }
           if (typeof e.type === 'object' && 'remove' in e.type) {
             for (const path of e.paths) {
-              if (path.endsWith('.scad')) {
+              if (isOpenScadProjectFilePath(path)) {
                 const relative = path.startsWith(dirPath + '/')
                   ? path.slice(dirPath.length + 1)
                   : path.startsWith(dirPath)

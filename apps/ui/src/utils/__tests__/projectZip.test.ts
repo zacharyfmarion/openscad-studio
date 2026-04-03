@@ -25,7 +25,8 @@ describe('importProjectZip', () => {
 
   it('round-trips a multi-file project', async () => {
     const files = {
-      'main.scad': 'use <lib/utils.scad>\ncube(10);',
+      'main.scad': 'include <lib/constants.h>\nuse <lib/utils.scad>\ncube(size);',
+      'lib/constants.h': 'size = 10;',
       'lib/utils.scad': 'module helper() { cube(5); }',
     };
     const blob = exportProjectZip({
@@ -78,10 +79,11 @@ describe('importProjectZip', () => {
     expect(result.renderTargetPath).toBe('alpha.scad');
   });
 
-  it('ignores non-.scad files and macOS resource forks', async () => {
+  it('keeps supported header files and ignores unrelated files', async () => {
     const { zipSync, strToU8 } = await import('fflate');
     const zipData: Record<string, Uint8Array> = {
       'main.scad': strToU8('cube(10);'),
+      'lib/constants.h': strToU8('size = 10;'),
       'readme.txt': strToU8('not a scad file'),
       '__MACOSX/._main.scad': strToU8('resource fork'),
       '.DS_Store': strToU8('ds store'),
@@ -90,17 +92,17 @@ describe('importProjectZip', () => {
     const blob = new Blob([zipped], { type: 'application/zip' });
 
     const result = await importProjectZip(blob);
-    expect(Object.keys(result.files)).toEqual(['main.scad']);
+    expect(Object.keys(result.files).sort()).toEqual(['lib/constants.h', 'main.scad']);
   });
 
-  it('throws when ZIP contains no .scad files', async () => {
+  it('throws when ZIP contains no renderable .scad files', async () => {
     const { zipSync, strToU8 } = await import('fflate');
     const zipData: Record<string, Uint8Array> = {
-      'readme.txt': strToU8('no scad files here'),
+      'constants.h': strToU8('size = 10;'),
     };
     const zipped = zipSync(zipData);
     const blob = new Blob([zipped], { type: 'application/zip' });
 
-    await expect(importProjectZip(blob)).rejects.toThrow('ZIP contains no .scad files');
+    await expect(importProjectZip(blob)).rejects.toThrow('ZIP contains no renderable .scad files');
   });
 });

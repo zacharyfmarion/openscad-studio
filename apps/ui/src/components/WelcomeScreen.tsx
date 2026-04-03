@@ -13,6 +13,7 @@ import {
   saveRecentFiles,
   type RecentFile,
 } from '../utils/recentFiles';
+import { isOpenScadProjectFilePath } from '../../../../packages/shared/src/openscadProjectFiles';
 
 export type RecentFileOpenResult = 'opened' | 'removed' | 'cancelled';
 
@@ -294,7 +295,7 @@ export function WelcomeScreen({
                       style={{ color: 'var(--text-tertiary)' }}
                       aria-hidden="true"
                     >
-                      {file.type === 'folder' || !file.path.endsWith('.scad') ? (
+                      {file.type === 'folder' || !isOpenScadProjectFilePath(file.path) ? (
                         <TbFolder size={22} />
                       ) : (
                         <TbFileText size={22} />
