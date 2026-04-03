@@ -1358,10 +1358,8 @@ export function SvgViewer({
                 data-testid="preview-2d-scene"
               >
                 <g transform={stageStyle} data-testid="preview-2d-stage">
-                  <g data-preview-svg dangerouslySetInnerHTML={{ __html: loadedDocument.markup }} />
-
                   {overlayModel ? (
-                    <g data-testid="preview-2d-overlay">
+                    <g data-testid="preview-2d-grid-overlay" aria-hidden="true">
                       {overlayModel.minorGridLines.map((line) => (
                         <line
                           key={line.key}
@@ -1389,7 +1387,13 @@ export function SvgViewer({
                           vectorEffect="non-scaling-stroke"
                         />
                       ))}
+                    </g>
+                  ) : null}
 
+                  <g data-preview-svg dangerouslySetInnerHTML={{ __html: loadedDocument.markup }} />
+
+                  {overlayModel ? (
+                    <g data-testid="preview-2d-overlay">
                       {overlayModel.axesLines.map((line) => (
                         <line
                           key={line.key}
