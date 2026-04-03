@@ -58,6 +58,12 @@ const filledSvg = `
   </svg>
 `;
 
+const openScadDefaultFillSvg = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">
+    <path d="M 0,0 L 20,0 L 20,10 z" fill="lightgray" stroke="#000000" />
+  </svg>
+`;
+
 const offOriginSvg = `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -25 100 50">
     <rect x="-50" y="-25" width="100" height="50" fill="#000000" />
@@ -158,6 +164,22 @@ describe('SvgViewer', () => {
     expect(renderedSvg?.querySelector('rect')?.getAttribute('vector-effect')).toBe(
       'non-scaling-stroke'
     );
+  });
+
+  it('maps the default OpenSCAD 2D fill to the preview theme model color', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      headers: { get: () => 'image/svg+xml' },
+      text: async () => openScadDefaultFillSvg,
+    });
+
+    renderViewer('blob:openscad-default-fill');
+
+    const renderedSvg = (await screen.findByTestId('preview-2d-stage')).querySelector(
+      '[data-preview-svg] svg'
+    ) as SVGSVGElement | null;
+
+    expect(renderedSvg?.querySelector('path')?.getAttribute('fill')).toBe('#2aa198');
   });
 
   it('starts off-origin SVG documents centered with a native SVG transform', async () => {
