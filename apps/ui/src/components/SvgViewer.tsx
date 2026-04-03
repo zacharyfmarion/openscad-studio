@@ -1390,10 +1390,8 @@ export function SvgViewer({
                     </g>
                   ) : null}
 
-                  <g data-preview-svg dangerouslySetInnerHTML={{ __html: loadedDocument.markup }} />
-
                   {overlayModel ? (
-                    <g data-testid="preview-2d-overlay">
+                    <g data-testid="preview-2d-axis-overlay" aria-hidden="true">
                       {overlayModel.axesLines.map((line) => (
                         <line
                           key={line.key}
@@ -1408,7 +1406,13 @@ export function SvgViewer({
                           data-axis={line.tone === 'axis-x' ? 'x' : 'y'}
                         />
                       ))}
+                    </g>
+                  ) : null}
 
+                  <g data-preview-svg dangerouslySetInnerHTML={{ __html: loadedDocument.markup }} />
+
+                  {overlayModel ? (
+                    <g data-testid="preview-2d-overlay">
                       {overlayModel.boundsRect ? (
                         <rect
                           x={overlayModel.boundsRect.x}
