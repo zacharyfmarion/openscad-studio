@@ -179,7 +179,7 @@ describe('SvgViewer', () => {
       '[data-preview-svg] svg'
     ) as SVGSVGElement | null;
 
-    expect(renderedSvg?.querySelector('path')?.getAttribute('fill')).toBe('#2aa198');
+    expect(renderedSvg?.querySelector('path')?.getAttribute('fill')).toBe('#03313e');
   });
 
   it('starts off-origin SVG documents centered with a native SVG transform', async () => {

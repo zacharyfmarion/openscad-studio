@@ -10,10 +10,19 @@ describe('previewSceneConfig', () => {
     expect(sceneStyle.gridColor).toBe(theme.colors.border.secondary);
     expect(sceneStyle.gridSectionColor).toBe(theme.colors.border.primary);
     expect(sceneStyle.modelColor).toBe(theme.colors.accent.secondary);
+    expect(sceneStyle.svgModelColor).toBe('#22202f');
     expect(sceneStyle.axis.xColor).toBe(theme.colors.accent.primary);
     expect(sceneStyle.axis.yColor).toBe(theme.colors.accent.secondary);
     expect(sceneStyle.axis.zColor).toBe(theme.colors.semantic.error);
     expect(sceneStyle.axis.labelColor).toBe(theme.colors.text.secondary);
+  });
+
+  it('derives a lighter background-family svg fill for light themes', () => {
+    const theme = getTheme('atom-one-light');
+    const sceneStyle = getPreviewSceneStyle(theme);
+
+    expect(sceneStyle.modelColor).toBe(theme.colors.accent.secondary);
+    expect(sceneStyle.svgModelColor).toBe('#e9ebee');
   });
 
   it('keeps stable fallback defaults for offscreen capture', () => {
@@ -28,5 +37,6 @@ describe('previewSceneConfig', () => {
     expect(FALLBACK_PREVIEW_SCENE_STYLE.material.envMapIntensity).toBe(0.9);
     expect(FALLBACK_PREVIEW_SCENE_STYLE.axis.xColor).toBe('#5cc8ff');
     expect(FALLBACK_PREVIEW_SCENE_STYLE.axis.zColor).toBe('#ef476f');
+    expect(FALLBACK_PREVIEW_SCENE_STYLE.svgModelColor).toBe('#dcdcdc');
   });
 });
