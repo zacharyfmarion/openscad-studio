@@ -5,16 +5,37 @@ mod types;
 
 use cmd::{update_editor_state, update_working_dir, EditorState, OpenScadBinaryState};
 use history::HistoryState;
-use mcp::{remove_window, update_window_focus, McpServerState};
+use mcp::{remove_window, update_window_focus, McpServerState, WindowLaunchIntent};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use uuid::Uuid;
 
-fn create_new_window(app: &tauri::AppHandle) -> tauri::Result<()> {
+pub(crate) fn create_new_window_with_launch_intent(
+    app: &tauri::AppHandle,
+    intent: WindowLaunchIntent,
+) -> tauri::Result<String> {
     let label = format!("window-{}", Uuid::new_v4());
+    eprintln!(
+        "[startup:{}] create_new_window_with_launch_intent {:?}",
+        label, intent
+    );
+    build_window_with_label(app, &label, &intent)?;
+    Ok(label)
+}
+
+fn build_window_with_label(
+    app: &tauri::AppHandle,
+    label: &str,
+    intent: &WindowLaunchIntent,
+) -> tauri::Result<()> {
+    let launch_intent = serde_json::to_string(intent).expect("serializable window launch intent");
+    let initialization_script =
+        format!("window.__OPENSCAD_STUDIO_BOOTSTRAP__ = {{ launchIntent: {launch_intent} }};");
+
     WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title("OpenSCAD Studio")
         .inner_size(1400.0, 900.0)
+        .initialization_script(&initialization_script)
         .build()?;
     Ok(())
 }
@@ -44,6 +65,7 @@ pub fn run() {
     let history_state = HistoryState::new();
     let openscad_state = OpenScadBinaryState::default();
     let mcp_state = McpServerState::default();
+    let window_mcp_state = mcp_state.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
@@ -72,6 +94,8 @@ pub fn run() {
             mcp::configure_mcp_server,
             mcp::get_mcp_server_status,
             mcp::mcp_submit_tool_response,
+            mcp::mcp_mark_window_bridge_ready,
+            mcp::report_window_open_result,
             mcp::mcp_update_window_context,
         ])
         .setup(|app| {
@@ -152,12 +176,12 @@ pub fn run() {
 
             Ok(())
         })
-        .on_menu_event(|app, event| match event.id().as_ref() {
+        .on_menu_event(move |app, event| match event.id().as_ref() {
             "new" => {
                 emit_to_focused_window(app, "menu:file:new", ());
             }
             "new_window" => {
-                let _ = create_new_window(app);
+                let _ = create_new_window_with_launch_intent(app, WindowLaunchIntent::Welcome);
             }
             "open" => {
                 emit_to_focused_window(app, "menu:file:open", ());
@@ -199,10 +223,10 @@ pub fn run() {
         })
         .on_window_event(move |window, event| match event {
             tauri::WindowEvent::Focused(focused) => {
-                update_window_focus(&mcp_state, window.label(), *focused);
+                update_window_focus(&window_mcp_state, window.label(), *focused);
             }
             tauri::WindowEvent::Destroyed => {
-                remove_window(&mcp_state, window.label());
+                remove_window(&window_mcp_state, window.label());
             }
             tauri::WindowEvent::CloseRequested { .. } => {}
             _ => {}

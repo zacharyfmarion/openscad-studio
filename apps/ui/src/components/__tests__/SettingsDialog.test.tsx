@@ -230,7 +230,7 @@ describe('SettingsDialog privacy copy', () => {
     expect(screen.getByText('Codex')).toBeTruthy();
     expect(screen.getByText('Cursor')).toBeTruthy();
     expect(screen.getByText('OpenCode')).toBeTruthy();
-    expect(screen.getByText(/select_workspace/i)).toBeTruthy();
+    expect(screen.getByText(/get_or_create_workspace/i)).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'Copy' }).length).toBeGreaterThanOrEqual(5);
     expect(screen.getAllByText(/http:\/\/127\.0\.0\.1:32123\/mcp/i).length).toBeGreaterThan(0);
     expect(mockGetDesktopMcpStatus).toHaveBeenCalled();

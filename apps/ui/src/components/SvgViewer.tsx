@@ -53,6 +53,7 @@ import type Konva from 'konva';
 
 interface SvgViewerProps {
   src: string;
+  viewerId?: string;
   onVisualReady?: () => void;
   hasCurrentModelApiKey: boolean;
   canAttachToAi: boolean;
@@ -357,6 +358,7 @@ function StatusCard({
 
 export function SvgViewer({
   src,
+  viewerId,
   onVisualReady,
   hasCurrentModelApiKey,
   canAttachToAi,
@@ -1170,6 +1172,7 @@ export function SvgViewer({
           ref={containerRef}
           className="relative flex-1 min-w-0 outline-none"
           style={{ backgroundColor: themeColors.background, touchAction: 'none' }}
+          data-preview-root={viewerId ?? 'default-preview'}
           data-testid="preview-2d-container"
           tabIndex={0}
           onKeyDown={handleKeyDown}

@@ -18,6 +18,7 @@ import {
 import { getPlatform } from '../platform';
 import { loadSettings } from '../stores/settingsStore';
 import { requestRender } from '../stores/renderRequestStore';
+import { getWorkspaceState } from '../stores/workspaceStore';
 import { normalizeProjectRelativePath } from '../utils/projectFilePaths';
 import { resolveWorkingDirDeps } from '../utils/resolveWorkingDirDeps';
 
@@ -46,6 +47,37 @@ interface McpToolRequestPayload {
   requestId: string;
   toolName: string;
   arguments?: Record<string, unknown>;
+}
+
+export type DesktopWindowLaunchIntent =
+  | { kind: 'welcome' }
+  | {
+      kind: 'open_folder';
+      request_id: string;
+      folder_path: string;
+      create_if_empty: boolean;
+    }
+  | { kind: 'open_file'; request_id: string; file_path: string };
+
+export type DesktopWindowOpenRequest =
+  | {
+      kind: 'open_folder';
+      folder_path: string;
+      create_if_empty: boolean;
+    }
+  | { kind: 'open_file'; file_path: string };
+
+interface DesktopWindowOpenRequestPayload {
+  requestId: string;
+  request: DesktopWindowOpenRequest;
+}
+
+interface InitializeDesktopMcpBridgeOptions {
+  onOpenRequest?: (payload: DesktopWindowOpenRequestPayload) => void | Promise<void>;
+}
+
+interface DesktopWindowBootstrapPayload {
+  launchIntent?: DesktopWindowLaunchIntent | null;
 }
 
 interface McpTextContent {
@@ -84,6 +116,7 @@ const DEFAULT_STATUS: McpServerStatus = {
 const previewState = {
   previewKind: 'mesh' as PreviewKind,
   previewSrc: '',
+  previewViewerId: null as string | null,
   previewSceneStyle: FALLBACK_PREVIEW_SCENE_STYLE as PreviewSceneStyle,
   useModelColors: true,
 };
@@ -117,6 +150,7 @@ function buildScreenshotCallbacks(): Omit<
   return {
     captureCurrentView: async () =>
       captureCurrentPreview({
+        viewerId: previewState.previewViewerId,
         svgSourceUrl: previewState.previewKind === 'svg' ? previewState.previewSrc : null,
         targetWidth: 1200,
         targetHeight: 630,
@@ -424,7 +458,9 @@ async function submitToolResponse(requestId: string, response: McpToolResponse) 
   await invoke('mcp_submit_tool_response', { requestId, response });
 }
 
-export async function initializeDesktopMcpBridge(): Promise<() => void> {
+export async function initializeDesktopMcpBridge(
+  options: InitializeDesktopMcpBridgeOptions = {}
+): Promise<() => void> {
   if (!isDesktopTauri()) {
     return () => {};
   }
@@ -455,16 +491,35 @@ export async function initializeDesktopMcpBridge(): Promise<() => void> {
         }
       );
 
+      const unlistenOpenRequest = await currentWindow.listen<DesktopWindowOpenRequestPayload>(
+        'desktop:open-request',
+        async (event) => {
+          await options.onOpenRequest?.(event.payload);
+        }
+      );
+
       const unlistenFocus = await currentWindow.onFocusChanged(() => {
         void syncDesktopMcpWindowContext({
           title: document.title || 'OpenSCAD Studio',
           workspaceRoot: getProjectState().projectRoot,
           renderTargetPath: getProjectState().renderTargetPath,
+          showWelcome: getWorkspaceState().showWelcome,
+          mode: getWorkspaceState().showWelcome ? 'welcome' : 'ready',
         });
+      });
+
+      await invoke('mcp_mark_window_bridge_ready');
+      await syncDesktopMcpWindowContext({
+        title: document.title || 'OpenSCAD Studio',
+        workspaceRoot: getProjectState().projectRoot,
+        renderTargetPath: getProjectState().renderTargetPath,
+        showWelcome: getWorkspaceState().showWelcome,
+        mode: getWorkspaceState().showWelcome ? 'welcome' : 'ready',
       });
 
       return () => {
         unlistenToolRequest();
+        unlistenOpenRequest();
         unlistenFocus();
       };
     })();
@@ -480,16 +535,19 @@ export async function initializeDesktopMcpBridge(): Promise<() => void> {
 export function updateDesktopMcpPreviewState({
   previewKind,
   previewSrc,
+  previewViewerId,
   previewSceneStyle,
   useModelColors,
 }: {
   previewKind: PreviewKind;
   previewSrc: string;
+  previewViewerId: string | null;
   previewSceneStyle: PreviewSceneStyle;
   useModelColors: boolean;
 }) {
   previewState.previewKind = previewKind;
   previewState.previewSrc = previewSrc;
+  previewState.previewViewerId = previewViewerId;
   previewState.previewSceneStyle = previewSceneStyle;
   previewState.useModelColors = useModelColors;
 }
@@ -510,6 +568,9 @@ export async function syncDesktopMcpWindowContext(context: {
   title: string;
   workspaceRoot: string | null;
   renderTargetPath: string | null;
+  showWelcome: boolean;
+  mode?: 'welcome' | 'opening' | 'ready' | 'open_failed';
+  pendingRequestId?: string | null;
 }): Promise<void> {
   if (!isDesktopTauri()) return;
   await invoke('mcp_update_window_context', {
@@ -517,7 +578,39 @@ export async function syncDesktopMcpWindowContext(context: {
       title: context.title,
       workspaceRoot: context.workspaceRoot,
       renderTargetPath: context.renderTargetPath,
+      showWelcome: context.showWelcome,
+      mode: context.mode ?? (context.showWelcome ? 'welcome' : 'ready'),
+      pendingRequestId: context.pendingRequestId ?? null,
       ready: true,
+    },
+  });
+}
+
+export function consumeDesktopBootstrapLaunchIntent(): DesktopWindowLaunchIntent | null {
+  if (typeof window === 'undefined') return null;
+  const payload = window.__OPENSCAD_STUDIO_BOOTSTRAP__ as DesktopWindowBootstrapPayload | undefined;
+  const intent = payload?.launchIntent ?? null;
+  if (payload) {
+    payload.launchIntent = null;
+  }
+  return intent;
+}
+
+export async function reportDesktopWindowOpenResult(payload: {
+  requestId: string;
+  success: boolean;
+  message?: string;
+  openedWorkspaceRoot?: string | null;
+  openedFilePath?: string | null;
+}): Promise<void> {
+  if (!isDesktopTauri()) return;
+  await invoke('report_window_open_result', {
+    payload: {
+      requestId: payload.requestId,
+      success: payload.success,
+      message: payload.message ?? null,
+      openedWorkspaceRoot: payload.openedWorkspaceRoot ?? null,
+      openedFilePath: payload.openedFilePath ?? null,
     },
   });
 }
@@ -559,5 +652,5 @@ export function buildOpenCodeMcpConfig(port: number): string {
 }
 
 export function buildAgentSnippet(port: number): string {
-  return `Use the OpenSCAD Studio MCP server at http://127.0.0.1:${port}/mcp for render-target switching, diagnostics, render refresh, preview screenshots, and exports. Read and edit files directly in the repo, then call select_workspace with the repo root before using Studio tools.`;
+  return `Use the OpenSCAD Studio MCP server at http://127.0.0.1:${port}/mcp for render-target switching, diagnostics, render refresh, preview screenshots, and exports. Read and edit files directly in the repo, then call get_or_create_workspace with the repo root before using Studio tools.`;
 }

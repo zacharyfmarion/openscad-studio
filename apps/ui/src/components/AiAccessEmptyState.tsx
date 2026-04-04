@@ -96,7 +96,7 @@ export function AiAccessEmptyState({ onOpenSettings, variant = 'panel' }: AiAcce
         command: buildClaudeMcpCommand(port),
         codeLabel: 'Shell',
         instruction:
-          'Run this command in your terminal to register OpenSCAD Studio as an MCP server, then call select_workspace with your repo root before using render tools.',
+          'Run this command in your terminal to register OpenSCAD Studio as an MCP server, then call get_or_create_workspace with your repo root before using render tools.',
       },
       {
         id: 'cursor',
@@ -104,7 +104,7 @@ export function AiAccessEmptyState({ onOpenSettings, variant = 'panel' }: AiAcce
         command: buildCursorMcpConfig(port),
         codeLabel: 'JSON',
         instruction:
-          'Go to Cursor -> Settings -> Cursor Settings -> MCP and add the OpenSCAD Studio MCP server. Then call select_workspace with your repo root before using render tools.',
+          'Go to Cursor -> Settings -> Cursor Settings -> MCP and add the OpenSCAD Studio MCP server. Then call get_or_create_workspace with your repo root before using render tools.',
         instructionDetail: 'You can also edit your mcp.json directly:',
       },
       {
@@ -113,7 +113,7 @@ export function AiAccessEmptyState({ onOpenSettings, variant = 'panel' }: AiAcce
         command: buildCodexMcpCommand(port),
         codeLabel: 'Shell',
         instruction:
-          'Run this command in your terminal to add the OpenSCAD Studio MCP endpoint, then call select_workspace with your repo root before using render tools.',
+          'Run this command in your terminal to add the OpenSCAD Studio MCP endpoint, then call get_or_create_workspace with your repo root before using render tools.',
       },
       {
         id: 'opencode',
@@ -121,7 +121,7 @@ export function AiAccessEmptyState({ onOpenSettings, variant = 'panel' }: AiAcce
         command: buildOpenCodeMcpConfig(port),
         codeLabel: 'JSON',
         instruction:
-          'Open OpenCode MCP settings and add the OpenSCAD Studio MCP server. Then call select_workspace with your repo root before using render tools.',
+          'Open OpenCode MCP settings and add the OpenSCAD Studio MCP server. Then call get_or_create_workspace with your repo root before using render tools.',
         instructionDetail: 'You can also edit ~/.config/opencode/opencode.json directly:',
       },
     ],

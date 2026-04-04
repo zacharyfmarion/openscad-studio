@@ -18,7 +18,7 @@ describe('AiAccessEmptyState', () => {
 
     expect(screen.getByText('Use built-in AI or Studio MCP')).toBeTruthy();
     expect(screen.getByText(/claude mcp add --transport http --scope user/i)).toBeTruthy();
-    expect(screen.getByText(/select_workspace with your repo root/i)).toBeTruthy();
+    expect(screen.getByText(/get_or_create_workspace with your repo root/i)).toBeTruthy();
     expect(screen.queryByText(/codex mcp add openscad-studio --url/i)).toBeNull();
   });
 });

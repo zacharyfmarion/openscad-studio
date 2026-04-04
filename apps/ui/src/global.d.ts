@@ -6,6 +6,9 @@
  */
 interface Window {
   __PLAYWRIGHT__?: boolean;
+  __OPENSCAD_STUDIO_BOOTSTRAP__?: {
+    launchIntent?: import('./services/desktopMcp').DesktopWindowLaunchIntent | null;
+  };
   __TEST_EDITOR__?: import('monaco-editor').editor.IStandaloneCodeEditor;
   __TEST_MONACO__?: typeof import('monaco-editor');
   __TEST_OPENSCAD__?: {

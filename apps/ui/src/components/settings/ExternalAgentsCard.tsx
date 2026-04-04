@@ -243,7 +243,7 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
           Studio MCP is for render-oriented tasks only, and each agent session should call
           <Text as="code" variant="caption" className="font-mono">
             {' '}
-            select_workspace
+            get_or_create_workspace
           </Text>{' '}
           before using render tools.
         </Text>

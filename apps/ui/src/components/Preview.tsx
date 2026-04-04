@@ -98,6 +98,7 @@ export function Preview({
       <SvgViewer
         key={src}
         src={src}
+        viewerId={viewerId}
         onVisualReady={onVisualReady}
         hasCurrentModelApiKey={hasCurrentModelApiKey}
         canAttachToAi={canAttachViewerAnnotation}
