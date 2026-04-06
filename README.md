@@ -41,7 +41,7 @@ As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precis
 - ⚙️ **Customizer panel** - Interactive controls for OpenSCAD parameters with auto-rendering
 - 🔗 **Share links** - Publish browser-based share links with thumbnail support for remixable examples
 - 📁 **Multi-file projects** - File tree, multiple tabs, include/use resolution, and auto-created project directories (desktop)
-- 🌈 **Theme library** - 22 built-in themes including Solarized, Dracula, GitHub, Nord, Tokyo Night, Catppuccin, and more
+- 🌈 **Theme library** - 27 built-in themes including Solarized, Dracula, GitHub, Nord, Tokyo Night, Catppuccin, and more
 
 **Limitations:** Special operators (!, #, %, \*) preview not yet implemented
 

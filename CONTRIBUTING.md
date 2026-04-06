@@ -9,7 +9,7 @@ Thank you for your interest in contributing to OpenSCAD Studio! This document pr
 **Development Tools:**
 
 - Node.js 18+ and pnpm
-- Rust toolchain 1.82+ (only needed for desktop development)
+- Rust toolchain via [rustup](https://rustup.rs/) (only needed for desktop development)
 - OpenSCAD binary (desktop only): `bash apps/ui/src-tauri/scripts/download-openscad.sh`
 - Git
 
@@ -23,14 +23,14 @@ cd openscad-studio
 # Install dependencies
 pnpm install
 
+# First-time desktop setup: download OpenSCAD binary
+bash apps/ui/src-tauri/scripts/download-openscad.sh
+
 # Run web version in development mode
 pnpm web:dev
 
 # Run desktop version in development mode (requires Rust)
 pnpm tauri:dev
-
-# First-time desktop setup: download OpenSCAD binary
-bash apps/ui/src-tauri/scripts/download-openscad.sh
 ```
 
 ## 📝 Development Workflow
