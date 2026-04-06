@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { getPlatform, type ExportFormat } from '../platform';
 import { getRenderService } from '../services/renderService';
 import { normalizeAppError } from '../utils/notifications';
+import { OPENSCAD_PROJECT_FILE_EXTENSIONS } from '../../../../packages/shared/src/openscadProjectFiles';
 
 interface MenuBarProps {
   source: string;
@@ -18,6 +19,10 @@ const EXPORT_FORMATS: { value: ExportFormat; label: string; ext: string }[] = [
   { value: '3mf', label: '3MF (3D Model)', ext: '3mf' },
   { value: 'svg', label: 'SVG (2D Vector)', ext: 'svg' },
   { value: 'dxf', label: 'DXF (2D CAD)', ext: 'dxf' },
+];
+
+const OPENSCAD_FILE_FILTERS = [
+  { name: 'OpenSCAD Files', extensions: [...OPENSCAD_PROJECT_FILE_EXTENSIONS] },
 ];
 
 export function MenuBar({
@@ -48,8 +53,7 @@ export function MenuBar({
 
     try {
       const platform = getPlatform();
-      const filters = [{ name: 'OpenSCAD Files', extensions: ['scad'] }];
-      const savePath = await platform.fileSave(source, currentFilePath, filters);
+      const savePath = await platform.fileSave(source, currentFilePath, OPENSCAD_FILE_FILTERS);
       if (savePath) {
         onFilePathChange(savePath);
       }
@@ -63,9 +67,7 @@ export function MenuBar({
     setFileMenuOpen(false);
 
     try {
-      const result = await getPlatform().fileOpen([
-        { name: 'OpenSCAD Files', extensions: ['scad'] },
-      ]);
+      const result = await getPlatform().fileOpen(OPENSCAD_FILE_FILTERS);
       if (!result) return;
 
       onSourceChange(result.content);

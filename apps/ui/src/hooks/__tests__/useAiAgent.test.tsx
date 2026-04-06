@@ -89,7 +89,11 @@ describe('useAiAgent', () => {
     const store = getProjectStore().getState();
     store.openProject(
       null,
-      { 'main.scad': 'cube(42);', 'lib/utils.scad': 'module helper() {}' },
+      {
+        'main.scad': 'use <lib/constants.h>\ncube(42);',
+        'lib/constants.h': 'wall = 2;',
+        'lib/utils.scad': 'module helper() {}',
+      },
       'main.scad'
     );
 
@@ -135,9 +139,16 @@ describe('useAiAgent', () => {
     expect(capturedCallbacks!.get3dPreviewUrl()).toBe('blob:mesh');
     expect(capturedCallbacks!.getPreviewSceneStyle()).toEqual({ type: 'presentation' });
     expect(capturedCallbacks!.getUseModelColors()).toBe(false);
-    expect(capturedCallbacks!.listProjectFiles()).toEqual(['lib/utils.scad', 'main.scad']);
+    expect(capturedCallbacks!.listProjectFiles()).toEqual([
+      'lib/constants.h',
+      'lib/utils.scad',
+      'main.scad',
+    ]);
+    expect(capturedCallbacks!.readProjectFile('lib/constants.h')).toBe('wall = 2;');
     expect(capturedCallbacks!.readProjectFile('lib/utils.scad')).toBe('module helper() {}');
-    expect(capturedCallbacks!.readProjectFile('main.scad')).toBe('cube(42);');
+    expect(capturedCallbacks!.readProjectFile('main.scad')).toBe(
+      'use <lib/constants.h>\ncube(42);'
+    );
     expect(capturedCallbacks!.readProjectFile('../escape.scad')).toBeNull();
     expect(capturedCallbacks!.getRenderTargetPath()).toBe('main.scad');
     expect(capturedCallbacks!.getMeasurementUnit()).toBe('cm');

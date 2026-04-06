@@ -106,7 +106,7 @@ export interface PlatformBridge {
   readTextFile(absolutePath: string): Promise<string | null>;
 
   /**
-   * Read .scad files in a directory.
+   * Read OpenSCAD project files in a directory.
    * Returns a map of relative paths to file contents.
    * Used to populate the WASM virtual filesystem for include/use resolution.
    * @param recursive - If true (default), recursively walk subdirectories.
@@ -158,7 +158,7 @@ export interface PlatformBridge {
   // -- File watching --
 
   /**
-   * Watch a directory for changes to .scad files.
+   * Watch a directory for changes to OpenSCAD project files.
    * Callback receives the relative path of the changed file and its new content.
    * Returns an unsubscribe function. Web bridge is a no-op (returns no-op unsub).
    */

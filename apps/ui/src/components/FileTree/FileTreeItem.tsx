@@ -3,9 +3,10 @@ import { TbPlayerPlayFilled, TbFile, TbCube } from 'react-icons/tb';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { useProjectStore } from '../../stores/projectStore';
 import { getPlatform } from '../../platform';
+import { isOpenScadProjectFilePath } from '../../../../../packages/shared/src/openscadProjectFiles';
 
 function FileIcon({ name }: { name: string }) {
-  if (name.endsWith('.scad')) {
+  if (isOpenScadProjectFilePath(name)) {
     return <TbCube size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />;
   }
   return <TbFile size={13} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />;

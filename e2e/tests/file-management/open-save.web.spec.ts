@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures/app.fixture';
 import { setMonacoValue, getMonacoValue } from '../../helpers/editor';
+import path from 'node:path';
 
 test.describe('File operations (web)', () => {
   /**
@@ -91,5 +92,37 @@ test.describe('File operations (web)', () => {
     await app.page.waitForTimeout(1000);
     const content = await getMonacoValue(app.page);
     expect(content).toContain('cube([7, 7, 7])');
+  });
+
+  test('folder upload keeps .h project files and renders successfully', async ({ app }) => {
+    test.setTimeout(60_000);
+
+    const folderPath = path.join(
+      __dirname,
+      '..',
+      '..',
+      'fixtures',
+      'test-data',
+      'header-project'
+    );
+
+    const fileChooserPromise = app.page.waitForEvent('filechooser', { timeout: 10_000 });
+
+    await app.page.getByText('File').first().click();
+    await app.page.getByText('Open Folder...').click();
+
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles(folderPath);
+
+    await app.waitForRender({ timeout: 30_000 });
+    await app.waitForPreviewState({ maxDimAtLeast: 12, timeout: 30_000 });
+
+    await expect(app.page.locator('button[title="main.scad"]')).toBeVisible();
+    await app.page.getByRole('button', { name: 'lib' }).click();
+    await expect(app.page.locator('button[title="dimensions.h"]')).toBeVisible();
+
+    const content = await getMonacoValue(app.page);
+    expect(content).toContain('include <lib/dimensions.h>');
+    await expect(app.previewCanvas3D).toBeVisible();
   });
 });

@@ -74,6 +74,12 @@ import { TbBrandGithub, TbSettings, TbDownload, TbShare3 } from 'react-icons/tb'
 import { Toaster } from 'sonner';
 import type { AiDraft } from './types/aiChat';
 import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTypes';
+import {
+  OPENSCAD_PROJECT_FILE_EXTENSIONS,
+  isOpenScadProjectFilePath,
+  isRenderableOpenScadFilePath,
+  pickOpenScadRenderTarget,
+} from '../../../packages/shared/src/openscadProjectFiles';
 
 const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
 const REPOSITORY_URL = 'https://github.com/zacharyfmarion/openscad-studio';
@@ -86,7 +92,11 @@ const RELEASE_ASSETS: Record<MacArch, string> = {
 
 type MacArch = 'aarch64' | 'x64';
 
-/** Prompt the user to pick a folder and return its .scad files, or null if cancelled. */
+const OPENSCAD_FILE_FILTERS = [
+  { name: 'OpenSCAD Files', extensions: [...OPENSCAD_PROJECT_FILE_EXTENSIONS] },
+];
+
+/** Prompt the user to pick a folder and return its project files, or null if cancelled. */
 function pickFolder(): Promise<{ files: Record<string, string>; renderTargetPath: string } | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
@@ -103,7 +113,7 @@ function pickFolder(): Promise<{ files: Record<string, string>; renderTargetPath
       for (const file of Array.from(fileList)) {
         // webkitRelativePath gives "folderName/path/to/file.scad"
         const relativePath = file.webkitRelativePath;
-        if (!relativePath.endsWith('.scad')) continue;
+        if (!isOpenScadProjectFilePath(relativePath)) continue;
         // Strip the top-level folder name
         const parts = relativePath.split('/');
         const pathWithoutRoot = parts.slice(1).join('/');
@@ -112,14 +122,11 @@ function pickFolder(): Promise<{ files: Record<string, string>; renderTargetPath
         }
       }
 
-      const scadFiles = Object.keys(files);
-      if (scadFiles.length === 0) {
+      const renderTargetPath = pickOpenScadRenderTarget(Object.keys(files));
+      if (!renderTargetPath) {
         resolve(null);
         return;
       }
-
-      const renderTargetPath =
-        scadFiles.find((p) => p === 'main.scad') ?? scadFiles.sort((a, b) => a.localeCompare(b))[0];
 
       resolve({ files, renderTargetPath });
     };
@@ -451,7 +458,11 @@ function App() {
 
         if (projectRoot && platform.capabilities.hasFileSystem) {
           try {
-            const siblings = await platform.readDirectoryFiles(projectRoot, ['scad'], true);
+            const siblings = await platform.readDirectoryFiles(
+              projectRoot,
+              [...OPENSCAD_PROJECT_FILE_EXTENSIONS],
+              true
+            );
             for (const [relPath, siblingContent] of Object.entries(siblings)) {
               // Don't overwrite the primary file (we have the freshest content)
               if (relPath !== relativeName) {
@@ -463,7 +474,13 @@ function App() {
           }
         }
 
-        store.getState().openProject(projectRoot, files, relativeName);
+        const renderTarget =
+          pickOpenScadRenderTarget(
+            Object.keys(files),
+            isRenderableOpenScadFilePath(relativeName) ? relativeName : null
+          ) ?? relativeName;
+
+        store.getState().openProject(projectRoot, files, renderTarget);
 
         // Discover empty folders on disk
         if (projectRoot && platform.capabilities.hasFileSystem) {
@@ -1151,7 +1168,7 @@ function App() {
       try {
         const currentTab = activeTabRef.current;
         const platform = getPlatform();
-        const filters = [{ name: 'OpenSCAD Files', extensions: ['scad'] }];
+        const filters = OPENSCAD_FILE_FILTERS;
 
         const store = getProjectStore().getState();
 
@@ -1257,7 +1274,7 @@ function App() {
     const store = getProjectStore().getState();
     const platform = getPlatform();
     const currentSettings = loadSettings();
-    const filters = [{ name: 'OpenSCAD Files', extensions: ['scad'] }];
+    const filters = OPENSCAD_FILE_FILTERS;
     let savedCount = 0;
 
     for (const [relativePath, file] of Object.entries(store.files)) {
@@ -1333,14 +1350,15 @@ function App() {
       await platform.createDirectory(resolvedProjectDir);
       dirPath = resolvedProjectDir;
 
-      const diskFiles = await platform.readDirectoryFiles(dirPath, ['scad'], true);
-      const scadFiles = Object.keys(diskFiles);
+      const diskFiles = await platform.readDirectoryFiles(
+        dirPath,
+        [...OPENSCAD_PROJECT_FILE_EXTENSIONS],
+        true
+      );
+      const renderTarget = pickOpenScadRenderTarget(Object.keys(diskFiles));
 
-      if (scadFiles.length > 0) {
-        // Folder has existing .scad files — open as project
-        const renderTarget =
-          scadFiles.find((p) => p === 'main.scad') ??
-          scadFiles.sort((a, b) => a.localeCompare(b))[0];
+      if (renderTarget) {
+        // Folder has existing renderable OpenSCAD files — open as project
         getProjectStore().getState().openProject(dirPath, diskFiles, renderTarget);
       } else {
         // Empty folder — create a default main.scad
@@ -1527,24 +1545,24 @@ function App() {
       try {
         // Handle recent folders by opening the directory
         // Also detect legacy entries without type field by checking extension
-        if (type === 'folder' || !path.endsWith('.scad')) {
+        if (type === 'folder' || !isOpenScadProjectFilePath(path)) {
           const platform = getPlatform();
           if (!platform.capabilities.hasFileSystem) return 'cancelled' as const;
 
-          const files = await platform.readDirectoryFiles(path, ['scad'], true);
-          const scadFiles = Object.keys(files);
-          if (scadFiles.length === 0) return 'removed' as const;
-
-          const renderTarget =
-            scadFiles.find((p) => p === 'main.scad') ??
-            scadFiles.sort((a, b) => a.localeCompare(b))[0];
+          const files = await platform.readDirectoryFiles(
+            path,
+            [...OPENSCAD_PROJECT_FILE_EXTENSIONS],
+            true
+          );
+          const renderTarget = pickOpenScadRenderTarget(Object.keys(files));
+          if (!renderTarget) return 'removed' as const;
 
           getProjectStore().getState().openProject(path, files, renderTarget);
 
           // Discover empty folders
           try {
             const allDirs = await platform.readSubdirectories(path);
-            const empty = findEmptyFolders(allDirs, scadFiles);
+            const empty = findEmptyFolders(allDirs, Object.keys(files));
             for (const dir of empty) getProjectStore().getState().addFolder(dir);
           } catch {
             // Non-critical
@@ -1564,7 +1582,10 @@ function App() {
           }
           hideWelcomeScreen();
           addRecentFolder(path);
-          analytics.track('folder opened', { source: 'recent', file_count: scadFiles.length });
+          analytics.track('folder opened', {
+            source: 'recent',
+            file_count: Object.keys(files).length,
+          });
 
           requestRender('file_open', { immediate: true });
           return 'opened' as const;
@@ -1662,9 +1683,7 @@ function App() {
 
   const handleOpenFile = useCallback(async () => {
     try {
-      const result = await getPlatform().fileOpen([
-        { name: 'OpenSCAD Files', extensions: ['scad'] },
-      ]);
+      const result = await getPlatform().fileOpen(OPENSCAD_FILE_FILTERS);
       if (!result) return;
 
       if (result.path) {
@@ -1790,9 +1809,7 @@ function App() {
     unlistenFns.push(
       eventBus.on('menu:file:open', async () => {
         try {
-          const result = await getPlatform().fileOpen([
-            { name: 'OpenSCAD Files', extensions: ['scad'] },
-          ]);
+          const result = await getPlatform().fileOpen(OPENSCAD_FILE_FILTERS);
           if (!result) return;
 
           if (result.path) {
@@ -1850,29 +1867,29 @@ function App() {
           const dirPath = await platform.pickDirectory();
           if (!dirPath) return;
 
-          const files = await platform.readDirectoryFiles(dirPath, ['scad'], true);
-          const scadFiles = Object.keys(files);
-          if (scadFiles.length === 0) {
+          const files = await platform.readDirectoryFiles(
+            dirPath,
+            [...OPENSCAD_PROJECT_FILE_EXTENSIONS],
+            true
+          );
+          const renderTarget = pickOpenScadRenderTarget(Object.keys(files));
+          if (!renderTarget) {
             notifyError({
               operation: 'open-folder',
-              error: new Error('No .scad files found'),
-              fallbackMessage: 'No .scad files found in the selected folder',
+              error: new Error('No renderable .scad files found'),
+              fallbackMessage: 'No renderable .scad files found in the selected folder',
               toastId: 'open-folder-empty',
               logLabel: 'Open folder empty',
             });
             return;
           }
 
-          const renderTarget =
-            scadFiles.find((p) => p === 'main.scad') ??
-            scadFiles.sort((a, b) => a.localeCompare(b))[0];
-
           getProjectStore().getState().openProject(dirPath, files, renderTarget);
 
           // Discover empty folders
           try {
             const allDirs = await platform.readSubdirectories(dirPath);
-            const empty = findEmptyFolders(allDirs, scadFiles);
+            const empty = findEmptyFolders(allDirs, Object.keys(files));
             for (const dir of empty) getProjectStore().getState().addFolder(dir);
           } catch {
             // Non-critical
@@ -1893,7 +1910,7 @@ function App() {
           hideWelcomeScreen();
           addRecentFolder(dirPath);
 
-          analytics.track('folder opened', { file_count: scadFiles.length });
+          analytics.track('folder opened', { file_count: Object.keys(files).length });
 
           requestRender('file_open', { immediate: true });
         } catch (err) {

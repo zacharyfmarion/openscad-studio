@@ -1,4 +1,8 @@
 import type { PlatformBridge, PlatformCapabilities, FileOpenResult, FileFilter } from './types';
+import {
+  isOpenScadProjectFilePath,
+  OPENSCAD_RENDERABLE_FILE_EXTENSIONS,
+} from '../../../../packages/shared/src/openscadProjectFiles';
 
 // File System Access API type declarations (not yet in standard DOM lib)
 interface PickerAcceptType {
@@ -180,7 +184,7 @@ export class WebBridge implements PlatformBridge {
     filters?: FileFilter[],
     defaultFilename?: string
   ): Promise<string | null> {
-    const filename = this.ensureExtension(defaultFilename || 'untitled', '.scad');
+    const filename = this.ensureExtension(defaultFilename || 'untitled', filters);
     if (hasFileSystemAccess()) {
       return this.fileSaveNative(content, filters, filename);
     }
@@ -289,8 +293,18 @@ export class WebBridge implements PlatformBridge {
     };
   }
 
-  private ensureExtension(name: string, ext: string): string {
-    return name.endsWith(ext) ? name : `${name}${ext}`;
+  private ensureExtension(name: string, filters?: FileFilter[]): string {
+    if (isOpenScadProjectFilePath(name)) {
+      return name;
+    }
+
+    const primaryExtension =
+      filters?.[0]?.extensions?.[0] ?? OPENSCAD_RENDERABLE_FILE_EXTENSIONS[0];
+    const normalizedExtension = primaryExtension.startsWith('.')
+      ? primaryExtension
+      : `.${primaryExtension}`;
+
+    return name.endsWith(normalizedExtension) ? name : `${name}${normalizedExtension}`;
   }
 
   private downloadFile(content: string, filename: string, mimeType: string): void {

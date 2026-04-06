@@ -1,4 +1,5 @@
 import type * as Monaco from 'monaco-editor';
+import { OPENSCAD_PROJECT_FILE_EXTENSIONS } from '../../../../packages/shared/src/openscadProjectFiles';
 
 const LANGUAGE_ID = 'openscad';
 
@@ -321,7 +322,7 @@ export function ensureOpenScadLanguage(monaco: typeof Monaco): void {
     monaco.languages.register({
       id: LANGUAGE_ID,
       aliases: ['OpenSCAD', 'openscad'],
-      extensions: ['.scad'],
+      extensions: OPENSCAD_PROJECT_FILE_EXTENSIONS.map((ext) => `.${ext}`),
     });
   }
 

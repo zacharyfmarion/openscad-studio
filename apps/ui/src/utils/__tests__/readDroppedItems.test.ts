@@ -51,7 +51,7 @@ describe('readDroppedItems', () => {
     expect(result).toBeNull();
   });
 
-  it('returns null when no .scad files are found', async () => {
+  it('returns null when no OpenSCAD project files are found', async () => {
     const items = makeItemList([makeFileEntry('readme.txt', 'hello')]);
     const result = await readDroppedItems(items);
     expect(result).toBeNull();
@@ -61,6 +61,12 @@ describe('readDroppedItems', () => {
     const items = makeItemList([makeFileEntry('main.scad', 'cube(10);')]);
     const result = await readDroppedItems(items);
     expect(result).toEqual({ 'main.scad': 'cube(10);' });
+  });
+
+  it('reads a flat .h file drop', async () => {
+    const items = makeItemList([makeFileEntry('constants.h', 'wall = 2;')]);
+    const result = await readDroppedItems(items);
+    expect(result).toEqual({ 'constants.h': 'wall = 2;' });
   });
 
   it('preserves the top-level folder name (does NOT strip it)', async () => {
@@ -76,14 +82,15 @@ describe('readDroppedItems', () => {
     expect(result).toEqual({ 'lib/helpers/h.scad': '// h' });
   });
 
-  it('filters out non-.scad files', async () => {
+  it('filters out unsupported files', async () => {
     const dir = makeDirEntry('lib', [
       makeFileEntry('utils.scad', '// scad'),
+      makeFileEntry('constants.h', '// header'),
       makeFileEntry('readme.txt', 'text'),
       makeFileEntry('image.png', 'binary'),
     ]);
     const result = await readDroppedItems(makeItemList([dir]));
-    expect(result).toEqual({ 'lib/utils.scad': '// scad' });
+    expect(result).toEqual({ 'lib/constants.h': '// header', 'lib/utils.scad': '// scad' });
   });
 
   it('paginates readEntries — calls until empty array is returned', async () => {

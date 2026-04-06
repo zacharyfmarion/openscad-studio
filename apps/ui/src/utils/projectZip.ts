@@ -1,4 +1,8 @@
 import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate';
+import {
+  isOpenScadProjectFilePath,
+  pickOpenScadRenderTarget,
+} from '../../../../packages/shared/src/openscadProjectFiles';
 
 const MANIFEST_FILENAME = '.openscad-studio.json';
 
@@ -43,7 +47,7 @@ export function exportProjectZip(data: ProjectExportData): Blob {
 /**
  * Import a project from a ZIP blob.
  * Reads the manifest to determine the render target.
- * Falls back to the first .scad file if no manifest is present.
+ * Falls back to the first renderable `.scad` file if no manifest is present.
  */
 export async function importProjectZip(blob: Blob): Promise<ProjectImportResult> {
   const buffer = await blob.arrayBuffer();
@@ -65,25 +69,17 @@ export async function importProjectZip(blob: Blob): Promise<ProjectImportResult>
       continue;
     }
 
-    // Only import .scad files
-    if (path.endsWith('.scad')) {
+    if (isOpenScadProjectFilePath(path)) {
       files[path] = strFromU8(data);
     }
   }
 
-  const scadFiles = Object.keys(files);
-  if (scadFiles.length === 0) {
-    throw new Error('ZIP contains no .scad files');
-  }
+  const renderTargetPath =
+    (manifest?.renderTarget && manifest.renderTarget in files ? manifest.renderTarget : null) ??
+    pickOpenScadRenderTarget(Object.keys(files));
 
-  // Determine render target
-  let renderTargetPath: string;
-  if (manifest?.renderTarget && manifest.renderTarget in files) {
-    renderTargetPath = manifest.renderTarget;
-  } else {
-    // Prefer main.scad, otherwise first alphabetically
-    renderTargetPath =
-      scadFiles.find((p) => p === 'main.scad') ?? scadFiles.sort((a, b) => a.localeCompare(b))[0];
+  if (!renderTargetPath) {
+    throw new Error('ZIP contains no renderable .scad files');
   }
 
   return { files, renderTargetPath };
