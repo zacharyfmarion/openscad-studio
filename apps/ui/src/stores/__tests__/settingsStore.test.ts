@@ -34,5 +34,7 @@ describe('settingsStore', () => {
     expect(settings.viewer.enable2DGridSnap).toBe(true);
     expect(settings.privacy.analyticsEnabled).toBe(false);
     expect(settings.ui.hasCompletedNux).toBe(true);
+    expect(settings.mcp.enabled).toBe(true);
+    expect(settings.mcp.port).toBe(32123);
   });
 });

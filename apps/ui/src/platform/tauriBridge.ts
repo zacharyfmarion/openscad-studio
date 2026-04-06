@@ -407,16 +407,27 @@ export class TauriBridge implements PlatformBridge {
   }
 
   async initialize(): Promise<void> {
-    const { listen } = await import('@tauri-apps/api/event');
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const currentWindow = getCurrentWindow();
 
-    await listen('menu:file:new', () => eventBus.emit('menu:file:new'));
-    await listen('menu:file:open', () => eventBus.emit('menu:file:open'));
-    await listen('menu:file:open_folder', () => eventBus.emit('menu:file:open_folder'));
-    await listen('menu:file:save', () => eventBus.emit('menu:file:save'));
-    await listen('menu:file:save_as', () => eventBus.emit('menu:file:save_as'));
-    await listen('menu:file:save_all', () => eventBus.emit('menu:file:save_all'));
-    await listen<string>('menu:file:export', (event) => {
-      eventBus.emit('menu:file:export', event.payload as import('./types').ExportFormat);
+    void Promise.allSettled([
+      currentWindow.listen('menu:file:new', () => eventBus.emit('menu:file:new')),
+      currentWindow.listen('menu:file:open', () => eventBus.emit('menu:file:open')),
+      currentWindow.listen('menu:file:open_folder', () => eventBus.emit('menu:file:open_folder')),
+      currentWindow.listen('menu:file:save', () => eventBus.emit('menu:file:save')),
+      currentWindow.listen('menu:file:save_as', () => eventBus.emit('menu:file:save_as')),
+      currentWindow.listen('menu:file:save_all', () => eventBus.emit('menu:file:save_all')),
+      currentWindow.listen<string>('menu:file:export', (event) => {
+        eventBus.emit('menu:file:export', event.payload as import('./types').ExportFormat);
+      }),
+    ]).then((results) => {
+      const failed = results.filter((result) => result.status === 'rejected');
+      if (failed.length > 0) {
+        console.error(
+          '[TauriBridge] Failed to register one or more window menu listeners.',
+          failed
+        );
+      }
     });
   }
 }

@@ -57,6 +57,11 @@ export interface ProjectSettings {
   defaultProjectDirectory: string;
 }
 
+export interface McpSettings {
+  enabled: boolean;
+  port: number;
+}
+
 export interface Settings {
   editor: EditorSettings;
   appearance: AppearanceSettings;
@@ -65,6 +70,7 @@ export interface Settings {
   library: LibrarySettings;
   privacy: PrivacySettings;
   project: ProjectSettings;
+  mcp: McpSettings;
 }
 
 const DEFAULT_VIM_CONFIG = `# Vim Configuration
@@ -140,6 +146,10 @@ const DEFAULT_SETTINGS: Settings = {
   project: {
     defaultProjectDirectory: '',
   },
+  mcp: {
+    enabled: true,
+    port: 32123,
+  },
 };
 
 const SETTINGS_KEY = 'openscad-studio-settings';
@@ -183,6 +193,10 @@ export function loadSettings(): Settings {
         project: {
           ...DEFAULT_SETTINGS.project,
           ...(parsed.project || {}),
+        },
+        mcp: {
+          ...DEFAULT_SETTINGS.mcp,
+          ...(parsed.mcp || {}),
         },
       };
     }

@@ -33,3 +33,5 @@ export { RangeSlider } from './RangeSlider';
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './Tooltip';
 export type { TooltipProviderProps } from './Tooltip';
+
+export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './Accordion';

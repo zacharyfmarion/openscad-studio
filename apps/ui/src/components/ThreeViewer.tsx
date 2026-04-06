@@ -1645,7 +1645,11 @@ export function ThreeViewer({
             loadedModel={loadedModel}
           />
         )}
-        <div ref={previewSurfaceRef} className="relative flex-1 min-w-0">
+        <div
+          ref={previewSurfaceRef}
+          className="relative flex-1 min-w-0"
+          data-preview-root={viewerId ?? 'default-preview'}
+        >
           <div
             className="absolute top-2 right-2 z-10 flex gap-2"
             onClick={(event) => event.stopPropagation()}

@@ -154,7 +154,14 @@ export class NativeRenderService implements IRenderService {
   async exportModel(
     code: string,
     format: ExportFormat,
-    options: { backend?: 'manifold' | 'cgal' | 'auto' } = {}
+    options: {
+      backend?: 'manifold' | 'cgal' | 'auto';
+      auxiliaryFiles?: Record<string, string>;
+      inputPath?: string;
+      workingDir?: string;
+      libraryFiles?: Record<string, string>;
+      libraryPaths?: string[];
+    } = {}
   ): Promise<Uint8Array> {
     const { backend = 'manifold' } = options;
 
@@ -170,7 +177,19 @@ export class NativeRenderService implements IRenderService {
       args.push('--export-format=binstl');
     }
 
-    const result = await this.invokeRender(code, args);
+    const allFiles =
+      options.libraryFiles || options.auxiliaryFiles
+        ? { ...(options.libraryFiles || {}), ...(options.auxiliaryFiles || {}) }
+        : undefined;
+
+    const result = await this.invokeRender(
+      code,
+      args,
+      allFiles,
+      options.inputPath,
+      options.workingDir,
+      options.libraryPaths
+    );
     const output = new Uint8Array(result.output);
 
     if (output.length === 0) {

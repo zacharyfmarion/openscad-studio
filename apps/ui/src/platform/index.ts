@@ -167,7 +167,9 @@ class BootstrapBridge implements PlatformBridge {
 const bootstrapBridge = new BootstrapBridge();
 
 export async function initializePlatform(): Promise<PlatformBridge> {
-  if (_bridge) return _bridge;
+  if (_bridge) {
+    return _bridge;
+  }
 
   if (isTauri()) {
     const { TauriBridge } = await import('./tauriBridge');

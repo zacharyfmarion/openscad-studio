@@ -7,6 +7,8 @@ import { ThemeProvider } from '../../contexts/ThemeContext';
 const mockGetPlatform = jest.fn();
 const mockTrack = jest.fn();
 const mockApplyWorkspacePreset = jest.fn();
+const mockGetDesktopMcpStatus = jest.fn();
+const mockSyncDesktopMcpConfig = jest.fn();
 let platformMock: {
   getLibraryPaths: ReturnType<typeof jest.fn>;
   getDefaultProjectsDirectory: ReturnType<typeof jest.fn>;
@@ -44,6 +46,32 @@ jest.unstable_mockModule('@/stores/layoutStore', () => ({
   applyWorkspacePreset: (...args: unknown[]) => mockApplyWorkspacePreset(...args),
 }));
 
+jest.unstable_mockModule('@/services/desktopMcp', () => ({
+  buildClaudeMcpCommand: (port: number) =>
+    `claude mcp add --transport http --scope user openscad-studio http://127.0.0.1:${port}/mcp`,
+  buildCodexMcpCommand: (port: number) =>
+    `codex mcp add openscad-studio --url http://127.0.0.1:${port}/mcp`,
+  buildCursorMcpConfig: (port: number) => `{
+  "mcpServers": {
+    "openscad-studio": {
+      "url": "http://127.0.0.1:${port}/mcp"
+    }
+  }
+}`,
+  buildOpenCodeMcpConfig: (port: number) => `{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "openscad-studio": {
+      "type": "remote",
+      "url": "http://127.0.0.1:${port}/mcp",
+      "enabled": true
+    }
+  }
+}`,
+  getDesktopMcpStatus: (...args: unknown[]) => mockGetDesktopMcpStatus(...args),
+  syncDesktopMcpConfig: (...args: unknown[]) => mockSyncDesktopMcpConfig(...args),
+}));
+
 let SettingsDialog: typeof import('../SettingsDialog').SettingsDialog;
 
 describe('SettingsDialog privacy copy', () => {
@@ -61,6 +89,20 @@ describe('SettingsDialog privacy copy', () => {
       capabilities: { hasFileSystem: true },
     };
     mockGetPlatform.mockReturnValue(platformMock);
+    mockGetDesktopMcpStatus.mockResolvedValue({
+      enabled: true,
+      port: 32123,
+      status: 'running',
+      endpoint: 'http://127.0.0.1:32123/mcp',
+      message: null,
+    });
+    mockSyncDesktopMcpConfig.mockResolvedValue({
+      enabled: true,
+      port: 32123,
+      status: 'running',
+      endpoint: 'http://127.0.0.1:32123/mcp',
+      message: null,
+    });
 
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -173,6 +215,25 @@ describe('SettingsDialog privacy copy', () => {
 
     expect(await screen.findByText('Default Layout')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Customizer First' })).toBeTruthy();
+  });
+
+  it('shows external agent MCP onboarding in the AI settings tab', async () => {
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="ai" />
+      </ThemeProvider>
+    );
+
+    expect(await screen.findByText('External Agents')).toBeTruthy();
+    expect(screen.getByText('Enable local MCP server')).toBeTruthy();
+    expect(screen.getByText('Claude Code')).toBeTruthy();
+    expect(screen.getByText('Codex')).toBeTruthy();
+    expect(screen.getByText('Cursor')).toBeTruthy();
+    expect(screen.getByText('OpenCode')).toBeTruthy();
+    expect(screen.getByText(/get_or_create_workspace/i)).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Copy' }).length).toBeGreaterThanOrEqual(5);
+    expect(screen.getAllByText(/http:\/\/127\.0\.0\.1:32123\/mcp/i).length).toBeGreaterThan(0);
+    expect(mockGetDesktopMcpStatus).toHaveBeenCalled();
   });
 
   it('tracks layout selection sources and viewer preference changes', async () => {
