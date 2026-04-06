@@ -301,7 +301,7 @@ pnpm validate:changes   # Run the shared validation helper
 
 ## Current Status
 
-### Current Capabilities (v0.13.1)
+### Current Capabilities (v1.0.1)
 
 ✅ Monaco editor with OpenSCAD syntax highlighting
 ✅ Live STL/SVG preview (web: openscad-wasm, desktop: native binary)
@@ -316,7 +316,7 @@ pnpm validate:changes   # Run the shared validation helper
 ✅ Multi-turn AI chat with draft and attachment state
 ✅ Customizer panel with interactive parameter controls
 ✅ Tree-sitter based parameter parsing
-✅ 22 editor themes with categorized dropdown
+✅ 27 editor themes with categorized dropdown
 ✅ Vim mode with configurable keybindings
 ✅ Web version (openscad-studio.pages.dev)
 ✅ Platform abstraction (PlatformBridge interface)
@@ -390,5 +390,5 @@ pnpm validate:changes   # Run the shared validation helper
 
 ---
 
-**Last Updated**: 2026-03-27
-**Current Version**: v0.13.1 — Web + Desktop
+**Last Updated**: 2026-04-05
+**Current Version**: v1.0.1 — Web + Desktop
