@@ -349,8 +349,11 @@ export function buildPreview3dObject(args: {
     materials.push(material);
 
     const mesh = new THREE.Mesh(group.geometry, material);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+    // Keep preview lighting stable with environment/contact shadows only.
+    // Shadow-map self-shadowing on thin OpenSCAD solids creates phantom
+    // silhouettes that do not match any visible geometry in the viewer.
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
     mesh.name = `previewMesh:${group.key}`;
     root.add(mesh);
     return mesh;

@@ -123,6 +123,8 @@ describe('buildPreview3dObject', () => {
     expect(built.meshes).toHaveLength(1);
     expect(built.root.rotation.x).toBeCloseTo(-Math.PI / 2);
     expect(built.meshes[0].material).toBeInstanceOf(THREE.MeshBasicMaterial);
+    expect(built.meshes[0].castShadow).toBe(false);
+    expect(built.meshes[0].receiveShadow).toBe(false);
 
     built.dispose();
     parsed.dispose();
