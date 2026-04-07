@@ -23,4 +23,4 @@ Root-cause and fix the phantom shadow shape that appears on 3D preview meshes ev
 - [x] Update the shared preview mesh configuration to prevent phantom self-shadowing.
 - [x] Add or update regression tests for the preview mesh builder behavior.
 - [x] Run targeted tests and validation for the changed files.
-- [ ] Prepare branch, commit, and draft PR handoff against `main`.
+- [x] Prepare branch, commit, and draft PR handoff against `main`.
