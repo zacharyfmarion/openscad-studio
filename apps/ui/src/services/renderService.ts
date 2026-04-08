@@ -49,6 +49,47 @@ export interface SyntaxCheckResult {
   diagnostics: Diagnostic[];
 }
 
+function sortRecordEntries(record?: Record<string, string>): Array<[string, string]> {
+  return Object.entries(record ?? {}).sort(([left], [right]) => left.localeCompare(right));
+}
+
+function sortStrings(values?: string[]): string[] {
+  return [...(values ?? [])].sort((left, right) => left.localeCompare(right));
+}
+
+export async function generateRenderCacheKey(
+  code: string,
+  options: RenderOptions = {}
+): Promise<string> {
+  const {
+    view = '3d',
+    backend = 'manifold',
+    auxiliaryFiles,
+    inputPath,
+    workingDir,
+    libraryFiles,
+    libraryPaths,
+  } = options;
+
+  const fingerprintPayload = JSON.stringify({
+    code,
+    view,
+    backend,
+    inputPath: inputPath ?? null,
+    workingDir: workingDir ?? null,
+    auxiliaryFiles: sortRecordEntries(auxiliaryFiles),
+    libraryFiles: sortRecordEntries(libraryFiles),
+    libraryPaths: sortStrings(libraryPaths),
+  });
+
+  const data = new TextEncoder().encode(fingerprintPayload);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = new Uint8Array(hashBuffer);
+  return Array.from(hashArray)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 // ============================================================================
 // Diagnostic parser (port of Rust parser)
 // ============================================================================
@@ -116,20 +157,6 @@ const MAX_CACHE_ENTRIES = 50;
 
 export class RenderCache {
   private entries = new Map<string, CacheEntry>();
-
-  async generateKey(
-    code: string,
-    backend: string,
-    view: string,
-    auxFileCount: number = 0
-  ): Promise<string> {
-    const data = new TextEncoder().encode(code + backend + view + auxFileCount);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = new Uint8Array(hashBuffer);
-    return Array.from(hashArray)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-  }
 
   get(key: string): CacheEntry | undefined {
     return this.entries.get(key);
@@ -343,9 +370,16 @@ export class WasmRenderService implements IRenderService {
    * Returns the cached result if found, or null if not cached.
    */
   async getCached(code: string, options: RenderOptions = {}): Promise<RenderResult | null> {
-    const { view = '3d', backend = 'manifold', auxiliaryFiles } = options;
-    const auxFileCount = auxiliaryFiles ? Object.keys(auxiliaryFiles).length : 0;
-    const cacheKey = await this.cache.generateKey(code, backend, view, auxFileCount);
+    const { auxiliaryFiles, libraryFiles } = options;
+    const allFiles =
+      libraryFiles || auxiliaryFiles
+        ? { ...(libraryFiles || {}), ...(auxiliaryFiles || {}) }
+        : undefined;
+    const cacheKey = await generateRenderCacheKey(code, {
+      ...options,
+      auxiliaryFiles: allFiles,
+      libraryFiles,
+    });
     const cached = this.cache.get(cacheKey);
     if (cached) {
       return {
@@ -367,8 +401,11 @@ export class WasmRenderService implements IRenderService {
         : undefined;
 
     // Check cache
-    const auxFileCount = allFiles ? Object.keys(allFiles).length : 0;
-    const cacheKey = await this.cache.generateKey(code, backend, view, auxFileCount);
+    const cacheKey = await generateRenderCacheKey(code, {
+      ...options,
+      auxiliaryFiles: allFiles,
+      libraryFiles,
+    });
     const cached = this.cache.get(cacheKey);
     if (cached) {
       return {

@@ -3,6 +3,7 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { useOpenScad } from '../useOpenScad';
+import { getProjectStore } from '../../stores/projectStore';
 
 type MockRenderResult = {
   output: Uint8Array;
@@ -12,17 +13,22 @@ type MockRenderResult = {
 
 function createHarness(options?: Parameters<typeof useOpenScad>[0]) {
   let latest: ReturnType<typeof useOpenScad>;
+  let currentOptions = options;
 
-  function Harness() {
-    latest = useOpenScad(options);
+  function Harness({ hookOptions }: { hookOptions?: Parameters<typeof useOpenScad>[0] }) {
+    latest = useOpenScad(hookOptions);
     return null;
   }
 
-  render(<Harness />);
+  const view = render(<Harness hookOptions={currentOptions} />);
 
   return {
     current() {
       return latest!;
+    },
+    rerender(nextOptions?: Parameters<typeof useOpenScad>[0]) {
+      currentOptions = nextOptions;
+      view.rerender(<Harness hookOptions={currentOptions} />);
     },
   };
 }
@@ -33,6 +39,7 @@ describe('useOpenScad', () => {
     globalThis.URL.createObjectURL = jest.fn(() => 'blob:preview');
     globalThis.URL.revokeObjectURL = jest.fn();
     window.__PLAYWRIGHT__ = false;
+    getProjectStore().getState().resetProject();
   });
 
   it('initializes the render service and performs the initial render by default', async () => {
@@ -302,5 +309,82 @@ describe('useOpenScad', () => {
       'cube(42);',
       expect.objectContaining({ view: '3d' })
     );
+  });
+
+  it('re-resolves project dependencies before cache lookup for manual renders', async () => {
+    const projectStore = getProjectStore();
+    projectStore.getState().openProject(
+      null,
+      {
+        'main.scad': 'include <dep.scad>\ncube(size);',
+        'dep.scad': 'size = 10;',
+      },
+      'main.scad'
+    );
+
+    const renderService = {
+      init: jest.fn(async () => undefined),
+      getCached: jest.fn(async (_code, options) => {
+        if (options?.auxiliaryFiles?.['dep.scad'] === 'size = 10;') {
+          return {
+            output: new Uint8Array([7]),
+            kind: 'mesh' as const,
+            diagnostics: [{ severity: 'warning' as const, message: 'cached-10' }],
+          };
+        }
+
+        return null;
+      }),
+      render: jest.fn(async () => ({
+        output: new Uint8Array([9]),
+        kind: 'mesh' as const,
+        diagnostics: [],
+      })),
+    };
+
+    const hook = createHarness({
+      suppressInitialRender: true,
+      source: projectStore.getState().files['main.scad']?.content ?? '',
+      contentVersion: projectStore.getState().contentVersion,
+      testOverrides: {
+        renderService: renderService as never,
+      },
+    });
+
+    await waitFor(() => {
+      expect(hook.current().ready).toBe(true);
+    });
+
+    await act(async () => {
+      await hook.current().manualRender();
+    });
+
+    expect(renderService.render).not.toHaveBeenCalled();
+    expect(hook.current().diagnostics).toEqual([{ severity: 'warning', message: 'cached-10' }]);
+
+    projectStore.getState().updateFileContent('dep.scad', 'size = 20;');
+    hook.rerender({
+      suppressInitialRender: true,
+      source: projectStore.getState().files['main.scad']?.content ?? '',
+      contentVersion: projectStore.getState().contentVersion,
+      testOverrides: {
+        renderService: renderService as never,
+      },
+    });
+
+    await act(async () => {
+      await hook.current().manualRender();
+    });
+
+    expect(renderService.getCached).toHaveBeenLastCalledWith(
+      'include <dep.scad>\ncube(size);',
+      expect.objectContaining({
+        auxiliaryFiles: {
+          'dep.scad': 'size = 20;',
+        },
+      })
+    );
+    expect(renderService.render).toHaveBeenCalledTimes(1);
+    expect(hook.current().diagnostics).toEqual([]);
   });
 });

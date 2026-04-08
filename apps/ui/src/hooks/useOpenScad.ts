@@ -227,42 +227,8 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       setError('');
 
       try {
-        // Fast path: check cache BEFORE waiting for aux files to load.
-        // If the render result is already cached, return instantly (no file reload wait).
-        const auxFiles =
-          Object.keys(auxiliaryFilesRef.current).length > 0 ? auxiliaryFilesRef.current : undefined;
-        const cached = await renderServiceRef.current.getCached(code, {
-          view: dimension,
-          backend: 'manifold',
-          auxiliaryFiles: auxFiles,
-        });
-        // Only short-circuit on cached renders that actually contain displayable output.
-        // Empty 3D results for 2D code still need to flow through the dimension-fallback path.
-        if (cached && hasRenderableOutput(cached.output)) {
-          cacheHit = true;
-          setDimensionMode(resolvedDimension);
-          setDiagnostics(cached.diagnostics);
-          setPreviewKind(cached.kind);
-
-          const mimeType = cached.kind === 'mesh' ? 'text/plain;charset=utf-8' : 'image/svg+xml';
-          const blob = new Blob([cached.output], { type: mimeType });
-          const blobUrl = URL.createObjectURL(blob);
-          prevBlobUrlRef.current = blobUrl;
-          setPreviewSrc(blobUrl);
-          settledSnapshot = {
-            previewSrc: blobUrl,
-            previewKind: cached.kind,
-            diagnostics: cached.diagnostics,
-            error: '',
-            dimensionMode: resolvedDimension,
-          };
-
-          setIsRendering(false);
-          trackRenderCompleted(cached.diagnostics);
-          return settledSnapshot;
-        }
-
-        // Cache miss — wait for library files to finish loading
+        // Resolve the current dependency bundle before touching the cache so
+        // dependency-only edits invalidate cached renders correctly.
         await auxFilesPromiseRef.current;
 
         // Resolve working directory dependencies by parsing include/use statements
@@ -309,7 +275,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         // passed so the native renderer can avoid writing library files
         // into the project directory.
         const allAuxFiles = { ...libraryFiles, ...projectAuxFiles };
-        const result = await renderServiceRef.current.render(code, {
+        const renderOptions = {
           view: dimension,
           backend: 'manifold',
           auxiliaryFiles: Object.keys(allAuxFiles).length > 0 ? allAuxFiles : undefined,
@@ -317,7 +283,36 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
           libraryPaths: libraryPathsRef.current.length > 0 ? libraryPathsRef.current : undefined,
           inputPath: getProjectState().renderTargetPath ?? undefined,
           workingDir: workingDir || undefined,
-        });
+        } as const;
+
+        const cached = await renderServiceRef.current.getCached(code, renderOptions);
+        // Only short-circuit on cached renders that actually contain displayable output.
+        // Empty 3D results for 2D code still need to flow through the dimension-fallback path.
+        if (cached && hasRenderableOutput(cached.output)) {
+          cacheHit = true;
+          setDimensionMode(resolvedDimension);
+          setDiagnostics(cached.diagnostics);
+          setPreviewKind(cached.kind);
+
+          const mimeType = cached.kind === 'mesh' ? 'text/plain;charset=utf-8' : 'image/svg+xml';
+          const blob = new Blob([cached.output], { type: mimeType });
+          const blobUrl = URL.createObjectURL(blob);
+          prevBlobUrlRef.current = blobUrl;
+          setPreviewSrc(blobUrl);
+          settledSnapshot = {
+            previewSrc: blobUrl,
+            previewKind: cached.kind,
+            diagnostics: cached.diagnostics,
+            error: '',
+            dimensionMode: resolvedDimension,
+          };
+
+          setIsRendering(false);
+          trackRenderCompleted(cached.diagnostics);
+          return settledSnapshot;
+        }
+
+        const result = await renderServiceRef.current.render(code, renderOptions);
 
         setDimensionMode(resolvedDimension);
         setDiagnostics(result.diagnostics);
@@ -361,12 +356,8 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
 
             // Retry render with the opposite dimension
             const retryResult = await renderServiceRef.current.render(code, {
+              ...renderOptions,
               view: newDimension,
-              backend: 'manifold',
-              auxiliaryFiles:
-                Object.keys(auxiliaryFilesRef.current).length > 0
-                  ? auxiliaryFilesRef.current
-                  : undefined,
             });
 
             if (retryResult.output.length > 0) {
@@ -463,6 +454,19 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     ]
   );
 
+  // Debounced auto-render on idle
+  const autoRenderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRenderedSourceRef = useRef<string>(source);
+  const lastRenderedVersionRef = useRef<number>(contentVersion);
+
+  const markLatestRenderRequest = useCallback(
+    (nextSource: string) => {
+      lastRenderedSourceRef.current = nextSource;
+      lastRenderedVersionRef.current = contentVersion;
+    },
+    [contentVersion]
+  );
+
   /**
    * Render specific code immediately, bypassing debounce.
    * Use this when you have the code in hand and can't wait for the prop to update
@@ -470,19 +474,19 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
    */
   const renderCode = useCallback(
     (code: string, trigger: RenderTrigger = 'code_update') => {
-      lastRenderedSourceRef.current = code;
+      markLatestRenderRequest(code);
       return doRender(code, dimensionMode, trigger);
     },
-    [dimensionMode, doRender]
+    [dimensionMode, doRender, markLatestRenderRequest]
   );
 
   // Initial render when WASM is ready
   useEffect(() => {
     if (!suppressInitialRender && ready && source) {
-      lastRenderedSourceRef.current = source;
+      markLatestRenderRequest(source);
       void doRender(source, dimensionMode, 'initial');
     }
-  }, [ready, suppressInitialRender]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dimensionMode, doRender, markLatestRenderRequest, ready, source, suppressInitialRender]);
 
   // Function to clear preview (for when opening new files)
   const clearPreview = useCallback(() => {
@@ -495,29 +499,24 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
     setError('');
   }, []);
 
-  // Debounced auto-render on idle
-  const autoRenderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastRenderedSourceRef = useRef<string>(source);
-  const lastRenderedVersionRef = useRef<number>(contentVersion);
-
   // Manual render function (stable callback)
   const manualRender = useCallback(() => {
-    lastRenderedSourceRef.current = source;
+    markLatestRenderRequest(source);
     return doRender(source, dimensionMode, 'manual');
-  }, [source, dimensionMode, doRender]);
+  }, [source, dimensionMode, doRender, markLatestRenderRequest]);
 
   // Render on save function (stable callback)
   const renderOnSave = useCallback(() => {
-    lastRenderedSourceRef.current = source;
+    markLatestRenderRequest(source);
     return doRender(source, dimensionMode, 'save');
-  }, [source, dimensionMode, doRender]);
+  }, [source, dimensionMode, doRender, markLatestRenderRequest]);
 
   const renderWithTrigger = useCallback(
     (trigger: RenderTrigger) => {
-      lastRenderedSourceRef.current = source;
+      markLatestRenderRequest(source);
       return doRender(source, dimensionMode, trigger);
     },
-    [dimensionMode, doRender, source]
+    [dimensionMode, doRender, markLatestRenderRequest, source]
   );
 
   // contentVersion changes when ANY project file is mutated (including non-render-target

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useOpenScad, type RenderOwner, type RenderSnapshot } from './useOpenScad';
 import { useRenderRequestStore } from '../stores/renderRequestStore';
 import { useProjectStore } from '../stores/projectStore';
@@ -57,6 +57,17 @@ export function useRenderOrchestrator(options: UseRenderOrchestratorOptions) {
   // --- Process render requests from renderRequestStore ---
   const pendingRequest = useRenderRequestStore((s) => s.pendingRequest);
   const consumeRequest = useRenderRequestStore((s) => s.consumeRequest);
+  const lastRenderedSourceRef = useRef(source);
+  const lastRenderedVersionRef = useRef(contentVersion);
+  const autoRenderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const markLatestRenderRequest = useCallback(
+    (nextSource: string) => {
+      lastRenderedSourceRef.current = nextSource;
+      lastRenderedVersionRef.current = contentVersion;
+    },
+    [contentVersion]
+  );
 
   useEffect(() => {
     if (!pendingRequest || !ready) return;
@@ -65,22 +76,33 @@ export function useRenderOrchestrator(options: UseRenderOrchestratorOptions) {
     consumeRequest();
 
     if (code) {
+      markLatestRenderRequest(code);
       renderCode(code, trigger);
     } else if (immediate) {
+      markLatestRenderRequest(source);
       renderWithTrigger(trigger);
     }
     // Non-immediate requests without code are handled by the auto-render-on-idle
     // effect below (they bump contentVersion which triggers the debounce).
-  }, [pendingRequest, ready, consumeRequest, renderCode, renderWithTrigger]);
+  }, [
+    consumeRequest,
+    markLatestRenderRequest,
+    pendingRequest,
+    ready,
+    renderCode,
+    renderWithTrigger,
+    source,
+  ]);
 
   // --- Initial render on WASM ready ---
   const hasInitialRendered = useRef(false);
   useEffect(() => {
     if (ready && source && !suppressInitialRender && !hasInitialRendered.current) {
       hasInitialRendered.current = true;
+      markLatestRenderRequest(source);
       renderCode(source, 'initial');
     }
-  }, [ready, source, suppressInitialRender, renderCode]);
+  }, [markLatestRenderRequest, ready, renderCode, source, suppressInitialRender]);
 
   // --- Re-render when render target changes ---
   const renderTargetPath = useProjectStore((s) => s.renderTargetPath);
@@ -89,14 +111,12 @@ export function useRenderOrchestrator(options: UseRenderOrchestratorOptions) {
     if (!ready) return;
     if (renderTargetPath && renderTargetPath !== prevRenderTargetRef.current) {
       prevRenderTargetRef.current = renderTargetPath;
+      markLatestRenderRequest(source);
       renderWithTrigger('code_update');
     }
-  }, [renderTargetPath, ready, renderWithTrigger]);
+  }, [markLatestRenderRequest, ready, renderTargetPath, renderWithTrigger, source]);
 
   // --- Auto-render on idle (debounced) ---
-  const lastRenderedSourceRef = useRef(source);
-  const lastRenderedVersionRef = useRef(contentVersion);
-  const autoRenderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!autoRenderOnIdle || !ready) return;

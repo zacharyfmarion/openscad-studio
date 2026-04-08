@@ -81,6 +81,20 @@ async function takeLastPostedRenderRequest() {
   return { worker: worker!, request: request! };
 }
 
+async function waitForRenderRequestCount(expectedCount: number) {
+  const worker = mockWorkers.at(-1);
+  expect(worker).toBeDefined();
+
+  let requests = worker!.postedMessages.filter(isRenderRequest);
+  for (let attempt = 0; requests.length < expectedCount && attempt < 5; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    requests = worker!.postedMessages.filter(isRenderRequest);
+  }
+
+  expect(requests).toHaveLength(expectedCount);
+  return { worker: worker!, request: requests.at(-1)! };
+}
+
 beforeAll(() => {
   Object.defineProperty(globalThis, 'TextEncoder', {
     configurable: true,
@@ -221,6 +235,81 @@ describe('RenderService', () => {
       kind: 'svg',
       diagnostics: [],
     });
+  });
+
+  it('invalidates cached renders when an auxiliary file changes but the file count stays the same', async () => {
+    const service = new RenderService();
+    const initPromise = service.init();
+    mockWorkers[0].emitMessage({ type: 'ready' });
+    await initPromise;
+
+    const firstRender = service.render('include <dep.scad>\ncube(size);', {
+      view: '3d',
+      auxiliaryFiles: {
+        'dep.scad': 'size = 10;',
+      },
+    });
+    const firstPosted = await takeLastPostedRenderRequest();
+    firstPosted.worker.emitMessage({
+      type: 'result',
+      id: firstPosted.request.id,
+      output: new Uint8Array([1]),
+      stderr: '',
+    });
+    await firstRender;
+
+    const secondRender = service.render('include <dep.scad>\ncube(size);', {
+      view: '3d',
+      auxiliaryFiles: {
+        'dep.scad': 'size = 20;',
+      },
+    });
+    const secondPosted = await waitForRenderRequestCount(2);
+    secondPosted.worker.emitMessage({
+      type: 'result',
+      id: secondPosted.request.id,
+      output: new Uint8Array([2]),
+      stderr: '',
+    });
+
+    await expect(secondRender).resolves.toEqual<RenderResult>({
+      output: new Uint8Array([2]),
+      kind: 'mesh',
+      diagnostics: [],
+    });
+  });
+
+  it('invalidates cached renders when the render target path changes', async () => {
+    const service = new RenderService();
+    const initPromise = service.init();
+    mockWorkers[0].emitMessage({ type: 'ready' });
+    await initPromise;
+
+    const firstRender = service.render('include <dep.scad>\ncube(size);', {
+      view: '3d',
+      inputPath: 'variants/a/main.scad',
+      auxiliaryFiles: {
+        'variants/a/dep.scad': 'size = 10;',
+      },
+    });
+    const posted = await takeLastPostedRenderRequest();
+    posted.worker.emitMessage({
+      type: 'result',
+      id: posted.request.id,
+      output: new Uint8Array([3]),
+      stderr: '',
+    });
+    await firstRender;
+
+    await expect(
+      service.getCached('include <dep.scad>\ncube(size);', {
+        view: '3d',
+        inputPath: 'variants/b/main.scad',
+        auxiliaryFiles: {
+          'variants/b/dep.scad': 'size = 10;',
+        },
+      })
+    ).resolves.toBeNull();
   });
 
   it('converts export validation failures into ExportValidationError and supports binary STL export', async () => {

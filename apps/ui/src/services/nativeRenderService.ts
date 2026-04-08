@@ -15,6 +15,7 @@ import {
   type SyntaxCheckResult,
   type Diagnostic,
   RenderCache,
+  generateRenderCacheKey,
   parseOpenScadStderr,
 } from './renderService';
 import { createExportValidationError } from './exportErrors';
@@ -75,9 +76,7 @@ export class NativeRenderService implements IRenderService {
    * Check if a render result is already cached.
    */
   async getCached(code: string, options: RenderOptions = {}): Promise<RenderResult | null> {
-    const { view = '3d', backend = 'manifold', auxiliaryFiles } = options;
-    const auxFileCount = auxiliaryFiles ? Object.keys(auxiliaryFiles).length : 0;
-    const cacheKey = await this.cache.generateKey(code, backend, view, auxFileCount);
+    const cacheKey = await generateRenderCacheKey(code, options);
     const cached = this.cache.get(cacheKey);
     if (cached) {
       return {
@@ -103,8 +102,7 @@ export class NativeRenderService implements IRenderService {
     } = options;
 
     // Check cache
-    const auxFileCount = auxiliaryFiles ? Object.keys(auxiliaryFiles).length : 0;
-    const cacheKey = await this.cache.generateKey(code, backend, view, auxFileCount);
+    const cacheKey = await generateRenderCacheKey(code, options);
     const cached = this.cache.get(cacheKey);
     if (cached) {
       return {
