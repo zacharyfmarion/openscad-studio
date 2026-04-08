@@ -26,4 +26,4 @@ Fix stale renders when imported or included files change by making cache invalid
 - [x] Resolve dependencies before cache lookup in `useOpenScad` and sync manual render version tracking.
 - [x] Add regression tests for dependency-content and input-path cache invalidation.
 - [x] Run targeted tests plus `scripts/validate-changes.sh` for the changed scope.
-- [ ] Commit, push, open a draft PR against `main`, and report the preview URL if applicable.
+- [x] Commit, push, open a draft PR against `main`, and report the preview URL if applicable.
