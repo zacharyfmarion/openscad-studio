@@ -65,6 +65,7 @@ import { DEFAULT_TAB_NAME, DEFAULT_OPENSCAD_CODE } from './stores/workspaceFacto
 import { formatOpenScadCode } from './utils/formatter';
 import { addRecentFile, addRecentFolder, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview } from './utils/capturePreview';
+import { getAiErrorHandling } from './utils/aiErrors';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { exportProjectZip } from './utils/projectZip';
 import { getRelativeProjectPath } from './utils/projectFilePaths';
@@ -2205,10 +2206,13 @@ function App() {
 
   useEffect(() => {
     if (aiError) {
+      const handling = getAiErrorHandling(aiErrorObject ?? aiError, 'AI request failed');
+
       notifyError({
         operation: 'ai-stream',
         error: aiErrorObject ?? aiError,
-        displayMessage: aiError,
+        capture: handling.capture,
+        displayMessage: handling.displayMessage,
         fallbackMessage: 'AI request failed',
         toastId: 'ai-stream-error',
       });

@@ -198,7 +198,7 @@ test.describe('AI Chat Panel', () => {
 
     await expect(app.aiTranscript).toContainText('I started working on this.', { timeout: 5000 });
     await expect(app.aiTranscript).toContainText('Stopped due to error');
-    await expect(app.page.getByText('Failed: Upstream exploded')).toBeVisible({ timeout: 5000 });
+    await expect(app.page.getByText('Upstream exploded')).toBeVisible({ timeout: 5000 });
   });
 
   test('flushes text buffered at finish-step even without a trailing text-end event', async ({

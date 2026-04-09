@@ -10,6 +10,7 @@ import {
   SelectGroup,
   SelectLabel,
 } from './ui';
+import { getAiErrorHandling } from '../utils/aiErrors';
 import { notifyError } from '../utils/notifications';
 
 interface ModelSelectorProps {
@@ -36,9 +37,13 @@ export function ModelSelector({
   useEffect(() => {
     if (!error) return;
 
+    const handling = getAiErrorHandling(error, 'Failed to refresh models');
+
     notifyError({
       operation: 'refresh-models',
       error,
+      capture: handling.capture,
+      displayMessage: handling.displayMessage,
       fallbackMessage: 'Failed to refresh models',
       toastId: 'refresh-models-error',
     });
