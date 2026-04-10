@@ -401,7 +401,6 @@ export function SvgViewer({
   const themeColors = useMemo(
     () => ({
       background: theme.colors.bg.primary,
-      documentBackground: theme.colors.bg.secondary,
       minorGrid: sceneStyle.axis.tickColor,
       majorGrid: theme.colors.border.secondary,
       xAxis: sceneStyle.axis.xColor,
@@ -1409,15 +1408,6 @@ export function SvgViewer({
                       ))}
                     </g>
                   ) : null}
-
-                  <rect
-                    data-testid="preview-2d-document-backdrop"
-                    x={loadedDocument.metrics.contentBounds.minX}
-                    y={loadedDocument.metrics.contentBounds.minY}
-                    width={loadedDocument.metrics.contentBounds.width}
-                    height={loadedDocument.metrics.contentBounds.height}
-                    fill={themeColors.documentBackground}
-                  />
 
                   <g data-preview-svg dangerouslySetInnerHTML={{ __html: loadedDocument.markup }} />
 

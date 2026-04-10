@@ -68,6 +68,40 @@ describe('svg viewer helpers', () => {
     expect(parsed.markup).not.toContain('fill="lightgray"');
   });
 
+  it('replaces default inline style fills with the provided theme color', () => {
+    const parsed = parseSvgMetrics(
+      `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">
+          <path d="M 0,0 L 20,0 L 20,10 z" style="fill:lightgray;stroke:#000000" />
+        </svg>
+      `,
+      {
+        defaultFillColor: '#2aa198',
+      }
+    );
+
+    expect(parsed.markup).toContain('style="fill:#2aa198;stroke:#000000"');
+    expect(parsed.markup).toContain('fill="#2aa198"');
+    expect(parsed.markup).not.toContain('fill:lightgray');
+  });
+
+  it('replaces transparent inline style fills with the provided theme color', () => {
+    const parsed = parseSvgMetrics(
+      `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">
+          <path d="M 0,0 L 20,0 L 20,10 z" style="fill:none;stroke:#000000" />
+        </svg>
+      `,
+      {
+        defaultFillColor: '#2aa198',
+      }
+    );
+
+    expect(parsed.markup).toContain('style="fill:#2aa198;stroke:#000000"');
+    expect(parsed.markup).toContain('fill="#2aa198"');
+    expect(parsed.markup).not.toContain('fill:none');
+  });
+
   it('keeps explicit non-default style fills intact when a theme fill is provided', () => {
     const parsed = parseSvgMetrics(
       `

@@ -64,6 +64,12 @@ const openScadDefaultFillSvg = `
   </svg>
 `;
 
+const openScadStyledTransparentFillSvg = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">
+    <path d="M 0,0 L 20,0 L 20,10 z" style="fill:none;stroke:#000000" />
+  </svg>
+`;
+
 const offOriginSvg = `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -25 100 50">
     <rect x="-50" y="-25" width="100" height="50" fill="#000000" />
@@ -182,7 +188,26 @@ describe('SvgViewer', () => {
     expect(renderedSvg?.querySelector('path')?.getAttribute('fill')).toBe('#0c4358');
   });
 
-  it('renders the document backdrop, grid, and axes behind the SVG geometry', async () => {
+  it('rewrites transparent inline fills so desktop-style SVG output paints the actual shape', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      headers: { get: () => 'image/svg+xml' },
+      text: async () => openScadStyledTransparentFillSvg,
+    });
+
+    renderViewer('blob:openscad-styled-transparent-fill');
+
+    const renderedSvg = (await screen.findByTestId('preview-2d-stage')).querySelector(
+      '[data-preview-svg] svg'
+    ) as SVGSVGElement | null;
+    const renderedPath = renderedSvg?.querySelector('path');
+
+    expect(renderedPath?.getAttribute('fill')).toBe('#0c4358');
+    expect(renderedPath?.getAttribute('style')).toContain('fill:#0c4358');
+    expect(renderedPath?.getAttribute('style')).not.toContain('fill:none');
+  });
+
+  it('renders the grid and axes behind the SVG geometry so fills stay visually opaque', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       headers: { get: () => 'image/svg+xml' },
@@ -195,16 +220,13 @@ describe('SvgViewer', () => {
     const children = Array.from(stage.children).map((element) =>
       element.hasAttribute('data-preview-svg') ? 'geometry' : element.getAttribute('data-testid')
     );
-    const backdrop = screen.getByTestId('preview-2d-document-backdrop');
 
     expect(children).toEqual([
       'preview-2d-grid-overlay',
       'preview-2d-axis-overlay',
-      'preview-2d-document-backdrop',
       'geometry',
       'preview-2d-overlay',
     ]);
-    expect(backdrop.getAttribute('fill')).toBe('#073642');
   });
 
   it('starts off-origin SVG documents centered with a native SVG transform', async () => {

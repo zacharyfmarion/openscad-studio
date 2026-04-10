@@ -55,21 +55,76 @@ function normalizeColorToken(value: string | null): string | null {
   return value.replace(/\s+/g, '').toLowerCase();
 }
 
+function parseStyleDeclarations(styleValue: string | null) {
+  if (!styleValue) {
+    return [];
+  }
+
+  return styleValue
+    .split(';')
+    .map((declaration) => declaration.trim())
+    .filter(Boolean)
+    .map((declaration) => {
+      const separatorIndex = declaration.indexOf(':');
+      if (separatorIndex === -1) {
+        return null;
+      }
+
+      return {
+        property: declaration.slice(0, separatorIndex).trim(),
+        value: declaration.slice(separatorIndex + 1).trim(),
+      };
+    })
+    .filter((declaration): declaration is { property: string; value: string } => !!declaration);
+}
+
+function serializeStyleDeclarations(declarations: Array<{ property: string; value: string }>) {
+  if (declarations.length === 0) {
+    return null;
+  }
+
+  return declarations
+    .map((declaration) => `${declaration.property}:${declaration.value}`)
+    .join(';');
+}
+
+function getStyleDeclarationValue(styleValue: string | null, propertyName: string) {
+  const targetProperty = propertyName.toLowerCase();
+  const declaration = parseStyleDeclarations(styleValue).find(
+    (entry) => entry.property.toLowerCase() === targetProperty
+  );
+
+  return declaration?.value ?? null;
+}
+
+function upsertStyleDeclaration(
+  styleValue: string | null,
+  propertyName: string,
+  nextValue: string
+) {
+  const targetProperty = propertyName.toLowerCase();
+  const declarations = parseStyleDeclarations(styleValue);
+  const existing = declarations.find((entry) => entry.property.toLowerCase() === targetProperty);
+
+  if (existing) {
+    existing.value = nextValue;
+  } else {
+    declarations.push({ property: propertyName, value: nextValue });
+  }
+
+  return serializeStyleDeclarations(declarations);
+}
+
 function styleContainsExplicitNonDefaultFill(styleValue: string | null) {
   if (!styleValue) {
     return false;
   }
 
-  const fillDeclaration = styleValue
-    .split(';')
-    .map((declaration) => declaration.trim())
-    .find((declaration) => declaration.toLowerCase().startsWith('fill:'));
-
-  if (!fillDeclaration) {
+  const fillValue = normalizeColorToken(getStyleDeclarationValue(styleValue, 'fill'));
+  if (!fillValue) {
     return false;
   }
 
-  const fillValue = normalizeColorToken(fillDeclaration.slice(fillDeclaration.indexOf(':') + 1));
   return !!fillValue && fillValue !== 'none' && !OPENSCAD_DEFAULT_FILL_VALUES.has(fillValue);
 }
 
@@ -85,16 +140,32 @@ function shouldApplyDefaultFill(
     return false;
   }
 
+  const styleFillValue = normalizeColorToken(
+    getStyleDeclarationValue(geometryElement.getAttribute('style'), 'fill')
+  );
+  if (styleFillValue && styleFillValue !== 'none') {
+    return OPENSCAD_DEFAULT_FILL_VALUES.has(styleFillValue);
+  }
+
   const fillValue = normalizeColorToken(geometryElement.getAttribute('fill'));
   if (!fillValue) {
     return true;
   }
 
-  if (fillValue === 'none') {
-    return false;
-  }
+  return fillValue === 'none' || OPENSCAD_DEFAULT_FILL_VALUES.has(fillValue);
+}
 
-  return OPENSCAD_DEFAULT_FILL_VALUES.has(fillValue);
+function applyDefaultFill(geometryElement: Element, defaultFillColor: string) {
+  geometryElement.setAttribute('fill', defaultFillColor);
+
+  const nextStyleValue = upsertStyleDeclaration(
+    geometryElement.getAttribute('style'),
+    'fill',
+    defaultFillColor
+  );
+  if (nextStyleValue) {
+    geometryElement.setAttribute('style', nextStyleValue);
+  }
 }
 
 function isValidBounds(bounds: SvgBounds | null): bounds is SvgBounds {
@@ -186,7 +257,7 @@ export function parseSvgMetrics(
 
   for (const geometryElement of geometryElements) {
     if (shouldApplyDefaultFill(geometryElement, options.defaultFillColor)) {
-      geometryElement.setAttribute('fill', options.defaultFillColor);
+      applyDefaultFill(geometryElement, options.defaultFillColor);
     }
 
     if (!geometryElement.hasAttribute('vector-effect')) {
