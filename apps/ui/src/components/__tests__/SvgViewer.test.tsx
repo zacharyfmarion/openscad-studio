@@ -182,7 +182,7 @@ describe('SvgViewer', () => {
     expect(renderedSvg?.querySelector('path')?.getAttribute('fill')).toBe('#0c4358');
   });
 
-  it('renders the grid and axes behind the SVG geometry so fills stay visually opaque', async () => {
+  it('renders the document backdrop, grid, and axes behind the SVG geometry', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       headers: { get: () => 'image/svg+xml' },
@@ -195,13 +195,16 @@ describe('SvgViewer', () => {
     const children = Array.from(stage.children).map((element) =>
       element.hasAttribute('data-preview-svg') ? 'geometry' : element.getAttribute('data-testid')
     );
+    const backdrop = screen.getByTestId('preview-2d-document-backdrop');
 
     expect(children).toEqual([
       'preview-2d-grid-overlay',
       'preview-2d-axis-overlay',
+      'preview-2d-document-backdrop',
       'geometry',
       'preview-2d-overlay',
     ]);
+    expect(backdrop.getAttribute('fill')).toBe('#073642');
   });
 
   it('starts off-origin SVG documents centered with a native SVG transform', async () => {
