@@ -4,7 +4,7 @@ import { jest } from '@jest/globals';
 import { openFileInWindow, openWorkspaceFolderInWindow } from '../windowOpenService';
 import { getProjectStore } from '../../stores/projectStore';
 import { getRenderRequestStore } from '../../stores/renderRequestStore';
-import { DEFAULT_TAB_NAME } from '../../stores/workspaceFactories';
+import { DEFAULT_OPENSCAD_CODE, DEFAULT_TAB_NAME } from '../../stores/workspaceFactories';
 import {
   getWorkspaceState,
   resetWorkspaceStore,
@@ -64,6 +64,52 @@ describe('windowOpenService', () => {
       trigger: 'file_open',
       immediate: true,
     });
+  });
+
+  it('creates main.scad when opening an empty desktop workspace folder', async () => {
+    const platform = {
+      capabilities: { hasFileSystem: true },
+      createDirectory: jest.fn(async () => {}),
+      readDirectoryFiles: jest.fn(async () => ({})),
+      readSubdirectories: jest.fn(async () => []),
+      writeTextFile: jest.fn(async () => {}),
+    };
+
+    const result = await openWorkspaceFolderInWindow('/tmp/empty-workspace', { platform });
+
+    expect(platform.createDirectory).toHaveBeenCalledWith('/tmp/empty-workspace');
+    expect(platform.writeTextFile).toHaveBeenCalledWith(
+      '/tmp/empty-workspace/main.scad',
+      DEFAULT_OPENSCAD_CODE
+    );
+    expect(result).toMatchObject({
+      workspaceRoot: '/tmp/empty-workspace',
+      renderTargetPath: 'main.scad',
+      fileCount: 1,
+      createdDefaultFile: true,
+      emptyFolders: [],
+    });
+    expect(getProjectStore().getState().files['main.scad']?.content).toBe(DEFAULT_OPENSCAD_CODE);
+    expect(getWorkspaceState().tabs[0]?.filePath).toBe('/tmp/empty-workspace/main.scad');
+  });
+
+  it('preserves strict empty-folder errors when createIfEmpty is disabled', async () => {
+    const platform = {
+      capabilities: { hasFileSystem: true },
+      createDirectory: jest.fn(async () => {}),
+      readDirectoryFiles: jest.fn(async () => ({})),
+      readSubdirectories: jest.fn(async () => []),
+      writeTextFile: jest.fn(async () => {}),
+    };
+
+    await expect(
+      openWorkspaceFolderInWindow('/tmp/strict-empty', {
+        platform,
+        createIfEmpty: false,
+      })
+    ).rejects.toThrow('No .scad files found in the selected folder');
+
+    expect(platform.writeTextFile).not.toHaveBeenCalled();
   });
 
   it('reuses an already-open file tab instead of duplicating the workspace', async () => {

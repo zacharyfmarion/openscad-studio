@@ -144,9 +144,10 @@ export async function openWorkspaceFolderInWindow(
   options: OpenWorkspaceFolderOptions = {}
 ): Promise<OpenWorkspaceFolderResult> {
   const platform = options.platform ?? getPlatform();
+  const shouldCreateIfEmpty = options.createIfEmpty ?? platform.capabilities.hasFileSystem;
 
   const workspace = await loadWorkspaceFolder(platform, dirPath, {
-    createIfEmpty: options.createIfEmpty,
+    createIfEmpty: shouldCreateIfEmpty,
   });
 
   const activeTabId = hydrateWindowWorkspace({
