@@ -14,6 +14,7 @@ The top-level `README.md` is user-facing. Keep it focused on product overview, i
 - **Desktop Runtime**: Rust + Tauri for native shell features, packaging, and filesystem access
 - **Rendering**: Web uses openscad-wasm via Web Worker; desktop uses a bundled native OpenSCAD binary via Tauri IPC
 - **AI Agent**: TypeScript with Vercel AI SDK (`streamText`)
+- **External Agent Bridge (desktop)**: Tauri-hosted localhost MCP server bound to workspace windows
 - **Web Deployment**: Cloudflare Pages
 - **Package Manager**: pnpm (monorepo workspace)
 
@@ -101,6 +102,9 @@ React Frontend (TypeScript)
 └──────────────────────────┴──────────────────────────┘
     ↓
 Vercel AI SDK → Anthropic/OpenAI API (HTTPS)
+
+Desktop-only external agent path:
+Local MCP client → Tauri MCP server (`mcp.rs`) → active workspace window bridge
 ```
 
 ### Key Design Patterns
@@ -113,13 +117,14 @@ Vercel AI SDK → Anthropic/OpenAI API (HTTPS)
    - Interactive STL/3D mesh for manipulation
    - SVG for 2D designs
 
-4. **Shared Client-Side AI**: Both web and desktop use the same frontend AI stack. Requests are made directly from the React app with Vercel AI SDK's `streamText`, and API keys are currently stored in local storage state inside the browser/webview.
+4. **Shared Client-Side AI**: Both web and desktop use the same frontend AI stack for the in-app copilot. Requests are made directly from the React app with Vercel AI SDK's `streamText`, and API keys are currently stored in local storage state inside the browser/webview.
 
 5. **Diff-based AI Editing**: AI returns exact string replacements, not full file rewrites.
 
 6. **Content-hash Caching**: SHA-256 of source + params → cached artifact path. Avoids redundant renders.
 
 7. **Platform Bridge**: Components use a `PlatformBridge` interface (`apps/ui/src/platform/types.ts`) and never import Tauri or web-specific APIs directly.
+8. **Desktop MCP Bridge**: Desktop builds can expose a loopback-only MCP server from Tauri that binds external-agent sessions to a specific Studio window and routes render/diagnostic/screenshot/export requests through the frontend bridge.
 
 ## Important Files
 
@@ -145,6 +150,7 @@ Vercel AI SDK → Anthropic/OpenAI API (HTTPS)
 ### Services
 
 - **`apps/ui/src/services/aiService.ts`**: AI agent using Vercel AI SDK (`streamText`). Handles streaming, tool calls, multi-turn conversations.
+- **`apps/ui/src/services/desktopMcp.ts`**: Desktop MCP bridge. Connects the Tauri localhost MCP server to the active workspace window and implements external-agent render, screenshot, diagnostics, and export handlers.
 - **`apps/ui/src/services/renderService.ts`**: Render orchestration — manages Web Worker communication, caching, diagnostics.
 - **`apps/ui/src/services/openscad-worker.ts`**: Web Worker that loads openscad-wasm and handles render requests off the main thread.
 - **`apps/ui/src/services/nativeRenderService.ts`**: Native OpenSCAD binary IPC bridge (desktop only). Communicates with the Tauri backend to invoke the bundled binary.
@@ -160,6 +166,7 @@ Vercel AI SDK → Anthropic/OpenAI API (HTTPS)
 
 - **`apps/ui/src-tauri/src/lib.rs`**: Tauri app initialization, command registration.
 - **`apps/ui/src-tauri/src/cmd/render.rs`**: Native render workspace management, binary invocation, and output collection.
+- **`apps/ui/src-tauri/src/mcp.rs`**: Desktop localhost MCP server, session/window binding, and request routing for external agents.
 
 ## Development Workflow
 
@@ -287,6 +294,12 @@ pnpm validate:changes   # Run the shared validation helper
 - **Workspace management**: Source files are written to a temporary render workspace so the native binary can resolve `include`/`use` paths and multi-file projects.
 - **Diagnostics**: Stderr from the native binary is captured and parsed using the same TypeScript diagnostics pipeline as the WASM path.
 
+### Desktop MCP (External Agents)
+
+- **Loopback-only server**: Desktop builds can run a localhost MCP endpoint, configured in Settings → External Agents.
+- **Window binding**: Each MCP session binds to a specific Studio workspace window so external-agent actions stay scoped.
+- **Tool routing**: MCP requests are mediated by Tauri and fulfilled in the frontend bridge (`desktopMcp.ts`), not by a separate backend AI loop.
+
 ### Performance
 
 - **Debounced rendering**: 300ms debounce on code changes (configurable)
@@ -301,7 +314,7 @@ pnpm validate:changes   # Run the shared validation helper
 
 ## Current Status
 
-### Current Capabilities (v1.0.1)
+### Current Capabilities (v1.2.0)
 
 ✅ Monaco editor with OpenSCAD syntax highlighting
 ✅ Live STL/SVG preview (web: openscad-wasm, desktop: native binary)
@@ -331,6 +344,7 @@ pnpm validate:changes   # Run the shared validation helper
 ✅ Multi-file project support with file tree, tabs, and include/use resolution
 ✅ Auto-created project directories on desktop
 ✅ Native OpenSCAD binary bundling for desktop (faster rendering, full filesystem access)
+✅ Desktop External Agents settings with localhost MCP access
 
 ### Planned
 
@@ -390,5 +404,5 @@ pnpm validate:changes   # Run the shared validation helper
 
 ---
 
-**Last Updated**: 2026-04-05
-**Current Version**: v1.0.1 — Web + Desktop
+**Last Updated**: 2026-04-12
+**Current Version**: v1.2.0 — Web + Desktop

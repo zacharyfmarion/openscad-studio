@@ -4,7 +4,7 @@
 >
 > OpenSCAD is the engine, not the product. The product is: you describe what you want, it makes it, you print it.
 
-**Current version**: v1.0.1 | **Last updated**: 2026-04-05
+**Current version**: v1.2.0 | **Last updated**: 2026-04-12
 
 This roadmap mixes shipped milestones with future planning. Older sections may describe the implementation assumptions that existed when they were written rather than the current client-side `openscad-wasm` architecture.
 
@@ -20,7 +20,7 @@ This roadmap mixes shipped milestones with future planning. Older sections may d
 
 ---
 
-## What We Have (v1.0.1)
+## What We Have (v1.2.0)
 
 | Area                                                                                  | Status |
 | ------------------------------------------------------------------------------------- | ------ |

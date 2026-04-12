@@ -7,8 +7,8 @@ This document describes the AI system that is currently implemented in OpenSCAD 
 OpenSCAD Studio runs the AI copilot entirely on the client side.
 
 - The same React/TypeScript AI stack is used in both the standalone web app and the Tauri desktop app.
-- Tauri provides desktop shell features such as native file dialogs and filesystem access, but it does not proxy or execute AI requests.
-- Model requests are made from the frontend with the Vercel AI SDK.
+- Model requests are still made directly from the frontend with the Vercel AI SDK.
+- Tauri provides desktop shell features such as native file dialogs, filesystem access, native rendering, and a desktop-only localhost MCP bridge for external agents.
 - OpenSCAD rendering is client-side: web uses `openscad-wasm` in a Web Worker, while the desktop app uses a bundled native OpenSCAD binary invoked via Tauri IPC commands.
 
 The top-level `README.md` is user-facing. Keep it focused on product-level information and avoid turning it into an engineering index; architecture, roadmap, analytics, and implementation details should live in assistant/developer docs instead.
@@ -65,6 +65,7 @@ Desktop-only shell services:
 │ ├── native menus                                            │
 │ ├── file open/save/export commands                          │
 │ ├── native OpenSCAD binary rendering (render.rs)            │
+│ ├── localhost MCP server for external agents (mcp.rs)       │
 │ ├── working-directory/history helpers                       │
 │ └── desktop packaging/runtime                               │
 └─────────────────────────────────────────────────────────────┘
@@ -112,7 +113,7 @@ Relevant code:
 4. Streaming text and tool calls update the transcript in real time.
 5. Tool execution happens locally in the frontend.
 
-There is no Rust AI transport layer, no Tauri AI IPC command, and no backend conversation loop.
+The in-app copilot still has no Rust-side model transport or backend conversation loop. Desktop builds now also expose a localhost MCP server from Tauri for external-agent workflows, with requests bridged into the active workspace window.
 
 ### Provider selection
 
@@ -139,6 +140,7 @@ The client-side AI agent currently exposes these tools through `aiService.ts`:
 - `set_render_target`
 - `get_diagnostics`
 - `trigger_render`
+- `set_measurement_unit`
 
 All tool execution is implemented in TypeScript and runs inside the app frontend.
 
@@ -159,6 +161,7 @@ All tool execution is implemented in TypeScript and runs inside the app frontend
 - native menus
 - desktop packaging/runtime
 - native OpenSCAD binary rendering
+- localhost MCP endpoint for external agents
 - multi-file project directory management
 - library path resolution
 
