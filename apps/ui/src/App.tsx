@@ -80,6 +80,7 @@ import { normalizeAppError, notifyError, notifySuccess } from './utils/notificat
 import { exportProjectZip } from './utils/projectZip';
 import { getRelativeProjectPath } from './utils/projectFilePaths';
 import { generateRandomProjectName } from './utils/projectNaming';
+import { resolveFolderImport } from './utils/folderImport';
 import { useShareEntry } from './hooks/useShareEntry';
 import { TbBrandGithub, TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
 import { Toaster } from 'sonner';
@@ -88,7 +89,6 @@ import type { WorkspaceTab as WorkspaceDocumentTab } from './stores/workspaceTyp
 import {
   OPENSCAD_PROJECT_FILE_EXTENSIONS,
   isOpenScadProjectFilePath,
-  pickOpenScadRenderTarget,
 } from '../../../packages/shared/src/openscadProjectFiles';
 
 const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
@@ -133,13 +133,12 @@ function pickFolder(): Promise<{ files: Record<string, string>; renderTargetPath
         }
       }
 
-      const renderTargetPath = pickOpenScadRenderTarget(Object.keys(files), null, workspaceName);
-      if (!renderTargetPath) {
-        resolve(null);
-        return;
-      }
-
-      resolve({ files, renderTargetPath });
+      resolve(
+        resolveFolderImport(files, {
+          workspaceName,
+          createIfEmpty: true,
+        })
+      );
     };
     input.oncancel = () => resolve(null);
     input.click();
