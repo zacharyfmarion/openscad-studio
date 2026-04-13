@@ -5,7 +5,7 @@
 <h1 align="center">OpenSCAD Studio</h1>
 
 <p align="center">
-  <strong>A modern OpenSCAD editor with live preview and AI copilot for the web and macOS desktop</strong>
+  <strong>From idea to 3D printed part in seconds</strong>
 </p>
 
 <p align="center">
@@ -26,24 +26,32 @@
   <img src="images/example.png" alt="OpenSCAD Studio Screenshot" width="100%">
 </p>
 
-## ✨ Motivation
+## 🔩 What It Is
 
-As a software engineer and maker hobbyist, I love OpenSCAD. It allows for precision and maps to my mental model of building things. However, some operations (like rounding with `minkowski`) are not very intuitive. At work, I often use Cursor and Claude Code for writing code, and found myself plugging my OpenSCAD code into ChatGPT in order to either (1) scaffold out a starting point or (2) fix a confusing issue in my code. I also became frustrated by certain limitations of the OpenSCAD editor, like not being able to easily indent code with the editor commands I'm used to. So I built OpenSCAD Studio, which aims to be something like a Cursor for the language.
+OpenSCAD Studio is a professional editor for OpenSCAD — the programmable solid 3D and 2D CAD modeler. It replaces the stock OpenSCAD editor with a modern development environment purpose-built for makers: live preview, real-time diagnostics, an AI copilot, and a full multi-file project workflow.
 
-## Features
+## ✨ Features
 
-- 🌐 **Web app** - Use directly in your browser at [openscad-studio.pages.dev](https://openscad-studio.pages.dev) — no install needed
-- 🤖 **AI copilot** - Chat with Claude/GPT to generate and fix code (bring your own API key)
-- 🎨 **Modern editor** - OpenSCAD syntax highlighting, multi-tab editing, formatter support, and vim mode
-- 📐 **2D mode** - Dedicated SVG viewer for laser cutting and engraving
-- 🖼️ **Live 3D preview** - Interactive mesh viewer with orbit controls, section planes, measurements, and content-hash caching
-- 🔍 **Real-time diagnostics** - Inline error markers with line/column precision
-- ⚙️ **Customizer panel** - Interactive controls for OpenSCAD parameters with auto-rendering
-- 🔗 **Share links** - Publish browser-based share links with thumbnail support for remixable examples
-- 📁 **Multi-file projects** - File tree, multiple tabs, include/use resolution, and auto-created project directories (desktop)
-- 🌈 **Theme library** - 27 built-in themes including Solarized, Dracula, GitHub, Nord, Tokyo Night, Catppuccin, and more
+### Editor
+- **Multi-file projects** — File tree, multiple tabs, and `include`/`use` path resolution against the project root (desktop)
+- **Real-time diagnostics** — Inline error and warning markers with line/column precision parsed directly from the OpenSCAD compiler
+- **Monaco-based editing** — OpenSCAD syntax highlighting, multi-tab support, formatter, and vim mode with configurable keybindings
 
-**Limitations:** Special operators (!, #, %, \*) preview not yet implemented
+### Preview
+- **Live 3D preview** — Interactive mesh viewer with orbit controls, orthographic mode, wireframe, shadows, and section planes
+- **2D mode** — Dedicated SVG viewer for laser cutting and engraving workflows
+- **Measurement tools** — In-canvas 2D and 3D measurement overlays
+- **Customizer panel** — Interactive parameter controls auto-generated from your OpenSCAD file, with live re-rendering on change
+
+### AI Copilot
+- **In-app chat** — Stream responses from Claude or GPT to generate, explain, and fix OpenSCAD code (bring your own API key)
+- **MCP support (desktop)** — Exposes a localhost MCP server so external agents like [Claude Code](https://claude.ai/code) can render models, read diagnostics, capture screenshots, and edit files in your active workspace
+
+### Platform
+- **Runs everywhere** — Web app at [openscad-studio.pages.dev](https://openscad-studio.pages.dev) and macOS desktop app 
+- **Share links** — Publish browser-based share links with thumbnail previews for remixable examples
+
+**Known limitation:** Special operators (`!`, `#`, `%`, `*`) are not yet reflected in the preview.
 
 ## 📦 Installation
 
