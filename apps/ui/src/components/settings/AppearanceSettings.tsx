@@ -63,7 +63,7 @@ export function AppearanceSettings({
             variant="secondary"
             onClick={() => {
               analytics.track('workspace layout selected', {
-                preset: settings.ui.defaultLayoutPreset,
+                layout: settings.ui.defaultLayoutPreset,
                 source: 'layout_reset' satisfies LayoutSelectionSource,
                 is_first_run: false,
               });

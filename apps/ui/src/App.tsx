@@ -1481,7 +1481,7 @@ function App() {
       updateSetting('ui', { hasCompletedNux: true, defaultLayoutPreset: preset });
       setShowNux(false);
       analytics.track('workspace layout selected', {
-        preset,
+        layout: preset,
         source: 'nux' satisfies LayoutSelectionSource,
         is_first_run: true,
       });
@@ -1507,7 +1507,7 @@ function App() {
 
       if (changed) {
         analytics.track('workspace layout selected', {
-          preset,
+          layout: preset,
           source: 'header' satisfies LayoutSelectionSource,
           is_first_run: false,
         });

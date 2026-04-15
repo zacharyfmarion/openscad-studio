@@ -156,7 +156,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
       saveSettings(updated);
       if (changed) {
         analytics.track('workspace layout selected', {
-          preset,
+          layout: preset,
           source: 'settings' satisfies LayoutSelectionSource,
           is_first_run: false,
         });

@@ -254,7 +254,7 @@ describe('SettingsDialog privacy copy', () => {
     expect(mockTrack).toHaveBeenCalledWith(
       'workspace layout selected',
       expect.objectContaining({
-        preset: 'customizer-first',
+        layout: 'customizer-first',
         source: 'settings',
         is_first_run: false,
       })
@@ -262,7 +262,7 @@ describe('SettingsDialog privacy copy', () => {
     expect(mockTrack).toHaveBeenCalledWith(
       'workspace layout selected',
       expect.objectContaining({
-        preset: 'customizer-first',
+        layout: 'customizer-first',
         source: 'layout_reset',
         is_first_run: false,
       })
