@@ -77,5 +77,25 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    files: ['**/*.{ts,tsx}'],
+    ignores: [
+      'src/services/renderService.ts',
+      'src/services/nativeRenderService.ts',
+      'src/services/exportService.ts',
+      'src/services/desktopMcp.ts',
+      'src/services/__tests__/*.test.ts',
+    ],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        {
+          property: 'exportModel',
+          message:
+            'Use exportModelWithContext() for app-level exports. Direct exportModel() calls are reserved for low-level render services and desktop MCP export plumbing.',
+        },
+      ],
+    },
   }
 );

@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { getPlatform, type ExportFormat } from '../platform';
-import { getRenderService } from '../services/renderService';
+import { exportModelWithContext } from '../services/exportService';
+import { loadSettings } from '../stores/settingsStore';
 import { normalizeAppError } from '../utils/notifications';
 import { OPENSCAD_PROJECT_FILE_EXTENSIONS } from '../../../../packages/shared/src/openscadProjectFiles';
 
@@ -86,10 +87,11 @@ export function MenuBar({
       const formatInfo = EXPORT_FORMATS.find((f) => f.value === format);
       if (!formatInfo) return;
 
-      const exportBytes = await getRenderService().exportModel(
+      const exportBytes = await exportModelWithContext({
+        format,
         source,
-        format as 'stl' | 'obj' | 'amf' | '3mf' | 'svg' | 'dxf'
-      );
+        library: loadSettings().library,
+      });
 
       await getPlatform().fileExport(exportBytes, `export.${formatInfo.ext}`, [
         { name: formatInfo.label, extensions: [formatInfo.ext] },

@@ -12,7 +12,7 @@ import { PanelErrorBoundary } from '../ErrorBoundary';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useProjectStore } from '../../stores/projectStore';
 import { isExportValidationError } from '../../services/exportErrors';
-import { getRenderService } from '../../services/renderService';
+import { exportModelWithContext } from '../../services/exportService';
 import { getPlatform } from '../../platform';
 import { notifyError } from '../../utils/notifications';
 import { MAIN_PREVIEW_VIEWER_ID } from '../../utils/capturePreview';
@@ -169,7 +169,11 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
     if (isDownloadingStl) return;
     setIsDownloadingStl(true);
     try {
-      const exportBytes = await getRenderService().exportModel(source, 'stl');
+      const exportBytes = await exportModelWithContext({
+        format: 'stl',
+        source,
+        library: settings.library,
+      });
       await getPlatform().fileExport(exportBytes, 'export.stl', [
         { name: 'STL Files', extensions: ['stl'] },
       ]);
@@ -186,13 +190,17 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
     } finally {
       setIsDownloadingStl(false);
     }
-  }, [isDownloadingStl, source, analytics]);
+  }, [isDownloadingStl, source, analytics, settings.library]);
 
   const handleDownloadSvg = useCallback(async () => {
     if (isDownloadingSvg) return;
     setIsDownloadingSvg(true);
     try {
-      const exportBytes = await getRenderService().exportModel(source, 'svg');
+      const exportBytes = await exportModelWithContext({
+        format: 'svg',
+        source,
+        library: settings.library,
+      });
       await getPlatform().fileExport(exportBytes, 'export.svg', [
         { name: 'SVG Files', extensions: ['svg'] },
       ]);
@@ -209,7 +217,7 @@ const CustomizerPanelWrapper: React.FC<IDockviewPanelProps> = () => {
     } finally {
       setIsDownloadingSvg(false);
     }
-  }, [isDownloadingSvg, source, analytics]);
+  }, [isDownloadingSvg, source, analytics, settings.library]);
 
   return (
     <PanelErrorBoundary panelId="customizer" panelName="Customizer">
