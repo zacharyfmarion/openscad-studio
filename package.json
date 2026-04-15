@@ -1,6 +1,6 @@
 {
   "name": "openscad-studio",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "Modern OpenSCAD editor with live preview and AI copilot",
   "packageManager": "pnpm@10.12.4",

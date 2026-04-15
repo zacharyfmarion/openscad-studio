@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-04-15
+
+### Added
+- Expandable AI tool call details in the copilot panel for easier inspection of model actions.
+
+### Fixed
+- Empty desktop workspace folders now open reliably instead of getting stuck during workspace startup.
+- Export actions now preserve project and library context so multi-file models export correctly.
+- Collapsed AI screenshot thumbnails now restore correctly in the chat transcript.
+
 ## [1.2.0] - 2026-04-10
 
 ### Added

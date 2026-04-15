@@ -1,6 +1,6 @@
 [package]
 name = "openscad-studio"
-version = "1.2.0"
+version = "1.2.1"
 description = "Modern OpenSCAD editor with AI assistance"
 authors = ["OpenSCAD Studio Contributors"]
 edition = "2021"
