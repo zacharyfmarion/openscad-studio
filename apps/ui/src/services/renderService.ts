@@ -18,7 +18,7 @@ export interface Diagnostic {
   message: string;
 }
 
-export type ExportFormat = 'stl' | 'obj' | 'amf' | '3mf' | 'svg' | 'dxf';
+export type ExportFormat = 'stl' | 'obj' | 'amf' | '3mf' | 'png' | 'svg' | 'dxf';
 
 export interface ExportOptions extends Pick<
   RenderOptions,

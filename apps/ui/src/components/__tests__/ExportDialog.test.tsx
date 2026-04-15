@@ -22,9 +22,8 @@ jest.unstable_mockModule('@/platform', () => ({
   getPlatform: () => ({ fileExport: jest.fn() }),
 }));
 
-jest.unstable_mockModule('@/services/renderService', () => ({
-  getRenderService: () => ({ exportModel: jest.fn() }),
-  RenderService: { getInstance: () => ({ exportModel: jest.fn() }) },
+jest.unstable_mockModule('@/services/exportService', () => ({
+  exportModelWithContext: jest.fn(),
 }));
 
 jest.unstable_mockModule('@/utils/notifications', () => ({

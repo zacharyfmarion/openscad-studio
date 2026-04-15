@@ -51,7 +51,7 @@ import {
   syncDesktopMcpConfig,
   syncDesktopMcpWindowContext,
 } from './services/desktopMcp';
-import { getRenderService } from './services/renderService';
+import { exportModelWithContext } from './services/exportService';
 import { getPreviewSceneStyle } from './services/previewSceneConfig';
 import { isShareEnabled } from './services/shareService';
 import { openFileInWindow, openWorkspaceFolderInWindow } from './services/windowOpenService';
@@ -1788,10 +1788,11 @@ function App() {
           };
           const formatInfo = formatLabels[format];
           const rtContent = getRenderTargetContent(getProjectStore().getState()) ?? '';
-          const exportBytes = await getRenderService().exportModel(
-            rtContent,
-            format as 'stl' | 'obj' | 'amf' | '3mf' | 'svg' | 'dxf'
-          );
+          const exportBytes = await exportModelWithContext({
+            format,
+            source: rtContent,
+            library: loadSettings().library,
+          });
           await getPlatform().fileExport(exportBytes, `export.${formatInfo.ext}`, [
             { name: formatInfo.label, extensions: [formatInfo.ext] },
           ]);

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAnalytics } from '../analytics/runtime';
 import { getPlatform, type ExportFormat } from '../platform';
 import { isExportValidationError } from '../services/exportErrors';
-import { getRenderService, type ExportFormat as WasmExportFormat } from '../services/renderService';
+import { exportModelWithContext } from '../services/exportService';
+import { useSettings } from '../stores/settingsStore';
 import {
   Button,
   IconButton,
@@ -39,6 +40,7 @@ const FORMAT_OPTIONS_2D: { value: ExportFormat; label: string; ext: string }[] =
 
 export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDialogProps) {
   const analytics = useAnalytics();
+  const [settings] = useSettings();
   const [format, setFormat] = useState<ExportFormat>(previewKind === 'svg' ? 'svg' : 'stl');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string>('');
@@ -64,7 +66,11 @@ export function ExportDialog({ isOpen, onClose, source, previewKind }: ExportDia
       const selectedFormat = formatOptions.find((f) => f.value === format);
       if (!selectedFormat) return;
 
-      const exportBytes = await getRenderService().exportModel(source, format as WasmExportFormat);
+      const exportBytes = await exportModelWithContext({
+        format,
+        source,
+        library: settings.library,
+      });
 
       await getPlatform().fileExport(exportBytes, `export.${selectedFormat.ext}`, [
         { name: selectedFormat.label, extensions: [selectedFormat.ext] },
