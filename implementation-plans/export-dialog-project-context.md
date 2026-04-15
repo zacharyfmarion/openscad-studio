@@ -27,5 +27,5 @@ Make desktop export flows use the same project, working-directory, and library c
 - [x] Update dialog and menu export paths to use the shared helper
 - [x] Add regression coverage for export context propagation
 - [x] Run shared validation through `scripts/validate-changes.sh`
-- [ ] Create a draft PR against `main` with implementation notes and validation details
-- [ ] Wait for the PR result and report the PR URL plus preview status
+- [x] Create a draft PR against `main` with implementation notes and validation details
+- [x] Wait for the PR result and report the PR URL plus preview status
