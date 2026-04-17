@@ -429,6 +429,56 @@ describe('RenderService', () => {
     });
   });
 
+  it('retries syntax checks in 2D mode when the 3D pass only reports a top-level mismatch', async () => {
+    const service = new RenderService();
+    const initPromise = service.init();
+    mockWorkers[0].emitMessage({ type: 'ready' });
+    await initPromise;
+
+    const checkPromise = service.checkSyntax('square(10);');
+    const firstRequest = await waitForRenderRequestCount(1);
+
+    expect(firstRequest.request.args).toEqual([
+      '/input.scad',
+      '-o',
+      '/output.stl',
+      '--backend=manifold',
+    ]);
+
+    firstRequest.worker.emitMessage({
+      type: 'result',
+      id: firstRequest.request.id,
+      output: new Uint8Array(),
+      stderr: 'Current top level object is not a 3D object.',
+    });
+
+    const secondRequest = await waitForRenderRequestCount(2);
+    expect(secondRequest.request.args).toEqual([
+      '/input.scad',
+      '-o',
+      '/output.svg',
+      '--backend=manifold',
+    ]);
+
+    secondRequest.worker.emitMessage({
+      type: 'result',
+      id: secondRequest.request.id,
+      output: new Uint8Array(),
+      stderr: 'WARNING: 2D note',
+    });
+
+    await expect(checkPromise).resolves.toEqual({
+      diagnostics: [
+        {
+          severity: 'warning',
+          line: undefined,
+          col: undefined,
+          message: 'WARNING: 2D note',
+        },
+      ],
+    });
+  });
+
   it('rejects init when the worker reports an __init__ error', async () => {
     const service = new RenderService();
     const initPromise = service.init();

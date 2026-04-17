@@ -169,4 +169,48 @@ describe('NativeRenderService', () => {
       })
     );
   });
+
+  it('retries syntax checks in 2D mode when the 3D pass only reports a top-level mismatch', async () => {
+    invoke.mockImplementation(async (command: string) => {
+      if (command === 'render_init') return 'OpenSCAD 2026.03.16';
+      if (command === 'render_native') {
+        const renderCalls = invoke.mock.calls.filter(([name]) => name === 'render_native').length;
+        return {
+          output: [],
+          stderr:
+            renderCalls === 1 ? 'Current top level object is not a 3D object.' : 'WARNING: 2D note',
+          exit_code: 0,
+          duration_ms: 1,
+        };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+
+    const { NativeRenderService } = await import('../nativeRenderService');
+    const service = new NativeRenderService();
+
+    await expect(service.checkSyntax('square(10);')).resolves.toEqual({
+      diagnostics: [
+        {
+          severity: 'warning',
+          line: undefined,
+          col: undefined,
+          message: 'WARNING: 2D note',
+        },
+      ],
+    });
+
+    const nativeCalls = invoke.mock.calls.filter(([command]) => command === 'render_native');
+    expect(nativeCalls).toHaveLength(2);
+    expect(nativeCalls[0][1]).toEqual(
+      expect.objectContaining({
+        args: ['/input.scad', '-o', '/output.stl', '--backend=manifold'],
+      })
+    );
+    expect(nativeCalls[1][1]).toEqual(
+      expect.objectContaining({
+        args: ['/input.scad', '-o', '/output.svg', '--backend=manifold'],
+      })
+    );
+  });
 });

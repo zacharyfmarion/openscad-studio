@@ -149,6 +149,24 @@ export function parseOpenScadStderr(stderr: string): Diagnostic[] {
   return diagnostics;
 }
 
+export function isTopLevelDimensionMismatchDiagnostic(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  return (
+    normalized.includes('current top level object is not a 2d object.') ||
+    normalized.includes('current top level object is not a 3d object.') ||
+    (normalized.includes('2d') && normalized.includes('3d mode')) ||
+    (normalized.includes('3d') && normalized.includes('2d mode'))
+  );
+}
+
+export function hasOnlyTopLevelDimensionMismatchErrors(diagnostics: Diagnostic[]): boolean {
+  const errors = diagnostics.filter((diagnostic) => diagnostic.severity === 'error');
+  return (
+    errors.length > 0 &&
+    errors.every((diagnostic) => isTopLevelDimensionMismatchDiagnostic(diagnostic.message))
+  );
+}
+
 // ============================================================================
 // Cache
 // ============================================================================
@@ -447,15 +465,26 @@ export class WasmRenderService implements IRenderService {
    * Check syntax by attempting to render. Returns diagnostics only.
    */
   async checkSyntax(code: string, options: RenderOptions = {}): Promise<SyntaxCheckResult> {
-    const args = this.buildArgs('/output.stl', { backend: 'manifold' });
+    const preferredView = options.view ?? '3d';
     const allFiles =
       options.libraryFiles || options.auxiliaryFiles
         ? { ...(options.libraryFiles || {}), ...(options.auxiliaryFiles || {}) }
         : undefined;
-    const result = await this.sendRequest(code, args, allFiles, options.inputPath);
-    const diagnostics = parseOpenScadStderr(result.stderr);
 
-    return { diagnostics };
+    const runSyntaxCheck = async (view: '2d' | '3d') => {
+      const outputPath = view === '3d' ? '/output.stl' : '/output.svg';
+      const args = this.buildArgs(outputPath, { backend: 'manifold' });
+      const result = await this.sendRequest(code, args, allFiles, options.inputPath);
+      return parseOpenScadStderr(result.stderr);
+    };
+
+    const diagnostics = await runSyntaxCheck(preferredView);
+    if (!hasOnlyTopLevelDimensionMismatchErrors(diagnostics)) {
+      return { diagnostics };
+    }
+
+    const fallbackView = preferredView === '3d' ? '2d' : '3d';
+    return { diagnostics: await runSyntaxCheck(fallbackView) };
   }
 
   /**

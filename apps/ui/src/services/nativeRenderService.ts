@@ -16,6 +16,7 @@ import {
   type Diagnostic,
   RenderCache,
   generateRenderCacheKey,
+  hasOnlyTopLevelDimensionMismatchErrors,
   parseOpenScadStderr,
 } from './renderService';
 import { createExportValidationError } from './exportErrors';
@@ -208,22 +209,33 @@ export class NativeRenderService implements IRenderService {
   async checkSyntax(code: string, options: RenderOptions = {}): Promise<SyntaxCheckResult> {
     await this.init();
 
-    const args = ['/input.scad', '-o', '/output.stl', '--backend=manifold'];
+    const preferredView = options.view ?? '3d';
     const allFiles =
       options.libraryFiles || options.auxiliaryFiles
         ? { ...(options.libraryFiles || {}), ...(options.auxiliaryFiles || {}) }
         : undefined;
-    const result = await this.invokeRender(
-      code,
-      args,
-      allFiles,
-      options.inputPath,
-      options.workingDir,
-      options.libraryPaths
-    );
-    const diagnostics = parseOpenScadStderr(result.stderr);
 
-    return { diagnostics };
+    const runSyntaxCheck = async (view: '2d' | '3d') => {
+      const outputPath = view === '3d' ? '/output.stl' : '/output.svg';
+      const args = ['/input.scad', '-o', outputPath, '--backend=manifold'];
+      const result = await this.invokeRender(
+        code,
+        args,
+        allFiles,
+        options.inputPath,
+        options.workingDir,
+        options.libraryPaths
+      );
+      return parseOpenScadStderr(result.stderr);
+    };
+
+    const diagnostics = await runSyntaxCheck(preferredView);
+    if (!hasOnlyTopLevelDimensionMismatchErrors(diagnostics)) {
+      return { diagnostics };
+    }
+
+    const fallbackView = preferredView === '3d' ? '2d' : '3d';
+    return { diagnostics: await runSyntaxCheck(fallbackView) };
   }
 
   /**
