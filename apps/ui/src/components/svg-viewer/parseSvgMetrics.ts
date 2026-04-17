@@ -9,6 +9,14 @@ const OPENSCAD_DEFAULT_FILL_VALUES = new Set([
   'rgb(211,211,211)',
   'rgba(211,211,211,1)',
 ]);
+const OPENSCAD_DEFAULT_STROKE_VALUES = new Set([
+  'black',
+  '#000',
+  '#000000',
+  'rgb(0,0,0)',
+  'rgba(0,0,0,1)',
+]);
+const FILL_CAPABLE_GEOMETRY_TAGS = new Set(['path', 'circle', 'ellipse', 'rect', 'polygon', 'text', 'use']);
 
 interface ParseSvgMetricsOptions {
   defaultFillColor?: string;
@@ -73,6 +81,43 @@ function styleContainsExplicitNonDefaultFill(styleValue: string | null) {
   return !!fillValue && fillValue !== 'none' && !OPENSCAD_DEFAULT_FILL_VALUES.has(fillValue);
 }
 
+function getStyleDeclaration(styleValue: string | null, propertyName: string): string | null {
+  if (!styleValue) {
+    return null;
+  }
+
+  const propertyNameLower = propertyName.toLowerCase();
+  const declaration = styleValue
+    .split(';')
+    .map((entry) => entry.trim())
+    .find((entry) => entry.toLowerCase().startsWith(`${propertyNameLower}:`));
+
+  if (!declaration) {
+    return null;
+  }
+
+  return declaration.slice(declaration.indexOf(':') + 1).trim();
+}
+
+function hasOpenScadDefaultOutlineOnlyStyle(geometryElement: Element) {
+  if (!FILL_CAPABLE_GEOMETRY_TAGS.has(geometryElement.tagName.toLowerCase())) {
+    return false;
+  }
+
+  const styleValue = geometryElement.getAttribute('style');
+  const fillValue = normalizeColorToken(
+    geometryElement.getAttribute('fill') ?? getStyleDeclaration(styleValue, 'fill')
+  );
+  if (fillValue !== 'none') {
+    return false;
+  }
+
+  const strokeValue = normalizeColorToken(
+    geometryElement.getAttribute('stroke') ?? getStyleDeclaration(styleValue, 'stroke')
+  );
+  return !!strokeValue && OPENSCAD_DEFAULT_STROKE_VALUES.has(strokeValue);
+}
+
 function shouldApplyDefaultFill(
   geometryElement: Element,
   defaultFillColor: string | undefined
@@ -91,7 +136,7 @@ function shouldApplyDefaultFill(
   }
 
   if (fillValue === 'none') {
-    return false;
+    return hasOpenScadDefaultOutlineOnlyStyle(geometryElement);
   }
 
   return OPENSCAD_DEFAULT_FILL_VALUES.has(fillValue);

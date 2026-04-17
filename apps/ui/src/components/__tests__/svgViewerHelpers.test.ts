@@ -68,6 +68,23 @@ describe('svg viewer helpers', () => {
     expect(parsed.markup).not.toContain('fill="lightgray"');
   });
 
+  it('replaces the desktop native default outline-only style with the provided theme fill', () => {
+    const parsed = parseSvgMetrics(
+      `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -21 22 22">
+          <path d="M 0,-0 L 20,-0 L 20,-20 L 0,-20 z" stroke="black" fill="none" stroke-width="0.35" />
+        </svg>
+      `,
+      {
+        defaultFillColor: '#2aa198',
+      }
+    );
+
+    expect(parsed.markup).toContain('fill="#2aa198"');
+    expect(parsed.markup).toContain('stroke="black"');
+    expect(parsed.markup).not.toContain('fill="none"');
+  });
+
   it('keeps explicit non-default style fills intact when a theme fill is provided', () => {
     const parsed = parseSvgMetrics(
       `
@@ -81,6 +98,23 @@ describe('svg viewer helpers', () => {
     );
 
     expect(parsed.markup).toContain('style="fill:#123456;stroke:#000000"');
+    expect(parsed.markup).not.toContain('fill="#2aa198"');
+  });
+
+  it('keeps explicit outline-only styling intact when the stroke is non-default', () => {
+    const parsed = parseSvgMetrics(
+      `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10">
+          <path d="M 0,0 L 20,0 L 20,10 z" fill="none" stroke="#ff0000" />
+        </svg>
+      `,
+      {
+        defaultFillColor: '#2aa198',
+      }
+    );
+
+    expect(parsed.markup).toContain('fill="none"');
+    expect(parsed.markup).toContain('stroke="#ff0000"');
     expect(parsed.markup).not.toContain('fill="#2aa198"');
   });
 
