@@ -21,6 +21,8 @@ import type {
 } from '../types/aiChat';
 import { getUserMessageText } from '../types/aiChat';
 
+const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 48;
+
 function getImageDataUrlFromResult(result: unknown): string | null {
   if (!result) return null;
 
@@ -187,6 +189,10 @@ function getMissingToolResultLabel(state: ToolCallState): string {
   if (state === 'error') return 'No result returned before the tool failed.';
   if (state === 'denied') return 'No result returned because the tool output was denied.';
   return 'No result returned.';
+}
+
+function isTranscriptNearBottom(node: HTMLDivElement): boolean {
+  return node.scrollHeight - node.scrollTop - node.clientHeight <= AUTO_SCROLL_BOTTOM_THRESHOLD_PX;
 }
 
 interface ToolCallDetailSectionProps {
@@ -386,9 +392,11 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
     const responseRef = useRef<HTMLDivElement>(null);
     const composerRef = useRef<AiComposerRef>(null);
     const emptyStateHostRef = useRef<HTMLDivElement>(null);
+    const autoScrollPinnedRef = useRef(true);
     const [emptyStatePanelLayout, setEmptyStatePanelLayout] = useState<'stacked' | 'split'>(
       'stacked'
     );
+    const [showJumpToLatest, setShowJumpToLatest] = useState(false);
     const { restoreToCheckpoint } = useHistory();
 
     useImperativeHandle(ref, () => ({
@@ -397,11 +405,44 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
       },
     }));
 
+    const scrollTranscriptToBottom = () => {
+      if (!responseRef.current) return;
+
+      responseRef.current.scrollTop = responseRef.current.scrollHeight;
+      autoScrollPinnedRef.current = true;
+      setShowJumpToLatest(false);
+    };
+
+    const handleTranscriptScroll = () => {
+      if (!responseRef.current) return;
+
+      const isPinned = isTranscriptNearBottom(responseRef.current);
+      autoScrollPinnedRef.current = isPinned;
+      setShowJumpToLatest(!isPinned);
+    };
+
     useEffect(() => {
-      if (responseRef.current) {
-        responseRef.current.scrollTop = responseRef.current.scrollHeight;
+      const node = responseRef.current;
+      if (!node) return;
+
+      if (autoScrollPinnedRef.current) {
+        node.scrollTop = node.scrollHeight;
+        autoScrollPinnedRef.current = true;
+        setShowJumpToLatest(false);
+        return;
       }
+
+      setShowJumpToLatest(true);
     }, [messages, streamingResponse, currentToolCalls]);
+
+    useEffect(() => {
+      if (messages.length > 0 || streamingResponse || currentToolCalls.length > 0) {
+        return;
+      }
+
+      autoScrollPinnedRef.current = true;
+      setShowJumpToLatest(false);
+    }, [messages.length, streamingResponse, currentToolCalls.length]);
 
     useEffect(() => {
       if (import.meta.env?.DEV) {
@@ -563,6 +604,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
             ref={responseRef}
             data-testid="ai-transcript"
             className="flex-1 overflow-y-auto px-4 py-3 space-y-3 ph-no-capture"
+            onScroll={handleTranscriptScroll}
             style={{
               backgroundColor: 'var(--bg-secondary)',
               borderBottom: '1px solid var(--border-primary)',
@@ -745,6 +787,22 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
                   </div>
                 </div>
               )}
+
+            {showJumpToLatest && (
+              <div className="sticky bottom-2 z-10 flex justify-end pr-1 pointer-events-none">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="pointer-events-auto shadow-sm"
+                  onClick={scrollTranscriptToBottom}
+                  title="Jump to the latest response"
+                  data-testid="ai-scroll-to-latest"
+                >
+                  Jump to latest
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

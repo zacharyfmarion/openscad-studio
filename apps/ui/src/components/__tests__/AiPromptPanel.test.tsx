@@ -117,6 +117,50 @@ function createUserMessage(): Message {
   };
 }
 
+function installScrollMetrics(
+  element: HTMLElement,
+  {
+    scrollTop = 0,
+    clientHeight = 240,
+    scrollHeight = 1000,
+  }: { scrollTop?: number; clientHeight?: number; scrollHeight?: number } = {}
+) {
+  let currentScrollTop = scrollTop;
+  let currentScrollHeight = scrollHeight;
+  let currentClientHeight = clientHeight;
+
+  Object.defineProperty(element, 'scrollTop', {
+    configurable: true,
+    get: () => currentScrollTop,
+    set: (value: number) => {
+      currentScrollTop = value;
+    },
+  });
+
+  Object.defineProperty(element, 'scrollHeight', {
+    configurable: true,
+    get: () => currentScrollHeight,
+  });
+
+  Object.defineProperty(element, 'clientHeight', {
+    configurable: true,
+    get: () => currentClientHeight,
+  });
+
+  return {
+    getScrollTop: () => currentScrollTop,
+    setScrollTop: (value: number) => {
+      currentScrollTop = value;
+    },
+    setScrollHeight: (value: number) => {
+      currentScrollHeight = value;
+    },
+    setClientHeight: (value: number) => {
+      currentClientHeight = value;
+    },
+  };
+}
+
 describe('AiPromptPanel', () => {
   beforeAll(async () => {
     ({ AiPromptPanel } = await import('@/components/AiPromptPanel'));
@@ -171,5 +215,60 @@ describe('AiPromptPanel', () => {
 
     expect(screen.getByText(/"view": "front"/)).toBeTruthy();
     expect(screen.getByText(/image_data_url/i)).toBeTruthy();
+  });
+
+  it('keeps auto-scrolling while the transcript is pinned to the bottom', () => {
+    const props = createBaseProps({
+      messages: [createUserMessage()],
+      streamingResponse: 'Working',
+      isStreaming: true,
+    });
+
+    const { rerender } = renderWithProviders(<AiPromptPanel {...props} />);
+    const transcript = screen.getByTestId('ai-transcript');
+    const scrollMetrics = installScrollMetrics(transcript, {
+      scrollTop: 760,
+      clientHeight: 240,
+      scrollHeight: 1000,
+    });
+
+    fireEvent.scroll(transcript);
+
+    scrollMetrics.setScrollHeight(1240);
+    rerender(<AiPromptPanel {...props} streamingResponse="Working a bit more" />);
+
+    expect(scrollMetrics.getScrollTop()).toBe(1240);
+    expect(screen.queryByTestId('ai-scroll-to-latest')).toBeNull();
+  });
+
+  it('lets the user pause auto-scroll while streaming and jump back to the latest response', () => {
+    const props = createBaseProps({
+      messages: [createUserMessage()],
+      streamingResponse: 'Working',
+      isStreaming: true,
+    });
+
+    const { rerender } = renderWithProviders(<AiPromptPanel {...props} />);
+    const transcript = screen.getByTestId('ai-transcript');
+    const scrollMetrics = installScrollMetrics(transcript, {
+      scrollTop: 760,
+      clientHeight: 240,
+      scrollHeight: 1000,
+    });
+
+    fireEvent.scroll(transcript);
+
+    scrollMetrics.setScrollTop(320);
+    fireEvent.scroll(transcript);
+
+    scrollMetrics.setScrollHeight(1320);
+    rerender(<AiPromptPanel {...props} streamingResponse="Working a bit more" />);
+
+    expect(scrollMetrics.getScrollTop()).toBe(320);
+
+    fireEvent.click(screen.getByTestId('ai-scroll-to-latest'));
+
+    expect(scrollMetrics.getScrollTop()).toBe(1320);
+    expect(screen.queryByTestId('ai-scroll-to-latest')).toBeNull();
   });
 });
