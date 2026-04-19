@@ -534,7 +534,7 @@ export function SvgViewer({
           status: parsed.metrics.isEmpty ? 'empty' : 'ready',
           error: '',
           helperText: parsed.metrics.isEmpty
-            ? 'OpenSCAD WASM can produce empty 2D output for some features, especially text() when fonts are unavailable.'
+            ? 'The render completed but produced no visible 2D geometry. If this model depends on a custom font, try a bundled web family like Liberation Sans, Liberation Serif, Liberation Mono, sans-serif, serif, or monospace.'
             : '',
           warnings: parsed.metrics.warnings,
         });
@@ -1633,7 +1633,7 @@ export function SvgViewer({
             <StatusCard
               title="No 2D output"
               detail="The render completed but did not produce any visible 2D geometry."
-              helperText="OpenSCAD WASM can produce empty output for some features, including text() when fonts are unavailable."
+              helperText="If this model relies on a custom font that is not bundled on web, switch to Liberation Sans, Liberation Serif, Liberation Mono, sans-serif, serif, or monospace."
             />
           ) : null}
 
@@ -1655,8 +1655,9 @@ export function SvgViewer({
               }}
               data-testid="preview-2d-empty-banner"
             >
-              No visible 2D geometry. OpenSCAD WASM text rendering may be limited when fonts are
-              unavailable.
+              No visible 2D geometry. If this model depends on a custom web-unsupported font, try a
+              bundled family such as Liberation Sans, Liberation Serif, Liberation Mono, or the
+              generic sans-serif, serif, or monospace families.
             </div>
           ) : null}
 

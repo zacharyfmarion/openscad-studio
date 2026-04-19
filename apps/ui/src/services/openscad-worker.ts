@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import { createOpenSCAD } from 'openscad-wasm';
+import { createOpenScadInstanceWithBundledFonts } from './openscad-wasm-fonts';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -86,7 +86,7 @@ async function handleRender(request: WorkerRenderRequest): Promise<void> {
   try {
     const stderrLines: string[] = [];
 
-    const instance = await createOpenSCAD({
+    const instance = await createOpenScadInstanceWithBundledFonts({
       noInitialRun: true,
       print: () => {},
       printErr: (text: string) => {
@@ -180,10 +180,11 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
   switch (request.type) {
     case 'init': {
       try {
-        // Warm up: create one instance to trigger WASM compilation + caching.
+        // Warm up: create one instance to trigger WASM compilation + caching
+        // and verify bundled font assets are available before reporting ready.
         // The instance is discarded; subsequent createOpenSCAD calls will
         // reuse the browser's compiled module cache.
-        await createOpenSCAD({
+        await createOpenScadInstanceWithBundledFonts({
           noInitialRun: true,
           print: () => {},
           printErr: () => {},
