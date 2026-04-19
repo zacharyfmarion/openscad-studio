@@ -30,4 +30,4 @@ Fix web `text()` rendering by bundling a small fallback font set for the WASM re
 - [x] Tighten `SvgViewer` empty-state copy for unsupported custom-font cases
 - [x] Add regression tests for bundled-font 2D and 3D text rendering
 - [x] Run targeted tests and shared baseline validation
-- [ ] Prepare branch/PR handoff summary
+- [x] Prepare branch/PR handoff summary
