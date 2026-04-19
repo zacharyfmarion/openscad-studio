@@ -160,6 +160,12 @@ pub fn run() {
                         .build(app)?,
                 )
                 .separator()
+                .item(
+                    &MenuItemBuilder::with_id("file_settings", "Settings")
+                        .accelerator("CmdOrCtrl+,")
+                        .build(app)?,
+                )
+                .separator()
                 .item(&MenuItemBuilder::with_id("export_stl", "Export as STL...").build(app)?)
                 .item(&MenuItemBuilder::with_id("export_obj", "Export as OBJ...").build(app)?)
                 .item(&MenuItemBuilder::with_id("export_amf", "Export as AMF...").build(app)?)
@@ -171,8 +177,16 @@ pub fn run() {
 
             // Create Edit menu
             let edit_menu = SubmenuBuilder::new(app, "Edit")
-                .undo()
-                .redo()
+                .item(
+                    &MenuItemBuilder::with_id("edit_undo", "Undo")
+                        .accelerator("CmdOrCtrl+Z")
+                        .build(app)?,
+                )
+                .item(
+                    &MenuItemBuilder::with_id("edit_redo", "Redo")
+                        .accelerator("CmdOrCtrl+Shift+Z")
+                        .build(app)?,
+                )
                 .separator()
                 .cut()
                 .copy()
@@ -181,10 +195,20 @@ pub fn run() {
                 .select_all()
                 .build()?;
 
+            let help_menu = SubmenuBuilder::new(app, "Help")
+                .item(
+                    &MenuItemBuilder::with_id("help_keyboard_shortcuts", "Keyboard Shortcuts")
+                        .build(app)?,
+                )
+                .separator()
+                .item(&MenuItemBuilder::with_id("help_about", "About OpenSCAD Studio").build(app)?)
+                .build()?;
+
             let menu = MenuBuilder::new(app)
                 .item(&app_menu)
                 .item(&file_menu)
                 .item(&edit_menu)
+                .item(&help_menu)
                 .build()?;
 
             app.set_menu(menu)?;
@@ -213,6 +237,15 @@ pub fn run() {
             "save_all" => {
                 emit_to_focused_window(app, "menu:file:save_all", ());
             }
+            "file_settings" => {
+                emit_to_focused_window(app, "menu:file:settings", ());
+            }
+            "edit_undo" => {
+                emit_to_focused_window(app, "menu:edit:undo", ());
+            }
+            "edit_redo" => {
+                emit_to_focused_window(app, "menu:edit:redo", ());
+            }
             "export_stl" => {
                 emit_to_focused_window(app, "menu:file:export", "stl");
             }
@@ -233,6 +266,12 @@ pub fn run() {
             }
             "export_dxf" => {
                 emit_to_focused_window(app, "menu:file:export", "dxf");
+            }
+            "help_keyboard_shortcuts" => {
+                emit_to_focused_window(app, "menu:help:shortcuts", ());
+            }
+            "help_about" => {
+                emit_to_focused_window(app, "menu:help:about", ());
             }
             _ => {}
         })

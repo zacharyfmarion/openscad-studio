@@ -3,6 +3,7 @@ import type { ExportFormat } from './types';
 interface EventMap {
   'menu:file:new': void;
   'menu:file:open': void;
+  'menu:file:settings': void;
   'menu:file:save': void;
   'menu:file:save_as': void;
   'menu:file:export': ExportFormat;
@@ -10,6 +11,10 @@ interface EventMap {
   'menu:file:open_folder': void;
   'menu:file:open_project': void;
   'menu:file:save_all': void;
+  'menu:edit:undo': void;
+  'menu:edit:redo': void;
+  'menu:help:shortcuts': void;
+  'menu:help:about': void;
   'render-requested': void;
   'history:restore': { code: string };
   'code-updated': {

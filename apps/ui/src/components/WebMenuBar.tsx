@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { eventBus } from '../platform';
+import { getShortcutDisplay } from '../shortcuts/formatDisplay';
 import './WebMenuBar.css';
 
 type MenuActionItem = { type: 'action'; id: string; label: string; shortcut?: string };
@@ -7,38 +8,89 @@ type MenuSeparator = { type: 'separator' };
 type MenuItemDef = MenuActionItem | MenuSeparator;
 type MenuDef = { label: string; items: MenuItemDef[] };
 
-function modKey(): string {
+function getRenderShortcutLabel(): string {
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
-  return isMac ? '\u2318' : 'Ctrl';
+  return isMac ? '\u2318\u21B5' : 'Ctrl+Enter';
 }
 
 function getMenuBarDef(): MenuDef[] {
-  const mod = modKey();
-
   return [
     {
       label: 'File',
       items: [
-        { type: 'action', id: 'file.new', label: 'New File', shortcut: `${mod}+N` },
-        { type: 'action', id: 'file.open', label: 'Open File...', shortcut: `${mod}+O` },
+        {
+          type: 'action',
+          id: 'file.new',
+          label: 'New File',
+          shortcut: getShortcutDisplay('file.new'),
+        },
+        {
+          type: 'action',
+          id: 'file.open',
+          label: 'Open File...',
+          shortcut: getShortcutDisplay('file.open'),
+        },
         { type: 'action', id: 'file.openProject', label: 'Open Folder...' },
         { type: 'separator' },
-        { type: 'action', id: 'file.save', label: 'Save', shortcut: `${mod}+S` },
-        { type: 'action', id: 'file.saveAs', label: 'Save As...', shortcut: `${mod}+\u21E7+S` },
-        { type: 'action', id: 'file.saveAll', label: 'Save All', shortcut: `${mod}+\u2325+S` },
+        {
+          type: 'action',
+          id: 'file.save',
+          label: 'Save',
+          shortcut: getShortcutDisplay('file.save'),
+        },
+        {
+          type: 'action',
+          id: 'file.saveAs',
+          label: 'Save As...',
+          shortcut: getShortcutDisplay('file.saveAs'),
+        },
+        {
+          type: 'action',
+          id: 'file.saveAll',
+          label: 'Save All',
+          shortcut: getShortcutDisplay('file.saveAll'),
+        },
         { type: 'separator' },
         { type: 'action', id: 'file.export', label: 'Export...' },
         { type: 'separator' },
-        { type: 'action', id: 'file.settings', label: 'Settings', shortcut: `${mod}+,` },
+        {
+          type: 'action',
+          id: 'file.settings',
+          label: 'Settings',
+          shortcut: getShortcutDisplay('file.settings'),
+        },
       ],
     },
     {
       label: 'Edit',
       items: [
-        { type: 'action', id: 'edit.undo', label: 'Undo', shortcut: `${mod}+Z` },
-        { type: 'action', id: 'edit.redo', label: 'Redo', shortcut: `${mod}+\u21E7+Z` },
+        {
+          type: 'action',
+          id: 'edit.undo',
+          label: 'Undo',
+          shortcut: getShortcutDisplay('edit.undo'),
+        },
+        {
+          type: 'action',
+          id: 'edit.redo',
+          label: 'Redo',
+          shortcut: getShortcutDisplay('edit.redo'),
+        },
         { type: 'separator' },
-        { type: 'action', id: 'edit.render', label: 'Render', shortcut: `${mod}+\u23CE` },
+        { type: 'action', id: 'edit.render', label: 'Render', shortcut: getRenderShortcutLabel() },
+      ],
+    },
+    {
+      label: 'Help',
+      items: [
+        {
+          type: 'action',
+          id: 'help.shortcuts',
+          label: 'Keyboard Shortcuts',
+          shortcut: getShortcutDisplay('help.shortcuts'),
+        },
+        { type: 'separator' },
+        { type: 'action', id: 'help.about', label: 'About OpenSCAD Studio' },
       ],
     },
   ];
@@ -87,18 +139,16 @@ function MenuDropdown({
 interface WebMenuBarProps {
   onExport: () => void;
   onShare?: () => void;
-  onSettings: () => void;
-  onUndo: () => void;
-  onRedo: () => void;
+  onShowShortcuts: () => void;
+  onShowAbout: () => void;
   hasMultipleFiles?: boolean;
 }
 
 export function WebMenuBar({
   onExport,
   onShare,
-  onSettings,
-  onUndo,
-  onRedo,
+  onShowShortcuts,
+  onShowAbout,
   hasMultipleFiles,
 }: WebMenuBarProps) {
   const [openMenu, setOpenMenu] = useState<number | null>(null);
@@ -171,20 +221,26 @@ export function WebMenuBar({
           onShare?.();
           break;
         case 'file.settings':
-          onSettings();
+          eventBus.emit('menu:file:settings');
           break;
         case 'edit.undo':
-          onUndo();
+          eventBus.emit('menu:edit:undo');
           break;
         case 'edit.redo':
-          onRedo();
+          eventBus.emit('menu:edit:redo');
           break;
         case 'edit.render':
           eventBus.emit('render-requested');
           break;
+        case 'help.shortcuts':
+          onShowShortcuts();
+          break;
+        case 'help.about':
+          onShowAbout();
+          break;
       }
     },
-    [onExport, onRedo, onSettings, onShare, onUndo]
+    [onExport, onShare, onShowAbout, onShowShortcuts]
   );
 
   useEffect(() => {
