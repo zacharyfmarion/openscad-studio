@@ -16,7 +16,15 @@ const OPENSCAD_DEFAULT_STROKE_VALUES = new Set([
   'rgb(0,0,0)',
   'rgba(0,0,0,1)',
 ]);
-const FILL_CAPABLE_GEOMETRY_TAGS = new Set(['path', 'circle', 'ellipse', 'rect', 'polygon', 'text', 'use']);
+const FILL_CAPABLE_GEOMETRY_TAGS = new Set([
+  'path',
+  'circle',
+  'ellipse',
+  'rect',
+  'polygon',
+  'text',
+  'use',
+]);
 
 interface ParseSvgMetricsOptions {
   defaultFillColor?: string;
