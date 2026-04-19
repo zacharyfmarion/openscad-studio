@@ -3,12 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="application-name" content="OpenSCAD Studio" />
+    <meta name="apple-mobile-web-app-title" content="OpenSCAD Studio" />
+    <meta name="format-detection" content="telephone=no" />
 
-    <title>OpenSCAD Studio — Modern OpenSCAD Editor</title>
+    <title>OpenSCAD Studio | Modern OpenSCAD Editor with Live Preview</title>
     <meta
       name="description"
-      content="A modern OpenSCAD editor with live 3D preview, smart formatting, and AI copilot. Free and open source."
+      content="OpenSCAD Studio is a free modern OpenSCAD editor with live 3D preview, smart formatting, AI copilot, and browser-based modeling plus a macOS desktop app."
     />
+    <meta
+      name="robots"
+      content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
+    />
+    <link rel="canonical" href="https://openscad-studio.pages.dev/" />
 
     <!-- Favicons -->
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
@@ -18,29 +26,236 @@
     <link rel="manifest" href="/manifest.json" />
 
     <!-- Theme -->
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#002b36" />
     <meta name="color-scheme" content="dark" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="OpenSCAD Studio — Modern OpenSCAD Editor" />
+    <meta property="og:url" content="https://openscad-studio.pages.dev/" />
+    <meta
+      property="og:title"
+      content="OpenSCAD Studio | Modern OpenSCAD Editor with Live Preview"
+    />
     <meta
       property="og:description"
-      content="A modern OpenSCAD editor with live 3D preview, smart formatting, and AI copilot. Free and open source."
+      content="Build parametric 3D models faster with live preview, smart formatting, AI assistance, and a polished OpenSCAD workflow in the browser or on macOS."
     />
-    <meta property="og:image" content="/icon-512.png" />
+    <meta property="og:image" content="https://openscad-studio.pages.dev/og-image.png" />
+    <meta
+      property="og:image:alt"
+      content="OpenSCAD Studio interface preview showing code, live 3D modeling, and the AI assistant."
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:site_name" content="OpenSCAD Studio" />
+    <meta property="og:locale" content="en_US" />
 
     <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="OpenSCAD Studio — Modern OpenSCAD Editor" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="OpenSCAD Studio | Modern OpenSCAD Editor with Live Preview"
+    />
     <meta
       name="twitter:description"
-      content="A modern OpenSCAD editor with live 3D preview, smart formatting, and AI copilot. Free and open source."
+      content="Build parametric 3D models faster with live preview, smart formatting, AI assistance, and a polished OpenSCAD workflow in the browser or on macOS."
     />
-    <meta name="twitter:image" content="/icon-512.png" />
+    <meta name="twitter:image" content="https://openscad-studio.pages.dev/og-image.png" />
+    <meta
+      name="twitter:image:alt"
+      content="OpenSCAD Studio interface preview showing code, live 3D modeling, and the AI assistant."
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "name": "OpenSCAD Studio",
+            "url": "https://openscad-studio.pages.dev/",
+            "description": "Modern OpenSCAD editor with live preview, smart formatting, and AI copilot.",
+            "inLanguage": "en-US"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "name": "OpenSCAD Studio",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Web Browser, macOS",
+            "browserRequirements": "SharedArrayBuffer-enabled modern browser",
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "url": "https://openscad-studio.pages.dev/",
+            "downloadUrl": "https://github.com/zacharyfmarion/openscad-studio/releases",
+            "screenshot": "https://openscad-studio.pages.dev/og-image.png",
+            "description": "A modern OpenSCAD editor with live 3D preview, smart formatting, AI copilot, and shareable browser-based modeling.",
+            "featureList": [
+              "Live 3D preview while editing OpenSCAD",
+              "Browser-based modeling with no install required",
+              "AI copilot for drafting and editing parametric models",
+              "Smart formatting and diagnostics for OpenSCAD code",
+              "macOS desktop app with native OpenSCAD rendering"
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body style="margin: 0; background: #002b36">
+    <div id="root">
+      <main
+        style="
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 24px;
+          background:
+            radial-gradient(circle at top left, rgba(38, 139, 210, 0.16), transparent 36%),
+            radial-gradient(circle at bottom right, rgba(42, 161, 152, 0.14), transparent 32%),
+            #002b36;
+          color: #e6edf3;
+          font-family:
+            Inter,
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            Segoe UI,
+            sans-serif;
+        "
+      >
+        <section style="width: 100%; max-width: 960px">
+          <p
+            style="
+              margin: 0 0 16px;
+              color: #93a1a1;
+              font-size: 13px;
+              font-weight: 700;
+              letter-spacing: 0.18em;
+              text-transform: uppercase;
+            "
+          >
+            Build. Speed. Precision.
+          </p>
+          <h1
+            style="margin: 0; font-size: clamp(40px, 8vw, 72px); line-height: 1.02; color: #fdf6e3"
+          >
+            OpenSCAD Studio
+          </h1>
+          <p
+            style="
+              max-width: 760px;
+              margin: 20px 0 0;
+              font-size: clamp(18px, 2.5vw, 24px);
+              line-height: 1.5;
+              color: #c7d2d9;
+            "
+          >
+            A modern OpenSCAD editor with live 3D preview, smart formatting, AI copilot, and fast
+            browser-based modeling for makers, fabrication, and parametric design.
+          </p>
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; margin: 28px 0 0">
+            <a
+              href="https://openscad-studio.pages.dev/"
+              style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 44px;
+                padding: 0 18px;
+                border-radius: 999px;
+                background: #268bd2;
+                color: #002b36;
+                font-weight: 700;
+                text-decoration: none;
+              "
+            >
+              Launch Web App
+            </a>
+            <a
+              href="https://github.com/zacharyfmarion/openscad-studio/releases"
+              style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 44px;
+                padding: 0 18px;
+                border-radius: 999px;
+                border: 1px solid rgba(147, 161, 161, 0.35);
+                color: #fdf6e3;
+                font-weight: 600;
+                text-decoration: none;
+              "
+            >
+              Download macOS App
+            </a>
+            <a
+              href="https://github.com/zacharyfmarion/openscad-studio"
+              style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 44px;
+                padding: 0 18px;
+                border-radius: 999px;
+                border: 1px solid rgba(147, 161, 161, 0.35);
+                color: #fdf6e3;
+                font-weight: 600;
+                text-decoration: none;
+              "
+            >
+              View on GitHub
+            </a>
+          </div>
+          <ul
+            style="
+              margin: 36px 0 0;
+              padding: 0;
+              list-style: none;
+              display: grid;
+              gap: 14px;
+              grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            "
+          >
+            <li
+              style="
+                padding: 18px 20px;
+                border-radius: 18px;
+                background: rgba(7, 54, 66, 0.72);
+                border: 1px solid rgba(88, 110, 117, 0.42);
+              "
+            >
+              Live 3D preview while you edit OpenSCAD code.
+            </li>
+            <li
+              style="
+                padding: 18px 20px;
+                border-radius: 18px;
+                background: rgba(7, 54, 66, 0.72);
+                border: 1px solid rgba(88, 110, 117, 0.42);
+              "
+            >
+              AI copilot for drafts, edits, and modeling assistance.
+            </li>
+            <li
+              style="
+                padding: 18px 20px;
+                border-radius: 18px;
+                background: rgba(7, 54, 66, 0.72);
+                border: 1px solid rgba(88, 110, 117, 0.42);
+              "
+            >
+              Browser-based workflow plus a native macOS desktop app.
+            </li>
+          </ul>
+        </section>
+      </main>
+    </div>
     <script>
       (function () {
         var ok =
@@ -66,7 +281,6 @@
         }
       })();
     </script>
-    <div id="root"></div>
     <script>
       // Polyfill Object.hasOwn for Safari < 15.4 and other older browsers.
       // Some dependencies (e.g. posthog-js, ai SDK) rely on this method.

@@ -1,0 +1,157 @@
+<svg
+  width="1200"
+  height="630"
+  viewBox="0 0 1200 630"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <rect width="1200" height="630" fill="#002B36" />
+  <rect width="1200" height="630" fill="url(#bgGlow)" />
+  <g opacity="0.28">
+    <path d="M0 100H1200" stroke="#1D6C88" stroke-width="1" />
+    <path d="M0 180H1200" stroke="#1D6C88" stroke-width="1" />
+    <path d="M0 260H1200" stroke="#1D6C88" stroke-width="1" />
+    <path d="M0 340H1200" stroke="#1D6C88" stroke-width="1" />
+    <path d="M0 420H1200" stroke="#1D6C88" stroke-width="1" />
+    <path d="M0 500H1200" stroke="#1D6C88" stroke-width="1" />
+    <path d="M180 0V630" stroke="#1D6C88" stroke-width="1" />
+    <path d="M300 0V630" stroke="#1D6C88" stroke-width="1" />
+    <path d="M420 0V630" stroke="#1D6C88" stroke-width="1" />
+    <path d="M540 0V630" stroke="#1D6C88" stroke-width="1" />
+    <path d="M660 0V630" stroke="#1D6C88" stroke-width="1" />
+    <path d="M780 0V630" stroke="#1D6C88" stroke-width="1" />
+    <path d="M900 0V630" stroke="#1D6C88" stroke-width="1" />
+    <path d="M1020 0V630" stroke="#1D6C88" stroke-width="1" />
+  </g>
+
+  <rect
+    x="72"
+    y="72"
+    width="74"
+    height="74"
+    rx="18"
+    fill="#073642"
+    stroke="#2AA198"
+    stroke-width="2"
+  />
+  <path d="M104.5 97.5L86 132H101.8L111.4 113.3L121.1 132H136.5L118 97.5H104.5Z" fill="#2AA198" />
+  <circle cx="135" cy="97" r="7" fill="#268BD2" />
+
+  <text
+    x="72"
+    y="196"
+    fill="#93A1A1"
+    font-size="20"
+    font-family="Arial, Helvetica, sans-serif"
+    letter-spacing="3.8"
+  >
+    BUILD. SPEED. PRECISION.
+  </text>
+  <text
+    x="72"
+    y="286"
+    fill="#FDF6E3"
+    font-size="74"
+    font-weight="700"
+    font-family="Arial, Helvetica, sans-serif"
+  >
+    OpenSCAD Studio
+  </text>
+  <text x="72" y="352" fill="#C7D2D9" font-size="28" font-family="Arial, Helvetica, sans-serif">
+    Modern OpenSCAD editor with live preview,
+  </text>
+  <text x="72" y="391" fill="#C7D2D9" font-size="28" font-family="Arial, Helvetica, sans-serif">
+    smart formatting, and an AI copilot.
+  </text>
+
+  <g>
+    <rect x="72" y="448" width="210" height="44" rx="22" fill="#073642" stroke="#586E75" />
+    <text x="107" y="476" fill="#FDF6E3" font-size="20" font-family="Arial, Helvetica, sans-serif">
+      Live 3D preview
+    </text>
+  </g>
+  <g>
+    <rect x="300" y="448" width="224" height="44" rx="22" fill="#073642" stroke="#586E75" />
+    <text x="336" y="476" fill="#FDF6E3" font-size="20" font-family="Arial, Helvetica, sans-serif">
+      Browser + desktop
+    </text>
+  </g>
+  <g>
+    <rect x="542" y="448" width="168" height="44" rx="22" fill="#073642" stroke="#586E75" />
+    <text x="584" y="476" fill="#FDF6E3" font-size="20" font-family="Arial, Helvetica, sans-serif">
+      AI copilot
+    </text>
+  </g>
+
+  <g filter="url(#panelShadow)">
+    <rect x="730" y="76" width="396" height="478" rx="28" fill="#062D38" stroke="#355E66" />
+    <rect x="730" y="76" width="396" height="46" rx="28" fill="#1A262C" />
+    <circle cx="764" cy="99" r="6" fill="#F97362" />
+    <circle cx="786" cy="99" r="6" fill="#F9C653" />
+    <circle cx="808" cy="99" r="6" fill="#46C46B" />
+    <rect x="756" y="146" width="142" height="292" rx="18" fill="#F4EBD3" />
+    <rect x="914" y="146" width="186" height="292" rx="18" fill="#052431" />
+    <path d="M914 146H1100V261L1026 438H914V146Z" fill="#0D3E4D" />
+    <path d="M914 146H1100L1026 220H914V146Z" fill="#E8DFC8" fill-opacity="0.96" />
+    <ellipse cx="1010" cy="288" rx="70" ry="40" fill="#A6D4D3" />
+    <ellipse cx="1010" cy="308" rx="86" ry="52" fill="#5C9E9A" />
+    <ellipse cx="1010" cy="302" rx="76" ry="45" fill="#80BEBC" />
+    <ellipse cx="1010" cy="295" rx="58" ry="31" fill="#9BCED0" />
+    <path d="M940 170L1072 418" stroke="#1C6E8B" stroke-opacity="0.5" />
+    <path d="M965 162L1090 395" stroke="#1C6E8B" stroke-opacity="0.32" />
+    <rect x="934" y="468" width="146" height="14" rx="7" fill="#0F3C49" />
+    <rect x="758" y="168" width="98" height="7" rx="3.5" fill="#C7A94E" />
+    <rect x="758" y="188" width="82" height="7" rx="3.5" fill="#7E8EA3" />
+    <rect x="758" y="208" width="110" height="7" rx="3.5" fill="#859900" />
+    <rect x="758" y="228" width="72" height="7" rx="3.5" fill="#6C71C4" />
+    <rect x="758" y="248" width="126" height="7" rx="3.5" fill="#859900" />
+    <rect x="758" y="294" width="118" height="7" rx="3.5" fill="#B58900" />
+    <rect x="758" y="314" width="102" height="7" rx="3.5" fill="#268BD2" />
+    <rect x="758" y="334" width="136" height="7" rx="3.5" fill="#657B83" />
+    <rect x="758" y="410" width="326" height="92" rx="16" fill="#0E3B49" />
+    <rect x="758" y="410" width="326" height="92" rx="16" stroke="#224E58" />
+    <rect x="780" y="432" width="110" height="10" rx="5" fill="#D3C6A7" />
+    <rect x="780" y="452" width="252" height="10" rx="5" fill="#6A8A95" />
+    <rect x="780" y="472" width="226" height="10" rx="5" fill="#6A8A95" />
+  </g>
+
+  <defs>
+    <radialGradient
+      id="bgGlow"
+      cx="0"
+      cy="0"
+      r="1"
+      gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(1035 560) rotate(-152.18) scale(698.505 520.361)"
+    >
+      <stop stop-color="#268BD2" stop-opacity="0.24" />
+      <stop offset="1" stop-color="#268BD2" stop-opacity="0" />
+    </radialGradient>
+    <filter
+      id="panelShadow"
+      x="702"
+      y="54"
+      width="452"
+      height="534"
+      filterUnits="userSpaceOnUse"
+      color-interpolation-filters="sRGB"
+    >
+      <feFlood flood-opacity="0" result="BackgroundImageFix" />
+      <feColorMatrix
+        in="SourceAlpha"
+        type="matrix"
+        values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+        result="hardAlpha"
+      />
+      <feOffset dy="10" />
+      <feGaussianBlur stdDeviation="14" />
+      <feComposite in2="hardAlpha" operator="out" />
+      <feColorMatrix
+        type="matrix"
+        values="0 0 0 0 0.0117647 0 0 0 0 0.113725 0 0 0 0 0.145098 0 0 0 0.38 0"
+      />
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_2" />
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_2" result="shape" />
+    </filter>
+  </defs>
+</svg>
