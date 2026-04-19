@@ -28,4 +28,4 @@ Port the shared shortcut primitives from Cascade, tailor the registry to OpenSCA
 - [x] Add Help menu entries in both the web menubar and the Tauri native menu
 - [x] Add or update automated coverage for the new shortcut/help behavior
 - [x] Run shared validation for the affected files
-- [ ] Create a draft PR against `main` and capture the preview URL if one is produced
+- [x] Create a draft PR against `main` and capture the preview URL if one is produced
