@@ -23,4 +23,4 @@ Make the AI transcript behave like a professional chat app while responses strea
 - [x] Update the AI transcript to pause auto-scroll when the user scrolls away from the bottom.
 - [x] Add or update component tests for the new transcript scroll behavior.
 - [x] Run relevant validation for the frontend-only changes.
-- [ ] Prepare the branch and draft PR handoff.
+- [x] Prepare the branch and draft PR handoff.
