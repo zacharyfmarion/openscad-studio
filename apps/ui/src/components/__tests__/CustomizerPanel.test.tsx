@@ -388,6 +388,77 @@ describe('CustomizerPanel', () => {
     });
   });
 
+  it('renders textarea-backed string params for large text fields', () => {
+    mockParseCustomizerParams.mockReturnValue([
+      {
+        name: 'Parameters',
+        params: [
+          {
+            name: 'engraving',
+            type: 'string',
+            value: 'Line 1\nLine 2',
+            rawValue: '"Line 1\\nLine 2"',
+            line: 1,
+            tab: 'Parameters',
+            label: 'Engraving',
+            input: 'textarea',
+            rows: 5,
+            source: 'hybrid',
+          },
+        ],
+      },
+    ]);
+
+    renderWithProviders(
+      <CustomizerPanel
+        code='engraving = "Line 1\\nLine 2";'
+        baselineCode='engraving = "Line 1\\nLine 2";'
+      />
+    );
+
+    const textarea = screen.getByLabelText('Engraving') as HTMLTextAreaElement;
+    expect(textarea.tagName).toBe('TEXTAREA');
+    expect(textarea.rows).toBe(5);
+    expect(textarea.value).toBe('Line 1\nLine 2');
+  });
+
+  it('escapes textarea edits before writing them back to code', () => {
+    mockParseCustomizerParams.mockReturnValue([
+      {
+        name: 'Parameters',
+        params: [
+          {
+            name: 'engraving',
+            type: 'string',
+            value: 'Line 1\nLine 2',
+            rawValue: '"Line 1\\nLine 2"',
+            line: 1,
+            tab: 'Parameters',
+            label: 'Engraving',
+            input: 'textarea',
+            rows: 5,
+          },
+        ],
+      },
+    ]);
+
+    renderWithProviders(
+      <CustomizerPanel
+        code='engraving = "Line 1\\nLine 2";'
+        baselineCode='engraving = "Line 1\\nLine 2";'
+      />
+    );
+
+    const textarea = screen.getByLabelText('Engraving');
+    fireEvent.change(textarea, { target: { value: 'Line 1\n"Quoted"' } });
+    fireEvent.blur(textarea);
+
+    expect(mockEmit).toHaveBeenCalledWith('code-updated', {
+      code: 'engraving = "Line 1\\n\\"Quoted\\"";',
+      source: 'customizer',
+    });
+  });
+
   it('treats slider changes as resettable against the opened-file baseline', () => {
     jest.useFakeTimers();
 

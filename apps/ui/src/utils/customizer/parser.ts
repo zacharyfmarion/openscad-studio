@@ -13,6 +13,7 @@ import type {
   DropdownOption,
   ParameterProminence,
   CustomizerParamSource,
+  CustomizerStringInput,
 } from './types';
 import type * as TreeSitter from 'web-tree-sitter';
 
@@ -22,6 +23,8 @@ interface StudioMetadata {
   unit?: string;
   group?: string;
   prominence?: ParameterProminence;
+  input?: CustomizerStringInput;
+  rows?: number;
 }
 
 const isDev =
@@ -147,6 +150,17 @@ function parseStudioMetadata(commentText: string): StudioMetadata | null {
     ) {
       metadata.prominence = parsed.prominence;
     }
+    if (parsed.input === 'text' || parsed.input === 'textarea') {
+      metadata.input = parsed.input;
+    }
+    if (
+      typeof parsed.rows === 'number' &&
+      Number.isFinite(parsed.rows) &&
+      Number.isInteger(parsed.rows) &&
+      parsed.rows > 0
+    ) {
+      metadata.rows = parsed.rows;
+    }
 
     return Object.keys(metadata).length > 0 ? metadata : null;
   } catch (error) {
@@ -155,6 +169,97 @@ function parseStudioMetadata(commentText: string): StudioMetadata | null {
     }
     return null;
   }
+}
+
+function decodeStringLiteral(text: string): string {
+  if (text.length < 2) {
+    return text;
+  }
+
+  const quote = text[0];
+  if ((quote !== '"' && quote !== "'") || text[text.length - 1] !== quote) {
+    return text;
+  }
+
+  const inner = text.slice(1, -1);
+  let decoded = '';
+
+  for (let index = 0; index < inner.length; index += 1) {
+    const char = inner[index];
+    if (char !== '\\') {
+      decoded += char;
+      continue;
+    }
+
+    const nextChar = inner[index + 1];
+    if (!nextChar) {
+      decoded += '\\';
+      break;
+    }
+
+    switch (nextChar) {
+      case 'b':
+        decoded += '\b';
+        index += 1;
+        break;
+      case 't':
+        decoded += '\t';
+        index += 1;
+        break;
+      case 'n':
+        decoded += '\n';
+        index += 1;
+        break;
+      case 'r':
+        decoded += '\r';
+        index += 1;
+        break;
+      case 'f':
+        decoded += '\f';
+        index += 1;
+        break;
+      case '\\':
+        decoded += '\\';
+        index += 1;
+        break;
+      case '"':
+        decoded += '"';
+        index += 1;
+        break;
+      case "'":
+        decoded += "'";
+        index += 1;
+        break;
+      case 'x': {
+        const hexMatch = inner.slice(index + 2).match(/^[0-9A-Fa-f]{1,2}/);
+        if (!hexMatch) {
+          decoded += 'x';
+          index += 1;
+          break;
+        }
+        decoded += String.fromCharCode(Number.parseInt(hexMatch[0], 16));
+        index += 1 + hexMatch[0].length;
+        break;
+      }
+      case 'u': {
+        const hex = inner.slice(index + 2, index + 6);
+        if (!/^[0-9A-Fa-f]{4}$/.test(hex)) {
+          decoded += 'u';
+          index += 1;
+          break;
+        }
+        decoded += String.fromCharCode(Number.parseInt(hex, 16));
+        index += 5;
+        break;
+      }
+      default:
+        decoded += nextChar;
+        index += 1;
+        break;
+    }
+  }
+
+  return decoded;
 }
 
 function isValidSliderConfig(
@@ -252,7 +357,7 @@ function extractValue(
   // String
   if (valueNode.type === 'string' || text.startsWith('"') || text.startsWith("'")) {
     return {
-      value: text.replace(/^["']|["']$/g, ''),
+      value: decodeStringLiteral(text),
       rawValue,
       inferredType: 'string',
     };
@@ -420,6 +525,12 @@ export function parseCustomizerParams(sourceCode: string): CustomizerTab[] {
           if (pendingStudioMetadata.group) param.group = pendingStudioMetadata.group;
           if (pendingStudioMetadata.prominence) {
             param.prominence = pendingStudioMetadata.prominence;
+          }
+          if (param.type === 'string' && pendingStudioMetadata.input) {
+            param.input = pendingStudioMetadata.input;
+          }
+          if (param.type === 'string' && pendingStudioMetadata.rows !== undefined) {
+            param.rows = pendingStudioMetadata.rows;
           }
         }
 

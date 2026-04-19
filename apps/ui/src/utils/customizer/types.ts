@@ -12,6 +12,7 @@ export type ParameterType =
 
 export type ParameterProminence = 'primary' | 'secondary' | 'advanced';
 export type CustomizerParamSource = 'standard' | 'hybrid';
+export type CustomizerStringInput = 'text' | 'textarea';
 
 export interface DropdownOption {
   value: string | number;
@@ -40,6 +41,8 @@ export interface CustomizerParam {
   unit?: string; // Optional display unit
   prominence?: ParameterProminence; // Primary/secondary/advanced emphasis
   source?: CustomizerParamSource; // Metadata source used for this parameter
+  input?: CustomizerStringInput; // Preferred string control presentation
+  rows?: number; // Preferred textarea row count for large text inputs
 
   // Raw text for replacement
   rawValue: string; // Original value as string (e.g., "10", "true", "[1,2,3]")

@@ -316,7 +316,7 @@ export function CustomizerPanel({
         formattedValue = `[${newValue.join(', ')}]`;
       } else if (typeof newValue === 'string') {
         if (param.rawValue.startsWith('"') || param.rawValue.startsWith("'")) {
-          formattedValue = `"${newValue}"`;
+          formattedValue = JSON.stringify(newValue);
         } else {
           formattedValue = newValue;
         }

@@ -132,4 +132,24 @@ ring_enabled = true; // [true, false]
       source: 'hybrid',
     });
   });
+
+  it('supports textarea metadata and decodes escaped string content', () => {
+    const code = `
+// @studio {"label":"Engraving","input":"textarea","rows":5}
+engraving = "Line 1\\nLine 2 \\"quoted\\"";
+`;
+
+    const tabs = parseCustomizerParams(code);
+    const engraving = tabs[0]?.params[0];
+
+    expect(engraving).toMatchObject({
+      name: 'engraving',
+      type: 'string',
+      label: 'Engraving',
+      input: 'textarea',
+      rows: 5,
+      value: 'Line 1\nLine 2 "quoted"',
+      source: 'hybrid',
+    });
+  });
 });

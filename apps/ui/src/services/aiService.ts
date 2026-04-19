@@ -134,6 +134,8 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
   - \`/* [Options] */\`
 - Add optional OpenSCAD Studio presentation metadata immediately above important user-facing parameters:
   - \`// @studio {"label":"Width","description":"Overall outer width","unit":"mm","group":"Body","prominence":"primary"}\`
+- For longer user-editable text fields, prefer textarea metadata on string params:
+  - \`// @studio {"label":"Engraving","input":"textarea","rows":5}\`
 - Use \`@studio\` metadata only for user-facing controls, not derived/internal variables.
 - Prefer realistic 3D-printing-safe defaults, ranges, and steps.
 `;

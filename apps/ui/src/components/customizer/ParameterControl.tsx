@@ -43,6 +43,10 @@ function getDisplayLabel(param: CustomizerParam): string {
 }
 
 function getControlLayout(param: CustomizerParam): ControlLayout {
+  if (param.type === 'string' && param.input === 'textarea') {
+    return 'stacked';
+  }
+
   if (param.source === 'hybrid' || param.description) {
     return 'stacked';
   }
@@ -572,6 +576,8 @@ function NumberControl({
 function StringControl({ param, onChange, isDirty, onReset }: ParameterControlProps) {
   const [localValue, setLocalValue] = useState(String(param.value));
   const layout = getControlLayout(param);
+  const textareaRows =
+    param.input === 'textarea' ? Math.min(Math.max(param.rows ?? 4, 3), 12) : undefined;
 
   useEffect(() => {
     setLocalValue(String(param.value));
@@ -583,29 +589,48 @@ function StringControl({ param, onChange, isDirty, onReset }: ParameterControlPr
     }
   };
 
-  const control = (
-    <ValueWithUnit
-      unit={param.unit}
-      className={layout === 'inline' ? 'w-40 shrink-0' : undefined}
-      value={
-        <input
-          type="text"
+  const control =
+    param.input === 'textarea' ? (
+      <div
+        className="overflow-hidden rounded-lg border"
+        style={{
+          backgroundColor: 'var(--bg-elevated)',
+          borderColor: 'var(--border-primary)',
+        }}
+      >
+        <textarea
           id={`param-${param.name}`}
           value={localValue}
+          rows={textareaRows}
           onChange={(event) => setLocalValue(event.target.value)}
           onBlur={handleCommit}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              handleCommit();
-              event.currentTarget.blur();
-            }
-          }}
-          className="w-full bg-transparent px-3 py-2 text-sm outline-none"
+          className="block min-h-[5.5rem] w-full resize-y bg-transparent px-3 py-2 text-sm leading-relaxed outline-none"
           style={{ color: 'var(--text-primary)' }}
         />
-      }
-    />
-  );
+      </div>
+    ) : (
+      <ValueWithUnit
+        unit={param.unit}
+        className={layout === 'inline' ? 'w-40 shrink-0' : undefined}
+        value={
+          <input
+            type="text"
+            id={`param-${param.name}`}
+            value={localValue}
+            onChange={(event) => setLocalValue(event.target.value)}
+            onBlur={handleCommit}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                handleCommit();
+                event.currentTarget.blur();
+              }
+            }}
+            className="w-full bg-transparent px-3 py-2 text-sm outline-none"
+            style={{ color: 'var(--text-primary)' }}
+          />
+        }
+      />
+    );
 
   return (
     <ControlShell
