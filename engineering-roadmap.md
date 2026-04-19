@@ -1,6 +1,6 @@
 # OpenSCAD Studio — Engineering Roadmap
 
-> Current app version: **v1.2.0**. This roadmap mixes historical milestone notes with future planning, so older phase sections may reference the version they originally shipped in rather than the current release.
+> Current app version: **v1.2.1**. This roadmap mixes historical milestone notes with future planning, so older phase sections may reference the version they originally shipped in rather than the current release.
 >
 > A modern OpenSCAD editor with live preview and AI copilot capabilities, available as both a web app and a macOS desktop app. The application uses openscad-wasm for rendering and provides a superior editing experience with real-time feedback and AI-assisted code generation.
 
@@ -582,6 +582,6 @@ Decisions made during roadmap planning that affect ordering:
 
 ---
 
-**Last Updated:** 2026-04-12
-**Current Phase:** v1.2.0 — web + desktop app shipping with sharing, analytics/privacy controls, formatter coverage, advanced viewer tooling, and desktop MCP support for external agents
+**Last Updated:** 2026-04-19
+**Current Phase:** v1.2.1 — web + desktop app shipping with sharing, analytics/privacy controls, formatter coverage, advanced viewer tooling, and desktop MCP support for external agents
 **Next Milestone:** Phase 4B.1/4B.3 (App.tsx decomposition, centralized state) or Phase 5 (AI experience) based on user feedback

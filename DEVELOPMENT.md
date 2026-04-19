@@ -122,7 +122,7 @@ openscad-studio/
 
 ## AI Copilot Setup
 
-The AI copilot uses the [Vercel AI SDK](https://sdk.vercel.ai/) with streaming support. AI requests are made client-side in both the web app and the Tauri desktop app, and API keys are currently stored in local storage state inside the browser/webview. This is a convenience tradeoff, not backend-style secret isolation.
+The AI copilot uses the [Vercel AI SDK](https://sdk.vercel.ai/) with streaming support. AI requests are made client-side in both the web app and the Tauri desktop app, and API keys are currently stored in obfuscated localStorage-backed state inside the browser/webview. This is a convenience tradeoff, not backend-style secret isolation.
 
 1. Open Settings (⌘,)
 2. Navigate to "AI" tab

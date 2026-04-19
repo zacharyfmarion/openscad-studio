@@ -160,7 +160,7 @@ The project uses a mix of automated and manual testing. When contributing:
    - [ ] Feature works as expected
    - [ ] No console errors
    - [ ] No TypeScript errors
-   - [ ] Works on your target platform (macOS/Windows/Linux)
+   - [ ] Works on your target platform/browser (desktop currently macOS; web in the target browser)
 
 3. **Test edge cases**:
    - [ ] Empty files
@@ -198,7 +198,7 @@ When reporting bugs, please include:
 4. **Actual behavior**: What actually happened
 5. **Environment**:
    - OS: (macOS 14.0, Windows 11, Ubuntu 22.04, etc.)
-   - App surface: web app or desktop app
+   - App surface: web app or desktop app (desktop is currently macOS-focused)
    - Browser (for web) or desktop app version (from About dialog)
    - App version: (from About dialog)
 6. **Screenshots/logs**: If applicable

@@ -75,7 +75,7 @@ Desktop-only shell services:
 
 ### API keys
 
-AI API keys are currently stored client-side in local storage state, including when the app runs inside the Tauri webview.
+AI API keys are currently stored client-side in obfuscated localStorage-backed state, including when the app runs inside the Tauri webview.
 
 - This is a convenience tradeoff for a shared web + desktop AI implementation.
 - It is not equivalent to backend-only secret storage.

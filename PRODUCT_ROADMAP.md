@@ -4,7 +4,7 @@
 >
 > OpenSCAD is the engine, not the product. The product is: you describe what you want, it makes it, you print it.
 
-**Current version**: v1.2.0 | **Last updated**: 2026-04-12
+**Current version**: v1.2.1 | **Last updated**: 2026-04-19
 
 This roadmap mixes shipped milestones with future planning. Older sections may describe the implementation assumptions that existed when they were written rather than the current client-side `openscad-wasm` architecture.
 
@@ -20,14 +20,14 @@ This roadmap mixes shipped milestones with future planning. Older sections may d
 
 ---
 
-## What We Have (v1.2.0)
+## What We Have (v1.2.1)
 
 | Area                                                                                  | Status |
 | ------------------------------------------------------------------------------------- | ------ |
 | Monaco editor with OpenSCAD syntax, 27 themes, vim mode, tree-sitter formatting       | ✅     |
 | Live 3D preview (Three.js mesh viewer, orbit controls, wireframe/solid/section tools) | ✅     |
 | 2D SVG mode for laser cutting / engraving                                             | ✅     |
-| AI copilot (Claude + GPT, streaming, tool-calling, diff-based editing, auto-rollback) | ✅     |
+| AI copilot (Claude + GPT, streaming, tool-calling, diff-based editing, image attachments, auto-rollback) | ✅     |
 | AI can see the 3D preview (screenshot tool returns base64 PNG to vision models)       | ✅     |
 | Customizer panel (tree-sitter parsed parameters → sliders, dropdowns, vectors)        | ✅     |
 | Share links with remixable web entry and thumbnail support                            | ✅     |

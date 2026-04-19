@@ -117,7 +117,7 @@ Local MCP client → Tauri MCP server (`mcp.rs`) → active workspace window bri
    - Interactive STL/3D mesh for manipulation
    - SVG for 2D designs
 
-4. **Shared Client-Side AI**: Both web and desktop use the same frontend AI stack for the in-app copilot. Requests are made directly from the React app with Vercel AI SDK's `streamText`, and API keys are currently stored in local storage state inside the browser/webview.
+4. **Shared Client-Side AI**: Both web and desktop use the same frontend AI stack for the in-app copilot. Requests are made directly from the React app with Vercel AI SDK's `streamText`, and API keys are currently stored in obfuscated localStorage-backed state inside the browser/webview.
 
 5. **Diff-based AI Editing**: AI returns exact string replacements, not full file rewrites.
 
@@ -279,7 +279,7 @@ pnpm validate:changes   # Run the shared validation helper
 ### Platform Abstraction
 
 - **PlatformBridge**: Components should use the `PlatformBridge` interface (`apps/ui/src/platform/types.ts`), never import Tauri or web APIs directly.
-- **API keys**: Stored client-side in local storage state today, including in the Tauri webview. This is a convenience tradeoff, not hardened secret isolation.
+- **API keys**: Stored client-side in obfuscated localStorage-backed state today, including in the Tauri webview. This is a convenience tradeoff, not hardened secret isolation.
 - **File I/O**: Desktop uses native file dialogs via Tauri. Web uses File System Access API with fallbacks.
 
 ### WASM Rendering (Web)
@@ -314,7 +314,7 @@ pnpm validate:changes   # Run the shared validation helper
 
 ## Current Status
 
-### Current Capabilities (v1.2.0)
+### Current Capabilities (v1.2.1)
 
 ✅ Monaco editor with OpenSCAD syntax highlighting
 ✅ Live STL/SVG preview (web: openscad-wasm, desktop: native binary)
@@ -404,5 +404,5 @@ pnpm validate:changes   # Run the shared validation helper
 
 ---
 
-**Last Updated**: 2026-04-12
-**Current Version**: v1.2.0 — Web + Desktop
+**Last Updated**: 2026-04-19
+**Current Version**: v1.2.1 — Web + Desktop
