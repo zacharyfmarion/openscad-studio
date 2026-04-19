@@ -416,10 +416,15 @@ export class TauriBridge implements PlatformBridge {
 
     await listen('menu:file:new', () => eventBus.emit('menu:file:new'));
     await listen('menu:file:open', () => eventBus.emit('menu:file:open'));
+    await listen('menu:file:settings', () => eventBus.emit('menu:file:settings'));
     await listen('menu:file:open_folder', () => eventBus.emit('menu:file:open_folder'));
     await listen('menu:file:save', () => eventBus.emit('menu:file:save'));
     await listen('menu:file:save_as', () => eventBus.emit('menu:file:save_as'));
     await listen('menu:file:save_all', () => eventBus.emit('menu:file:save_all'));
+    await listen('menu:edit:undo', () => eventBus.emit('menu:edit:undo'));
+    await listen('menu:edit:redo', () => eventBus.emit('menu:edit:redo'));
+    await listen('menu:help:shortcuts', () => eventBus.emit('menu:help:shortcuts'));
+    await listen('menu:help:about', () => eventBus.emit('menu:help:about'));
     await listen<string>('menu:file:export', (event) => {
       eventBus.emit('menu:file:export', event.payload as import('./types').ExportFormat);
     });

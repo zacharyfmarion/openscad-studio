@@ -14,6 +14,8 @@ import {
   type HeaderLayoutPreset,
 } from './components/HeaderWorkspaceControls';
 import { WebMenuBar } from './components/WebMenuBar';
+import { KeyboardShortcutsDialog } from './components/KeyboardShortcutsDialog';
+import { AboutDialog } from './components/AboutDialog';
 import { FileTreePanel } from './components/FileTree';
 import { isValidDrop } from './utils/isValidDrop';
 import {
@@ -82,6 +84,8 @@ import { getRelativeProjectPath } from './utils/projectFilePaths';
 import { generateRandomProjectName } from './utils/projectNaming';
 import { resolveFolderImport } from './utils/folderImport';
 import { useShareEntry } from './hooks/useShareEntry';
+import { useShortcuts } from './shortcuts/useShortcuts';
+import { isTextInputFocused } from './shortcuts/focusDetection';
 import { TbBrandGithub, TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
 import { Toaster } from 'sonner';
 import type { AiDraft } from './types/aiChat';
@@ -310,6 +314,8 @@ function App() {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showShortcutsDialog, setShowShortcutsDialog] = useState(false);
+  const [showAboutDialog, setShowAboutDialog] = useState(false);
   const [isProjectLoading, setIsProjectLoading] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsSection | undefined>(
     undefined
@@ -602,6 +608,19 @@ function App() {
   const aiPromptPanelRef = useRef<AiPromptPanelRef>(null);
   const analytics = useAnalytics();
 
+  const openSettingsDialog = useCallback((initialTab?: SettingsSection) => {
+    setSettingsInitialTab(initialTab);
+    setShowSettingsDialog(true);
+  }, []);
+
+  const openShortcutsDialog = useCallback(() => {
+    setShowShortcutsDialog(true);
+  }, []);
+
+  const openAboutDialog = useCallback(() => {
+    setShowAboutDialog(true);
+  }, []);
+
   // AI Agent state
   const {
     isStreaming,
@@ -731,6 +750,48 @@ function App() {
     },
     [analytics, closeTabLocal, tabs, capabilities.hasFileSystem]
   );
+
+  useShortcuts({
+    'assistant.focus': () => {
+      setTimeout(() => {
+        aiPromptPanelRef.current?.focusPrompt();
+      }, 0);
+    },
+    'edit.redo': () => {
+      eventBus.emit('menu:edit:redo');
+    },
+    'edit.undo': () => {
+      eventBus.emit('menu:edit:undo');
+    },
+    'file.new': () => {
+      eventBus.emit('menu:file:new');
+    },
+    'file.open': () => {
+      eventBus.emit('menu:file:open');
+    },
+    'file.save': () => {
+      eventBus.emit('menu:file:save');
+    },
+    'file.saveAll': () => {
+      eventBus.emit('menu:file:save_all');
+    },
+    'file.saveAs': () => {
+      eventBus.emit('menu:file:save_as');
+    },
+    'file.settings': () => {
+      eventBus.emit('menu:file:settings');
+    },
+    'help.shortcuts': () => {
+      eventBus.emit('menu:help:shortcuts');
+    },
+    'workspace.closeTab': () => {
+      void closeTab(activeTabId);
+    },
+    'workspace.newTab': () => {
+      createNewTab();
+      focusEditorPanel();
+    },
+  });
 
   const reorderTabs = useCallback(
     (newTabs: WorkspaceDocumentTab[]) => {
@@ -1775,6 +1836,40 @@ function App() {
     );
 
     unlistenFns.push(
+      eventBus.on('menu:file:settings', () => {
+        openSettingsDialog();
+      })
+    );
+
+    unlistenFns.push(
+      eventBus.on('menu:edit:undo', () => {
+        if (!isTextInputFocused()) {
+          void handleUndo();
+        }
+      })
+    );
+
+    unlistenFns.push(
+      eventBus.on('menu:edit:redo', () => {
+        if (!isTextInputFocused()) {
+          void handleRedo();
+        }
+      })
+    );
+
+    unlistenFns.push(
+      eventBus.on('menu:help:shortcuts', () => {
+        openShortcutsDialog();
+      })
+    );
+
+    unlistenFns.push(
+      eventBus.on('menu:help:about', () => {
+        openAboutDialog();
+      })
+    );
+
+    unlistenFns.push(
       eventBus.on('menu:file:export', async (format: ExportFormat) => {
         try {
           const formatLabels: Record<ExportFormat, { label: string; ext: string }> = {
@@ -2021,42 +2116,6 @@ function App() {
     }
     previousSettingsDialogRef.current = showSettingsDialog;
   }, [analytics, settingsInitialTab, showSettingsDialog]);
-
-  // Global keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // ⌘K or Ctrl+K to focus AI prompt
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setTimeout(() => {
-          aiPromptPanelRef.current?.focusPrompt();
-        }, 0);
-      }
-      // ⌘, or Ctrl+, to open settings
-      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
-        e.preventDefault();
-        setShowSettingsDialog(true);
-      }
-      // ⌘T or Ctrl+T for new tab
-      if ((e.metaKey || e.ctrlKey) && e.key === 't') {
-        e.preventDefault();
-        createNewTab();
-      }
-      // ⌘W or Ctrl+W to close tab
-      if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
-        e.preventDefault();
-        closeTab(activeTabId);
-      }
-      // ⌘⌥S or Ctrl+Alt+S to save all
-      if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 's') {
-        e.preventDefault();
-        eventBus.emit('menu:file:save_all');
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [createNewTab, closeTab, activeTabId]);
 
   useEffect(() => {
     if (aiError) {
@@ -2359,10 +2418,7 @@ function App() {
         currentModel={currentModel}
         availableProviders={availableProviders}
         onModelChange={setCurrentModel}
-        onOpenSettings={() => {
-          setSettingsInitialTab('ai');
-          setShowSettingsDialog(true);
-        }}
+        onOpenSettings={() => openSettingsDialog('ai')}
         projectDirectory={displayProjectDir}
         onChangeProjectDirectory={handleChangeProjectDirectory}
         hasCustomProjectDirectory={hasCustomProjectDir}
@@ -2376,6 +2432,11 @@ function App() {
         }}
         initialTab={settingsInitialTab}
       />
+      <KeyboardShortcutsDialog
+        isOpen={showShortcutsDialog}
+        onClose={() => setShowShortcutsDialog(false)}
+      />
+      <AboutDialog isOpen={showAboutDialog} onClose={() => setShowAboutDialog(false)} />
       <NuxLayoutPicker isOpen={showNux && !isMobile} onSelect={handleNuxSelect} />
     </div>
   ) : (
@@ -2395,9 +2456,8 @@ function App() {
           <WebMenuBar
             onExport={() => setShowExportDialog(true)}
             onShare={canUseShare ? handleOpenShareDialog : undefined}
-            onSettings={() => setShowSettingsDialog(true)}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
+            onShowShortcuts={openShortcutsDialog}
+            onShowAbout={openAboutDialog}
             hasMultipleFiles={hasMultipleFiles}
           />
         )}
@@ -2501,7 +2561,7 @@ function App() {
 
           <IconButton
             data-testid="settings-button"
-            onClick={() => setShowSettingsDialog(true)}
+            onClick={() => openSettingsDialog()}
             size="sm"
             title="Settings (⌘,)"
             aria-label="Settings"
@@ -2586,6 +2646,11 @@ function App() {
         }}
         initialTab={settingsInitialTab}
       />
+      <KeyboardShortcutsDialog
+        isOpen={showShortcutsDialog}
+        onClose={() => setShowShortcutsDialog(false)}
+      />
+      <AboutDialog isOpen={showAboutDialog} onClose={() => setShowAboutDialog(false)} />
     </div>
   );
 

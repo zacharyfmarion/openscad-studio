@@ -25,6 +25,16 @@ test.describe('Keyboard shortcuts', () => {
     ).toBeVisible({ timeout: 5000 });
   });
 
+  test('question mark opens keyboard shortcuts', async ({ app }) => {
+    await app.page.getByTestId('settings-button').click();
+    await app.page.keyboard.press('Escape');
+    await app.page.getByTestId('export-button').focus();
+    await app.page.keyboard.press('Shift+/');
+    await expect(app.page.getByRole('dialog', { name: 'Keyboard Shortcuts' })).toBeVisible({
+      timeout: 5000,
+    });
+  });
+
   test('Meta+T creates new tab', async ({ app }) => {
     await app.page.keyboard.press('Meta+t');
     await app.page.waitForTimeout(1000);
