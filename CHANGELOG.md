@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-04-19
+
+### Added
+- Large customizer text inputs now use multi-line textareas for easier editing.
+
+### Changed
+- AI chat transcript scrolling is more reliable while responses stream.
+- Desktop 2D SVG previews use more consistent default sizing and metrics handling.
+
+### Fixed
+- 2D AI diagnostics now fall back more reliably when SVG dimensions are incomplete.
+
 ## [1.2.1] - 2026-04-15
 
 ### Added
