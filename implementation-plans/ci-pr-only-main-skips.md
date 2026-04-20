@@ -22,4 +22,4 @@ Stop routine CI jobs from running on direct pushes to `main` while keeping relea
 - [x] Update the CI workflow so routine checks run only for pull requests.
 - [x] Update the E2E workflow so routine E2E coverage runs only for pull requests.
 - [x] Validate the workflow changes locally.
-- [ ] Open a draft PR with the implementation summary.
+- [x] Open a draft PR with the implementation summary.
