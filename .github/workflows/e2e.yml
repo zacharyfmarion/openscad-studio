@@ -1,8 +1,6 @@
 name: E2E Tests
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -97,8 +95,7 @@ jobs:
   e2e-tauri:
     name: E2E Tests (Tauri Desktop)
     runs-on: macos-latest
-    # Only run on main branch pushes — desktop tests are expensive
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Keep desktop E2E coverage on PRs while skipping it on direct pushes to main.
     env:
       VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}
       VITE_PUBLIC_POSTHOG_HOST: ${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}
