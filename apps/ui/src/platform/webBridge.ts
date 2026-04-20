@@ -224,33 +224,7 @@ export class WebBridge implements PlatformBridge {
     defaultFilename: string,
     filters?: FileFilter[]
   ): Promise<void> {
-    if (hasFileSystemAccess()) {
-      const types: PickerAcceptType[] = filters?.length
-        ? filters.map((f) => ({
-            description: f.name,
-            accept: {
-              'application/octet-stream': f.extensions.map((ext) => `.${ext}`),
-            },
-          }))
-        : [];
-
-      try {
-        const handle = await window.showSaveFilePicker({
-          types: types.length ? types : undefined,
-          suggestedName: defaultFilename,
-        });
-
-        const writable = await handle.createWritable();
-        await writable.write(data);
-        await writable.close();
-      } catch (err) {
-        // User cancelled the picker — silently return without triggering the fallback download
-        if (err instanceof Error && err.name === 'AbortError') return;
-        throw err;
-      }
-      return;
-    }
-
+    void filters;
     const blob = new Blob([data], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

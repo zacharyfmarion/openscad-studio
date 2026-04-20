@@ -1,9 +1,6 @@
 import { jest } from '@jest/globals';
 
 const mockShowSaveFilePicker = jest.fn();
-const mockCreateWritable = jest.fn();
-const mockWrite = jest.fn();
-const mockClose = jest.fn();
 const mockAnchorClick = jest.fn();
 const mockAppendChild = jest.fn();
 const mockRemoveChild = jest.fn();
@@ -45,46 +42,20 @@ describe('WebBridge.fileExport', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCreateWritable.mockResolvedValue({ write: mockWrite, close: mockClose });
-    mockWrite.mockResolvedValue(undefined);
-    mockClose.mockResolvedValue(undefined);
     mockCreateObjectURL.mockReturnValue('blob:mock-url');
   });
 
-  it('shows the save picker and writes the file on success', async () => {
-    mockShowSaveFilePicker.mockResolvedValue({ createWritable: mockCreateWritable });
-
+  it('uses the browser download flow even when File System Access API is available', async () => {
     await new WebBridge().fileExport(data, filename, filters);
 
-    expect(mockShowSaveFilePicker).toHaveBeenCalledTimes(1);
-    expect(mockWrite).toHaveBeenCalledWith(data);
-    expect(mockClose).toHaveBeenCalledTimes(1);
-    expect(mockAnchorClick).not.toHaveBeenCalled();
+    expect(mockShowSaveFilePicker).not.toHaveBeenCalled();
+    expect(mockAnchorClick).toHaveBeenCalledTimes(1);
+    expect(mockAppendChild).toHaveBeenCalledTimes(1);
+    expect(mockRemoveChild).toHaveBeenCalledTimes(1);
+    expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
   });
 
-  it('does not trigger a fallback download when the user cancels (AbortError)', async () => {
-    const abortError = Object.assign(new Error('The user aborted a request.'), {
-      name: 'AbortError',
-    });
-    mockShowSaveFilePicker.mockRejectedValue(abortError);
-
-    await expect(new WebBridge().fileExport(data, filename, filters)).resolves.toBeUndefined();
-
-    expect(mockShowSaveFilePicker).toHaveBeenCalledTimes(1);
-    // Regression guard: cancelling the picker must NOT silently trigger a second download
-    expect(mockAnchorClick).not.toHaveBeenCalled();
-  });
-
-  it('propagates non-abort errors without triggering a fallback download', async () => {
-    mockShowSaveFilePicker.mockResolvedValue({ createWritable: mockCreateWritable });
-    mockWrite.mockRejectedValue(new Error('Disk full'));
-
-    await expect(new WebBridge().fileExport(data, filename, filters)).rejects.toThrow('Disk full');
-
-    expect(mockAnchorClick).not.toHaveBeenCalled();
-  });
-
-  it('uses the anchor fallback when File System Access API is unavailable', async () => {
+  it('uses the same browser download flow when File System Access API is unavailable', async () => {
     // Temporarily remove showOpenFilePicker to simulate an unsupported browser
     const originalWindow = global.window;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -96,7 +67,6 @@ describe('WebBridge.fileExport', () => {
 
     await new WebBridge().fileExport(data, filename, filters);
 
-    expect(mockShowSaveFilePicker).not.toHaveBeenCalled();
     expect(mockAnchorClick).toHaveBeenCalledTimes(1);
 
     Object.defineProperty(global, 'window', { value: originalWindow, writable: true });
