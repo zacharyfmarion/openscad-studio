@@ -23,5 +23,5 @@ Fix web export failures caused by `showSaveFilePicker()` and make exports behave
 - [x] Replace the web export picker path with browser-download behavior
 - [x] Add regression coverage for the web download behavior
 - [x] Run targeted tests and shared validation
-- [ ] Create a draft PR against `main` with validation notes
-- [ ] Wait for preview status and report the PR plus preview URL
+- [x] Create a draft PR against `main` with validation notes
+- [x] Wait for preview status and report the PR plus preview URL
