@@ -327,7 +327,7 @@ export class AppHelper {
     }
   }
 
-  // -- NUX (first-run layout picker) ----------------------------------------
+  // -- NUX (legacy first-run layout picker) ----------------------------------
 
   /** Dismiss the NUX layout picker if shown */
   async dismissNux() {
@@ -479,8 +479,7 @@ export const test = base.extend<AppFixtures>({
 
       const app = new AppHelper(page, isTauri);
 
-      // Dismiss first-run overlays (order matters: NUX appears on top)
-      await app.dismissNux();
+      // Dismiss first-run overlays
       await app.dismissWelcomeScreen();
 
       // Wait for Monaco editor to be available

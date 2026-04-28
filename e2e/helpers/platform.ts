@@ -26,20 +26,13 @@ export function modKey(): string {
 }
 
 /**
- * Dismiss any overlay dialogs (welcome screen, NUX) that may appear.
+ * Dismiss any overlay dialogs (welcome screen) that may appear.
  */
 export async function dismissOverlays(page: Page): Promise<void> {
   // Welcome screen
   const startEmpty = page.getByText('Start with empty project');
   if (await startEmpty.isVisible({ timeout: 1500 }).catch(() => false)) {
     await startEmpty.click();
-    await page.waitForTimeout(500);
-  }
-
-  // NUX layout picker
-  const getStarted = page.getByRole('button', { name: /get started/i });
-  if (await getStarted.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await getStarted.click();
     await page.waitForTimeout(500);
   }
 }

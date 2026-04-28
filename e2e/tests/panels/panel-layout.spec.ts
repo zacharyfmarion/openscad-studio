@@ -7,43 +7,25 @@ test.describe('Panel layout', () => {
     await expect(app.previewCanvas3D).toBeVisible();
   });
 
-  test('NUX layout picker shown on first run', async ({ app }) => {
+  test('does not show NUX layout picker on first run', async ({ app }) => {
     // Clear stored state to simulate first run
     await app.page.evaluate(() => localStorage.clear());
     await app.page.reload();
 
-    // Layout picker should be shown
-    await expect(app.page.getByText(/choose your workspace layout/i)).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(app.page.getByTestId('nux-layout-picker')).toHaveCount(0);
+    await expect(app.page.getByTestId('welcome-screen')).toBeVisible({ timeout: 10_000 });
   });
 
-  test('NUX defaults to AI First on first run', async ({ app }) => {
+  test('first run defaults to AI-first workspace preset', async ({ app }) => {
     await app.page.evaluate(() => localStorage.clear());
     await app.page.reload();
 
-    await app.page.waitForFunction(
-      () => document.querySelector('[data-testid="nux-layout-picker"]') !== null,
-      undefined,
-      { timeout: 10_000 }
-    );
+    await app.page.getByTestId('welcome-start-empty-project').click();
+    await expect(app.page.getByTestId('app-container')).toBeVisible({ timeout: 10_000 });
 
-    await app.page.waitForFunction(
-      () =>
-        document
-          .querySelector('[data-testid="nux-layout-option-ai-first"]')
-          ?.getAttribute('data-selected') === 'true',
-      undefined,
-      { timeout: 10_000 }
-    );
-
-    await expect(app.page.getByTestId('nux-layout-option-default')).toHaveAttribute(
-      'data-selected',
-      'false'
-    );
-    await expect(app.page.getByTestId('nux-layout-option-customizer-first')).toHaveAttribute(
-      'data-selected',
-      'false'
+    await expect(app.page.getByRole('button', { name: 'AI' }).first()).toHaveAttribute(
+      'aria-pressed',
+      'true'
     );
   });
 

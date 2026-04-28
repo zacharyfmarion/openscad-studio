@@ -11,11 +11,7 @@ test.describe('Startup welcome', () => {
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
-    const nuxPicker = page.getByTestId('nux-layout-picker');
-    await expect(nuxPicker).toBeVisible({ timeout: 10_000 });
-    await page.getByTestId('nux-layout-option-default').click();
-    await page.getByTestId('nux-layout-continue').click();
-    await expect(nuxPicker).toBeHidden({ timeout: 10_000 });
+    await expect(page.getByTestId('nux-layout-picker')).toHaveCount(0);
 
     await expect(page.getByTestId('welcome-container')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId('welcome-screen')).toBeVisible();
