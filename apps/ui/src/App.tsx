@@ -8,7 +8,6 @@ import { ShareBanner } from './components/ShareBanner';
 import type { AiPromptPanelRef } from './components/AiPromptPanel';
 import { SettingsDialog, type SettingsSection } from './components/SettingsDialog';
 import { WelcomeScreen } from './components/WelcomeScreen';
-import { NuxLayoutPicker } from './components/NuxLayoutPicker';
 import {
   HeaderWorkspaceControls,
   type HeaderLayoutPreset,
@@ -272,7 +271,6 @@ function App() {
       typeof window !== 'undefined' &&
       window.matchMedia(HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY).matches
   );
-  const [showNux, setShowNux] = useState(() => !loadSettings().ui.hasCompletedNux);
   const tabs = useWorkspaceStore(selectTabs);
   const activeTabId = useWorkspaceStore(selectActiveTabId) ?? '';
   const showWelcome = useWorkspaceStore(selectShowWelcome);
@@ -486,7 +484,6 @@ function App() {
   const activeError = activeRenderArtifact?.error ?? renderTargetRender?.error ?? error;
 
   const handleOpenFallbackEditor = useCallback(() => {
-    setShowNux(false);
     hideWelcomeScreen();
     window.history.replaceState({}, document.title, '/');
 
@@ -530,7 +527,6 @@ function App() {
       files?: Record<string, string>;
       renderTarget?: string;
     }) => {
-      setShowNux(false);
       if (share.files && share.renderTarget) {
         const store = getProjectStore();
         store.getState().openProject(null, share.files, share.renderTarget);
@@ -1110,12 +1106,6 @@ function App() {
     updateUseModelColors(settings.viewer.showModelColors);
   }, [settings.viewer.showModelColors, updateUseModelColors]);
 
-  useEffect(() => {
-    if (isShareEntry) {
-      setShowNux(false);
-    }
-  }, [isShareEntry]);
-
   // Tab switches no longer trigger renders — the render pipeline only renders
   // the pinned render target. Editing any file that the render target includes
   // will trigger a re-render via the project store dependency chain.
@@ -1471,26 +1461,6 @@ function App() {
         return openResult;
       } finally {
         setIsProjectLoading(false);
-      }
-    },
-    [analytics]
-  );
-
-  const handleNuxSelect = useCallback(
-    (preset: 'default' | 'ai-first' | 'customizer-first') => {
-      updateSetting('ui', { hasCompletedNux: true, defaultLayoutPreset: preset });
-      setShowNux(false);
-      analytics.track('workspace layout selected', {
-        layout: preset,
-        source: 'nux' satisfies LayoutSelectionSource,
-        is_first_run: true,
-      });
-
-      const api = getDockviewApi();
-      if (api) {
-        api.clear();
-        addPresetPanels(api, preset);
-        saveLayout();
       }
     },
     [analytics]
@@ -2376,7 +2346,6 @@ function App() {
         }}
         initialTab={settingsInitialTab}
       />
-      <NuxLayoutPicker isOpen={showNux && !isMobile} onSelect={handleNuxSelect} />
     </div>
   ) : (
     <div
