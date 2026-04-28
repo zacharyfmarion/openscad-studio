@@ -314,7 +314,7 @@ pnpm validate:changes   # Run the shared validation helper
 
 ## Current Status
 
-### Current Capabilities (v1.2.1)
+### Current Capabilities (v1.2.2)
 
 ✅ Monaco editor with OpenSCAD syntax highlighting
 ✅ Live STL/SVG preview (web: openscad-wasm, desktop: native binary)
@@ -341,6 +341,7 @@ pnpm validate:changes   # Run the shared validation helper
 ✅ Share links with Cloudflare Pages Functions, KV, and R2-backed thumbnails
 ✅ PostHog analytics controls and Sentry error reporting
 ✅ 2D and 3D measurement tools plus 3D section planes
+✅ Viewer annotation capture for AI screenshot attachments
 ✅ Multi-file project support with file tree, tabs, and include/use resolution
 ✅ Auto-created project directories on desktop
 ✅ Native OpenSCAD binary bundling for desktop (faster rendering, full filesystem access)
@@ -404,5 +405,5 @@ pnpm validate:changes   # Run the shared validation helper
 
 ---
 
-**Last Updated**: 2026-04-19
-**Current Version**: v1.2.1 — Web + Desktop
+**Last Updated**: 2026-04-28
+**Current Version**: v1.2.2 — Web + Desktop

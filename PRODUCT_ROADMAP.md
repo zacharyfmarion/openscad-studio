@@ -4,7 +4,7 @@
 >
 > OpenSCAD is the engine, not the product. The product is: you describe what you want, it makes it, you print it.
 
-**Current version**: v1.2.1 | **Last updated**: 2026-04-19
+**Current version**: v1.2.2 | **Last updated**: 2026-04-28
 
 This roadmap mixes shipped milestones with future planning. Older sections may describe the implementation assumptions that existed when they were written rather than the current client-side `openscad-wasm` architecture.
 
@@ -20,7 +20,7 @@ This roadmap mixes shipped milestones with future planning. Older sections may d
 
 ---
 
-## What We Have (v1.2.1)
+## What We Have (v1.2.2)
 
 | Area                                                                                  | Status |
 | ------------------------------------------------------------------------------------- | ------ |
@@ -48,14 +48,14 @@ This roadmap mixes shipped milestones with future planning. Older sections may d
 
 ### 1.1 Image Input for AI
 
-Let users paste/drag-drop a photo, sketch, or reference image into the AI chat. "Make something like this" becomes a real workflow.
+This shipped in the current product. Users can paste, drag/drop, or pick an image in chat and ask the AI to work from that reference.
 
-- [ ] Image paste support in AI prompt textarea (clipboard)
-- [ ] Drag-and-drop image files onto the chat
-- [ ] File picker button for image selection
-- [ ] Display image thumbnails in message history
-- [ ] Send as image content blocks to vision models (Anthropic + OpenAI both support this)
-- [ ] Use case: "Here's a photo of the bracket I need — make this in OpenSCAD"
+- [x] Image paste support in AI prompt textarea (clipboard)
+- [x] Drag-and-drop image files onto the chat
+- [x] File picker button for image selection
+- [x] Display image thumbnails in message history
+- [x] Send as image content blocks to vision models (Anthropic + OpenAI both support this)
+- [x] Support prompts like "Here's a photo of the bracket I need — make this in OpenSCAD"
 
 ### 1.2 Prompt Templates & One-Click Generation
 
@@ -106,11 +106,13 @@ The first 60 seconds determine whether someone stays. Optimize this ruthlessly.
 
 ### 2.1 Share Designs via URL
 
-- [ ] "Share" button generates a URL with the source code encoded (gzip + base64 in URL hash, or short-code via paste service)
-- [ ] Opening a shared link loads the design in the web editor with live preview
-- [ ] Shared view shows: rendered preview, source code, "Remix this" button
-- [ ] Social meta tags (OpenGraph) so shared links show a preview image on Twitter/Discord/Reddit
-- [ ] Size limit: designs up to ~50KB source code (covers 99% of use cases)
+This shipped in the current product through the Cloudflare-backed share flow.
+
+- [x] "Share" button creates a hosted share link
+- [x] Opening a shared link loads the design in the web editor with live preview
+- [x] Shared links support remixable entry into the editor
+- [x] Social meta tags (OpenGraph) render preview metadata for shared links
+- [x] Thumbnail-backed sharing is supported for browser-accessible examples
 
 ### 2.2 SEO Landing Pages
 
@@ -127,12 +129,11 @@ Drive organic search traffic to the web app with purpose-built pages.
 
 ### 2.3 Customizer-First Mode
 
-For shared designs and landing pages, the customizer should be primary — not the code editor.
+Customizer-first sharing shipped for share links. SEO landing pages remain future work.
 
-- [ ] "Customizer mode" layout: large preview + customizer panel, code editor collapsed/hidden
-- [ ] Big "Download STL" button
-- [ ] Ideal for non-programmers who just want to tweak dimensions and print
-- [ ] Toggle to switch to full editor mode for power users
+- [x] Shared designs can open in a customizer-first layout
+- [x] The preview/customizer flow is prioritized over the full editor for non-programmer recipients
+- [x] Recipients can still move into the full editor when they want to remix further
 
 **Success criteria**: Shared designs get engagement. Landing pages rank for target queries. Non-programmers can use the customizer to get printable results.
 

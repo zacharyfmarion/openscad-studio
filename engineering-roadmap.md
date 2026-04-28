@@ -1,6 +1,6 @@
 # OpenSCAD Studio — Engineering Roadmap
 
-> Current app version: **v1.2.1**. This roadmap mixes historical milestone notes with future planning, so older phase sections may reference the version they originally shipped in rather than the current release.
+> Current app version: **v1.2.2**. This roadmap mixes historical milestone notes with future planning, so older phase sections may reference the version they originally shipped in rather than the current release.
 >
 > A modern OpenSCAD editor with live preview and AI copilot capabilities, available as both a web app and a macOS desktop app. The application uses openscad-wasm for rendering and provides a superior editing experience with real-time feedback and AI-assisted code generation.
 
@@ -211,15 +211,16 @@
 - [ ] Backend already supports `save_conversation`, `load_conversations`, `delete_conversation`
 - [ ] Frontend just needs the UI — `loadConversation` already exists in `useAiAgent`
 
-### 5.2: Image Input for AI
+### ✅ 5.2: Image Input for AI (COMPLETED)
 
-- [ ] Add image paste/drag-drop support to the AI prompt textarea
-- [ ] Support: clipboard paste, file drag-drop, file picker button
-- [ ] Convert images to base64 for API transmission
-- [ ] Display image thumbnails in the message history
-- [ ] Send as `image` content blocks to Anthropic API / OpenAI vision API
-- [ ] Use case: "Make something like this" with a photo/sketch reference
-- [ ] Backend change: extend `send_ai_query` message format to support image content blocks
+> Landed after this roadmap section was first drafted. The shipped implementation stays inside the shared frontend AI stack rather than adding a Rust-side `send_ai_query` backend.
+
+- [x] Add image paste/drag-drop support to the AI prompt textarea
+- [x] Support: clipboard paste, file drag-drop, file picker button
+- [x] Convert images to base64 for API transmission
+- [x] Display image thumbnails in the message history
+- [x] Send as `image` content blocks to Anthropic API / OpenAI vision API
+- [x] Support "make something like this" workflows with photo/sketch references
 
 ### 5.3: Multi-File Project Context for AI
 
