@@ -295,7 +295,7 @@ export function buildTools(callbacks: AiToolCallbacks) {
           if (error) {
             return `❌ Failed to apply edit to ${file_path}: ${error}`;
           }
-          callbacks.requestRender('code_update', { immediate: true });
+          callbacks.requestRender('ai_edit', { immediate: true });
           return {
             status: 'success' as const,
             message: `Edit applied to ${file_path}.`,
@@ -326,7 +326,7 @@ export function buildTools(callbacks: AiToolCallbacks) {
         // Read back the new code for Editor sync
         const newCode = callbacks.readProjectFile(targetPath) ?? '';
         eventBus.emit('code-updated', { code: newCode, source: 'ai' });
-        callbacks.requestRender('code_update', { immediate: true });
+        callbacks.requestRender('ai_edit', { immediate: true });
 
         return {
           status: 'success' as const,
@@ -377,7 +377,7 @@ export function buildTools(callbacks: AiToolCallbacks) {
       description: 'Manually trigger a preview render',
       inputSchema: z.object({}),
       execute: async () => {
-        eventBus.emit('render-requested');
+        eventBus.emit('render-requested', { source: 'ai' });
         return '✅ Render triggered. Check the preview pane for the updated output.';
       },
     }),

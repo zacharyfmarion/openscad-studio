@@ -180,7 +180,7 @@ export function WebMenuBar({
           onRedo();
           break;
         case 'edit.render':
-          eventBus.emit('render-requested');
+          eventBus.emit('render-requested', {});
           break;
       }
     },

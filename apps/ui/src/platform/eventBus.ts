@@ -10,7 +10,7 @@ interface EventMap {
   'menu:file:open_folder': void;
   'menu:file:open_project': void;
   'menu:file:save_all': void;
-  'render-requested': void;
+  'render-requested': { source?: 'ai' };
   'history:restore': { code: string };
   'code-updated': {
     code: string;

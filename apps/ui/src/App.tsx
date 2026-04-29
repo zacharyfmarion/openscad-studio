@@ -1985,8 +1985,8 @@ function App() {
   }, [projectRoot]);
 
   useEffect(() => {
-    const unlisten = eventBus.on('render-requested', () => {
-      requestRender('manual', { immediate: true });
+    const unlisten = eventBus.on('render-requested', ({ source }) => {
+      requestRender(source === 'ai' ? 'ai_edit' : 'manual', { immediate: true });
     });
     return unlisten;
   }, []);
@@ -2005,9 +2005,14 @@ function App() {
       if (eventSource !== 'customizer') {
         store.setCustomizerBase(projectPath, code);
       }
-      requestRender(eventSource === 'history' ? 'history_restore' : 'code_update', {
-        immediate: true,
-      });
+      requestRender(
+        eventSource === 'history'
+          ? 'history_restore'
+          : eventSource === 'ai'
+            ? 'ai_edit'
+            : 'code_update',
+        { immediate: true }
+      );
     });
     return unlisten;
   }, []);

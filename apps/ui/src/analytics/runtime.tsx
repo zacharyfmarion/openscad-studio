@@ -24,7 +24,8 @@ export type RenderTrigger =
   | 'tab_switch'
   | 'file_open'
   | 'history_restore'
-  | 'code_update';
+  | 'code_update'
+  | 'ai_edit';
 
 export type SettingsSection = 'appearance' | 'viewer' | 'editor' | 'privacy' | 'ai' | 'libraries';
 export type ModelSelectionSurface = 'welcome' | 'ai_panel' | 'viewer_annotation' | 'unknown';
