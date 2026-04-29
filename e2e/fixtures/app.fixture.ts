@@ -349,6 +349,26 @@ export class AppHelper {
     }
   }
 
+  /** Activate the editor tab when the default AI-first workspace is open */
+  async openEditorPanel() {
+    await this.dismissNux();
+    await this.dismissWelcomeScreen();
+
+    if (await this.editorContainer.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      return;
+    }
+
+    const editorTab = this.page.locator('.dv-tab').filter({ hasText: 'Editor' }).first();
+    if (await editorTab.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await editorTab.click();
+    } else {
+      await this.page.getByRole('button', { name: 'Edit', exact: true }).first().click();
+    }
+
+    await this.editorContainer.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.page.waitForTimeout(300);
+  }
+
   // -- AI -------------------------------------------------------------------
 
   /** Focus the AI chat input */
@@ -481,6 +501,7 @@ export const test = base.extend<AppFixtures>({
 
       // Dismiss first-run overlays
       await app.dismissWelcomeScreen();
+      await app.openEditorPanel();
 
       // Wait for Monaco editor to be available
       await page.waitForSelector('.monaco-editor', { timeout: 15_000 }).catch(() => {

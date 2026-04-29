@@ -33,10 +33,16 @@ test.describe('New file', () => {
     // The welcome screen appears after createNewTab() — dismiss it
     const welcomeScreen = page.locator('[data-testid="welcome-screen"]');
     if (await welcomeScreen.isVisible({ timeout: 3000 }).catch(() => false)) {
-      const startEmpty = page.getByText(/start with empty project/i);
+      const startEmpty = page.getByTestId('welcome-start-empty-project');
       if (await startEmpty.isVisible().catch(() => false)) {
         await startEmpty.click();
       }
+    }
+
+    // The app defaults to AI-first after the welcome flow; activate the editor tab.
+    const editorTab = page.locator('.dv-tab').filter({ hasText: 'Editor' }).first();
+    if (await editorTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await editorTab.click();
     }
 
     // Wait for the Monaco editor to re-mount with the new tab's content

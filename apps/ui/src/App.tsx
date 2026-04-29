@@ -1998,6 +1998,7 @@ function App() {
       // ⌘K or Ctrl+K to focus AI prompt
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
+        openPanel('ai-chat', 'ai-chat', 'AI');
         setTimeout(() => {
           aiPromptPanelRef.current?.focusPrompt();
         }, 0);
