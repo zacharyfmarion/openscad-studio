@@ -50,6 +50,18 @@ async function ensureDiagnosticsVisible(page: import('@playwright/test').Page) {
   }
 }
 
+/**
+ * Ensure the Preview tab is visible after inspecting diagnostics. In the
+ * AI-first layout, Console and Preview are tabs in the same Dockview group.
+ */
+async function ensurePreviewVisible(page: import('@playwright/test').Page) {
+  const previewTab = page.locator('.dv-tab').filter({ hasText: 'Preview' });
+  if (await previewTab.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await previewTab.click();
+    await page.waitForTimeout(300);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Tests for nested include resolution (Issue #20)
 // ---------------------------------------------------------------------------
@@ -91,6 +103,7 @@ test.describe('Include Path Resolution', () => {
     expect(diagnosticsText).not.toContain("Can't open include file");
 
     // The render should succeed — preview canvas should be visible
+    await ensurePreviewVisible(app.page);
     await expect(app.previewCanvas3D).toBeVisible();
   });
 
@@ -119,6 +132,7 @@ test.describe('Include Path Resolution', () => {
     const diagnosticsText = await diagnosticsPanel.textContent().catch(() => '');
     expect(diagnosticsText).not.toContain("Can't open include file");
 
+    await ensurePreviewVisible(app.page);
     await expect(app.previewCanvas3D).toBeVisible();
   });
 
@@ -148,6 +162,7 @@ test.describe('Include Path Resolution', () => {
     expect(diagnosticsText).not.toContain("Can't open include file");
     expect(diagnosticsText).not.toContain("Can't open library");
 
+    await ensurePreviewVisible(app.page);
     await expect(app.previewCanvas3D).toBeVisible();
   });
 });
@@ -232,6 +247,7 @@ test.describe('BOSL2 Library Integration', () => {
     expect(includeWarnings).toHaveLength(0);
 
     // The render should produce a visible 3D preview
+    await ensurePreviewVisible(app.page);
     await expect(app.previewCanvas3D).toBeVisible();
   });
 
