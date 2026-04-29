@@ -7,6 +7,8 @@ import type { AiPromptPanelProps } from '../AiPromptPanel';
 import type { Message, ToolCall } from '../../types/aiChat';
 import { renderWithProviders } from './test-utils';
 
+let mockHasApiKey = true;
+
 jest.unstable_mockModule('@/components/ChatImage', () => ({
   ChatImage: ({ alt }: { alt: string }) => <div>{alt}</div>,
   ChatImageGrid: () => null,
@@ -29,11 +31,16 @@ jest.unstable_mockModule('@/components/AiComposer', () => ({
 }));
 
 jest.unstable_mockModule('@/components/AiAccessEmptyState', () => ({
-  AiAccessEmptyState: () => <div data-testid="ai-access-empty-state" />,
+  AiAccessEmptyState: ({ showMacAppUpsell }: { showMacAppUpsell?: boolean }) => (
+    <div
+      data-testid="ai-access-empty-state"
+      data-show-mac-app-upsell={String(Boolean(showMacAppUpsell))}
+    />
+  ),
 }));
 
 jest.unstable_mockModule('@/stores/apiKeyStore', () => ({
-  useHasApiKey: () => true,
+  useHasApiKey: () => mockHasApiKey,
 }));
 
 let AiPromptPanel: typeof import('../AiPromptPanel').AiPromptPanel;
@@ -164,6 +171,31 @@ function installScrollMetrics(
 describe('AiPromptPanel', () => {
   beforeAll(async () => {
     ({ AiPromptPanel } = await import('@/components/AiPromptPanel'));
+  });
+
+  beforeEach(() => {
+    mockHasApiKey = true;
+  });
+
+  it('shows the no-key empty state with the web Mac app upsell enabled only when no API key exists', () => {
+    mockHasApiKey = false;
+
+    renderWithProviders(<AiPromptPanel {...createBaseProps()} />);
+
+    expect(screen.getByTestId('ai-access-empty-state')).toHaveAttribute(
+      'data-show-mac-app-upsell',
+      'true'
+    );
+    expect(screen.queryByText('No conversation yet')).toBeNull();
+  });
+
+  it('does not show the no-key upsell once an API key exists', () => {
+    mockHasApiKey = true;
+
+    renderWithProviders(<AiPromptPanel {...createBaseProps()} />);
+
+    expect(screen.queryByTestId('ai-access-empty-state')).toBeNull();
+    expect(screen.getByText('No conversation yet')).toBeTruthy();
   });
 
   it('keeps completed tool payloads collapsed until expanded', () => {

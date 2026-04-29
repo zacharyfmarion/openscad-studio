@@ -127,8 +127,7 @@ export function AgentSetupTabs({
         label: 'Claude Code',
         command: buildClaudeMcpCommand(port),
         codeLabel: 'Shell',
-        instruction:
-          'Run this command in your terminal to register OpenSCAD Studio as an MCP server.',
+        instruction: 'Run this command in your terminal to register the app as an MCP server.',
       },
       {
         id: 'cursor',
@@ -143,7 +142,7 @@ export function AgentSetupTabs({
         label: 'Codex',
         command: buildCodexMcpCommand(port),
         codeLabel: 'Shell',
-        instruction: 'Run this command in your terminal to add the OpenSCAD Studio MCP endpoint.',
+        instruction: 'Run this command in your terminal to add the MCP endpoint.',
       },
       {
         id: 'opencode',

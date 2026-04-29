@@ -531,33 +531,18 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
     };
 
     if (!hasApiKey) {
-      const isDesktop = getPlatform().capabilities.hasFileSystem;
       return (
         <div
           ref={emptyStateHostRef}
-          className={
-            isDesktop
-              ? 'h-full overflow-y-auto flex items-start justify-center px-6 py-6'
-              : 'h-full overflow-y-auto flex items-center justify-center px-6'
-          }
+          className="h-full overflow-y-auto flex items-start justify-center px-6 py-6"
           style={{ backgroundColor: 'var(--bg-primary)' }}
         >
-          {isDesktop ? (
-            <AiAccessEmptyState
-              onOpenSettings={onOpenSettings}
-              variant="panel"
-              panelLayout={emptyStatePanelLayout}
-            />
-          ) : (
-            <div className="text-center max-w-xs">
-              <div className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-                Add an API key to get started
-              </div>
-              <Button type="button" variant="primary" onClick={() => onOpenSettings?.()}>
-                Open Settings
-              </Button>
-            </div>
-          )}
+          <AiAccessEmptyState
+            onOpenSettings={onOpenSettings}
+            variant="panel"
+            panelLayout={emptyStatePanelLayout}
+            showMacAppUpsell
+          />
         </div>
       );
     }

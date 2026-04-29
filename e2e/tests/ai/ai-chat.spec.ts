@@ -23,19 +23,23 @@ test.describe('AI Chat Panel', () => {
   test('AI panel is accessible via tab click', async ({ app }) => {
     await app.openAiPanel();
     await expect(
-      app.page.getByText('Add an API key').or(app.page.getByPlaceholder(/describe the changes/i))
+      app.page
+        .getByText('Connect an AI assistant')
+        .or(app.page.getByPlaceholder(/describe the changes/i))
     ).toBeVisible({ timeout: 5000 });
   });
 
   test('shows no API key message when unconfigured', async ({ app }) => {
     await app.openAiPanel();
-    await expect(app.page.getByText('Add an API key')).toBeVisible({ timeout: 5000 });
+    await expect(app.page.getByText('Connect an AI assistant')).toBeVisible({ timeout: 5000 });
+    await expect(app.page.getByText('Use an API key')).toBeVisible();
+    await expect(app.page.getByText('Use a desktop agent')).toBeVisible();
   });
 
   test('new conversation button exists when API key set', async ({ app }) => {
     await app.openAiPanel();
     const hasApiKeyPrompt = await app.page
-      .getByText('Add an API key')
+      .getByText('Connect an AI assistant')
       .isVisible({ timeout: 3000 })
       .catch(() => false);
 
@@ -49,9 +53,11 @@ test.describe('AI Chat Panel', () => {
     });
   });
 
-  test('open settings button exists when no API key', async ({ app }) => {
+  test('add API key button exists when no API key', async ({ app }) => {
     await app.openAiPanel();
-    await expect(app.page.getByText('Open Settings')).toBeVisible({ timeout: 5000 });
+    await expect(app.page.getByRole('button', { name: 'Add API Key' })).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test('Meta+K shortcut activates AI panel', async ({ app }) => {
@@ -66,7 +72,9 @@ test.describe('AI Chat Panel', () => {
 
     await app.page.keyboard.press('Meta+k');
     await expect(
-      app.page.getByText('Add an API key').or(app.page.getByPlaceholder(/describe the changes/i))
+      app.page
+        .getByText('Connect an AI assistant')
+        .or(app.page.getByPlaceholder(/describe the changes/i))
     ).toBeVisible({ timeout: 5000 });
   });
 
