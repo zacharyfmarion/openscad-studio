@@ -114,7 +114,7 @@ const DEFAULT_SETTINGS: Settings = {
   ui: {
     customizerWidth: 420,
     hasCompletedNux: true,
-    defaultLayoutPreset: 'ai-first',
+    defaultLayoutPreset: 'default',
     hasDismissedViewerControlsHint: false,
     fileTreeVisible: true,
     fileTreeWidth: 200,

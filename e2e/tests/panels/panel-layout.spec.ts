@@ -16,14 +16,15 @@ test.describe('Panel layout', () => {
     await expect(app.page.getByTestId('welcome-screen')).toBeVisible({ timeout: 10_000 });
   });
 
-  test('first run defaults to AI-first workspace preset', async ({ app }) => {
+  test('first run defaults to Edit workspace preset', async ({ app }) => {
     await app.page.evaluate(() => localStorage.clear());
     await app.page.reload();
 
     await app.page.getByTestId('welcome-start-empty-project').click();
     await expect(app.page.getByTestId('app-container')).toBeVisible({ timeout: 10_000 });
 
-    await expect(app.page.getByRole('button', { name: 'AI' }).first()).toHaveAttribute(
+    const workspaceLayout = app.page.getByRole('group', { name: 'Workspace layout' });
+    await expect(workspaceLayout.getByRole('button', { name: 'Edit' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );

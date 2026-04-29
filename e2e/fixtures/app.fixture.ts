@@ -349,7 +349,7 @@ export class AppHelper {
     }
   }
 
-  /** Activate the editor tab when the default AI-first workspace is open */
+  /** Ensure editor-focused tests start with Monaco visible */
   async openEditorPanel() {
     await this.dismissNux();
     await this.dismissWelcomeScreen();

@@ -39,7 +39,7 @@ test.describe('New file', () => {
       }
     }
 
-    // The app defaults to AI-first after the welcome flow; activate the editor tab.
+    // If another layout is active, bring the editor back before reading Monaco.
     const editorTab = page.locator('.dv-tab').filter({ hasText: 'Editor' }).first();
     if (await editorTab.isVisible({ timeout: 3000 }).catch(() => false)) {
       await editorTab.click();
