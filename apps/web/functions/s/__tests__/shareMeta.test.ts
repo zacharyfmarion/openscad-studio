@@ -5,8 +5,12 @@ function buildHtmlResponse() {
   return new Response(
     `<!doctype html><html><head>
       <meta property="og:title" content="Base Title" />
+      <meta property="og:description" content="Base Description" />
       <meta property="og:image" content="/base.png" />
+      <meta name="robots" content="index,follow" />
       <meta name="twitter:card" content="summary" />
+      <meta name="twitter:image" content="/base.png" />
+      <link rel="canonical" href="https://studio.test/" />
     </head><body>hi</body></html>`,
     {
       status: 200,
@@ -72,8 +76,11 @@ describe('/s/[[shareId]] metadata rewriting', () => {
     expect(html).toContain('content="Bracket — OpenSCAD Studio"');
     expect(html).toContain('content="https://studio.test/icon-512.png"');
     expect(html).toContain('content="https://studio.test/s/abc12345"');
+    expect(html).toContain('content="noindex,noarchive,max-image-preview:large"');
+    expect(html).toContain('rel="canonical" href="https://studio.test/s/abc12345"');
     expect(response.headers.get('Cross-Origin-Embedder-Policy')).toBe('require-corp');
     expect(response.headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin');
+    expect(response.headers.get('X-Robots-Tag')).toBe('noindex, noarchive');
     expect(response.headers.get('x-share-meta-applied')).toBe('true');
     expect(response.headers.get('x-share-thumbnail')).toBe('false');
     expect(response.headers.get('x-share-twitter-card')).toBe('summary');
@@ -104,6 +111,7 @@ describe('/s/[[shareId]] metadata rewriting', () => {
 
     const html = await response.text();
     expect(html).toContain('content="https://studio.test/api/share/abc12345/thumbnail"');
+    expect(html).toContain('content="Bracket preview in OpenSCAD Studio"');
     expect(response.headers.get('x-share-thumbnail')).toBe('true');
     expect(response.headers.get('x-share-twitter-card')).toBe('summary_large_image');
     expect(response.headers.get('x-share-param-type')).toBe('array');

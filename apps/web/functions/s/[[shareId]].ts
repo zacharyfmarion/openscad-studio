@@ -41,6 +41,19 @@ function replaceMetaTag(
   return html.replace('</head>', `  ${replacement}\n  </head>`);
 }
 
+function replaceLinkTag(html: string, rel: string, href: string): string {
+  const escapedRel = rel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(
+    `<link\\s+rel=["']${escapedRel}["']\\s+href=["'][^"']*["']\\s*\\/?>`,
+    'i'
+  );
+  const replacement = `<link rel="${rel}" href="${href}" />`;
+  if (pattern.test(html)) {
+    return html.replace(pattern, replacement);
+  }
+  return html.replace('</head>', `  ${replacement}\n  </head>`);
+}
+
 function withShareDebugHeaders(
   response: Response,
   debug: {
@@ -142,33 +155,35 @@ async function handleShareMeta(context: EventContext<Env, string, unknown>) {
     ? getThumbnailUrl(origin, shareId)
     : `${origin}/icon-512.png`;
   const ogTitle = `${share.title} — OpenSCAD Studio`;
+  const socialDescription =
+    'Open this parametric design in OpenSCAD Studio. Customize parameters and download STL for 3D printing.';
+  const imageAlt = `${share.title} preview in OpenSCAD Studio`;
   const twitterCard = share.thumbnailKey ? 'summary_large_image' : 'summary';
 
-  const updated = [
+  const metaUpdated = [
     [{ attr: 'property', name: 'og:title' }, ogTitle],
-    [
-      { attr: 'property', name: 'og:description' },
-      'Open this parametric design in OpenSCAD Studio. Customize parameters and download STL for 3D printing.',
-    ],
+    [{ attr: 'property', name: 'og:description' }, socialDescription],
     [{ attr: 'property', name: 'og:image' }, thumbnailUrl],
+    [{ attr: 'property', name: 'og:image:alt' }, imageAlt],
     [{ attr: 'property', name: 'og:url' }, shareUrl],
     [{ attr: 'name', name: 'twitter:card' }, twitterCard],
     [{ attr: 'name', name: 'twitter:title' }, ogTitle],
-    [
-      { attr: 'name', name: 'twitter:description' },
-      'Open this parametric design in OpenSCAD Studio. Customize parameters and download STL for 3D printing.',
-    ],
+    [{ attr: 'name', name: 'twitter:description' }, socialDescription],
     [{ attr: 'name', name: 'twitter:image' }, thumbnailUrl],
+    [{ attr: 'name', name: 'twitter:image:alt' }, imageAlt],
+    [{ attr: 'name', name: 'robots' }, 'noindex,noarchive,max-image-preview:large'],
   ].reduce(
     (acc, [selector, content]) =>
       replaceMetaTag(acc, selector as { attr: string; name: string }, content as string),
     html
   );
+  const updated = replaceLinkTag(metaUpdated, 'canonical', shareUrl);
 
   const headers = new Headers(response.headers);
   headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
   headers.set('Cross-Origin-Opener-Policy', 'same-origin');
   headers.set('Content-Type', 'text/html; charset=utf-8');
+  headers.set('X-Robots-Tag', 'noindex, noarchive');
   const rewrittenResponse = new Response(updated, {
     status: response.status,
     statusText: response.statusText,
