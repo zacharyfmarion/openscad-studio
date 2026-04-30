@@ -81,6 +81,7 @@ import { getRelativeProjectPath } from './utils/projectFilePaths';
 import { generateRandomProjectName } from './utils/projectNaming';
 import { resolveFolderImport } from './utils/folderImport';
 import { useShareEntry } from './hooks/useShareEntry';
+import { useMacDownloadUrl } from './hooks/useMacDownloadUrl';
 import { TbBrandGithub, TbSettings, TbDownload, TbShare3 } from 'react-icons/tb';
 import { Toaster } from 'sonner';
 import type { AiDraft } from './types/aiChat';
@@ -90,16 +91,8 @@ import {
   isOpenScadProjectFilePath,
 } from '../../../packages/shared/src/openscadProjectFiles';
 
-const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
 const REPOSITORY_URL = 'https://github.com/zacharyfmarion/openscad-studio';
 const HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY = '(max-width: 900px)';
-
-const RELEASE_ASSETS: Record<MacArch, string> = {
-  aarch64: 'OpenSCAD.Studio_latest_aarch64.dmg',
-  x64: 'OpenSCAD.Studio_latest_x64.dmg',
-};
-
-type MacArch = 'aarch64' | 'x64';
 
 const OPENSCAD_FILE_FILTERS = [
   { name: 'OpenSCAD Files', extensions: [...OPENSCAD_PROJECT_FILE_EXTENSIONS] },
@@ -183,35 +176,6 @@ function revokeBlobUrl(url: string | null | undefined) {
   }
 
   URL.revokeObjectURL(url);
-}
-
-function useMacDownloadUrl() {
-  const [arch, setArch] = useState<MacArch>('aarch64');
-
-  useEffect(() => {
-    const platform = navigator.platform.toLowerCase();
-    if (platform.includes('intel') || platform.includes('x86_64')) {
-      setArch('x64');
-    }
-
-    const uaData = (
-      navigator as unknown as {
-        userAgentData?: {
-          getHighEntropyValues?: (hints: string[]) => Promise<{ architecture?: string }>;
-        };
-      }
-    ).userAgentData;
-
-    if (uaData?.getHighEntropyValues) {
-      void uaData.getHighEntropyValues(['architecture']).then((values) => {
-        if (values.architecture === 'x86') {
-          setArch('x64');
-        }
-      });
-    }
-  }, []);
-
-  return `${RELEASE_BASE}/${RELEASE_ASSETS[arch]}`;
 }
 
 interface HeaderIconLinkProps {
