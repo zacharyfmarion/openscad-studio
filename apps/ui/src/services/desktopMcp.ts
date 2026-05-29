@@ -150,6 +150,9 @@ const DEFAULT_STATUS: McpServerStatus = {
   message: null,
 };
 
+export const OPENSCAD_STUDIO_SKILL_URL =
+  'https://skills.sh/zacharyfmarion/openscad-studio/openscad-studio';
+
 function isDesktopTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
@@ -1163,6 +1166,10 @@ export function buildOpenCodeMcpConfig(port: number): string {
     }
   }
 }`;
+}
+
+export function buildSkillInstallCommand(): string {
+  return 'npx skills add https://github.com/zacharyfmarion/openscad-studio --skill openscad-studio';
 }
 
 export function buildAgentSnippet(port: number): string {

@@ -47,6 +47,8 @@ jest.unstable_mockModule('@/stores/layoutStore', () => ({
 }));
 
 jest.unstable_mockModule('@/services/desktopMcp', () => ({
+  buildSkillInstallCommand: () =>
+    'npx skills add https://github.com/zacharyfmarion/openscad-studio --skill openscad-studio',
   buildClaudeMcpCommand: (port: number) =>
     `claude mcp add --transport http --scope user openscad-studio http://127.0.0.1:${port}/mcp`,
   buildCodexMcpCommand: (port: number) =>
@@ -68,6 +70,7 @@ jest.unstable_mockModule('@/services/desktopMcp', () => ({
     }
   }
 }`,
+  OPENSCAD_STUDIO_SKILL_URL: 'https://skills.sh/zacharyfmarion/openscad-studio/openscad-studio',
   getDesktopMcpStatus: (...args: unknown[]) => mockGetDesktopMcpStatus(...args),
   syncDesktopMcpConfig: (...args: unknown[]) => mockSyncDesktopMcpConfig(...args),
 }));
@@ -233,6 +236,12 @@ describe('SettingsDialog privacy copy', () => {
     expect(screen.getByRole('tab', { name: /Codex/i })).toBeTruthy();
     expect(screen.getByRole('tab', { name: /Cursor/i })).toBeTruthy();
     expect(screen.getByRole('tab', { name: /OpenCode/i })).toBeTruthy();
+    expect(screen.getByTestId('studio-skill-install')).toBeTruthy();
+    expect(screen.getByText(/npx skills add https:\/\/github\.com\/zacharyfmarion/i)).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Open on skills\.sh/i })).toHaveAttribute(
+      'href',
+      'https://skills.sh/zacharyfmarion/openscad-studio/openscad-studio'
+    );
     expect(screen.getByText(/claude mcp add --transport http --scope user/i)).toBeTruthy();
     expect(screen.getAllByText(/get_or_create_workspace/i).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: 'Copy' }).length).toBeGreaterThanOrEqual(2);

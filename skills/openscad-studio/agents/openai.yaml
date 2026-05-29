@@ -1,0 +1,16 @@
+interface:
+  display_name: 'OpenSCAD Studio'
+  short_description: 'Render and validate OpenSCAD models'
+  brand_color: '#2AA198'
+  default_prompt: 'Use $openscad-studio to edit this OpenSCAD project and validate it in OpenSCAD Studio.'
+
+dependencies:
+  tools:
+    - type: 'mcp'
+      value: 'openscad-studio'
+      description: 'OpenSCAD Studio desktop MCP server'
+      transport: 'streamable_http'
+      url: 'http://127.0.0.1:32123/mcp'
+
+policy:
+  allow_implicit_invocation: true

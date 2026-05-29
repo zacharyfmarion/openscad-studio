@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { clearApiKey, storeApiKey } from '../../stores/apiKeyStore';
 import { renderWithProviders } from './test-utils';
@@ -79,6 +79,7 @@ describe('WelcomeScreen', () => {
     );
 
     expect(screen.getByTestId('welcome-ai-entry').className).toContain('ph-no-capture');
+    expect(screen.queryByTestId('welcome-mcp-skill')).toBeNull();
     const combobox = await screen.findByRole('combobox');
     expect(combobox).toBeTruthy();
     await waitFor(() => {
@@ -123,9 +124,10 @@ describe('WelcomeScreen', () => {
     ]);
   });
 
-  it('keeps the desktop no-key welcome state focused on API key setup only', async () => {
+  it('shows compact desktop MCP skill setup in the no-key welcome state', async () => {
     clearApiKey('openai');
     clearApiKey('anthropic');
+    const onOpenSettings = jest.fn();
     mockGetPlatform.mockReturnValue({
       capabilities: { hasFileSystem: true },
       fileExists: jest.fn(async () => false),
@@ -144,12 +146,23 @@ describe('WelcomeScreen', () => {
         onStartWithDraft={() => {}}
         onStartManually={() => {}}
         onOpenRecent={async () => 'opened'}
-        onOpenSettings={() => {}}
+        onOpenSettings={onOpenSettings}
         showRecentFiles={false}
       />
     );
 
     expect(screen.getByText('Set up an API key to use the AI assistant')).toBeTruthy();
     expect(screen.queryByText('Claude Code')).toBeNull();
+    expect(screen.getByTestId('welcome-mcp-skill')).toBeTruthy();
+    expect(screen.getByText(/npx skills add https:\/\/github\.com\/zacharyfmarion/i)).toBeTruthy();
+
+    const skillLink = screen.getByRole('link', { name: /Install skill/i });
+    expect(skillLink).toHaveAttribute(
+      'href',
+      'https://skills.sh/zacharyfmarion/openscad-studio/openscad-studio'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Open MCP setup/i }));
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
   });
 });
