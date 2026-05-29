@@ -3,10 +3,17 @@ import type { ModelSelectionSurface } from '../analytics/runtime';
 import { Button, Text } from './ui';
 import { AiComposer } from './AiComposer';
 import { ModelSelector } from './ModelSelector';
-import { TbFileText, TbFolder, TbFolderOpen } from 'react-icons/tb';
+import {
+  TbExternalLink,
+  TbFileText,
+  TbFolder,
+  TbFolderOpen,
+  TbPlugConnected,
+} from 'react-icons/tb';
 import { getPlatform } from '../platform';
 import { useHasApiKey } from '../stores/apiKeyStore';
 import type { AiDraft, AttachmentStore } from '../types/aiChat';
+import { buildSkillInstallCommand, OPENSCAD_STUDIO_SKILL_URL } from '../services/desktopMcp';
 import {
   loadRecentFiles,
   removeRecentFile,
@@ -82,6 +89,8 @@ export function WelcomeScreen({
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [recentFilesReady, setRecentFilesReady] = useState(!showRecentFiles);
   const hasApiKey = useHasApiKey();
+  const isDesktop = getPlatform().capabilities.hasFileSystem;
+  const skillInstallCommand = buildSkillInstallCommand();
 
   // Shorten home directory to ~/ for display
   const displayPath = useMemo(() => {
@@ -267,6 +276,65 @@ export function WelcomeScreen({
               </a>{' '}
               to configure (⌘,)
             </Text>
+          </div>
+        ) : null}
+
+        {isDesktop ? (
+          <div
+            className="rounded-lg border p-4 ph-no-capture"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              borderColor: 'var(--border-secondary)',
+            }}
+            data-testid="welcome-mcp-skill"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <div
+                  className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg"
+                  style={{
+                    backgroundColor: 'var(--bg-tertiary)',
+                    color: 'var(--accent-primary)',
+                  }}
+                  aria-hidden="true"
+                >
+                  <TbPlugConnected size={18} />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Text variant="body" weight="medium">
+                    Work with external agents
+                  </Text>
+                  <Text variant="caption" color="tertiary">
+                    Install the Studio skill, connect MCP in settings, then bind an agent to this
+                    workspace.
+                  </Text>
+                  <Text as="code" variant="caption" className="block truncate font-mono">
+                    {skillInstallCommand}
+                  </Text>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <a
+                  href={OPENSCAD_STUDIO_SKILL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm underline hover:no-underline"
+                  style={{ color: 'var(--accent-primary)' }}
+                >
+                  Install skill
+                  <TbExternalLink size={14} />
+                </a>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onOpenSettings?.()}
+                  className="text-sm"
+                >
+                  Open MCP setup
+                </Button>
+              </div>
+            </div>
           </div>
         ) : null}
 

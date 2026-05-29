@@ -3,7 +3,9 @@ import { Button, Input, Text, Toggle } from '../ui';
 import type { Settings } from '../../stores/settingsStore';
 import { updateSetting } from '../../stores/settingsStore';
 import {
+  buildSkillInstallCommand,
   getDesktopMcpStatus,
+  OPENSCAD_STUDIO_SKILL_URL,
   syncDesktopMcpConfig,
   type McpServerStatus,
 } from '../../services/desktopMcp';
@@ -92,6 +94,7 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
   }, [isOpen, refreshStatus]);
 
   const endpoint = status.endpoint ?? `http://127.0.0.1:${status.port}/mcp`;
+  const skillInstallCommand = buildSkillInstallCommand();
 
   const copyText = useCallback(async (label: string, value: string) => {
     try {
@@ -257,6 +260,56 @@ export function ExternalAgentsCard({ settings, isOpen }: ExternalAgentsCardProps
               size="sm"
               variant="ghost"
               onClick={() => void copyText('Endpoint', endpoint)}
+            >
+              Copy
+            </Button>
+          </div>
+        </SettingsSupportBlock>
+
+        <SettingsSupportBlock
+          className="flex flex-col"
+          style={{ gap: 'var(--space-helper-gap)' }}
+          data-testid="studio-skill-install"
+        >
+          <div
+            className="flex items-start justify-between"
+            style={{ gap: 'var(--space-control-gap)' }}
+          >
+            <div className="flex min-w-0 flex-col" style={{ gap: 'var(--space-1)' }}>
+              <Text variant="caption" weight="semibold">
+                Studio Skill
+              </Text>
+              <Text variant="caption" color="tertiary">
+                Install the agent skill, connect this MCP endpoint, then have the agent call{' '}
+                <Text as="code" variant="caption" className="font-mono">
+                  get_or_create_workspace
+                </Text>{' '}
+                before render tools.
+              </Text>
+            </div>
+            <a
+              href={OPENSCAD_STUDIO_SKILL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 text-xs underline hover:no-underline"
+              style={{ color: 'var(--accent-primary)' }}
+            >
+              Open on skills.sh
+            </a>
+          </div>
+
+          <div
+            className="flex items-center justify-between"
+            style={{ gap: 'var(--space-control-gap)' }}
+          >
+            <Text as="code" variant="caption" className="font-mono break-all">
+              {skillInstallCommand}
+            </Text>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => void copyText('Skill install command', skillInstallCommand)}
             >
               Copy
             </Button>

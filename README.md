@@ -45,10 +45,10 @@ OpenSCAD Studio is a professional editor for OpenSCAD — the programmable solid
 
 ### AI Copilot
 - **In-app chat** — Stream responses from Claude or GPT to generate, explain, and fix OpenSCAD code (bring your own API key)
-- **MCP support (desktop)** — Exposes a localhost MCP server so external agents like [Claude Code](https://claude.ai/code) can render models, read diagnostics, capture screenshots, and edit files in your active workspace
+- **MCP support (desktop)** — Exposes a localhost MCP server so external agents like [Claude Code](https://claude.ai/code) can edit files in your repo, then use Studio for render-target selection, diagnostics, render refreshes, screenshots, and exports
 
 ### Platform
-- **Runs everywhere** — Web app at [openscad-studio.pages.dev](https://openscad-studio.pages.dev) and macOS desktop app 
+- **Runs everywhere** — Web app at [openscad-studio.pages.dev](https://openscad-studio.pages.dev) and macOS desktop app
 - **Share links** — Publish browser-based share links with thumbnail previews for remixable examples
 
 **Known limitation:** Special operators (`!`, `#`, `%`, `*`) are not yet reflected in the preview.
