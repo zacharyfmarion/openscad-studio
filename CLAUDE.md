@@ -256,15 +256,13 @@ pnpm validate:changes   # Run the shared validation helper
 
 ### Adding or Modifying Themes
 
-**Current Themes (27 total):**
+**Current Themes (22 total):**
 
-- Classic: Solarized Dark/Light
-- Popular Dark: Monokai, Dracula, One Dark Pro, GitHub Dark, Tokyo Night, Ayu Dark, Material Palenight, Night Owl
-- Popular Light: GitHub Light, Atom One Light
-- Pastel & Cozy: Nord, Catppuccin Mocha, Rosé Pine
-- Vibrant & Fun: Synthwave '84, Shades of Purple, Cobalt2, Horizon
-- Nature Inspired: Everforest Dark
-- Retro: Gruvbox Dark/Light
+- Dark: Solarized Dark, Monokai, Dracula, One Dark Pro, GitHub Dark, Tokyo Night
+- Light: Solarized Light, GitHub Light, Gruvbox Light, Atom One Light
+- Cool: Nord, Ayu Dark, Material Palenight, Night Owl, Everforest Dark
+- Warm: Gruvbox Dark, Catppuccin Mocha, Rosé Pine, Horizon
+- Vibrant: Synthwave '84, Shades of Purple, Cobalt2
 
 **To add a new theme:**
 
@@ -329,7 +327,7 @@ pnpm validate:changes   # Run the shared validation helper
 ✅ Multi-turn AI chat with draft and attachment state
 ✅ Customizer panel with interactive parameter controls
 ✅ Tree-sitter based parameter parsing
-✅ 27 editor themes with categorized dropdown
+✅ 22 editor themes with categorized dropdown
 ✅ Vim mode with configurable keybindings
 ✅ Web version (openscad-studio.pages.dev)
 ✅ Platform abstraction (PlatformBridge interface)
@@ -352,7 +350,6 @@ pnpm validate:changes   # Run the shared validation helper
 - Special operators preview (`#`, `%`, `*`, `!`)
 - Additional preview/render polish
 - Cross-platform desktop testing (Windows/Linux)
-- Code signing for macOS
 - Auto-update mechanism
 
 ## Known Issues & Gotchas
@@ -405,5 +402,5 @@ pnpm validate:changes   # Run the shared validation helper
 
 ---
 
-**Last Updated**: 2026-04-28
+**Last Updated**: 2026-05-31
 **Current Version**: v1.2.2 — Web + Desktop

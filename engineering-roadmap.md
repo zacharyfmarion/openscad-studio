@@ -257,7 +257,7 @@
 - [ ] Default: 120 lines (current behavior)
 - [ ] Allow increase to 250 or 500 for users who want full-file generation
 - [ ] Setting in `SettingsDialog.tsx` → AI tab
-- [ ] Update `validate_edit()` in `ai_tools.rs` to read from settings
+- [ ] Add frontend settings plumbing for the AI edit size policy and make `apply_edit` validation read from it
 
 **Success criteria:** AI chat renders beautifully. Users can reference images and past conversations. AI understands multi-file projects. Common operations are one-click.
 
@@ -275,33 +275,26 @@
 - [ ] Cap at 2x device pixel ratio for retina displays
 - [ ] Debounce resize-triggered re-renders (300ms)
 
-### 6.2: Section/Clipping Plane
+### ✅ 6.2: Section/Clipping Plane (COMPLETED)
 
-- [ ] Add a toggle button to the 3D viewer toolbar: "Section Plane"
-- [ ] When enabled: render a draggable clipping plane using `THREE.Plane`
-- [ ] Controls: drag to move plane position, rotate to change orientation
-- [ ] Useful for inspecting hollow objects, internal cavities, fit checks
-- [ ] Three.js `clippingPlanes` on material is the standard approach
+- [x] Add a section tool to the 3D viewer toolbar
+- [x] Render an adjustable clipping plane using Three.js clipping
+- [x] Provide axis, offset, invert, keyboard, and reset controls
+- [x] Useful for inspecting hollow objects, internal cavities, fit checks
 
-### 6.3: Color Support from OpenSCAD
+### ✅ 6.3: Color Support from OpenSCAD (COMPLETED)
 
-- [ ] Parse `color()` calls from OpenSCAD source code
-- [ ] When rendering STL: OpenSCAD doesn't embed colors, so this requires either:
-  - Option A: Use AMF/3MF format (supports colors) for preview instead of STL
-  - Option B: Parse color from source and apply to Three.js materials by geometry group
-- [ ] Evaluate AMF/3MF support in Three.js loaders
-- [ ] Minimum viable: single-color override from first `color()` call in source
+- [x] Render 3D previews as OFF rather than STL so OpenSCAD face colors can be carried into the viewer
+- [x] Parse OFF face colors into material groups, including alpha
+- [x] Provide a viewer preference for model colors versus theme fallback material
 
-### 6.4: Measurement Tools
+### ✅ 6.4: Measurement Tools (COMPLETED)
 
-- [ ] Point-to-point distance measurement:
-  - Click two points on the mesh surface
-  - Display distance with a line and label
-  - Snap to vertices
-- [ ] Bounding box dimensions:
-  - Toggle to show X/Y/Z extent labels
-  - Display total size in current units
-- [ ] Three.js raycasting for point picking
+- [x] Point-to-point distance measurement in 3D
+- [x] 2D SVG distance measurement workflow
+- [x] Measurement overlays with labels and selected-measurement controls
+- [x] Bounding box dimensions displayed in current units
+- [x] Snap-assisted placement and Three.js raycasting for point picking
 
 ### 6.5: Special Operator Preview
 
@@ -577,12 +570,12 @@ Decisions made during roadmap planning that affect ordering:
 
 5. **No collaborative editing before 1.0.** CRDT/Yjs is a massive undertaking. It's not what users are asking for first. Save it for post-1.0 when there's a user base that wants to share.
 
-6. **E2E tests before more features.** Investing in a comprehensive Playwright test suite before building new features ensures regressions are caught early. The ~2700-line test suite covers all critical paths.
+6. **E2E tests before more features.** Investing in a comprehensive Playwright test suite before building new features ensures regressions are caught early. The ~3100-line test suite covers all critical paths.
 
 7. **Library management before AI multi-file context.** Building `include`/`use` resolution at the render pipeline level first means the AI can later leverage the same infrastructure for project context, rather than duplicating resolution logic.
 
 ---
 
-**Last Updated:** 2026-04-19
-**Current Phase:** v1.2.1 — web + desktop app shipping with sharing, analytics/privacy controls, formatter coverage, advanced viewer tooling, and desktop MCP support for external agents
+**Last Updated:** 2026-05-31
+**Current Phase:** v1.2.2 — web + desktop app shipping with sharing, analytics/privacy controls, formatter coverage, advanced viewer tooling, model colors, and desktop MCP support for external agents
 **Next Milestone:** Phase 4B.1/4B.3 (App.tsx decomposition, centralized state) or Phase 5 (AI experience) based on user feedback

@@ -4,7 +4,7 @@
 >
 > OpenSCAD is the engine, not the product. The product is: you describe what you want, it makes it, you print it.
 
-**Current version**: v1.2.2 | **Last updated**: 2026-04-28
+**Current version**: v1.2.2 | **Last updated**: 2026-05-31
 
 This roadmap mixes shipped milestones with future planning. Older sections may describe the implementation assumptions that existed when they were written rather than the current client-side `openscad-wasm` architecture.
 
@@ -24,8 +24,8 @@ This roadmap mixes shipped milestones with future planning. Older sections may d
 
 | Area                                                                                  | Status |
 | ------------------------------------------------------------------------------------- | ------ |
-| Monaco editor with OpenSCAD syntax, 27 themes, vim mode, tree-sitter formatting       | ✅     |
-| Live 3D preview (Three.js mesh viewer, orbit controls, wireframe/solid/section tools) | ✅     |
+| Monaco editor with OpenSCAD syntax, 22 themes, vim mode, tree-sitter formatting       | ✅     |
+| Live 3D preview (Three.js mesh viewer, orbit controls, wireframe/solid/section tools, model colors) | ✅     |
 | 2D SVG mode for laser cutting / engraving                                             | ✅     |
 | AI copilot (Claude + GPT, streaming, tool-calling, diff-based editing, image attachments, auto-rollback) | ✅     |
 | AI can see the 3D preview (screenshot tool returns base64 PNG to vision models)       | ✅     |
@@ -38,7 +38,7 @@ This roadmap mixes shipped milestones with future planning. Older sections may d
 | Desktop app (macOS, Homebrew)                                                         | ✅     |
 | Library path management, include/use resolution, BOSL2 support                        | ✅     |
 | Multi-tab editing, undo/redo checkpoints, conversation persistence                    | ✅     |
-| E2E test suite (Playwright, ~2700 lines, CI on every PR)                              | ✅     |
+| E2E test suite (Playwright, ~3100 lines, CI on every PR)                              | ✅     |
 
 ---
 
@@ -230,24 +230,24 @@ Bake domain knowledge into the AI so it produces print-ready designs.
 
 ### 5.2 Measurement Tools
 
-Essential for verifying that dimensions are correct before printing.
+This shipped in the current product for both 2D and 3D inspection.
 
-- [ ] Bounding box dimensions (toggle X/Y/Z extent labels)
-- [ ] Point-to-point distance measurement (click two points on mesh)
-- [ ] Snap to vertices
-- [ ] Three.js raycasting for point picking
+- [x] Bounding box dimensions with X/Y/Z extent labels
+- [x] Point-to-point distance measurement
+- [x] Snap-assisted measurement placement
+- [x] Three.js raycasting for 3D point picking
 
 ### 5.3 Section / Clipping Plane
 
-- [ ] Toggle button: "Section Plane" in 3D viewer toolbar
-- [ ] Draggable clipping plane using `THREE.Plane`
-- [ ] Useful for inspecting hollow objects, internal cavities, fit checks
+- [x] Section tool in the 3D viewer toolbar
+- [x] Adjustable clipping plane using Three.js clipping
+- [x] Useful for inspecting hollow objects, internal cavities, fit checks
 
 ### 5.4 Color Support
 
-- [ ] Parse `color()` calls from OpenSCAD source
-- [ ] Evaluate AMF/3MF format (supports colors) for preview instead of STL
-- [ ] Minimum viable: single-color override from first `color()` call
+- [x] Render 3D previews through OFF output so OpenSCAD face colors can be preserved
+- [x] Parse OFF face colors into Three.js material groups
+- [x] Add a viewer preference to show model colors or fall back to the theme preview material
 
 **Success criteria**: Users can verify their designs are dimensionally correct and inspect internal geometry without leaving the app.
 

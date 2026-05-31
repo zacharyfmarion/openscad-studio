@@ -1,6 +1,6 @@
 # Pre-Release Checklist for OpenSCAD Studio
 
-This checklist captures the initial open-source launch work. It is primarily historical context now, not the source of truth for the current app architecture or release workflow. For current behavior, use `README.md`, `DEVELOPMENT.md`, `AGENTS.md`, and `CLAUDE.md`.
+This checklist captures the initial open-source launch work. It is primarily historical context now, not the source of truth for the current app architecture or release workflow. For current behavior, use `README.md`, `DEVELOPMENT.md`, `AGENTS.md`, `CLAUDE.md`, and `scripts/README.md`.
 
 ## ✅ Completed
 
@@ -88,7 +88,7 @@ This checklist captures the initial open-source launch work. It is primarily his
   - [x] Settings dialog saves preferences
   - [x] Theme switching works
   - [x] AI copilot can be configured (with test API key)
-  - [x] AI tools work (get_current_code, apply_edit, etc.)
+  - [x] AI tools work (`get_project_context`, `read_file`, `apply_edit`, etc.)
   - [x] Diagnostics panel shows errors correctly
   - [x] Keyboard shortcuts work (⌘K, ⌘T, ⌘W, etc.)
   - [x] Recent files list works
@@ -108,8 +108,6 @@ This checklist captures the initial open-source launch work. It is primarily his
 
 - [x] Document known limitations in README:
   - [x] Special operators (`#`, `%`, `*`, `!`) not visually distinguished
-  - [x] No customizer panel for OpenSCAD parameters yet
-  - [x] Preview resolution is fixed at 800x600 (not yet configurable)
   - [x] AI features require API key (no offline mode yet)
   - [x] Only tested on macOS (Windows/Linux pending)
 
@@ -127,7 +125,6 @@ This checklist captures the initial open-source launch work. It is primarily his
   rm -rf apps/*/node_modules/
   rm -rf target/
   rm -rf apps/ui/src-tauri/target/
-  rm -rf apps/sidecar/dist/
   ```
 - [ ] Verify fresh build works:
   ```bash
@@ -146,34 +143,16 @@ This checklist captures the initial open-source launch work. It is primarily his
   - [ ] OpenSCAD forums/Discord
   - [ ] Dev.to / Hashnode
 
-## 🚀 Release Process (Fully Automated)
+## 🚀 Release Process
 
-### One-Time Setup (Required First Time Only)
+The old one-command launch flow has been replaced by the protected-branch-friendly process documented in `scripts/README.md`.
 
-1. Create GitHub Personal Access Token (PAT) with repo scope for `homebrew-openscad-studio`
-2. Add `HOMEBREW_TAP_TOKEN` secret to the openscad-studio repository
-3. Create the `zacharyfmarion/homebrew-openscad-studio` repository with initial cask formula
+Current release flow:
 
-### Release a New Version
-
-```bash
-# Run from project root - this does EVERYTHING
-./scripts/release.sh 0.5.0
-```
-
-The script will:
-
-1. Bump version numbers in all files
-2. Update CHANGELOG.md
-3. Commit and push tag
-
-GitHub Actions will then automatically:
-
-1. Build macOS DMGs (ARM + Intel)
-2. Create a published GitHub Release with artifacts
-3. Update the Homebrew cask formula with new version and SHA256 hashes
-
-**No manual steps required after running the release script.**
+1. Prepare a release PR with `./scripts/release.sh prepare <version>`.
+2. Merge that PR into `main`.
+3. Publish the annotated tag with `./scripts/release.sh publish <version>`.
+4. Let GitHub Actions build, sign, notarize, release, and update the Homebrew cask.
 
 ### Post-Release Verification
 
@@ -244,7 +223,7 @@ git log --all --full-history -- "**/.env.local"
 
 - [ ] All TODOs in code removed or documented in issues
 - [ ] No debug console.log statements in production code
-- [ ] All tests pass (when implemented)
+- [ ] Relevant validation checks pass
 - [ ] Fresh clone builds successfully
 - [ ] LICENSE year is correct (2025)
 - [ ] Contact information is correct (GitHub username, etc.)
@@ -252,6 +231,6 @@ git log --all --full-history -- "**/.env.local"
 
 ---
 
-**Last Updated**: 2026-02-19
+**Last Updated**: 2026-05-31
 
 Once all critical items are checked, you're ready to make the repository public! 🎉

@@ -113,7 +113,7 @@ openscad-studio/
 │   │   │   │   └── webBridge.ts # Web implementation
 │   │   │   ├── services/        # Render services (WASM + native), AI service, OpenSCAD worker
 │   │   │   ├── stores/          # Zustand state (project files, workspace, settings)
-│   │   │   └── themes/          # 27 editor themes
+│   │   │   └── themes/          # 22 editor themes
 │   │   └── src-tauri/           # Rust backend (desktop only)
 │   └── web/                     # Web app entry point (Vite)
 └── packages/

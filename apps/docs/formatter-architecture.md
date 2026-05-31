@@ -134,7 +134,7 @@ The OpenSCAD language grammar compiled to WASM.
 
 4. **Copy to Project**:
    ```bash
-   cp tree-sitter-openscad.wasm /path/to/openscad-tauri/apps/ui/public/
+   cp tree-sitter-openscad.wasm /path/to/openscad-studio/apps/ui/public/
    ```
 
 **Alternative Method** (without cloning):
@@ -212,197 +212,38 @@ interface FormatOptions {
 - Preserved between comment sections and code
 - Added between top-level module/function declarations
 
-## Known Issues
+## Current Validation
 
-This section documents bugs and issues discovered during comprehensive testing with the official OpenSCAD examples (113 test cases from 48 example files).
+The critical formatter bugs previously documented here are now covered by the fixture suite in `apps/ui/src/utils/formatter/__tests__`.
 
-### Critical Bugs (Break Code - Must Fix)
+- Every file-based formatter test checks idempotence with `format(format(input)) === format(input)`.
+- The fixture set includes regressions for comment newlines, brace-less `if` statements, brace-less module bodies, blank lines in blocks, numeric-prefixed module calls, and inline comments inside keyboard-layout lists.
+- Official OpenSCAD example fixtures live under `fixtures/openscad-examples/`.
+- The integration test compiles a curated subset before and after formatting to catch syntax-breaking output.
 
-#### 1. Non-Idempotent Formatting - Statement Merging
-**Severity**: Critical
-**Status**: Open
-**Affected Files**: `basics/logo.scad`
+Run the dedicated formatter suite with:
 
-**Description**: Formatting the same code multiple times produces different results. In some cases, separate statements on adjacent lines get merged into a single line.
-
-**Example**:
-```openscad
-// Original (formatted once)
-cylinder(d=hole, h=cylinderHeight, center=true);
-#rotate([90, 0, 0]) cylinder(d=hole, h=cylinderHeight, center=true);
-
-// After formatting again (non-idempotent!)
-cylinder(d=hole, h=cylinderHeight, center=true);#rotate([90, 0, 0]) cylinder(d=hole, h=cylinderHeight, center=true);
+```bash
+pnpm test:formatter:ci
 ```
-
-**Root Cause**: Likely missing hardline after statements in certain contexts.
-
-#### 2. Non-Idempotent Formatting - File Truncation
-**Severity**: Critical
-**Status**: Open
-**Affected Files**: `basics/logo_and_text.scad`, `basics/CSG-modules.scad`
-
-**Description**: On repeated formatting, portions of the file get truncated, causing progressive data loss.
-
-**Root Cause**: Unknown - possibly related to EOF handling or tree traversal terminating early.
-
-#### 3. If Statement Bodies Dropped (No Braces)
-**Severity**: Critical
-**Status**: Open
-**Affected Files**: `old/example001.scad`, `old/example021.scad`, `old/example022.scad`, `old/example024.scad`
-
-**Description**: When an if statement doesn't have braces, the child statement is lost during formatting.
-
-**Example**:
-```openscad
-// Original
-if (type == 1) rotate(i*360/n) polygon([...]);
-
-// Formatted (BROKEN!)
-if (type == 1)  // polygon call is lost!
-```
-
-**Root Cause**: `printIfStatement()` in printer.ts:351 doesn't handle brace-less if statements properly.
-
-#### 4. Single-Line Module Definitions Lose Child Calls
-**Severity**: Critical
-**Status**: Open
-**Affected Files**: `advanced/GEB.scad`
-
-**Description**: Module declarations without braces that have child transform chains lose their body.
-
-**Example**:
-```openscad
-// Original
-module G() offset(0.3) text("G", font = "Bitstream Vera Sans:style=Bold", halign = "center", valign = "center", size = 10);
-
-// Formatted (BROKEN!)
-module G()  // body is lost!
-```
-
-**Root Cause**: `printModuleDeclaration()` in printer.ts:186 only handles blocks, not brace-less module bodies.
-
-#### 5. Missing Newlines Before Comments
-**Severity**: Critical
-**Status**: Open
-**Affected Files**: Multiple files in `old/` directory
-
-**Description**: Comments that should be on their own line get concatenated to the previous statement, causing progressive syntax errors on each format pass.
-
-**Example**:
-```openscad
-// Original
-cube(10);
-// This is a comment
-
-// Formatted (BROKEN!)
-cube(10);// This is a comment
-```
-
-**Root Cause**: `printSourceFile()` in printer.ts:143 doesn't ensure hardline before comments.
-
-### Major Issues (Affect Readability)
-
-#### 6. Line Offset Issue
-**Severity**: Major
-**Status**: Open
-**Affected Files**: All files in `advanced/` directory, many in `old/`
-
-**Description**: All content is shifted up by 1-2 lines in the output. Line 2 content appears on line 1, line 3 on line 2, etc.
-
-**Example**:
-```
-Expected Line 2: ""
-Actual Line 2:   "// Size of edge"
-
-Expected Line 3: "// Size of edge"
-Actual Line 3:   "D = 100;"
-```
-
-**Root Cause**: Likely incorrect hardline handling at the start of `printSourceFile()` or missing initial newline.
-
-#### 7. Multi-Line Transformation Chains Collapsed
-**Severity**: Major
-**Status**: Open
-**Affected Files**: `basics/projection.scad`, multiple `old/` files
-
-**Description**: Deeply nested transformation chains that were intentionally formatted across multiple lines get collapsed to single lines, hurting readability.
-
-**Example**:
-```openscad
-// Original (readable)
-color("red")
-    translate([0, 0, -20])
-        linear_extrude(height = 2, center = true)
-            difference() { ... }
-
-// Formatted (hard to read)
-color("red") translate([0, 0, -20]) linear_extrude(height = 2, center = true) difference() { ... }
-```
-
-**Root Cause**: `printTransformChain()` in printer.ts:445 doesn't preserve original multi-line formatting.
-
-### Style Differences (May Update Expected Files)
-
-These are consistent formatting differences that may be acceptable - we need to decide whether to:
-1. Update expected test files to match formatter output, OR
-2. Add configuration options for style preferences
-
-#### 8. Brace Style
-- **Expected**: K&R style (opening brace on next line)
-- **Actual**: One True Brace style (opening brace on same line)
-
-```openscad
-// Expected (K&R)
-module foo()
-{
-  ...
-}
-
-// Actual (1TBS)
-module foo() {
-  ...
-}
-```
-
-#### 9. Indentation Width
-- **Expected**: 2 spaces (many `old/` examples)
-- **Actual**: 4 spaces (default setting)
-
-#### 10. Operator Spacing
-- **Expected**: No spaces in some contexts (`360*i/6`, `center=true`)
-- **Actual**: Spaces around all binary operators (`360 * i / 6`, `center = true`)
-
-#### 11. Named Parameter Spacing
-- **Expected**: No space around `=` (`center=true`)
-- **Actual**: Spaces around `=` (`center = true`)
-
-#### 12. Child Statement Placement
-- **Expected**: Sometimes on same line as parent
-- **Actual**: New line after opening brace
 
 ## Known Limitations
 
-1. **Blank lines within blocks**: Currently not preserved. The formatter doesn't track original line spacing within function bodies.
+1. **Blank-line fidelity**: Common blank-line cases are covered by fixtures, but the formatter still does not attempt full trivia-preserving reconstruction for every possible layout.
 
 2. **Complex expressions**: Very long expressions might not wrap optimally.
 
-3. **Comments**: Inline comments are preserved but not reformatted.
+3. **Comments**: Inline comments are preserved but not reflowed or aligned.
 
 4. **Print width**: The `printWidth` option exists but line breaking based on width is not yet implemented.
 
 ## Debugging
 
-Enable debug logs by checking the browser console. The formatter logs:
-- Unknown node types encountered
-- Module/function declaration processing
-- Array/list formatting decisions
+Enable debug logs by checking the browser console. The formatter logs unknown node types and parser initialization or error state.
 
 Example log output:
 ```
 [Formatter] Unknown node type: "foo", text: "..."
-[Formatter] Unary expression: operator="-", operand="1"
-[Formatter] List has 3 items
 ```
 
 ## Performance Considerations
