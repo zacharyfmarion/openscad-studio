@@ -57,7 +57,7 @@
 
 - ✅ Native Rust AI agent exploration (historical)
 - ✅ Current production AI flow uses the shared frontend TypeScript agent and direct provider requests
-- ✅ Diff-based editing: exact string replacement, max 120 lines, validated before apply
+- ✅ Diff-based editing: exact string replacement, validated before apply
 - ✅ Tools: get code, screenshot, apply diff, diagnostics, render
 - ✅ SSE streaming with incremental text deltas
 - ✅ AiPromptPanel, ModelSelector, DiffViewer UI components
@@ -115,7 +115,7 @@
 
 **Goal:** Reduce structural debt so subsequent features don't fight the codebase. No user-visible changes.
 
-### 4B.1: Decompose App.tsx (1189 lines → <300)
+### 4B.1: Decompose App.tsx (~2600 lines → smaller focused modules)
 
 - [ ] Extract `useFileManager` hook:
   - `saveFile`, `checkUnsavedChanges`, `handleOpenFile`, `handleOpenRecent`
@@ -138,7 +138,7 @@
 - [x] Error boundary shows fallback UI with error details
 - [x] Prevents a crash in one area from taking down the entire app
 - [x] Log errors to `console.error` with component stack
-- [ ] Wrap each dockview panel individually (Editor, Preview, AI Chat, Console, Customizer, Diff) — currently only top-level boundary exists
+- [x] Wrap each dockview panel individually (Editor, Preview, AI Chat, Console, Customizer, Diff)
 
 ### 4B.3: Centralized State Management
 
@@ -253,11 +253,9 @@
 
 ### 5.5: Configurable Edit Size Limit
 
-- [ ] Move the 120-line edit limit from hardcoded to a setting
-- [ ] Default: 120 lines (current behavior)
-- [ ] Allow increase to 250 or 500 for users who want full-file generation
-- [ ] Setting in `SettingsDialog.tsx` → AI tab
-- [ ] Update `validate_edit()` in `ai_tools.rs` to read from settings
+- [ ] Decide whether an edit size setting is still needed now that the production AI agent uses frontend `apply_edit` exact-string replacement without the old Rust `validate_edit()` line cap
+- [ ] If needed, add a frontend AI setting and enforce it in `aiService.ts` / `useAiAgent.ts`
+- [ ] Keep the system prompt biased toward targeted edits rather than full-file rewrites
 
 **Success criteria:** AI chat renders beautifully. Users can reference images and past conversations. AI understands multi-file projects. Common operations are one-click.
 
@@ -269,39 +267,33 @@
 
 ### 6.1: Adaptive Render Resolution
 
-- [ ] Replace hardcoded 800x600 with actual panel dimensions
-- [ ] Use `ResizeObserver` on the preview panel to track size
-- [ ] Pass dynamic `{ w, h }` to `renderPreview`
-- [ ] Cap at 2x device pixel ratio for retina displays
-- [ ] Debounce resize-triggered re-renders (300ms)
+- [ ] Continue using `ResizeObserver`-driven viewer sizing for layout-sensitive overlays
+- [ ] Align screenshot, thumbnail, and export capture dimensions with their target surfaces
+- [ ] Cap capture/render scale for retina displays where raster outputs are generated
+- [ ] Debounce resize-triggered captures or renders when needed
 
-### 6.2: Section/Clipping Plane
+### ✅ 6.2: Section/Clipping Plane (COMPLETED)
 
-- [ ] Add a toggle button to the 3D viewer toolbar: "Section Plane"
-- [ ] When enabled: render a draggable clipping plane using `THREE.Plane`
-- [ ] Controls: drag to move plane position, rotate to change orientation
-- [ ] Useful for inspecting hollow objects, internal cavities, fit checks
-- [ ] Three.js `clippingPlanes` on material is the standard approach
+- [x] Added a Section tool in the 3D viewer toolbar
+- [x] Added axis, invert, offset, keyboard nudge, and reset controls
+- [x] Rendered section plane overlay and material clipping for inspecting hollow/internal geometry
 
-### 6.3: Color Support from OpenSCAD
+### ✅ 6.3: Color Support from OpenSCAD (COMPLETED)
 
-- [ ] Parse `color()` calls from OpenSCAD source code
-- [ ] When rendering STL: OpenSCAD doesn't embed colors, so this requires either:
-  - Option A: Use AMF/3MF format (supports colors) for preview instead of STL
-  - Option B: Parse color from source and apply to Three.js materials by geometry group
-- [ ] Evaluate AMF/3MF support in Three.js loaders
-- [ ] Minimum viable: single-color override from first `color()` call in source
+- [x] Switched 3D preview artifacts to OFF output so OpenSCAD-emitted face colors can be preserved
+- [x] Grouped preview geometry by face color and opacity in `preview3dModel.ts`
+- [x] Added a viewer preference to toggle model colors
 
-### 6.4: Measurement Tools
+### ✅ 6.4: Measurement Tools (COMPLETED)
 
-- [ ] Point-to-point distance measurement:
+- [x] Point-to-point distance measurement:
   - Click two points on the mesh surface
   - Display distance with a line and label
   - Snap to vertices
-- [ ] Bounding box dimensions:
+- [x] Bounding box dimensions:
   - Toggle to show X/Y/Z extent labels
   - Display total size in current units
-- [ ] Three.js raycasting for point picking
+- [x] Three.js raycasting for point picking
 
 ### 6.5: Special Operator Preview
 
@@ -515,16 +507,15 @@ These are valuable but not blocking a production release. Prioritize based on us
 
 Items to address opportunistically, not as dedicated phases:
 
-| Issue                                                 | Location                           | Severity | Notes                                                                       |
-| ----------------------------------------------------- | ---------------------------------- | -------- | --------------------------------------------------------------------------- |
-| Refs-as-state anti-pattern                            | `App.tsx` (7+ refs)                | Medium   | Address in 4B.1 decomposition                                               |
-| Settings split across localStorage and Tauri store    | `settingsStore.ts`, `cmd/ai.rs`    | Low      | Consider unifying in platform abstraction                                   |
-| OpenSCAD stderr parsing is regex-based                | `utils/parser.rs`                  | Low      | Works but may miss edge cases. Revisit if OpenSCAD adds JSON output         |
-| `EditorState` duplicated between frontend and backend | `useOpenScad.ts`, `ai_agent.rs`    | Medium   | Backend should be source of truth (4B.3)                                    |
-| No graceful degradation when OpenSCAD is unavailable  | Various                            | Low      | Editor works, just no preview. Could be clearer about what's disabled       |
-| `DiffViewer` panel always shows same code for old/new | `PanelComponents.tsx:58-66`        | Low      | `oldCode={source} newCode={source}` — not actually showing a diff           |
-| Error boundary only at top level                      | `ErrorBoundary.tsx`                | Low      | Per-panel boundaries would improve resilience (see 4B.2 follow-up)          |
-| Parser race condition fixed but fragile               | `CustomizerPanel.tsx`, `parser.ts` | Low      | Parser-ready signaling added; consider a more robust initialization pattern |
+| Issue                                                 | Location                            | Severity | Notes                                                                       |
+| ----------------------------------------------------- | ----------------------------------- | -------- | --------------------------------------------------------------------------- |
+| Refs-as-state anti-pattern                            | `App.tsx` (7+ refs)                 | Medium   | Address in 4B.1 decomposition                                               |
+| Settings split across localStorage and Tauri store    | `settingsStore.ts`, Tauri store     | Low      | Consider unifying in platform abstraction                                   |
+| OpenSCAD stderr parsing is regex-based                | `renderService.ts`                  | Low      | Works but may miss edge cases. Revisit if OpenSCAD adds JSON output         |
+| `EditorState` duplicated between frontend and backend | `useOpenScad.ts`, `cmd/ai_tools.rs` | Medium   | Clarify the current source of truth before deeper state cleanup (4B.3)      |
+| No graceful degradation when OpenSCAD is unavailable  | Various                             | Low      | Editor works, just no preview. Could be clearer about what's disabled       |
+| `DiffViewer` panel always shows same code for old/new | `PanelComponents.tsx:58-66`         | Low      | `oldCode={source} newCode={source}` — not actually showing a diff           |
+| Parser race condition fixed but fragile               | `CustomizerPanel.tsx`, `parser.ts`  | Low      | Parser-ready signaling added; consider a more robust initialization pattern |
 
 ---
 
@@ -545,7 +536,7 @@ Items to address opportunistically, not as dedicated phases:
 3. **Exact string replacement edits**: Agent provides precise changes
    - ✅ Exact match validation (old_string must be unique)
    - ✅ Atomic apply/rollback with validation
-   - ✅ Smaller token usage (max 120 lines)
+   - ✅ Smaller token usage through targeted replacements
    - ✅ Preserves user code structure
    - ✅ Test-compiled before acceptance
 
@@ -583,6 +574,6 @@ Decisions made during roadmap planning that affect ordering:
 
 ---
 
-**Last Updated:** 2026-04-19
-**Current Phase:** v1.2.1 — web + desktop app shipping with sharing, analytics/privacy controls, formatter coverage, advanced viewer tooling, and desktop MCP support for external agents
+**Last Updated:** 2026-06-07
+**Current Phase:** v1.2.2 — web + desktop app shipping with sharing, analytics/privacy controls, formatter coverage, advanced viewer tooling, and desktop MCP support for external agents
 **Next Milestone:** Phase 4B.1/4B.3 (App.tsx decomposition, centralized state) or Phase 5 (AI experience) based on user feedback

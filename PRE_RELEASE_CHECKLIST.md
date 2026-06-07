@@ -104,12 +104,12 @@ This checklist captures the initial open-source launch work. It is primarily his
 - [ ] Test on Linux (Ubuntu/Fedora) - not yet tested
 - [ ] Verify desktop-specific filesystem and library workflows on each supported platform
 
-### Known Issues Documentation
+### Historical Known Issues Documentation
 
-- [x] Document known limitations in README:
+- [x] Documented the launch-era limitations in README. Several of these have shipped since the original checklist, so this list is historical rather than current product status:
   - [x] Special operators (`#`, `%`, `*`, `!`) not visually distinguished
-  - [x] No customizer panel for OpenSCAD parameters yet
-  - [x] Preview resolution is fixed at 800x600 (not yet configurable)
+  - [x] No customizer panel for OpenSCAD parameters yet (now shipped)
+  - [x] Preview resolution is fixed at 800x600 (3D preview now uses OFF mesh artifacts and responsive viewer sizing)
   - [x] AI features require API key (no offline mode yet)
   - [x] Only tested on macOS (Windows/Linux pending)
 

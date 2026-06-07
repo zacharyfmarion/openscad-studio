@@ -51,7 +51,7 @@ openscad-studio/
 │   │   ├── src/                    # Shared React frontend
 │   │   │   ├── components/         # React components
 │   │   │   │   ├── Editor.tsx      # Monaco code editor
-│   │   │   │   ├── Preview.tsx     # Preview pane (STL/SVG)
+│   │   │   │   ├── Preview.tsx     # Preview pane (OFF/SVG)
 │   │   │   │   ├── ThreeViewer.tsx # 3D mesh viewer
 │   │   │   │   ├── AiPromptPanel.tsx # AI chat interface
 │   │   │   │   ├── ErrorBoundary.tsx # Crash recovery UI
@@ -114,7 +114,7 @@ Local MCP client → Tauri MCP server (`mcp.rs`) → active workspace window bri
 2. **Multi-file Projects**: Projects can contain multiple `.scad` files with a designated render target. The desktop app manages project directories and resolves `include`/`use` paths against the project root.
 
 3. **Multi-format Preview**:
-   - Interactive STL/3D mesh for manipulation
+   - Interactive OFF-based 3D mesh for manipulation and model colors
    - SVG for 2D designs
 
 4. **Shared Client-Side AI**: Both web and desktop use the same frontend AI stack for the in-app copilot. Requests are made directly from the React app with Vercel AI SDK's `streamText`, and API keys are currently stored in obfuscated localStorage-backed state inside the browser/webview.
@@ -134,7 +134,7 @@ Local MCP client → Tauri MCP server (`mcp.rs`) → active workspace window bri
 - **`apps/ui/src/hooks/useOpenScad.ts`**: Core rendering logic. Orchestrates both WASM (web) and native binary (desktop) rendering, debouncing, and diagnostics parsing.
 - **`apps/ui/src/hooks/useAiAgent.ts`**: AI agent communication. Handles streaming responses, tool call visualization.
 - **`apps/ui/src/components/Editor.tsx`**: Monaco editor wrapper with OpenSCAD syntax highlighting.
-- **`apps/ui/src/components/Preview.tsx`**: Conditional preview renderer (STL/SVG) with customizer integration.
+- **`apps/ui/src/components/Preview.tsx`**: Conditional preview renderer (OFF/SVG) with customizer integration.
 - **`apps/ui/src/components/CustomizerPanel.tsx`**: Interactive parameter controls panel with collapsible tabs.
 - **`apps/ui/src/components/AiPromptPanel.tsx`**: AI chat transcript and shared composer host.
 - **`apps/ui/src/components/AiComposer.tsx`**: Shared text + image composer used by the welcome screen and main AI panel.
@@ -204,6 +204,7 @@ The desktop app bundles a native OpenSCAD binary for rendering instead of WASM. 
 - **Location**: `apps/ui/src-tauri/binaries/OpenSCAD.app` (gitignored, downloaded at build time)
 
 **Local development**:
+
 ```bash
 # Download the binary (only needed once, re-run to update)
 cd apps/ui/src-tauri
@@ -317,7 +318,7 @@ pnpm validate:changes   # Run the shared validation helper
 ### Current Capabilities (v1.2.2)
 
 ✅ Monaco editor with OpenSCAD syntax highlighting
-✅ Live STL/SVG preview (web: openscad-wasm, desktop: native binary)
+✅ Live OFF/SVG preview (web: openscad-wasm, desktop: native binary)
 ✅ Error diagnostics with inline markers
 ✅ 3D mesh viewer (Three.js) with wireframe/orthographic/shadows
 ✅ Export to STL, OBJ, AMF, 3MF, PNG, SVG, DXF
@@ -405,5 +406,5 @@ pnpm validate:changes   # Run the shared validation helper
 
 ---
 
-**Last Updated**: 2026-04-28
+**Last Updated**: 2026-06-07
 **Current Version**: v1.2.2 — Web + Desktop

@@ -4,7 +4,7 @@
 >
 > OpenSCAD is the engine, not the product. The product is: you describe what you want, it makes it, you print it.
 
-**Current version**: v1.2.2 | **Last updated**: 2026-04-28
+**Current version**: v1.2.2 | **Last updated**: 2026-06-07
 
 This roadmap mixes shipped milestones with future planning. Older sections may describe the implementation assumptions that existed when they were written rather than the current client-side `openscad-wasm` architecture.
 
@@ -22,23 +22,23 @@ This roadmap mixes shipped milestones with future planning. Older sections may d
 
 ## What We Have (v1.2.2)
 
-| Area                                                                                  | Status |
-| ------------------------------------------------------------------------------------- | ------ |
-| Monaco editor with OpenSCAD syntax, 27 themes, vim mode, tree-sitter formatting       | ✅     |
-| Live 3D preview (Three.js mesh viewer, orbit controls, wireframe/solid/section tools) | ✅     |
-| 2D SVG mode for laser cutting / engraving                                             | ✅     |
+| Area                                                                                                     | Status |
+| -------------------------------------------------------------------------------------------------------- | ------ |
+| Monaco editor with OpenSCAD syntax, 27 themes, vim mode, tree-sitter formatting                          | ✅     |
+| Live 3D preview (Three.js mesh viewer, orbit controls, wireframe/solid/section tools)                    | ✅     |
+| 2D SVG mode for laser cutting / engraving                                                                | ✅     |
 | AI copilot (Claude + GPT, streaming, tool-calling, diff-based editing, image attachments, auto-rollback) | ✅     |
-| AI can see the 3D preview (screenshot tool returns base64 PNG to vision models)       | ✅     |
-| Customizer panel (tree-sitter parsed parameters → sliders, dropdowns, vectors)        | ✅     |
-| Share links with remixable web entry and thumbnail support                            | ✅     |
-| Product analytics controls and privacy-scrubbed Sentry monitoring                     | ✅     |
-| 2D/3D measurement tools and 3D section plane controls                                 | ✅     |
-| Export (STL, OBJ, AMF, 3MF, PNG, SVG, DXF)                                            | ✅     |
-| Web app via openscad-wasm (zero install, Cloudflare Pages)                            | ✅     |
-| Desktop app (macOS, Homebrew)                                                         | ✅     |
-| Library path management, include/use resolution, BOSL2 support                        | ✅     |
-| Multi-tab editing, undo/redo checkpoints, conversation persistence                    | ✅     |
-| E2E test suite (Playwright, ~2700 lines, CI on every PR)                              | ✅     |
+| AI can see the 3D preview (screenshot tool returns base64 PNG to vision models)                          | ✅     |
+| Customizer panel (tree-sitter parsed parameters → sliders, dropdowns, vectors)                           | ✅     |
+| Share links with remixable web entry and thumbnail support                                               | ✅     |
+| Product analytics controls and privacy-scrubbed Sentry monitoring                                        | ✅     |
+| 2D/3D measurement tools and 3D section plane controls                                                    | ✅     |
+| Export (STL, OBJ, AMF, 3MF, PNG, SVG, DXF)                                                               | ✅     |
+| Web app via openscad-wasm (zero install, Cloudflare Pages)                                               | ✅     |
+| Desktop app (macOS, Homebrew)                                                                            | ✅     |
+| Library path management, include/use resolution, BOSL2 support                                           | ✅     |
+| Multi-tab editing, undo/redo checkpoints, conversation persistence                                       | ✅     |
+| E2E test suite (Playwright, ~2700 lines, CI on every PR)                                                 | ✅     |
 
 ---
 
@@ -208,10 +208,9 @@ Bake domain knowledge into the AI so it produces print-ready designs.
 
 ### 4.4 Configurable Edit Size Limit
 
-- [ ] Move 120-line edit limit to a user setting
-- [ ] Default: 120 lines (current behavior)
-- [ ] Allow increase to 250 or 500 for users who want full-file generation
-- [ ] Setting in Settings → AI tab
+- [ ] Decide whether an edit size setting is still needed now that `apply_edit` is frontend exact-string replacement without the old Rust line cap
+- [ ] If needed, add a Settings → AI control and enforce it in the frontend AI edit path
+- [ ] Keep the product biased toward targeted edits rather than full-file rewrites
 
 **Success criteria**: AI produces print-ready designs. Users can manage conversation history. Multi-file projects work with AI.
 
@@ -223,31 +222,31 @@ Bake domain knowledge into the AI so it produces print-ready designs.
 
 ### 5.1 Adaptive Render Resolution
 
-- [ ] Replace hardcoded 800x600 with actual panel dimensions
-- [ ] `ResizeObserver` on preview panel
-- [ ] Cap at 2x device pixel ratio for retina displays
-- [ ] Debounce resize-triggered re-renders (300ms)
+- [ ] Continue responsive viewer sizing for layout-sensitive overlays
+- [ ] Align screenshot, thumbnail, and export capture dimensions with their target surfaces
+- [ ] Cap capture/render scale for retina displays where raster outputs are generated
+- [ ] Debounce resize-triggered captures or renders when needed
 
 ### 5.2 Measurement Tools
 
 Essential for verifying that dimensions are correct before printing.
 
-- [ ] Bounding box dimensions (toggle X/Y/Z extent labels)
-- [ ] Point-to-point distance measurement (click two points on mesh)
-- [ ] Snap to vertices
-- [ ] Three.js raycasting for point picking
+- [x] Bounding box dimensions (toggle X/Y/Z extent labels)
+- [x] Point-to-point distance measurement (click two points on mesh)
+- [x] Snap to vertices
+- [x] Three.js raycasting for point picking
 
 ### 5.3 Section / Clipping Plane
 
-- [ ] Toggle button: "Section Plane" in 3D viewer toolbar
-- [ ] Draggable clipping plane using `THREE.Plane`
-- [ ] Useful for inspecting hollow objects, internal cavities, fit checks
+- [x] Section tool in the 3D viewer toolbar
+- [x] Clipping plane with axis, invert, offset, nudge, and reset controls
+- [x] Useful for inspecting hollow objects, internal cavities, fit checks
 
 ### 5.4 Color Support
 
-- [ ] Parse `color()` calls from OpenSCAD source
-- [ ] Evaluate AMF/3MF format (supports colors) for preview instead of STL
-- [ ] Minimum viable: single-color override from first `color()` call
+- [x] Preserve OpenSCAD color output in the 3D preview by rendering OFF artifacts
+- [x] Group preview geometry by face color and opacity
+- [x] Viewer preference to toggle model colors
 
 **Success criteria**: Users can verify their designs are dimensionally correct and inspect internal geometry without leaving the app.
 
@@ -328,11 +327,10 @@ Don't schedule these as standalone work items. Fix them when they're in the crit
 
 | Issue                                            | Severity | Trigger to Fix                                                  |
 | ------------------------------------------------ | -------- | --------------------------------------------------------------- |
-| App.tsx is 1189 lines                            | Medium   | When adding a feature that touches App.tsx and it's too painful |
+| App.tsx is ~2600 lines                           | Medium   | When adding a feature that touches App.tsx and it's too painful |
 | Refs-as-state anti-pattern (7+ refs)             | Medium   | When a state bug is traced to this pattern                      |
 | EditorState duplication (frontend + backend)     | Medium   | When AI context or multi-file features need coherent state      |
 | Settings split across localStorage + Tauri store | Low      | When adding new settings gets confusing                         |
-| Error boundary only at top level                 | Low      | When a panel crash takes down the whole app                     |
 | DiffViewer shows same code for old/new           | Low      | When someone actually uses the diff panel                       |
 
 ---
@@ -345,7 +343,7 @@ Don't schedule these as standalone work items. Fix them when they're in the crit
 
 ### Leading Indicators
 
-- Web app weekly active users (Plausible analytics)
+- Web app weekly active users (PostHog product analytics)
 - AI conversations started per session
 - STL exports per session (= user got a result they wanted)
 - Shared design links generated
