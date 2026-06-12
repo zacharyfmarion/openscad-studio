@@ -1,0 +1,7 @@
+{
+  "bundle": {
+    "resources": {
+      "binaries/OpenSCAD.app": "OpenSCAD.app"
+    }
+  }
+}

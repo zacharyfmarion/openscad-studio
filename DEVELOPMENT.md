@@ -17,15 +17,18 @@ pnpm web:share:dev
 # Run desktop version in development mode (requires Rust toolchain)
 pnpm tauri:dev
 
-# First-time desktop setup: download the OpenSCAD binary
+# First-time desktop setup:
+# On macOS: download the bundled OpenSCAD binary
 bash apps/ui/src-tauri/scripts/download-openscad.sh
+# On Linux: install the latest nightly AppImage to your PATH (e.g. as /usr/local/bin/openscad) 
+# The app requires OpenSCAD >= 2022.03 to support the `--backend=manifold` flag.
 
 # Build for production
 pnpm web:build    # Web
 pnpm tauri:build  # Desktop
 ```
 
-Desktop development requires the [Rust toolchain](https://rustup.rs/) and the OpenSCAD binary (run `bash apps/ui/src-tauri/scripts/download-openscad.sh` once). Web development only needs Node.js 18+ and pnpm.
+Desktop development requires the [Rust toolchain](https://rustup.rs/) and a recent OpenSCAD binary. Web development only needs Node.js 18+ and pnpm.
 
 ## Share Feature Testing
 
