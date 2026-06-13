@@ -263,13 +263,6 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
 
     return (
       <div className="flex flex-col ph-no-capture" style={{ gap: 'var(--space-section-gap)' }}>
-        <Text variant="body">
-          Add your API keys to enable AI assistant features. Model selection is available in the
-          chat interface. Hosted keys and local provider settings are stored locally on this
-          device/browser profile and used for direct requests from the app. They are not sent to our
-          analytics.
-        </Text>
-
         <ApiProviderCard
           title="Anthropic API Key"
           description="Required for Claude models."
