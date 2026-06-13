@@ -148,7 +148,7 @@ test.describe('Customizer Panel', () => {
       timeout: 10_000,
     });
     await app.page.getByTestId('customizer-refine-button').click();
-    await expect(app.page.getByText('Add an API key to get started')).toBeVisible({
+    await expect(app.page.getByText('Configure an AI provider to get started')).toBeVisible({
       timeout: 10_000,
     });
   });
