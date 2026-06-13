@@ -310,12 +310,12 @@ export function useModels(availableProviders: string[]): UseModelsReturn {
         }
         if (providers.includes('openai-compatible')) {
           const config = getOpenAiCompatibleConfig();
-          if (config.baseUrl && config.modelId) {
+          if (config.baseUrl) {
             fetches.push(
               fetchOpenAiCompatibleModels(config)
                 .then((models) => ({ models, error: null }))
                 .catch((error) => ({
-                  models: [createConfiguredOpenAiCompatibleModel(config)],
+                  models: config.modelId ? [createConfiguredOpenAiCompatibleModel(config)] : [],
                   error: error instanceof Error ? error.message : String(error),
                 }))
             );

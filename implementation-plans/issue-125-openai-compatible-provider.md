@@ -7,13 +7,12 @@ Add first-class support for local and self-hosted OpenAI-compatible chat provide
 The intended user-facing outcome is a configurable "OpenAI-compatible" provider in AI settings:
 
 - Base URL, for example `http://127.0.0.1:11434/v1` for Ollama, `http://127.0.0.1:8080/v1` for llama.cpp, or `http://localhost:1234/v1` for LM Studio.
-- Model id/name, for example `gemma4:12b` or the model id reported by the local server.
 - Optional API key for servers that require one.
-- Model refresh/test behavior that works against `/models` when available.
+- Model refresh/test behavior that works against `/models` when available, with model choice handled by the chat model selector rather than the settings form.
 
 ## Issue Context
 
-The issue asks for "Ollama / Llama.cpp" support. A later clarification narrows the requested shape to local OpenAI-compatible providers with configurable base URL, model name, and optional API key, especially for the desktop app.
+The issue asks for "Ollama / Llama.cpp" support. A later clarification narrows the requested shape to local OpenAI-compatible providers with configurable base URL and optional API key, especially for the desktop app. Model names should be discovered from `/models` and selected in the normal model selector.
 
 This should be implemented as one generic OpenAI-compatible provider rather than separate hardcoded "Ollama", "llama.cpp", or "LM Studio" providers. Ollama, llama.cpp, and LM Studio should appear in copy, defaults, examples, tests, and manual validation.
 
@@ -97,7 +96,6 @@ Add a custom provider config shape:
 ```ts
 export interface OpenAiCompatibleConfig {
   baseUrl: string;
-  modelId: string;
   apiKey: string | null;
 }
 ```
@@ -106,7 +104,6 @@ Suggested storage keys:
 
 - `openscad_studio_ai_model_selection`
 - `openscad_studio_openai_compatible_base_url`
-- `openscad_studio_openai_compatible_model`
 - `openscad_studio_openai_compatible_api_key`
 
 Keep the existing hosted provider key storage and obfuscation behavior.
@@ -125,9 +122,9 @@ Keep the existing hosted provider key storage and obfuscation behavior.
 
 ### 2. Add OpenAI-compatible provider configuration
 
-- [x] Add storage helpers for custom base URL, model id, and optional key.
+- [x] Add storage helpers for custom base URL and optional key.
 - [x] Normalize base URLs by trimming whitespace and removing trailing slashes.
-- [x] Treat the provider as available when it has a valid base URL and model id.
+- [x] Treat the provider as available when it has a saved valid base URL.
 - [x] Do not require a non-empty API key for provider availability.
 - [x] Use a placeholder key such as `local` or no Authorization header depending on provider factory behavior; avoid blocking on missing key.
 - [x] Add unit coverage for optional-key availability.
@@ -153,7 +150,7 @@ Keep the existing hosted provider key storage and obfuscation behavior.
 ### 5. Update settings UI
 
 - [x] Add an OpenAI-compatible settings card in `AiSettings.tsx`.
-- [x] Include fields for Base URL, Model, and optional API key.
+- [x] Include fields for Base URL and optional API key.
 - [x] Default the base URL to `http://127.0.0.1:11434/v1` for Ollama.
 - [x] Include concise helper copy mentioning Ollama, llama.cpp, and LM Studio examples.
 - [x] Add a "Test connection" or "Refresh models" control that fetches `/models` and shows success/failure.
@@ -175,7 +172,7 @@ Keep the existing hosted provider key storage and obfuscation behavior.
 - [x] Update `useAiAgent.ts` state from `currentModel: string` to explicit current selection, or add `currentProvider` alongside `currentModel`.
 - [x] Resolve provider config before submit.
 - [x] For Anthropic/OpenAI, keep missing-key validation.
-- [x] For OpenAI-compatible, validate base URL/model id and allow missing API key.
+- [x] For OpenAI-compatible, validate base URL and allow missing API key.
 - [x] Track analytics with explicit provider and model id.
 - [x] Avoid sending the local base URL or API key to analytics.
 - [x] Update `useOpenScad.ts` AI edit analytics to use explicit provider selection.
@@ -201,7 +198,7 @@ Keep the existing hosted provider key storage and obfuscation behavior.
 
 ## Acceptance Criteria
 
-- [x] A user can configure Ollama in Settings with base URL `http://127.0.0.1:11434/v1`, model `gemma4:12b`, and no API key.
+- [x] A user can configure Ollama in Settings with base URL `http://127.0.0.1:11434/v1` and no API key.
 - [x] The configured local model appears in the model selector.
 - [x] The AI assistant can send a normal chat request to the local model.
 - [x] The AI assistant can execute the existing local tool flow with a compatible model that emits OpenAI-style tool calls.

@@ -156,7 +156,7 @@ describe('useModels', () => {
   it('fetches OpenAI-compatible models without filtering local model ids', async () => {
     storeOpenAiCompatibleConfig({
       baseUrl: 'http://127.0.0.1:11434/v1',
-      modelId: 'gemma4:12b',
+      modelId: '',
       apiKey: null,
     });
 

@@ -131,7 +131,7 @@ describe('apiKeyStore', () => {
     act(() => {
       storeOpenAiCompatibleConfig({
         baseUrl: 'http://localhost:1234/v1',
-        modelId: 'lm-studio-model',
+        modelId: '',
         apiKey: null,
       });
     });

@@ -3,7 +3,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { ThemeProvider } from '../../contexts/ThemeContext';
-import { getAvailableProviders, getOpenAiCompatibleConfig } from '../../stores/apiKeyStore';
+import {
+  getAvailableProviders,
+  getOpenAiCompatibleConfig,
+  storeOpenAiCompatibleConfig,
+} from '../../stores/apiKeyStore';
 
 const mockGetPlatform = jest.fn();
 const mockTrack = jest.fn();
@@ -276,11 +280,9 @@ describe('SettingsDialog privacy copy', () => {
     expect(await screen.findByText('OpenAI-compatible Provider')).toBeTruthy();
 
     const baseUrlInput = screen.getByPlaceholderText('http://127.0.0.1:11434/v1');
-    const modelInput = screen.getByPlaceholderText('gemma4:12b');
 
     fireEvent.focus(baseUrlInput);
     fireEvent.change(baseUrlInput, { target: { value: ' http://localhost:1234/v1/ ' } });
-    fireEvent.change(modelInput, { target: { value: 'lm-studio-model' } });
 
     const saveButton = screen.getByRole('button', { name: 'Save AI Settings' });
     await waitFor(() => {
@@ -293,12 +295,31 @@ describe('SettingsDialog privacy copy', () => {
     });
     expect(getOpenAiCompatibleConfig()).toEqual({
       baseUrl: 'http://localhost:1234/v1',
-      modelId: 'lm-studio-model',
+      modelId: '',
       apiKey: null,
     });
     expect(mockTrack).toHaveBeenCalledWith('api key saved', {
       provider: 'openai-compatible',
     });
+  });
+
+  it('shows saved OpenAI-compatible settings before the local card is focused', async () => {
+    storeOpenAiCompatibleConfig({
+      baseUrl: 'http://localhost:1234/v1',
+      modelId: '',
+      apiKey: null,
+    });
+
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="ai" />
+      </ThemeProvider>
+    );
+
+    const baseUrlInput = (await screen.findByPlaceholderText(
+      'http://127.0.0.1:11434/v1'
+    )) as HTMLInputElement;
+    expect(baseUrlInput.value).toBe('http://localhost:1234/v1');
   });
 
   it('tracks layout selection sources and viewer preference changes', async () => {

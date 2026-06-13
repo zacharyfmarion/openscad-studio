@@ -92,11 +92,13 @@ export function normalizeOpenAiCompatibleBaseUrl(baseUrl: string): string {
 }
 
 export function getOpenAiCompatibleConfig(): OpenAiCompatibleConfig {
+  const storedBaseUrl = normalizeOpenAiCompatibleBaseUrl(
+    localStorage.getItem(STORAGE_KEYS.openaiCompatibleBaseUrl) ?? ''
+  );
   const baseUrl =
-    normalizeOpenAiCompatibleBaseUrl(
-      localStorage.getItem(STORAGE_KEYS.openaiCompatibleBaseUrl) ??
-        DEFAULT_OPENAI_COMPATIBLE_BASE_URL
-    ) || DEFAULT_OPENAI_COMPATIBLE_BASE_URL;
+    storedBaseUrl ||
+    normalizeOpenAiCompatibleBaseUrl(DEFAULT_OPENAI_COMPATIBLE_BASE_URL) ||
+    DEFAULT_OPENAI_COMPATIBLE_BASE_URL;
   const modelId = (localStorage.getItem(STORAGE_KEYS.openaiCompatibleModel) ?? '').trim();
   return {
     baseUrl,
@@ -134,12 +136,15 @@ export function clearOpenAiCompatibleConfig(): void {
   localStorage.removeItem(STORAGE_KEYS.openaiCompatibleBaseUrl);
   localStorage.removeItem(STORAGE_KEYS.openaiCompatibleModel);
   localStorage.removeItem(STORAGE_KEYS.openaiCompatibleApiKey);
+  clearStoredModelSelectionForProvider('openai-compatible');
   notify();
 }
 
 export function hasOpenAiCompatibleConfig(): boolean {
-  const config = getOpenAiCompatibleConfig();
-  return config.baseUrl.length > 0 && config.modelId.length > 0;
+  const storedBaseUrl = normalizeOpenAiCompatibleBaseUrl(
+    localStorage.getItem(STORAGE_KEYS.openaiCompatibleBaseUrl) ?? ''
+  );
+  return storedBaseUrl.length > 0;
 }
 
 export function isProviderConfigured(provider: AiProvider): boolean {
@@ -252,6 +257,15 @@ export function setStoredModelSelection(selection: AiModelSelection): void {
   );
   // Keep the legacy string key updated for analytics and older callers during migration.
   localStorage.setItem(STORAGE_KEYS.model, modelId);
+}
+
+export function clearStoredModelSelectionForProvider(provider: AiProvider): void {
+  const storedSelection = parseStoredModelSelection(
+    localStorage.getItem(STORAGE_KEYS.modelSelection)
+  );
+  if (storedSelection?.provider !== provider) return;
+  localStorage.removeItem(STORAGE_KEYS.modelSelection);
+  localStorage.removeItem(STORAGE_KEYS.model);
 }
 
 // ============================================================================

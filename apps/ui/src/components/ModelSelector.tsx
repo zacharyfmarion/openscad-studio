@@ -74,6 +74,20 @@ export function ModelSelector({
     });
   }, [error]);
 
+  useEffect(() => {
+    if (
+      disabled ||
+      isLoading ||
+      selectedProvider !== 'openai-compatible' ||
+      openAiCompatibleModels.length === 0 ||
+      openAiCompatibleModels.some((model) => model.id === currentModel)
+    ) {
+      return;
+    }
+
+    onChange(openAiCompatibleModels[0].id, 'openai-compatible');
+  }, [currentModel, disabled, isLoading, onChange, openAiCompatibleModels, selectedProvider]);
+
   if (!hasModels && !isLoading) {
     return (
       <span className="text-xs" style={{ color: 'var(--text-tertiary)', opacity: 0.5 }}>
