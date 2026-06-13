@@ -263,6 +263,11 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
 
     return (
       <div className="flex flex-col ph-no-capture" style={{ gap: 'var(--space-section-gap)' }}>
+        <Text variant="body" color="secondary">
+          Connect hosted API keys or a local OpenAI-compatible server, then choose the model from
+          the chat composer.
+        </Text>
+
         <ApiProviderCard
           title="Anthropic API Key"
           description="Required for Claude models."
