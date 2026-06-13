@@ -184,11 +184,11 @@ Keep the existing hosted provider key storage and obfuscation behavior.
 
 ### 8. Desktop and web behavior
 
-- [ ] Support desktop as the primary path.
-- [ ] Allow web builds to use OpenAI-compatible endpoints when CORS permits, which Ollama currently appears to permit for localhost.
-- [ ] If fetch fails with a CORS/network-like error, show a targeted message explaining that the local server must be running and allow browser requests.
-- [ ] Avoid adding a Rust/Tauri proxy in the first implementation unless browser fetch proves unreliable in packaged desktop.
-- [ ] If a Tauri proxy becomes necessary, add it as a follow-up implementation plan rather than hiding it in this feature.
+- [x] Support desktop as the primary path.
+- [x] Allow web builds to use OpenAI-compatible endpoints when CORS permits, which Ollama currently appears to permit for localhost.
+- [x] If fetch fails with a CORS/network-like error, show a targeted message explaining that the local server must be running and allow browser requests.
+- [x] Avoid adding a Rust/Tauri proxy in the first implementation unless browser fetch proves unreliable in packaged desktop.
+- [x] If a Tauri proxy becomes necessary, add it as a follow-up implementation plan rather than hiding it in this feature.
 
 ### 9. Documentation and issue response
 
