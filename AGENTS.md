@@ -8,6 +8,7 @@ OpenSCAD Studio runs the AI copilot entirely on the client side.
 
 - The same React/TypeScript AI stack is used in both the standalone web app and the Tauri desktop app.
 - Model requests are still made directly from the frontend with the Vercel AI SDK.
+- Hosted providers use Anthropic/OpenAI endpoints; local and self-hosted models use a configurable OpenAI-compatible endpoint such as Ollama, llama.cpp, or LM Studio.
 - Tauri provides desktop shell features such as native file dialogs, filesystem access, native rendering, and a desktop-only localhost MCP bridge for external agents.
 - OpenSCAD rendering is client-side: web uses `openscad-wasm` in a Web Worker, while the desktop app uses a bundled native OpenSCAD binary invoked via Tauri IPC commands.
 
@@ -48,7 +49,7 @@ Preserve and tighten the current aesthetic instead of replacing it. The existing
 │ └── useOpenScad.ts         (rendering + diagnostics)       │
 └─────────────────────────────────────────────────────────────┘
                  │
-                 │ HTTPS from the client
+                 │ HTTPS / localhost from the client
                  ▼
         ┌───────────────────┐
         │ Anthropic API     │
@@ -57,6 +58,12 @@ Preserve and tighten the current aesthetic instead of replacing it. The existing
                  ▼
         ┌───────────────────┐
         │ OpenAI API        │
+        └───────────────────┘
+                 │
+                 ▼
+        ┌───────────────────┐
+        │ OpenAI-compatible │
+        │ local endpoint    │
         └───────────────────┘
 
 Desktop-only shell services:
@@ -73,13 +80,14 @@ Desktop-only shell services:
 
 ## Security Model
 
-### API keys
+### API keys and local provider settings
 
-AI API keys are currently stored client-side in obfuscated localStorage-backed state, including when the app runs inside the Tauri webview.
+Hosted AI API keys are currently stored client-side in obfuscated localStorage-backed state, including when the app runs inside the Tauri webview. OpenAI-compatible provider settings, including base URL, model id, and optional API key, are also stored locally.
 
 - This is a convenience tradeoff for a shared web + desktop AI implementation.
 - It is not equivalent to backend-only secret storage.
 - The current architecture intentionally prioritizes one shared AI stack across web and desktop over secret isolation.
+- Local provider API keys are optional; Ollama and LM Studio typically work without one.
 
 Relevant code:
 
@@ -117,9 +125,10 @@ The in-app copilot still has no Rust-side model transport or backend conversatio
 
 ### Provider selection
 
-- The current model is stored in local storage.
-- The provider is inferred from the selected model id.
-- Available models are fetched from provider APIs on the client when keys exist.
+- The current provider and model id are stored together in local storage.
+- Legacy bare model ids are migrated to provider-aware selections.
+- Available hosted models are fetched from provider APIs on the client when keys exist.
+- The OpenAI-compatible provider is available when a base URL and model id are configured; `/models` is used when the local server supports it.
 
 Relevant code:
 

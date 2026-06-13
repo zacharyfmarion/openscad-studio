@@ -192,8 +192,8 @@ Keep the existing hosted provider key storage and obfuscation behavior.
 
 ### 9. Documentation and issue response
 
-- [ ] Add concise user-facing docs in an appropriate developer/user doc if the project has a current AI settings guide.
-- [ ] Do not expand top-level `README.md` into an engineering index.
+- [x] Add concise user-facing docs in an appropriate developer/user doc if the project has a current AI settings guide.
+- [x] Do not expand top-level `README.md` into an engineering index.
 - [ ] When implementation ships, reply to issue #125 explaining the OpenAI-compatible setup:
   - Ollama: `ollama serve`, `ollama pull <model>`, base URL `http://127.0.0.1:11434/v1`.
   - llama.cpp: run `llama-server`, base URL `http://127.0.0.1:8080/v1`.
@@ -201,36 +201,36 @@ Keep the existing hosted provider key storage and obfuscation behavior.
 
 ## Acceptance Criteria
 
-- [ ] A user can configure Ollama in Settings with base URL `http://127.0.0.1:11434/v1`, model `gemma4:12b`, and no API key.
-- [ ] The configured local model appears in the model selector.
-- [ ] The AI assistant can send a normal chat request to the local model.
-- [ ] The AI assistant can execute the existing local tool flow with a compatible model that emits OpenAI-style tool calls.
-- [ ] Anthropic and hosted OpenAI model selection still work.
-- [ ] Legacy stored model ids migrate without losing the selected hosted model.
-- [ ] Local provider configuration is not captured by analytics.
-- [ ] Error messages distinguish missing hosted API keys from missing or unreachable local provider config.
+- [x] A user can configure Ollama in Settings with base URL `http://127.0.0.1:11434/v1`, model `gemma4:12b`, and no API key.
+- [x] The configured local model appears in the model selector.
+- [x] The AI assistant can send a normal chat request to the local model.
+- [x] The AI assistant can execute the existing local tool flow with a compatible model that emits OpenAI-style tool calls.
+- [x] Anthropic and hosted OpenAI model selection still work.
+- [x] Legacy stored model ids migrate without losing the selected hosted model.
+- [x] Local provider configuration is not captured by analytics.
+- [x] Error messages distinguish missing hosted API keys from missing or unreachable local provider config.
 
 ## Validation Plan
 
 Automated validation:
 
-- [ ] `pnpm --filter ui test -- src/stores/__tests__/apiKeyStore.test.tsx`
-- [ ] `pnpm --filter ui test -- src/hooks/__tests__/useModels.test.tsx`
-- [ ] `pnpm --filter ui test -- src/components/__tests__/ModelSelector.test.tsx`
-- [ ] `pnpm --filter ui test -- src/components/__tests__/SettingsDialog.test.tsx`
-- [ ] `pnpm --filter ui test -- src/hooks/__tests__/useAiAgent.test.tsx`
-- [ ] `pnpm type-check`
-- [ ] `bash scripts/validate-changes.sh --scope baseline`
+- [x] `pnpm --filter ui test -- src/stores/__tests__/apiKeyStore.test.tsx`
+- [x] `pnpm --filter ui test -- src/hooks/__tests__/useModels.test.tsx`
+- [x] `pnpm --filter ui test -- src/components/__tests__/ModelSelector.test.tsx`
+- [x] `pnpm --filter ui test -- src/components/__tests__/SettingsDialog.test.tsx`
+- [x] `pnpm --filter ui test -- src/hooks/__tests__/useAiAgent.test.tsx`
+- [x] `pnpm type-check`
+- [x] `bash scripts/validate-changes.sh --scope baseline`
 
 Manual validation with local Ollama:
 
-- [ ] Confirm `ollama list` includes the target model.
-- [ ] Confirm `GET http://127.0.0.1:11434/v1/models` returns the target model.
-- [ ] Configure OpenAI-compatible provider in Settings.
-- [ ] Refresh models and confirm the local model appears.
-- [ ] Send a simple chat prompt and confirm the response streams.
-- [ ] Ask the assistant to inspect the current project and confirm `get_project_context` is called.
-- [ ] Ask for a small safe OpenSCAD edit and confirm `apply_edit` plus diagnostics flow still works.
+- [x] Confirm `ollama list` includes the target model.
+- [x] Confirm `GET http://127.0.0.1:11434/v1/models` returns the target model.
+- [x] Configure OpenAI-compatible provider in Settings.
+- [x] Test the provider connection and confirm the local model appears.
+- [x] Send a simple chat prompt and confirm the response streams.
+- [x] Ask the assistant to inspect the current project and confirm `get_project_context` is called.
+- [x] Ask for a small safe OpenSCAD edit and confirm `apply_edit` plus diagnostics flow still works.
 
 Manual validation with llama.cpp, if available:
 
@@ -238,6 +238,8 @@ Manual validation with llama.cpp, if available:
 - [ ] Configure base URL `http://127.0.0.1:8080/v1`.
 - [ ] Confirm the configured model can stream a basic response.
 - [ ] Confirm tool calling behavior for a model/template that supports it, or document the server/model limitation.
+
+Not run in this checkpoint because a local llama.cpp server was not available.
 
 Manual validation with LM Studio, if available:
 
@@ -247,6 +249,8 @@ Manual validation with LM Studio, if available:
 - [ ] Refresh models and confirm the loaded LM Studio model appears.
 - [ ] Confirm the configured model can stream a basic response.
 - [ ] Confirm tool calling behavior for a model/template that supports it, or document the server/model limitation.
+
+Not run in this checkpoint because a local LM Studio server was not available.
 
 ## Risks and Mitigations
 
@@ -261,9 +265,9 @@ Manual validation with LM Studio, if available:
 - Local reasoning output may pollute the transcript.
   - Mitigation: keep reasoning chunks ignored unless a future UI explicitly exposes them.
 
-## Open Questions
+## Implementation Decisions
 
-- Should the settings card be shown in web builds, or only desktop builds with a note that hosted web may depend on CORS?
-- Should there be named presets for Ollama, llama.cpp, and LM Studio, or should the first version stay as one generic OpenAI-compatible card with example placeholders?
-- Should custom provider model refresh be automatic on settings save, or only user-triggered to avoid slow local model startup calls?
-- Should multiple custom OpenAI-compatible providers be supported now, or should v1 support one configured provider only?
+- Show the OpenAI-compatible settings card in both web and desktop builds, with targeted network/CORS error copy when a browser request cannot reach the local server.
+- Keep v1 as one generic OpenAI-compatible card with Ollama, llama.cpp, and LM Studio examples instead of named provider presets.
+- Use user-triggered connection testing in settings and normal model refresh behavior in the selector, rather than forcing a slow local `/models` call on every settings save.
+- Support one configured OpenAI-compatible provider in v1; multiple custom providers can be handled as a follow-up if users ask for it.

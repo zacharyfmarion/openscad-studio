@@ -117,7 +117,7 @@ Local MCP client → Tauri MCP server (`mcp.rs`) → active workspace window bri
    - Interactive STL/3D mesh for manipulation
    - SVG for 2D designs
 
-4. **Shared Client-Side AI**: Both web and desktop use the same frontend AI stack for the in-app copilot. Requests are made directly from the React app with Vercel AI SDK's `streamText`, and API keys are currently stored in obfuscated localStorage-backed state inside the browser/webview.
+4. **Shared Client-Side AI**: Both web and desktop use the same frontend AI stack for the in-app copilot. Requests are made directly from the React app with Vercel AI SDK's `streamText`; hosted API keys and OpenAI-compatible local provider settings are stored in localStorage-backed state inside the browser/webview.
 
 5. **Diff-based AI Editing**: AI returns exact string replacements, not full file rewrites.
 
@@ -204,6 +204,7 @@ The desktop app bundles a native OpenSCAD binary for rendering instead of WASM. 
 - **Location**: `apps/ui/src-tauri/binaries/OpenSCAD.app` (gitignored, downloaded at build time)
 
 **Local development**:
+
 ```bash
 # Download the binary (only needed once, re-run to update)
 cd apps/ui/src-tauri
@@ -279,7 +280,7 @@ pnpm validate:changes   # Run the shared validation helper
 ### Platform Abstraction
 
 - **PlatformBridge**: Components should use the `PlatformBridge` interface (`apps/ui/src/platform/types.ts`), never import Tauri or web APIs directly.
-- **API keys**: Stored client-side in obfuscated localStorage-backed state today, including in the Tauri webview. This is a convenience tradeoff, not hardened secret isolation.
+- **API keys and local provider settings**: Hosted API keys are stored client-side in obfuscated localStorage-backed state today, including in the Tauri webview. OpenAI-compatible base URLs, model ids, and optional local provider keys are also stored locally. This is a convenience tradeoff, not hardened secret isolation.
 - **File I/O**: Desktop uses native file dialogs via Tauri. Web uses File System Access API with fallbacks.
 
 ### WASM Rendering (Web)
