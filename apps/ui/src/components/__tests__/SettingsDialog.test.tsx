@@ -322,6 +322,20 @@ describe('SettingsDialog privacy copy', () => {
     expect(baseUrlInput.value).toBe('http://localhost:1234/v1');
   });
 
+  it('notes that web users must enable CORS on local LLM servers', async () => {
+    platformMock.capabilities.hasFileSystem = false;
+
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="ai" />
+      </ThemeProvider>
+    );
+
+    expect(
+      await screen.findByText('On the web, your local LLM server must allow browser CORS requests.')
+    ).toBeTruthy();
+  });
+
   it('tracks layout selection sources and viewer preference changes', async () => {
     const { unmount } = render(
       <ThemeProvider>

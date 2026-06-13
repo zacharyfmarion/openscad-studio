@@ -57,6 +57,7 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
     const analytics = useAnalytics();
     const [settings] = useSettings();
     const isLoading = isTestingCompatible;
+    const isWeb = !getPlatform().capabilities.hasFileSystem;
 
     const loadKeys = useCallback(() => {
       const availableProviders = getAvailableProvidersFromStore();
@@ -407,6 +408,12 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
               Examples: Ollama `http://127.0.0.1:11434/v1`, llama.cpp `http://127.0.0.1:8080/v1`, LM
               Studio `http://localhost:1234/v1`.
             </Text>
+
+            {isWeb ? (
+              <Text variant="caption" color="tertiary">
+                On the web, your local LLM server must allow browser CORS requests.
+              </Text>
+            ) : null}
 
             <div
               className="flex items-center justify-between"
