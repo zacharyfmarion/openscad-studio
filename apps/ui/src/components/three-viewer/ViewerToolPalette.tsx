@@ -11,12 +11,9 @@ interface ViewerToolPaletteProps {
 export function ViewerToolPalette({ mode, onModeChange, loadedModel }: ViewerToolPaletteProps) {
   return (
     <div
-      className="flex flex-col shrink-0 items-center"
+      className="absolute left-2 top-2 z-20 flex flex-col items-center"
       style={{
-        width: '44px',
-        padding: '6px 0',
-        gap: '2px',
-        borderRight: '1px solid var(--border-primary)',
+        gap: '6px',
       }}
       data-testid="preview-tool-palette"
       onClick={(event) => event.stopPropagation()}
@@ -31,6 +28,7 @@ export function ViewerToolPalette({ mode, onModeChange, loadedModel }: ViewerToo
         return (
           <IconButton
             key={tool.id}
+            variant="toolbar"
             title={`${tool.label}${shortcutLabel}`}
             tooltipSide="right"
             aria-label={`${tool.label}${shortcutLabel}`}

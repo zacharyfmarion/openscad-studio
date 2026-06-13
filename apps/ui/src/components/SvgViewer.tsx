@@ -115,12 +115,9 @@ function Svg2DToolPalette({
 }) {
   return (
     <div
-      className="flex flex-col shrink-0 items-center"
+      className="absolute left-2 top-2 z-20 flex flex-col items-center"
       style={{
-        width: '44px',
-        padding: '6px 0',
-        gap: '2px',
-        borderRight: '1px solid var(--border-primary)',
+        gap: '6px',
       }}
       data-testid="preview-2d-tool-palette"
       onClick={(event) => event.stopPropagation()}
@@ -148,10 +145,10 @@ function Svg2DToolPalette({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: isActive ? 'var(--bg-tertiary, var(--bg-elevated))' : 'transparent',
-              color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+              backgroundColor: isActive ? 'var(--bg-tertiary)' : 'var(--bg-elevated)',
+              color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
               opacity: isDisabled ? 0.35 : 1,
-              border: isActive ? '1px solid var(--border-primary)' : '1px solid transparent',
+              border: `1px solid ${isActive ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
               borderRadius: 'var(--radius-md)',
               cursor: isDisabled ? 'not-allowed' : 'pointer',
               transition: 'background-color 0.15s, color 0.15s, border-color 0.15s',
@@ -1201,13 +1198,6 @@ export function SvgViewer({
   return (
     <div className="flex flex-col h-full w-full" data-testid="preview-2d-root">
       <div className="flex flex-row flex-1 min-h-0">
-        {!isMobile && (
-          <Svg2DToolPalette
-            mode={viewMode}
-            onModeChange={(mode) => handleViewModeChange(mode, 'toolbar')}
-            canInteract={canInteract}
-          />
-        )}
         <div
           ref={containerRef}
           className="relative flex-1 min-w-0 outline-none"
@@ -1229,6 +1219,13 @@ export function SvgViewer({
           }}
           onClick={handleClick}
         >
+          {!isMobile && (
+            <Svg2DToolPalette
+              mode={viewMode}
+              onModeChange={(mode) => handleViewModeChange(mode, 'toolbar')}
+              canInteract={canInteract}
+            />
+          )}
           <div
             className="absolute top-2 right-2 z-20 flex gap-2"
             onClick={(event) => event.stopPropagation()}

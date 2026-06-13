@@ -1638,18 +1638,18 @@ export function ThreeViewer({
       )}
 
       <div className="flex flex-row flex-1 min-h-0">
-        {!isMobile && (
-          <ViewerToolPalette
-            mode={interactionMode}
-            onModeChange={(mode) => handleModeChange(mode, 'toolbar')}
-            loadedModel={loadedModel}
-          />
-        )}
         <div
           ref={previewSurfaceRef}
           className="relative flex-1 min-w-0"
           data-preview-root={viewerId ?? 'default-preview'}
         >
+          {!isMobile && (
+            <ViewerToolPalette
+              mode={interactionMode}
+              onModeChange={(mode) => handleModeChange(mode, 'toolbar')}
+              loadedModel={loadedModel}
+            />
+          )}
           <div
             className="absolute top-2 right-2 z-10 flex gap-2"
             onClick={(event) => event.stopPropagation()}
