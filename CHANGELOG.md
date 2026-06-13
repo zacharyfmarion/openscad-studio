@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-06-13
+
+### Added
+- OpenAI-compatible AI provider support for local and self-hosted model servers such as Ollama, llama.cpp, and LM Studio.
+- AI settings and the model selector now handle provider-specific model choices, including local providers without an API key.
+
+### Changed
+- New workspaces now open directly into the AI-first editing flow.
+- AI-generated edits now refresh the preview more reliably after code changes.
+
+### Fixed
+- Web exports and OpenSCAD text rendering are more reliable in browser-based workflows.
+- Local provider model discovery and connection errors now better reflect the configured base URL and browser request issues.
+
 ## [1.2.2] - 2026-04-19
 
 ### Added
