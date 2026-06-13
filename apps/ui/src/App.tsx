@@ -55,7 +55,7 @@ import { getPreviewSceneStyle } from './services/previewSceneConfig';
 import { isShareEnabled } from './services/shareService';
 import { openFileInWindow, openWorkspaceFolderInWindow } from './services/windowOpenService';
 import { useSettings, loadSettings, updateSetting } from './stores/settingsStore';
-import { getApiKey, getProviderFromModel } from './stores/apiKeyStore';
+import { getApiKey, getOpenAiCompatibleConfig } from './stores/apiKeyStore';
 import {
   selectActiveRender,
   selectActiveTab,
@@ -615,6 +615,7 @@ function App() {
     canSubmitDraft,
     isProcessingAttachments,
     currentToolCalls,
+    currentProvider,
     currentModel,
     currentModelVisionSupport,
     availableProviders,
@@ -1495,7 +1496,10 @@ function App() {
     }, 0);
   }, []);
 
-  const hasCurrentModelApiKey = Boolean(getApiKey(getProviderFromModel(currentModel)));
+  const hasCurrentModelApiKey =
+    currentProvider === 'openai-compatible'
+      ? Boolean(getOpenAiCompatibleConfig().baseUrl && currentModel.trim())
+      : Boolean(getApiKey(currentProvider));
   const canAttachViewerAnnotation = !isStreaming && !isProcessingAttachments;
 
   const attachViewerAnnotationFile = useCallback<WorkspaceState['attachViewerAnnotationFile']>(
@@ -2149,6 +2153,7 @@ function App() {
       canSubmitDraft,
       isProcessingAttachments,
       currentToolCalls,
+      currentProvider,
       currentModel,
       currentModelVisionSupport,
       availableProviders,
@@ -2212,6 +2217,7 @@ function App() {
       canSubmitDraft,
       isProcessingAttachments,
       currentToolCalls,
+      currentProvider,
       currentModel,
       currentModelVisionSupport,
       availableProviders,
@@ -2332,6 +2338,7 @@ function App() {
           );
         }}
         showRecentFiles={capabilities.hasFileSystem}
+        currentProvider={currentProvider}
         currentModel={currentModel}
         availableProviders={availableProviders}
         onModelChange={setCurrentModel}

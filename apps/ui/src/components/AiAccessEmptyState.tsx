@@ -38,14 +38,14 @@ export function AiAccessEmptyState({
                 Built-in AI
               </Text>
               <Text variant="caption" color="secondary">
-                Add an Anthropic or OpenAI API key in Settings to use Studio&apos;s built-in AI
-                assistant.
+                Configure Anthropic, OpenAI, or a local OpenAI-compatible provider in Settings to
+                use Studio&apos;s built-in AI assistant.
               </Text>
             </div>
 
             <div className="flex justify-start">
               <Button type="button" variant="primary" onClick={() => onOpenSettings?.()}>
-                Add API Key
+                Configure AI
               </Button>
             </div>
           </div>
@@ -70,14 +70,14 @@ export function AiAccessEmptyState({
               Use built-in AI or Studio MCP
             </Text>
             <Text variant="caption" color="secondary">
-              Add an Anthropic or OpenAI API key in Settings, or connect a desktop agent to Studio
-              over MCP.
+              Configure Anthropic, OpenAI, or a local OpenAI-compatible provider in Settings, or
+              connect a desktop agent to Studio over MCP.
             </Text>
           </div>
 
           <div className="flex justify-start gap-2">
             <Button type="button" variant="primary" onClick={() => onOpenSettings?.()}>
-              Add API Key
+              Configure AI
             </Button>
           </div>
 

@@ -2,6 +2,24 @@ import { jest } from '@jest/globals';
 
 const mockCaptureOffscreen = jest.fn(async () => 'data:image/png;base64,AAA=');
 const mockCheckSyntax = jest.fn(async () => ({ diagnostics: [] }));
+const mockAnthropicModel = jest.fn((modelId: string) => ({ provider: 'anthropic', modelId }));
+const mockCreateAnthropic = jest.fn(() => mockAnthropicModel);
+const mockOpenAiResponsesModel = jest.fn((modelId: string) => ({ provider: 'openai', modelId }));
+const mockOpenAiChatModel = jest.fn((modelId: string) => ({
+  provider: 'openai-compatible',
+  modelId,
+}));
+const mockCreateOpenAI = jest.fn(() =>
+  Object.assign(mockOpenAiResponsesModel, { chat: mockOpenAiChatModel })
+);
+
+jest.unstable_mockModule('@ai-sdk/anthropic', () => ({
+  createAnthropic: (...args: unknown[]) => mockCreateAnthropic(...args),
+}));
+
+jest.unstable_mockModule('@ai-sdk/openai', () => ({
+  createOpenAI: (...args: unknown[]) => mockCreateOpenAI(...args),
+}));
 
 jest.unstable_mockModule('@/services/renderService', () => ({
   getRenderService: () => ({
@@ -22,6 +40,7 @@ import { FALLBACK_PREVIEW_SCENE_STYLE } from '../previewSceneConfig';
 import type { AiToolCallbacks } from '../aiService';
 
 let buildTools: typeof import('../aiService').buildTools;
+let createModel: typeof import('../aiService').createModel;
 
 type ExecutableTool = {
   execute: (input: unknown) => Promise<unknown>;
@@ -70,6 +89,35 @@ function createCallbacks(overrides: Partial<AiToolCallbacks> = {}): AiToolCallba
     ...overrides,
   };
 }
+
+describe('createModel', () => {
+  beforeAll(async () => {
+    ({ createModel } = await import('../aiService'));
+  });
+
+  beforeEach(() => {
+    mockCreateAnthropic.mockClear();
+    mockAnthropicModel.mockClear();
+    mockCreateOpenAI.mockClear();
+    mockOpenAiResponsesModel.mockClear();
+    mockOpenAiChatModel.mockClear();
+  });
+
+  it('uses chat completions with baseURL for OpenAI-compatible providers', () => {
+    const model = createModel('openai-compatible', '', 'gemma4:12b', {
+      baseUrl: 'http://127.0.0.1:11434/v1',
+    });
+
+    expect(mockCreateOpenAI).toHaveBeenCalledWith({
+      apiKey: 'local',
+      baseURL: 'http://127.0.0.1:11434/v1',
+      name: 'openai-compatible',
+    });
+    expect(mockOpenAiChatModel).toHaveBeenCalledWith('gemma4:12b');
+    expect(mockOpenAiResponsesModel).not.toHaveBeenCalled();
+    expect(model).toEqual({ provider: 'openai-compatible', modelId: 'gemma4:12b' });
+  });
+});
 
 describe('buildTools', () => {
   beforeAll(async () => {

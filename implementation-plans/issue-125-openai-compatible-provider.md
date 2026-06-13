@@ -115,72 +115,72 @@ Keep the existing hosted provider key storage and obfuscation behavior.
 
 ### 1. Refactor provider and model selection storage
 
-- [ ] Extend `AiProvider` to include `openai-compatible`.
-- [ ] Add `AiModelSelection` helpers in `apiKeyStore.ts`.
-- [ ] Add `getStoredModelSelection()` and `setStoredModelSelection()`.
-- [ ] Keep `getStoredModel()` temporarily as a compatibility helper if needed by existing callers, but migrate internal AI flow to explicit selection.
-- [ ] Replace provider inference in AI request paths with stored/current selection provider.
-- [ ] Keep `getProviderFromModel()` only for legacy migration and any unavoidable compatibility code.
-- [ ] Update tests in `apps/ui/src/stores/__tests__/apiKeyStore.test.tsx`.
+- [x] Extend `AiProvider` to include `openai-compatible`.
+- [x] Add `AiModelSelection` helpers in `apiKeyStore.ts`.
+- [x] Add `getStoredModelSelection()` and `setStoredModelSelection()`.
+- [x] Keep `getStoredModel()` temporarily as a compatibility helper if needed by existing callers, but migrate internal AI flow to explicit selection.
+- [x] Replace provider inference in AI request paths with stored/current selection provider.
+- [x] Keep `getProviderFromModel()` only for legacy migration and any unavoidable compatibility code.
+- [x] Update tests in `apps/ui/src/stores/__tests__/apiKeyStore.test.tsx`.
 
 ### 2. Add OpenAI-compatible provider configuration
 
-- [ ] Add storage helpers for custom base URL, model id, and optional key.
-- [ ] Normalize base URLs by trimming whitespace and removing trailing slashes.
-- [ ] Treat the provider as available when it has a valid base URL and model id.
-- [ ] Do not require a non-empty API key for provider availability.
-- [ ] Use a placeholder key such as `local` or no Authorization header depending on provider factory behavior; avoid blocking on missing key.
-- [ ] Add unit coverage for optional-key availability.
+- [x] Add storage helpers for custom base URL, model id, and optional key.
+- [x] Normalize base URLs by trimming whitespace and removing trailing slashes.
+- [x] Treat the provider as available when it has a valid base URL and model id.
+- [x] Do not require a non-empty API key for provider availability.
+- [x] Use a placeholder key such as `local` or no Authorization header depending on provider factory behavior; avoid blocking on missing key.
+- [x] Add unit coverage for optional-key availability.
 
 ### 3. Update model creation
 
-- [ ] Update `createModel()` in `aiService.ts` to accept a model selection/config object or provider plus resolved provider config.
-- [ ] For Anthropic, preserve existing `createAnthropic` behavior and browser access header.
-- [ ] For hosted OpenAI, preserve existing `createOpenAI({ apiKey })` behavior.
-- [ ] For OpenAI-compatible providers, create a provider with the configured `baseURL`, optional `apiKey`, and a non-hosted provider name such as `openai-compatible`.
-- [ ] Force the custom provider through the Chat Completions model factory, for example `.chat(modelId)`, rather than relying on the OpenAI provider default API selection.
-- [ ] Add tests verifying the custom provider receives base URL, model id, and optional API key.
+- [x] Update `createModel()` in `aiService.ts` to accept a model selection/config object or provider plus resolved provider config.
+- [x] For Anthropic, preserve existing `createAnthropic` behavior and browser access header.
+- [x] For hosted OpenAI, preserve existing `createOpenAI({ apiKey })` behavior.
+- [x] For OpenAI-compatible providers, create a provider with the configured `baseURL`, optional `apiKey`, and a non-hosted provider name such as `openai-compatible`.
+- [x] Force the custom provider through the Chat Completions model factory, for example `.chat(modelId)`, rather than relying on the OpenAI provider default API selection.
+- [x] Add tests verifying the custom provider receives base URL, model id, and optional API key.
 
 ### 4. Update model listing
 
-- [ ] Extend `ModelInfo.provider` and `GroupedModels` for `openai-compatible`.
-- [ ] Add a generic fetcher for `${baseUrl}/models`.
-- [ ] Do not apply hosted OpenAI relevance filtering to custom provider models.
-- [ ] If `/models` fails but a custom model id is configured, show the configured model as a fallback option with a warning toast.
-- [ ] Store model cache per provider/base URL combination so a hosted OpenAI cache cannot satisfy a custom provider request.
-- [ ] Update `useModels` tests for custom model fetch, fallback configured model, cache isolation, and provider shrink behavior.
+- [x] Extend `ModelInfo.provider` and `GroupedModels` for `openai-compatible`.
+- [x] Add a generic fetcher for `${baseUrl}/models`.
+- [x] Do not apply hosted OpenAI relevance filtering to custom provider models.
+- [x] If `/models` fails but a custom model id is configured, show the configured model as a fallback option with a warning toast.
+- [x] Store model cache per provider/base URL combination so a hosted OpenAI cache cannot satisfy a custom provider request.
+- [x] Update `useModels` tests for custom model fetch, fallback configured model, cache isolation, and provider shrink behavior.
 
 ### 5. Update settings UI
 
-- [ ] Add an OpenAI-compatible settings card in `AiSettings.tsx`.
-- [ ] Include fields for Base URL, Model, and optional API key.
-- [ ] Default the base URL to `http://127.0.0.1:11434/v1` for Ollama.
-- [ ] Include concise helper copy mentioning Ollama, llama.cpp, and LM Studio examples.
-- [ ] Add a "Test connection" or "Refresh models" control that fetches `/models` and shows success/failure.
-- [ ] Keep all local provider fields under `ph-no-capture`.
-- [ ] Update save button behavior so AI settings can save API keys and custom provider config without confusing "Save Key" copy.
-- [ ] Add component coverage in `SettingsDialog.test.tsx`.
+- [x] Add an OpenAI-compatible settings card in `AiSettings.tsx`.
+- [x] Include fields for Base URL, Model, and optional API key.
+- [x] Default the base URL to `http://127.0.0.1:11434/v1` for Ollama.
+- [x] Include concise helper copy mentioning Ollama, llama.cpp, and LM Studio examples.
+- [x] Add a "Test connection" or "Refresh models" control that fetches `/models` and shows success/failure.
+- [x] Keep all local provider fields under `ph-no-capture`.
+- [x] Update save button behavior so AI settings can save API keys and custom provider config without confusing "Save Key" copy.
+- [x] Add component coverage in `SettingsDialog.test.tsx`.
 
 ### 6. Update model selector and access states
 
-- [ ] Update `ModelSelector.tsx` to show an "OpenAI-compatible" group.
-- [ ] Ensure select item values remain unique even if two providers expose the same model id.
-- [ ] Prefer storing selection as provider+model rather than overloading select values with raw model ids.
-- [ ] Update empty states from "No API keys" to "No AI provider configured" where appropriate.
-- [ ] Update `WelcomeScreen`, `AiPromptPanel`, and `AiAccessEmptyState` copy to mention local/OpenAI-compatible configuration without making the UI feel AI-generic.
-- [ ] Add component tests for a configured local provider appearing without an API key.
+- [x] Update `ModelSelector.tsx` to show an "OpenAI-compatible" group.
+- [x] Ensure select item values remain unique even if two providers expose the same model id.
+- [x] Prefer storing selection as provider+model rather than overloading select values with raw model ids.
+- [x] Update empty states from "No API keys" to "No AI provider configured" where appropriate.
+- [x] Update `WelcomeScreen`, `AiPromptPanel`, and `AiAccessEmptyState` copy to mention local/OpenAI-compatible configuration without making the UI feel AI-generic.
+- [x] Add component tests for a configured local provider appearing without an API key.
 
 ### 7. Update AI request flow
 
-- [ ] Update `useAiAgent.ts` state from `currentModel: string` to explicit current selection, or add `currentProvider` alongside `currentModel`.
-- [ ] Resolve provider config before submit.
-- [ ] For Anthropic/OpenAI, keep missing-key validation.
-- [ ] For OpenAI-compatible, validate base URL/model id and allow missing API key.
-- [ ] Track analytics with explicit provider and model id.
-- [ ] Avoid sending the local base URL or API key to analytics.
-- [ ] Update `useOpenScad.ts` AI edit analytics to use explicit provider selection.
-- [ ] Keep reasoning chunks ignored in `aiTurnState.ts`.
-- [ ] Add tests for submitting with a local provider and no API key.
+- [x] Update `useAiAgent.ts` state from `currentModel: string` to explicit current selection, or add `currentProvider` alongside `currentModel`.
+- [x] Resolve provider config before submit.
+- [x] For Anthropic/OpenAI, keep missing-key validation.
+- [x] For OpenAI-compatible, validate base URL/model id and allow missing API key.
+- [x] Track analytics with explicit provider and model id.
+- [x] Avoid sending the local base URL or API key to analytics.
+- [x] Update `useOpenScad.ts` AI edit analytics to use explicit provider selection.
+- [x] Keep reasoning chunks ignored in `aiTurnState.ts`.
+- [x] Add tests for submitting with a local provider and no API key.
 
 ### 8. Desktop and web behavior
 

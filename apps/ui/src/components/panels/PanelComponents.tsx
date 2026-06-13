@@ -110,6 +110,7 @@ const AiChatPanel: React.FC<IDockviewPanelProps> = () => {
         messages={ws.messages}
         onNewConversation={ws.newConversation}
         currentToolCalls={ws.currentToolCalls}
+        currentProvider={ws.currentProvider}
         currentModel={ws.currentModel}
         availableProviders={ws.availableProviders}
         onModelChange={ws.setCurrentModel}

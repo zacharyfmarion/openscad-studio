@@ -13,6 +13,7 @@ import {
   SYSTEM_PROMPT,
   buildTools,
   type AiToolCallbacks,
+  type CreateModelOptions,
 } from '../services/aiService';
 import {
   buildProjectRenderInputs,
@@ -20,10 +21,13 @@ import {
 } from '../services/projectRenderInputs';
 import {
   getApiKey,
+  getOpenAiCompatibleConfig,
+  getPreferredDefaultModelSelection,
   getProviderFromModel,
-  getStoredModel,
-  setStoredModel,
+  getStoredModelSelection,
+  setStoredModelSelection,
   useAvailableProviders,
+  type AiProvider,
 } from '../stores/apiKeyStore';
 import type {
   AiDraft,
@@ -189,6 +193,7 @@ export interface AiAgentState {
   conversations: Conversation[];
   currentConversationId: string | null;
   currentToolCalls: ToolCall[];
+  currentProvider: AiProvider;
   currentModel: string;
   currentModelVisionSupport: VisionSupport;
   draft: AiDraft;
@@ -235,12 +240,11 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
   const getVisionSupportForModelIdImpl =
     overrides?.getVisionSupportForModelId ?? getVisionSupportForModelId;
   const messagesToModelMessagesImpl = overrides?.messagesToModelMessages ?? messagesToModelMessages;
-  const getPreferredDefaultModelImpl =
-    overrides?.getPreferredDefaultModel ?? getPreferredDefaultModel;
   const historyServiceImpl = overrides?.historyService ?? historyService;
   const eventBusImpl = overrides?.eventBus ?? eventBus;
   const updateSettingImpl = overrides?.updateSetting ?? updateSetting;
   const loadSettingsImpl = overrides?.loadSettings ?? loadSettings;
+  const initialSelection = getStoredModelSelection();
   const [state, setState] = useState<AiAgentState>({
     isStreaming: false,
     streamingResponse: null,
@@ -252,8 +256,9 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
     conversations: [],
     currentConversationId: null,
     currentToolCalls: [],
-    currentModel: getStoredModel(),
-    currentModelVisionSupport: getVisionSupportForModelIdImpl(getStoredModel()),
+    currentProvider: initialSelection.provider,
+    currentModel: initialSelection.modelId,
+    currentModelVisionSupport: getVisionSupportForModelIdImpl(initialSelection.modelId),
     draft: EMPTY_DRAFT,
     attachments: {},
     draftErrors: [],
@@ -409,31 +414,36 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
   }, []);
 
   const loadModelAndProviders = useCallback(() => {
-    const storedModel = getStoredModel();
-    const resolvedModel =
-      availableProviders.length === 0 ||
-      availableProviders.includes(getProviderFromModel(storedModel))
-        ? storedModel
-        : getPreferredDefaultModelImpl(availableProviders);
+    const storedSelection = getStoredModelSelection();
+    const resolvedSelection =
+      availableProviders.length === 0 || availableProviders.includes(storedSelection.provider)
+        ? storedSelection
+        : getPreferredDefaultModelSelection(availableProviders);
 
-    if (resolvedModel !== storedModel) {
-      setStoredModel(resolvedModel);
+    if (
+      resolvedSelection.provider !== storedSelection.provider ||
+      resolvedSelection.modelId !== storedSelection.modelId
+    ) {
+      setStoredModelSelection(resolvedSelection);
     }
 
     setState((prev) => ({
       ...prev,
-      currentModel: resolvedModel,
-      currentModelVisionSupport: getVisionSupportForModelIdImpl(resolvedModel),
+      currentProvider: resolvedSelection.provider,
+      currentModel: resolvedSelection.modelId,
+      currentModelVisionSupport: getVisionSupportForModelIdImpl(resolvedSelection.modelId),
     }));
     if (IS_DEV) {
       console.log(
         '[useAiAgent] Loaded model:',
-        resolvedModel,
+        resolvedSelection.modelId,
+        'Provider:',
+        resolvedSelection.provider,
         'Available providers:',
         availableProviders
       );
     }
-  }, [availableProviders, getPreferredDefaultModelImpl, getVisionSupportForModelIdImpl]);
+  }, [availableProviders, getVisionSupportForModelIdImpl]);
 
   useEffect(() => {
     loadModelAndProviders();
@@ -535,7 +545,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
       const toolNamesUsed = Array.from(new Set(toolMessages.map((tool) => tool.toolName))).sort();
       const appliedEditCount = toolMessages.filter((tool) => tool.toolName === 'apply_edit').length;
       const baseProperties = {
-        provider: getProviderFromModel(stateRef.current.currentModel),
+        provider: stateRef.current.currentProvider,
         model_id: stateRef.current.currentModel,
         duration_ms: durationMs,
         tool_call_count: toolMessages.length,
@@ -729,8 +739,23 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         return;
       }
 
-      const provider = getProviderFromModel(currentState.currentModel);
-      const apiKey = getApiKey(provider);
+      const provider = currentState.currentProvider;
+      const modelOptions: CreateModelOptions = {};
+      let apiKey = getApiKey(provider);
+
+      if (provider === 'openai-compatible') {
+        const config = getOpenAiCompatibleConfig();
+        modelOptions.baseUrl = config.baseUrl;
+        apiKey = config.apiKey ?? 'local';
+
+        if (!config.baseUrl || !currentState.currentModel.trim()) {
+          setState((prev) => ({
+            ...prev,
+            error: 'Configure an OpenAI-compatible provider in Settings first',
+          }));
+          return;
+        }
+      }
 
       if (!apiKey) {
         setState((prev) => ({
@@ -785,7 +810,10 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
       abortControllerRef.current = abortController;
 
       try {
-        const model = createModelImpl(provider, apiKey, currentState.currentModel);
+        const model =
+          provider === 'openai-compatible'
+            ? createModelImpl(provider, apiKey, currentState.currentModel, modelOptions)
+            : createModelImpl(provider, apiKey, currentState.currentModel);
         const modelMessages = messagesToModelMessagesImpl(
           updatedMessages,
           currentState.attachments
@@ -965,16 +993,21 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
   }, []);
 
   const setCurrentModel = useCallback(
-    (model: string, sourceSurface: ModelSelectionSurface = 'unknown') => {
-      if (IS_DEV) console.log('[useAiAgent] Setting current model to:', model);
+    (
+      model: string,
+      sourceSurface: ModelSelectionSurface = 'unknown',
+      provider: AiProvider = getProviderFromModel(model)
+    ) => {
+      if (IS_DEV) console.log('[useAiAgent] Setting current model to:', model, provider);
       setState((prev) => ({
         ...prev,
+        currentProvider: provider,
         currentModel: model,
         currentModelVisionSupport: getVisionSupportForModelIdImpl(model),
       }));
-      setStoredModel(model);
+      setStoredModelSelection({ provider, modelId: model });
       analytics.track('model selected', {
-        provider: getProviderFromModel(model),
+        provider,
         model_id: model,
         source_surface: sourceSurface,
       });

@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { getApiKey, type AiProvider } from '../stores/apiKeyStore';
+import {
+  getApiKey,
+  getOpenAiCompatibleConfig,
+  type AiProvider,
+  type OpenAiCompatibleConfig,
+} from '../stores/apiKeyStore';
 import { getVisionSupportForModelId } from '../utils/aiMessages';
 import {
   compareModelsByFreshness,
@@ -19,6 +24,7 @@ export interface ModelInfo {
 export interface GroupedModels {
   anthropic: ModelInfo[];
   openai: ModelInfo[];
+  openaiCompatible: ModelInfo[];
 }
 
 export interface UseModelsReturn {
@@ -38,6 +44,7 @@ interface CachedModels {
   models: ModelInfo[];
   fetchedAt: number;
   providers?: AiProvider[];
+  openAiCompatibleBaseUrl?: string;
 }
 
 const DEFAULT_MODELS: ModelInfo[] = DEFAULT_MODEL_CATALOG.map((model) => ({
@@ -133,6 +140,42 @@ async function fetchOpenAiModels(apiKey: string): Promise<ModelInfo[]> {
     }));
 }
 
+function createConfiguredOpenAiCompatibleModel(config: OpenAiCompatibleConfig): ModelInfo {
+  return {
+    id: config.modelId,
+    display_name: config.modelId,
+    provider: 'openai-compatible',
+    visionSupport: getVisionSupportForModelId(config.modelId),
+  };
+}
+
+async function fetchOpenAiCompatibleModels(config: OpenAiCompatibleConfig): Promise<ModelInfo[]> {
+  const headers: Record<string, string> = {};
+  if (config.apiKey) {
+    headers.Authorization = `Bearer ${config.apiKey}`;
+  }
+
+  const resp = await fetch(`${config.baseUrl}/models`, { headers });
+
+  if (!resp.ok) {
+    throw new Error(`OpenAI-compatible API error (${resp.status}): ${await resp.text()}`);
+  }
+
+  const data: OpenAiModelsResponse = await resp.json();
+  const models: ModelInfo[] = data.data.map((m) => ({
+    id: m.id,
+    display_name: m.id,
+    provider: 'openai-compatible' as const,
+    visionSupport: getVisionSupportForModelId(m.id),
+  }));
+
+  if (config.modelId && !models.some((model) => model.id === config.modelId)) {
+    models.unshift(createConfiguredOpenAiCompatibleModel(config));
+  }
+
+  return models;
+}
+
 function sortModels(models: ModelInfo[]): ModelInfo[] {
   return [...models].sort(compareModelsByFreshness);
 }
@@ -147,7 +190,14 @@ function getCachedProviders(cached: CachedModels): AiProvider[] {
 function hasCacheCoverage(cached: CachedModels, providers: readonly string[]): boolean {
   const requestedProviders = normalizeProviders(providers);
   const cachedProviders = getCachedProviders(cached);
-  return requestedProviders.every((provider) => cachedProviders.includes(provider));
+  if (!requestedProviders.every((provider) => cachedProviders.includes(provider))) {
+    return false;
+  }
+  if (requestedProviders.includes('openai-compatible')) {
+    const config = getOpenAiCompatibleConfig();
+    return cached.openAiCompatibleBaseUrl === config.baseUrl;
+  }
+  return true;
 }
 
 function loadCache(providers: string[]): { models: ModelInfo[]; ageMinutes: number } | null {
@@ -173,10 +223,12 @@ function loadCache(providers: string[]): { models: ModelInfo[]; ageMinutes: numb
 
 function saveCache(models: ModelInfo[], providers: readonly string[]): void {
   try {
+    const config = getOpenAiCompatibleConfig();
     const cached: CachedModels = {
       models,
       fetchedAt: Date.now(),
       providers: normalizeProviders(providers),
+      openAiCompatibleBaseUrl: providers.includes('openai-compatible') ? config.baseUrl : undefined,
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
   } catch {
@@ -256,6 +308,19 @@ export function useModels(availableProviders: string[]): UseModelsReturn {
             );
           }
         }
+        if (providers.includes('openai-compatible')) {
+          const config = getOpenAiCompatibleConfig();
+          if (config.baseUrl && config.modelId) {
+            fetches.push(
+              fetchOpenAiCompatibleModels(config)
+                .then((models) => ({ models, error: null }))
+                .catch((error) => ({
+                  models: [createConfiguredOpenAiCompatibleModel(config)],
+                  error: error instanceof Error ? error.message : String(error),
+                }))
+            );
+          }
+        }
 
         const results = await Promise.all(fetches);
         const allModels = results.flatMap((result) => result.models);
@@ -272,7 +337,15 @@ export function useModels(availableProviders: string[]): UseModelsReturn {
           setCacheAgeMinutes(null);
           saveCache(sorted, providers);
         } else {
-          const defaults = DEFAULT_MODELS.filter((m) => providers.includes(m.provider));
+          const customConfig = getOpenAiCompatibleConfig();
+          const customDefaults =
+            providers.includes('openai-compatible') && customConfig.modelId
+              ? [createConfiguredOpenAiCompatibleModel(customConfig)]
+              : [];
+          const defaults = [
+            ...DEFAULT_MODELS.filter((m) => providers.includes(m.provider)),
+            ...customDefaults,
+          ];
           setModels(defaults);
           setError(errors.length > 0 ? errors.join('\n') : null);
           setFromCache(false);
@@ -281,7 +354,15 @@ export function useModels(availableProviders: string[]): UseModelsReturn {
       } catch (e) {
         if (requestId !== requestIdRef.current) return;
         setError(String(e));
-        const defaults = DEFAULT_MODELS.filter((m) => providersRef.current.includes(m.provider));
+        const customConfig = getOpenAiCompatibleConfig();
+        const customDefaults =
+          providersRef.current.includes('openai-compatible') && customConfig.modelId
+            ? [createConfiguredOpenAiCompatibleModel(customConfig)]
+            : [];
+        const defaults = [
+          ...DEFAULT_MODELS.filter((m) => providersRef.current.includes(m.provider)),
+          ...customDefaults,
+        ];
         setModels(defaults);
         setFromCache(false);
         setCacheAgeMinutes(null);
@@ -306,6 +387,7 @@ export function useModels(availableProviders: string[]): UseModelsReturn {
     (): GroupedModels => ({
       anthropic: models.filter((m) => m.provider === 'anthropic'),
       openai: models.filter((m) => m.provider === 'openai'),
+      openaiCompatible: models.filter((m) => m.provider === 'openai-compatible'),
     }),
     [models]
   );

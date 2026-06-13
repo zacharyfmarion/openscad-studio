@@ -3,12 +3,17 @@
 import { act } from 'react';
 import { render, screen } from '@testing-library/react';
 import {
+  clearOpenAiCompatibleConfig,
   clearApiKey,
+  getOpenAiCompatibleConfig,
   getApiKey,
   getProviderFromModel,
   getStoredModel,
+  getStoredModelSelection,
   invalidateApiKeyStatus,
+  setStoredModelSelection,
   setStoredModel,
+  storeOpenAiCompatibleConfig,
   storeApiKey,
   useAvailableProviders,
   useHasApiKey,
@@ -50,13 +55,44 @@ describe('apiKeyStore', () => {
 
   it('persists the selected model and infers providers from known model prefixes', () => {
     expect(getStoredModel()).toBe('claude-sonnet-4-5');
+    expect(getStoredModelSelection()).toEqual({
+      provider: 'anthropic',
+      modelId: 'claude-sonnet-4-5',
+    });
 
     setStoredModel('gpt-5.4');
     expect(getStoredModel()).toBe('gpt-5.4');
+    expect(getStoredModelSelection()).toEqual({ provider: 'openai', modelId: 'gpt-5.4' });
     expect(getProviderFromModel('claude-sonnet-4-5')).toBe('anthropic');
     expect(getProviderFromModel('gpt-5.4')).toBe('openai');
     expect(getProviderFromModel('chatgpt-4o-latest')).toBe('openai');
     expect(getProviderFromModel('unknown-model')).toBe('anthropic');
+
+    setStoredModelSelection({ provider: 'openai-compatible', modelId: 'gemma4:12b' });
+    expect(getStoredModel()).toBe('gemma4:12b');
+    expect(getStoredModelSelection()).toEqual({
+      provider: 'openai-compatible',
+      modelId: 'gemma4:12b',
+    });
+  });
+
+  it('uses configured OpenAI-compatible settings for unknown legacy model ids', () => {
+    storeOpenAiCompatibleConfig({
+      baseUrl: ' http://127.0.0.1:11434/v1/ ',
+      modelId: 'gemma4:12b',
+      apiKey: null,
+    });
+    localStorage.setItem('openscad_studio_ai_model', 'local-alias');
+
+    expect(getOpenAiCompatibleConfig()).toEqual({
+      baseUrl: 'http://127.0.0.1:11434/v1',
+      modelId: 'gemma4:12b',
+      apiKey: null,
+    });
+    expect(getStoredModelSelection()).toEqual({
+      provider: 'openai-compatible',
+      modelId: 'gemma4:12b',
+    });
   });
 
   it('publishes provider availability through useSyncExternalStore hooks', () => {
@@ -83,6 +119,29 @@ describe('apiKeyStore', () => {
 
     act(() => {
       clearApiKey('openai');
+    });
+
+    expect(screen.getByTestId('providers').textContent).toBe('');
+    expect(screen.getByTestId('has-key').textContent).toBe('false');
+  });
+
+  it('publishes OpenAI-compatible availability without requiring an API key', () => {
+    render(<StoreHarness />);
+
+    act(() => {
+      storeOpenAiCompatibleConfig({
+        baseUrl: 'http://localhost:1234/v1',
+        modelId: 'lm-studio-model',
+        apiKey: null,
+      });
+    });
+
+    expect(screen.getByTestId('providers').textContent).toBe('openai-compatible');
+    expect(screen.getByTestId('has-key').textContent).toBe('true');
+    expect(getApiKey('openai-compatible')).toBeNull();
+
+    act(() => {
+      clearOpenAiCompatibleConfig();
     });
 
     expect(screen.getByTestId('providers').textContent).toBe('');

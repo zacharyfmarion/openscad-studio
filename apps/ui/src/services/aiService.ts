@@ -140,13 +140,30 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
 - Prefer realistic 3D-printing-safe defaults, ranges, and steps.
 `;
 
-export function createModel(provider: AiProvider, apiKey: string, modelId: string) {
+export interface CreateModelOptions {
+  baseUrl?: string;
+}
+
+export function createModel(
+  provider: AiProvider,
+  apiKey: string,
+  modelId: string,
+  options: CreateModelOptions = {}
+) {
   if (provider === 'anthropic') {
     const anthropic = createAnthropic({
       apiKey,
       headers: { 'anthropic-dangerous-direct-browser-access': 'true' },
     });
     return anthropic(modelId);
+  }
+  if (provider === 'openai-compatible') {
+    const openai = createOpenAI({
+      apiKey: apiKey || 'local',
+      baseURL: options.baseUrl,
+      name: 'openai-compatible',
+    });
+    return openai.chat(modelId);
   }
   const openai = createOpenAI({ apiKey });
   return openai(modelId);
