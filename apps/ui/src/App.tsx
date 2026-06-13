@@ -77,6 +77,12 @@ import { addRecentFile, removeRecentFile } from './utils/recentFiles';
 import { captureCurrentPreview, MAIN_PREVIEW_VIEWER_ID } from './utils/capturePreview';
 import { normalizeAppError, notifyError, notifySuccess } from './utils/notifications';
 import { exportProjectZip } from './utils/projectZip';
+import {
+  getInitialMacDownloadArch,
+  getMacDownloadUrl,
+  resolveMacDownloadArch,
+  type MacArch,
+} from './utils/macDownload';
 import { getRelativeProjectPath } from './utils/projectFilePaths';
 import { generateRandomProjectName } from './utils/projectNaming';
 import { resolveFolderImport } from './utils/folderImport';
@@ -90,16 +96,8 @@ import {
   isOpenScadProjectFilePath,
 } from '../../../packages/shared/src/openscadProjectFiles';
 
-const RELEASE_BASE = 'https://github.com/zacharyfmarion/openscad-studio/releases/latest/download';
 const REPOSITORY_URL = 'https://github.com/zacharyfmarion/openscad-studio';
 const HEADER_WORKSPACE_SWITCHER_MEDIA_QUERY = '(max-width: 900px)';
-
-const RELEASE_ASSETS: Record<MacArch, string> = {
-  aarch64: 'OpenSCAD.Studio_latest_aarch64.dmg',
-  x64: 'OpenSCAD.Studio_latest_x64.dmg',
-};
-
-type MacArch = 'aarch64' | 'x64';
 
 const OPENSCAD_FILE_FILTERS = [
   { name: 'OpenSCAD Files', extensions: [...OPENSCAD_PROJECT_FILE_EXTENSIONS] },
@@ -186,32 +184,23 @@ function revokeBlobUrl(url: string | null | undefined) {
 }
 
 function useMacDownloadUrl() {
-  const [arch, setArch] = useState<MacArch>('aarch64');
+  const [arch, setArch] = useState<MacArch>(() => getInitialMacDownloadArch());
 
   useEffect(() => {
-    const platform = navigator.platform.toLowerCase();
-    if (platform.includes('intel') || platform.includes('x86_64')) {
-      setArch('x64');
-    }
+    let isCancelled = false;
 
-    const uaData = (
-      navigator as unknown as {
-        userAgentData?: {
-          getHighEntropyValues?: (hints: string[]) => Promise<{ architecture?: string }>;
-        };
+    void resolveMacDownloadArch().then((resolvedArch) => {
+      if (!isCancelled) {
+        setArch(resolvedArch);
       }
-    ).userAgentData;
+    });
 
-    if (uaData?.getHighEntropyValues) {
-      void uaData.getHighEntropyValues(['architecture']).then((values) => {
-        if (values.architecture === 'x86') {
-          setArch('x64');
-        }
-      });
-    }
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
-  return `${RELEASE_BASE}/${RELEASE_ASSETS[arch]}`;
+  return getMacDownloadUrl(arch);
 }
 
 interface HeaderIconLinkProps {
