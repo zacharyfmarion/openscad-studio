@@ -248,6 +248,12 @@ describe('SettingsDialog privacy copy', () => {
       </ThemeProvider>
     );
 
+    expect(
+      await screen.findByText(
+        'Connect hosted API keys or a local OpenAI-compatible server, then choose the model from the chat composer.'
+      )
+    ).toBeTruthy();
+
     const anthropicHeading = await screen.findByText('Anthropic API Key');
     const openAiHeading = screen.getByText('OpenAI API Key');
     const compatibleHeading = screen.getByText('OpenAI-compatible Provider');
