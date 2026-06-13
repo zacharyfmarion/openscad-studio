@@ -394,7 +394,7 @@ export function SettingsDialog({ isOpen, onClose, initialTab }: SettingsDialogPr
           >
             {activeSection === 'ai' && (
               <Button variant="primary" onClick={() => aiRef.current?.save()} disabled={!aiCanSave}>
-                Save Key
+                Save AI Settings
               </Button>
             )}
             <Button variant="ghost" onClick={handleClose}>

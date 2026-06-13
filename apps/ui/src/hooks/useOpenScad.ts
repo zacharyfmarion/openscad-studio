@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAnalytics, type RenderTrigger } from '../analytics/runtime';
-import { getStoredModel, getProviderFromModel } from '../stores/apiKeyStore';
+import { getStoredModelSelection } from '../stores/apiKeyStore';
 import {
   getRenderService,
   ensureRenderService,
@@ -199,9 +199,10 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       let settledSnapshot: RenderSnapshot | null = null;
 
       const trackRenderCompleted = (renderDiagnostics: Diagnostic[]) => {
+        const aiSelection = getStoredModelSelection();
         const aiMeta =
           trigger === 'ai_edit'
-            ? { ai_model_id: getStoredModel(), ai_provider: getProviderFromModel(getStoredModel()) }
+            ? { ai_model_id: aiSelection.modelId, ai_provider: aiSelection.provider }
             : {};
         analytics.track('render completed', {
           trigger,

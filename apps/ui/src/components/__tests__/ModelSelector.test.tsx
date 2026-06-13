@@ -3,7 +3,12 @@
 import { TransformStream } from 'node:stream/web';
 import { act, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
-import { clearApiKey, storeApiKey } from '../../stores/apiKeyStore';
+import {
+  clearApiKey,
+  clearOpenAiCompatibleConfig,
+  storeApiKey,
+  storeOpenAiCompatibleConfig,
+} from '../../stores/apiKeyStore';
 import { renderWithProviders } from './test-utils';
 
 if (!globalThis.TransformStream) {
@@ -54,6 +59,12 @@ function createFetchMock() {
       });
     }
 
+    if (url === 'http://127.0.0.1:11434/v1/models') {
+      return createJsonResponse({
+        data: [{ id: 'gemma4:12b' }],
+      });
+    }
+
     return {
       ok: false,
       status: 404,
@@ -64,15 +75,16 @@ function createFetchMock() {
 }
 
 function ModelSelectorHarness() {
-  const { currentModel, availableProviders, setCurrentModel } = useAiAgent();
+  const { currentProvider, currentModel, availableProviders, setCurrentModel } = useAiAgent();
 
   // Wrap in <form> so Radix Select renders its hidden native <select> for option assertions
   return (
     <form>
       <ModelSelector
         currentModel={currentModel}
+        currentProvider={currentProvider}
         availableProviders={availableProviders}
-        onChange={setCurrentModel}
+        onChange={(model, provider) => setCurrentModel(model, 'unknown', provider)}
       />
     </form>
   );
@@ -88,6 +100,7 @@ describe('ModelSelector provider refresh', () => {
     localStorage.clear();
     clearApiKey('anthropic');
     clearApiKey('openai');
+    clearOpenAiCompatibleConfig();
 
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
@@ -108,7 +121,7 @@ describe('ModelSelector provider refresh', () => {
   it('refreshes a mounted selector when an OpenAI key is added after mount', async () => {
     renderWithProviders(<ModelSelectorHarness />);
 
-    expect(screen.getByText('No API keys')).toBeTruthy();
+    expect(screen.getByText('No AI provider configured')).toBeTruthy();
 
     act(() => {
       storeApiKey('openai', 'openai-test-key');
@@ -120,7 +133,7 @@ describe('ModelSelector provider refresh', () => {
       expect(getNativeSelectOptionLabels()).toContain('GPT-5.4');
     });
     await waitFor(() => {
-      expect(screen.queryByText('No API keys')).toBeNull();
+      expect(screen.queryByText('No AI provider configured')).toBeNull();
     });
   });
 
@@ -172,7 +185,25 @@ describe('ModelSelector provider refresh', () => {
 
     const nativeSelect = document.querySelector('select') as HTMLSelectElement | null;
     await waitFor(() => {
-      expect(nativeSelect?.value).toBe('gpt-5.4');
+      expect(nativeSelect?.value).toContain('gpt-5.4');
+      expect(nativeSelect?.value).toContain('openai');
+    });
+  });
+
+  it('shows OpenAI-compatible models when a local provider is configured without an API key', async () => {
+    act(() => {
+      storeOpenAiCompatibleConfig({
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        modelId: 'gemma4:12b',
+        apiKey: null,
+      });
+    });
+
+    renderWithProviders(<ModelSelectorHarness />);
+
+    await screen.findByRole('combobox');
+    await waitFor(() => {
+      expect(getNativeSelectOptionLabels()).toContain('gemma4:12b');
     });
   });
 });

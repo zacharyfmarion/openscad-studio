@@ -123,7 +123,7 @@ describe('WelcomeScreen', () => {
     ]);
   });
 
-  it('keeps the desktop no-key welcome state focused on API key setup only', async () => {
+  it('keeps the desktop no-provider welcome state focused on built-in AI setup only', async () => {
     clearApiKey('openai');
     clearApiKey('anthropic');
     mockGetPlatform.mockReturnValue({
@@ -149,7 +149,7 @@ describe('WelcomeScreen', () => {
       />
     );
 
-    expect(screen.getByText('Set up an API key to use the AI assistant')).toBeTruthy();
+    expect(screen.getByText('Configure an AI provider to use the AI assistant')).toBeTruthy();
     expect(screen.queryByText('Claude Code')).toBeNull();
   });
 });

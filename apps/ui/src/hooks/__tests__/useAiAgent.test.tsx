@@ -6,7 +6,10 @@ import {
   storeApiKey,
   invalidateApiKeyStatus,
   setStoredModel,
+  storeOpenAiCompatibleConfig,
+  setStoredModelSelection,
   getStoredModel,
+  getStoredModelSelection,
 } from '../../stores/apiKeyStore';
 import {
   getUserMessageText,
@@ -69,12 +72,10 @@ describe('useAiAgent', () => {
 
   it('falls back to a preferred provider model when the stored provider is unavailable', async () => {
     setStoredModel('gpt-5.4');
-    const getPreferredDefaultModel = jest.fn(() => 'claude-sonnet-4-5');
 
     const hook = createHarness({
       testOverrides: {
         availableProviders: ['anthropic'],
-        getPreferredDefaultModel: getPreferredDefaultModel as never,
         getVisionSupportForModelId: ((model: string) =>
           model === 'claude-sonnet-4-5' ? 'yes' : 'no') as never,
       },
@@ -85,8 +86,12 @@ describe('useAiAgent', () => {
     });
 
     expect(hook.current().currentModelVisionSupport).toBe('yes');
-    expect(getPreferredDefaultModel).toHaveBeenCalledWith(['anthropic']);
+    expect(hook.current().currentProvider).toBe('anthropic');
     expect(getStoredModel()).toBe('claude-sonnet-4-5');
+    expect(getStoredModelSelection()).toEqual({
+      provider: 'anthropic',
+      modelId: 'claude-sonnet-4-5',
+    });
   });
 
   it('exposes project-aware tool callbacks that read from projectStore', async () => {
@@ -233,6 +238,64 @@ describe('useAiAgent', () => {
     expect(startAiStream).not.toHaveBeenCalled();
     expect(hook.current().messages).toEqual([]);
     expect(hook.current().error).toBe('Please set your API key in Settings first');
+  });
+
+  it('submits to an OpenAI-compatible provider without requiring an API key', async () => {
+    storeOpenAiCompatibleConfig({
+      baseUrl: 'http://127.0.0.1:11434/v1',
+      modelId: 'gemma4:12b',
+      apiKey: null,
+    });
+    setStoredModelSelection({ provider: 'openai-compatible', modelId: 'gemma4:12b' });
+    const analytics = createAnalyticsSpy();
+    const createModel = jest.fn(() => ({ id: 'local-model' }));
+    const startAiStream = jest.fn(async () =>
+      createStreamResult([
+        { type: 'text-start', id: 'text-1' },
+        { type: 'text-delta', id: 'text-1', text: 'Local done.' },
+        { type: 'text-end', id: 'text-1' },
+        {
+          type: 'finish',
+          finishReason: 'stop',
+          rawFinishReason: 'stop',
+          totalUsage: {} as never,
+        },
+      ] satisfies StreamChunk[])
+    );
+
+    const hook = createHarness({
+      testOverrides: {
+        analytics: analytics as never,
+        availableProviders: ['openai-compatible'],
+        createModel: createModel as never,
+        buildTools: (() => ({})) as never,
+        messagesToModelMessages: (() => []) as never,
+        startAiStream: startAiStream as never,
+      },
+    });
+
+    await act(async () => {
+      await hook.current().submitPrompt('Use local model');
+    });
+
+    await waitFor(() => {
+      expect(hook.current().isStreaming).toBe(false);
+    });
+
+    expect(createModel).toHaveBeenCalledWith('openai-compatible', 'local', 'gemma4:12b', {
+      baseUrl: 'http://127.0.0.1:11434/v1',
+    });
+    expect(hook.current().messages[1]).toMatchObject({
+      type: 'assistant',
+      content: 'Local done.',
+    });
+    expect(analytics.track).toHaveBeenCalledWith(
+      'ai request submitted',
+      expect.objectContaining({
+        provider: 'openai-compatible',
+        model_id: 'gemma4:12b',
+      })
+    );
   });
 
   it('adds attachments, exposes unknown-vision warnings, and cleans up previews when removing or clearing', async () => {

@@ -4,7 +4,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { useModels } from '../useModels';
 import type { AiProvider } from '../../stores/apiKeyStore';
-import { clearApiKey, storeApiKey } from '../../stores/apiKeyStore';
+import {
+  clearApiKey,
+  clearOpenAiCompatibleConfig,
+  storeApiKey,
+  storeOpenAiCompatibleConfig,
+} from '../../stores/apiKeyStore';
 
 function createJsonResponse(body: unknown) {
   return {
@@ -32,6 +37,12 @@ function createFetchMock() {
       });
     }
 
+    if (url === 'http://127.0.0.1:11434/v1/models') {
+      return createJsonResponse({
+        data: [{ id: 'gemma4:12b' }, { id: 'qwen3-coder:latest' }],
+      });
+    }
+
     return {
       ok: false,
       status: 404,
@@ -51,6 +62,9 @@ function UseModelsHarness({ availableProviders }: { availableProviders: AiProvid
         {groupedByProvider.anthropic.map((model) => model.id).join(',')}
       </div>
       <div data-testid="openai">{groupedByProvider.openai.map((model) => model.id).join(',')}</div>
+      <div data-testid="openai-compatible">
+        {groupedByProvider.openaiCompatible.map((model) => model.id).join(',')}
+      </div>
     </div>
   );
 }
@@ -60,6 +74,7 @@ describe('useModels', () => {
     localStorage.clear();
     clearApiKey('anthropic');
     clearApiKey('openai');
+    clearOpenAiCompatibleConfig();
 
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
@@ -135,6 +150,40 @@ describe('useModels', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('openai').textContent).toBe('gpt-5.4,gpt-5,gpt-4o');
+    });
+  });
+
+  it('fetches OpenAI-compatible models without filtering local model ids', async () => {
+    storeOpenAiCompatibleConfig({
+      baseUrl: 'http://127.0.0.1:11434/v1',
+      modelId: 'gemma4:12b',
+      apiKey: null,
+    });
+
+    render(<UseModelsHarness availableProviders={['openai-compatible']} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('openai-compatible').textContent).toBe(
+        'gemma4:12b,qwen3-coder:latest'
+      );
+    });
+
+    expect(globalThis.fetch as jest.Mock).toHaveBeenCalledWith('http://127.0.0.1:11434/v1/models', {
+      headers: {},
+    });
+  });
+
+  it('falls back to the configured OpenAI-compatible model when model refresh fails', async () => {
+    storeOpenAiCompatibleConfig({
+      baseUrl: 'http://localhost:1234/v1',
+      modelId: 'lm-studio-model',
+      apiKey: null,
+    });
+
+    render(<UseModelsHarness availableProviders={['openai-compatible']} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('openai-compatible').textContent).toBe('lm-studio-model');
     });
   });
 });

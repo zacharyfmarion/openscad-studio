@@ -3,6 +3,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { ThemeProvider } from '../../contexts/ThemeContext';
+import { getAvailableProviders, getOpenAiCompatibleConfig } from '../../stores/apiKeyStore';
 
 const mockGetPlatform = jest.fn();
 const mockTrack = jest.fn();
@@ -238,6 +239,41 @@ describe('SettingsDialog privacy copy', () => {
     expect(screen.getAllByRole('button', { name: 'Copy' }).length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/http:\/\/127\.0\.0\.1:32123\/mcp/i).length).toBeGreaterThan(0);
     expect(mockGetDesktopMcpStatus).toHaveBeenCalled();
+  });
+
+  it('saves an OpenAI-compatible provider without requiring an API key', async () => {
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="ai" />
+      </ThemeProvider>
+    );
+
+    expect(await screen.findByText('OpenAI-compatible Provider')).toBeTruthy();
+
+    const baseUrlInput = screen.getByPlaceholderText('http://127.0.0.1:11434/v1');
+    const modelInput = screen.getByPlaceholderText('gemma4:12b');
+
+    fireEvent.focus(baseUrlInput);
+    fireEvent.change(baseUrlInput, { target: { value: ' http://localhost:1234/v1/ ' } });
+    fireEvent.change(modelInput, { target: { value: 'lm-studio-model' } });
+
+    const saveButton = screen.getByRole('button', { name: 'Save AI Settings' });
+    await waitFor(() => {
+      expect(saveButton).not.toBeDisabled();
+    });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(getAvailableProviders()).toContain('openai-compatible');
+    });
+    expect(getOpenAiCompatibleConfig()).toEqual({
+      baseUrl: 'http://localhost:1234/v1',
+      modelId: 'lm-studio-model',
+      apiKey: null,
+    });
+    expect(mockTrack).toHaveBeenCalledWith('api key saved', {
+      provider: 'openai-compatible',
+    });
   });
 
   it('tracks layout selection sources and viewer preference changes', async () => {
