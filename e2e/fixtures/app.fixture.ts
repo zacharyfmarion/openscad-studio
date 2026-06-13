@@ -315,16 +315,29 @@ export class AppHelper {
   /** Dismiss the welcome screen if it's showing */
   async dismissWelcomeScreen() {
     const welcomeScreen = this.page.getByTestId('welcome-screen');
-    const startButton = this.page.getByTestId('welcome-start-empty-project');
-    if (!(await welcomeScreen.isVisible({ timeout: 2_000 }).catch(() => false))) {
+    const welcomeVisible = await welcomeScreen.isVisible({ timeout: 2_000 }).catch(() => false);
+    if (!welcomeVisible) {
       return;
     }
 
+    const startButton = this.page
+      .getByTestId('welcome-start-empty-project')
+      .or(this.page.getByRole('button', { name: /Start (with empty project|in folder)/i }))
+      .first();
+
     if (await startButton.isVisible({ timeout: 2000 }).catch(() => false)) {
       await startButton.click();
-      await welcomeScreen.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
-      await this.page.waitForTimeout(500);
     }
+
+    await Promise.race([
+      welcomeScreen.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {}),
+      this.page
+        .locator('.dv-tab')
+        .first()
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .catch(() => {}),
+    ]);
+    await this.page.waitForTimeout(500);
   }
 
   // -- NUX (legacy first-run layout picker) ----------------------------------
@@ -386,7 +399,13 @@ export class AppHelper {
 
   async configureAnthropicApiKey(key = 'test-anthropic-key') {
     await this.page.evaluate((apiKey) => {
-      localStorage.setItem('openscad_studio_anthropic_api_key', apiKey);
+      const obfuscatedKey = `obf1:${btoa(apiKey.split('').reverse().join(''))}`;
+      localStorage.setItem('openscad_studio_anthropic_api_key', obfuscatedKey);
+      localStorage.setItem(
+        'openscad_studio_ai_model_selection',
+        JSON.stringify({ provider: 'anthropic', modelId: 'claude-sonnet-4-5' })
+      );
+      localStorage.setItem('openscad_studio_ai_model', 'claude-sonnet-4-5');
     }, key);
     await this.page.reload();
     await this.page.waitForLoadState('domcontentloaded');

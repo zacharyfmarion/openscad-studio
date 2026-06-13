@@ -21,7 +21,10 @@ test.describe('Keyboard shortcuts', () => {
   test('Meta+K activates AI panel', async ({ app }) => {
     await app.page.keyboard.press('Meta+k');
     await expect(
-      app.page.getByText('Add an API key').or(app.page.getByPlaceholder(/describe the changes/i))
+      app.page
+        .getByText('Configure an AI provider to get started')
+        .or(app.page.getByText('Use built-in AI or Studio MCP'))
+        .or(app.page.getByPlaceholder(/describe the changes/i))
     ).toBeVisible({ timeout: 5000 });
   });
 

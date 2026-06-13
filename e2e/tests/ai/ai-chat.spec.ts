@@ -12,6 +12,13 @@ test.describe('AI Chat Panel', () => {
     await clearAiMocks(app.page);
   });
 
+  function aiPanelReadyLocator(app: { page: import('@playwright/test').Page }) {
+    return app.page
+      .getByText('Configure an AI provider to get started')
+      .or(app.page.getByText('Use built-in AI or Studio MCP'))
+      .or(app.page.getByPlaceholder(/describe the changes/i));
+  }
+
   async function openConfiguredAi(app: {
     configureAnthropicApiKey: () => Promise<void>;
     openAiPanel: () => Promise<void>;
@@ -22,28 +29,18 @@ test.describe('AI Chat Panel', () => {
 
   test('AI panel is accessible via tab click', async ({ app }) => {
     await app.openAiPanel();
-    await expect(
-      app.page.getByText('Add an API key').or(app.page.getByPlaceholder(/describe the changes/i))
-    ).toBeVisible({ timeout: 5000 });
+    await expect(aiPanelReadyLocator(app)).toBeVisible({ timeout: 5000 });
   });
 
-  test('shows no API key message when unconfigured', async ({ app }) => {
+  test('shows no AI provider message when unconfigured', async ({ app }) => {
     await app.openAiPanel();
-    await expect(app.page.getByText('Add an API key')).toBeVisible({ timeout: 5000 });
+    await expect(app.page.getByText('Configure an AI provider to get started')).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test('new conversation button exists when API key set', async ({ app }) => {
-    await app.openAiPanel();
-    const hasApiKeyPrompt = await app.page
-      .getByText('Add an API key')
-      .isVisible({ timeout: 3000 })
-      .catch(() => false);
-
-    if (hasApiKeyPrompt) {
-      await expect(app.page.getByTestId('ai-new-conversation-button')).not.toBeAttached();
-      return;
-    }
-
+    await openConfiguredAi(app);
     await expect(app.page.getByTestId('ai-new-conversation-button')).toBeAttached({
       timeout: 5000,
     });
@@ -65,9 +62,7 @@ test.describe('AI Chat Panel', () => {
     }
 
     await app.page.keyboard.press('Meta+k');
-    await expect(
-      app.page.getByText('Add an API key').or(app.page.getByPlaceholder(/describe the changes/i))
-    ).toBeVisible({ timeout: 5000 });
+    await expect(aiPanelReadyLocator(app)).toBeVisible({ timeout: 5000 });
   });
 
   test('streams assistant text into the transcript with incremental updates', async ({ app }) => {
