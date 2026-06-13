@@ -3,6 +3,7 @@ import { Button, Input, Text } from '../ui';
 import { useAnalytics } from '../../analytics/runtime';
 import {
   DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
+  clearStoredModelSelectionForProvider,
   clearOpenAiCompatibleConfig,
   storeApiKey as storeApiKeyToStorage,
   clearApiKey as clearApiKeyFromStorage,
@@ -47,8 +48,9 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
     const [hasAnthropicKey, setHasAnthropicKey] = useState(false);
     const [hasOpenAIKey, setHasOpenAIKey] = useState(false);
     const [hasOpenAiCompatibleProvider, setHasOpenAiCompatibleProvider] = useState(false);
-    const [customBaseUrl, setCustomBaseUrl] = useState(DEFAULT_OPENAI_COMPATIBLE_BASE_URL);
-    const [customModel, setCustomModel] = useState('');
+    const [customBaseUrl, setCustomBaseUrl] = useState(
+      () => getOpenAiCompatibleConfig().baseUrl || DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+    );
     const [isTestingCompatible, setIsTestingCompatible] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showKey, setShowKey] = useState(false);
@@ -64,7 +66,6 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
 
       const customConfig = getOpenAiCompatibleConfig();
       setCustomBaseUrl(customConfig.baseUrl || DEFAULT_OPENAI_COMPATIBLE_BASE_URL);
-      setCustomModel(customConfig.modelId);
 
       if (hasApiKeyForProvider(provider)) {
         setApiKey(MASKED_KEY);
@@ -81,40 +82,40 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
 
     useEffect(() => {
       if (provider === 'openai-compatible') {
-        onCanSaveChange(
-          !isLoading && !!normalizeOpenAiCompatibleBaseUrl(customBaseUrl) && !!customModel.trim()
-        );
+        onCanSaveChange(!isLoading && !!normalizeOpenAiCompatibleBaseUrl(customBaseUrl));
         return;
       }
       onCanSaveChange(!isLoading && !!apiKey.trim() && !apiKey.startsWith('•'));
-    }, [apiKey, customBaseUrl, customModel, isLoading, onCanSaveChange, provider]);
+    }, [apiKey, customBaseUrl, isLoading, onCanSaveChange, provider]);
 
     const handleSave = useCallback(() => {
       if (provider === 'openai-compatible') {
         const baseUrl = normalizeOpenAiCompatibleBaseUrl(customBaseUrl);
-        const modelId = customModel.trim();
-        if (!baseUrl || !modelId) {
-          setError('Enter a base URL and model for the OpenAI-compatible provider');
+        if (!baseUrl) {
+          setError('Enter a base URL for the OpenAI-compatible provider');
           return;
         }
 
         setError(null);
 
         try {
+          const previousConfig = getOpenAiCompatibleConfig();
           const existingKey = getApiKey('openai-compatible');
           const keyToStore = apiKey.startsWith('•') ? existingKey : apiKey.trim() || null;
           storeOpenAiCompatibleConfig({
             baseUrl,
-            modelId,
+            modelId: '',
             apiKey: keyToStore,
           });
+          if (previousConfig.baseUrl !== baseUrl) {
+            clearStoredModelSelectionForProvider('openai-compatible');
+          }
           analytics.track('api key saved', { provider });
           notifySuccess('OpenAI-compatible provider saved', {
             toastId: 'save-api-key-openai-compatible',
           });
           setHasOpenAiCompatibleProvider(true);
           setCustomBaseUrl(baseUrl);
-          setCustomModel(modelId);
           setApiKey(keyToStore ? MASKED_KEY : '');
           setShowKey(false);
         } catch (err) {
@@ -160,7 +161,7 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
           logLabel: '[AiSettings] Failed to save API key',
         });
       }
-    }, [apiKey, customBaseUrl, customModel, provider, analytics]);
+    }, [apiKey, customBaseUrl, provider, analytics]);
 
     useImperativeHandle(ref, () => ({ save: handleSave }), [handleSave]);
 
@@ -195,7 +196,6 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
         } else {
           setHasOpenAiCompatibleProvider(false);
           setCustomBaseUrl(DEFAULT_OPENAI_COMPATIBLE_BASE_URL);
-          setCustomModel('');
         }
 
         if (provider === targetProvider) {
@@ -237,10 +237,6 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
         }
         const body = (await response.json()) as { data?: Array<{ id?: string }> };
         const models = Array.isArray(body.data) ? body.data : [];
-        const firstModel = models.find((model) => typeof model.id === 'string')?.id;
-        if (!customModel.trim() && firstModel) {
-          setCustomModel(firstModel);
-        }
         notifySuccess(
           models.length > 0
             ? `Connected to OpenAI-compatible provider (${models.length} model${models.length === 1 ? '' : 's'})`
@@ -357,7 +353,7 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
                 Base URL
               </Text>
               <Input
-                value={provider === 'openai-compatible' ? customBaseUrl : ''}
+                value={customBaseUrl}
                 onFocus={() => {
                   setProvider('openai-compatible');
                   setApiKey(hasApiKeyForProvider('openai-compatible') ? MASKED_KEY : '');
@@ -368,27 +364,6 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
                   setCustomBaseUrl(event.target.value);
                 }}
                 placeholder="http://127.0.0.1:11434/v1"
-                className="font-mono text-sm ph-no-capture"
-                disabled={isLoading}
-              />
-            </label>
-
-            <label className="flex flex-col" style={{ gap: 'var(--space-helper-gap)' }}>
-              <Text variant="caption" color="secondary">
-                Model
-              </Text>
-              <Input
-                value={provider === 'openai-compatible' ? customModel : ''}
-                onFocus={() => {
-                  setProvider('openai-compatible');
-                  setApiKey(hasApiKeyForProvider('openai-compatible') ? MASKED_KEY : '');
-                  setShowKey(false);
-                }}
-                onChange={(event) => {
-                  setProvider('openai-compatible');
-                  setCustomModel(event.target.value);
-                }}
-                placeholder="gemma4:12b"
                 className="font-mono text-sm ph-no-capture"
                 disabled={isLoading}
               />

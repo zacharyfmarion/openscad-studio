@@ -6,6 +6,7 @@ import { jest } from '@jest/globals';
 import {
   clearApiKey,
   clearOpenAiCompatibleConfig,
+  setStoredModelSelection,
   storeApiKey,
   storeOpenAiCompatibleConfig,
 } from '../../stores/apiKeyStore';
@@ -62,6 +63,12 @@ function createFetchMock() {
     if (url === 'http://127.0.0.1:11434/v1/models') {
       return createJsonResponse({
         data: [{ id: 'gemma4:12b' }],
+      });
+    }
+
+    if (url === 'http://localhost:1234/v1/models') {
+      return createJsonResponse({
+        data: [{ id: 'lm-studio-model' }],
       });
     }
 
@@ -194,7 +201,7 @@ describe('ModelSelector provider refresh', () => {
     act(() => {
       storeOpenAiCompatibleConfig({
         baseUrl: 'http://127.0.0.1:11434/v1',
-        modelId: 'gemma4:12b',
+        modelId: '',
         apiKey: null,
       });
     });
@@ -204,6 +211,30 @@ describe('ModelSelector provider refresh', () => {
     await screen.findByRole('combobox');
     await waitFor(() => {
       expect(getNativeSelectOptionLabels()).toContain('gemma4:12b');
+    });
+  });
+
+  it('selects the first discovered local model when the saved local selection is stale', async () => {
+    act(() => {
+      storeOpenAiCompatibleConfig({
+        baseUrl: 'http://localhost:1234/v1',
+        modelId: '',
+        apiKey: null,
+      });
+      setStoredModelSelection({ provider: 'openai-compatible', modelId: 'gemma4:12b' });
+    });
+
+    renderWithProviders(<ModelSelectorHarness />);
+
+    await screen.findByRole('combobox');
+    await waitFor(() => {
+      expect(getNativeSelectOptionLabels()).toContain('lm-studio-model');
+    });
+
+    const nativeSelect = document.querySelector('select') as HTMLSelectElement | null;
+    await waitFor(() => {
+      expect(nativeSelect?.value).toContain('lm-studio-model');
+      expect(nativeSelect?.value).toContain('openai-compatible');
     });
   });
 });
