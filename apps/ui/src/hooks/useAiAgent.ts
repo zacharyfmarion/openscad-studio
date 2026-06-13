@@ -75,8 +75,11 @@ function extractErrorText(error: unknown): string {
   return String(error);
 }
 
-function humanizeStreamError(errorText: string): string {
+function humanizeStreamError(errorText: string, provider?: AiProvider): string {
   if (/failed to fetch/i.test(errorText)) {
+    if (provider === 'openai-compatible') {
+      return 'Could not reach the OpenAI-compatible provider — check that the local server is running and allows browser requests.';
+    }
     return 'Could not reach the AI service — check your internet connection.';
   }
   return `Failed: ${errorText}`;
@@ -527,7 +530,9 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
           isStreaming: false,
           streamingResponse: null,
           currentToolCalls: [],
-          error: options.errorText ? humanizeStreamError(options.errorText) : null,
+          error: options.errorText
+            ? humanizeStreamError(options.errorText, stateRef.current.currentProvider)
+            : null,
           errorObject: options.errorObject ?? null,
           messages: nextMessages,
           attachments: nextConversation.attachments,
@@ -934,7 +939,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         } else {
           setState((prev) => ({
             ...prev,
-            error: humanizeStreamError(errorText),
+            error: humanizeStreamError(errorText, currentState.currentProvider),
             errorObject,
             isStreaming: false,
             streamingResponse: null,

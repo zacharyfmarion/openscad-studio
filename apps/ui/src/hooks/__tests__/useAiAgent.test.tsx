@@ -298,6 +298,40 @@ describe('useAiAgent', () => {
     );
   });
 
+  it('shows a local-provider reachability message when OpenAI-compatible fetch fails', async () => {
+    storeOpenAiCompatibleConfig({
+      baseUrl: 'http://127.0.0.1:11434/v1',
+      modelId: 'gemma4:12b',
+      apiKey: null,
+    });
+    setStoredModelSelection({ provider: 'openai-compatible', modelId: 'gemma4:12b' });
+
+    const hook = createHarness({
+      testOverrides: {
+        availableProviders: ['openai-compatible'],
+        createModel: (() => ({ id: 'local-model' })) as never,
+        buildTools: (() => ({})) as never,
+        messagesToModelMessages: (() => []) as never,
+        startAiStream: (async () => {
+          throw new Error('Failed to fetch');
+        }) as never,
+      },
+    });
+
+    await act(async () => {
+      await hook.current().submitPrompt('Try local model');
+    });
+
+    await waitFor(() => {
+      expect(hook.current().isStreaming).toBe(false);
+    });
+
+    expect(hook.current().error).toBe(
+      'Could not reach the OpenAI-compatible provider — check that the local server is running and allows browser requests.'
+    );
+    expect(hook.current().draft.text).toBe('Try local model');
+  });
+
   it('adds attachments, exposes unknown-vision warnings, and cleans up previews when removing or clearing', async () => {
     const analytics = createAnalyticsSpy();
     const processAttachmentFiles = jest
