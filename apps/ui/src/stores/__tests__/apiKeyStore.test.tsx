@@ -76,6 +76,63 @@ describe('apiKeyStore', () => {
     });
   });
 
+  it('migrates legacy bare hosted model ids to provider-aware selections', () => {
+    localStorage.setItem('openscad_studio_ai_model', 'claude-3-5-sonnet-20241022');
+
+    expect(getStoredModelSelection()).toEqual({
+      provider: 'anthropic',
+      modelId: 'claude-3-5-sonnet-20241022',
+    });
+
+    localStorage.setItem('openscad_studio_ai_model', 'gpt-4o');
+
+    expect(getStoredModelSelection()).toEqual({
+      provider: 'openai',
+      modelId: 'gpt-4o',
+    });
+
+    localStorage.setItem('openscad_studio_ai_model', 'o3-mini');
+
+    expect(getStoredModelSelection()).toEqual({
+      provider: 'openai',
+      modelId: 'o3-mini',
+    });
+  });
+
+  it('prefers the new provider-aware selection over a legacy bare model id', () => {
+    localStorage.setItem('openscad_studio_ai_model', 'gpt-4o');
+    localStorage.setItem(
+      'openscad_studio_ai_model_selection',
+      JSON.stringify({ provider: 'anthropic', modelId: 'claude-opus-4' })
+    );
+
+    expect(getStoredModel()).toBe('claude-opus-4');
+    expect(getStoredModelSelection()).toEqual({
+      provider: 'anthropic',
+      modelId: 'claude-opus-4',
+    });
+  });
+
+  it('falls back to a legacy bare model id when the provider-aware selection is corrupt', () => {
+    localStorage.setItem('openscad_studio_ai_model_selection', 'not-json');
+    localStorage.setItem('openscad_studio_ai_model', 'gpt-4o');
+
+    expect(getStoredModelSelection()).toEqual({
+      provider: 'openai',
+      modelId: 'gpt-4o',
+    });
+  });
+
+  it('falls back to the first configured provider for unknown legacy model ids', () => {
+    storeApiKey('openai', 'openai-key');
+    localStorage.setItem('openscad_studio_ai_model', 'unknown-legacy-model');
+
+    expect(getStoredModelSelection()).toEqual({
+      provider: 'openai',
+      modelId: 'gpt-5.4',
+    });
+  });
+
   it('uses configured OpenAI-compatible settings for unknown legacy model ids', () => {
     storeOpenAiCompatibleConfig({
       baseUrl: ' http://127.0.0.1:11434/v1/ ',
