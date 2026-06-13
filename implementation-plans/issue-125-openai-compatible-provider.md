@@ -2,11 +2,11 @@
 
 ## Goal
 
-Add first-class support for local and self-hosted OpenAI-compatible chat providers, with Ollama and llama.cpp as the primary target servers. This addresses issue #125, where users currently only see API-key settings for hosted Anthropic/OpenAI models and have no obvious way to use local models.
+Add first-class support for local and self-hosted OpenAI-compatible chat providers, with Ollama, llama.cpp, and LM Studio as the primary target servers. This addresses issue #125, where users currently only see API-key settings for hosted Anthropic/OpenAI models and have no obvious way to use local models.
 
 The intended user-facing outcome is a configurable "OpenAI-compatible" provider in AI settings:
 
-- Base URL, for example `http://127.0.0.1:11434/v1` for Ollama or `http://127.0.0.1:8080/v1` for llama.cpp.
+- Base URL, for example `http://127.0.0.1:11434/v1` for Ollama, `http://127.0.0.1:8080/v1` for llama.cpp, or `http://localhost:1234/v1` for LM Studio.
 - Model id/name, for example `gemma4:12b` or the model id reported by the local server.
 - Optional API key for servers that require one.
 - Model refresh/test behavior that works against `/models` when available.
@@ -15,7 +15,7 @@ The intended user-facing outcome is a configurable "OpenAI-compatible" provider 
 
 The issue asks for "Ollama / Llama.cpp" support. A later clarification narrows the requested shape to local OpenAI-compatible providers with configurable base URL, model name, and optional API key, especially for the desktop app.
 
-This should be implemented as one generic OpenAI-compatible provider rather than separate hardcoded "Ollama" and "llama.cpp" providers. Ollama and llama.cpp should appear in copy, defaults, examples, tests, and manual validation.
+This should be implemented as one generic OpenAI-compatible provider rather than separate hardcoded "Ollama", "llama.cpp", or "LM Studio" providers. Ollama, llama.cpp, and LM Studio should appear in copy, defaults, examples, tests, and manual validation.
 
 ## Current State
 
@@ -48,7 +48,7 @@ Relevant current files:
 - `apps/ui/src/hooks/useOpenScad.ts`
   - Records AI edit render analytics using the stored bare model id and inferred provider.
 
-The main architectural problem is that a model id currently implies its provider. That breaks for local model names like `gemma4:12b`, `qwen3-coder`, or a llama.cpp server model alias.
+The main architectural problem is that a model id currently implies its provider. That breaks for local model names like `gemma4:12b`, `qwen3-coder`, an LM Studio loaded-model id, or a llama.cpp server model alias.
 
 ## Local Test Baseline
 
@@ -155,7 +155,7 @@ Keep the existing hosted provider key storage and obfuscation behavior.
 - [ ] Add an OpenAI-compatible settings card in `AiSettings.tsx`.
 - [ ] Include fields for Base URL, Model, and optional API key.
 - [ ] Default the base URL to `http://127.0.0.1:11434/v1` for Ollama.
-- [ ] Include concise helper copy mentioning Ollama and llama.cpp examples.
+- [ ] Include concise helper copy mentioning Ollama, llama.cpp, and LM Studio examples.
 - [ ] Add a "Test connection" or "Refresh models" control that fetches `/models` and shows success/failure.
 - [ ] Keep all local provider fields under `ph-no-capture`.
 - [ ] Update save button behavior so AI settings can save API keys and custom provider config without confusing "Save Key" copy.
@@ -197,6 +197,7 @@ Keep the existing hosted provider key storage and obfuscation behavior.
 - [ ] When implementation ships, reply to issue #125 explaining the OpenAI-compatible setup:
   - Ollama: `ollama serve`, `ollama pull <model>`, base URL `http://127.0.0.1:11434/v1`.
   - llama.cpp: run `llama-server`, base URL `http://127.0.0.1:8080/v1`.
+  - LM Studio: start the Local Server from LM Studio, load a model, base URL `http://localhost:1234/v1`.
 
 ## Acceptance Criteria
 
@@ -238,6 +239,15 @@ Manual validation with llama.cpp, if available:
 - [ ] Confirm the configured model can stream a basic response.
 - [ ] Confirm tool calling behavior for a model/template that supports it, or document the server/model limitation.
 
+Manual validation with LM Studio, if available:
+
+- [ ] Start LM Studio's Local Server.
+- [ ] Load a chat/instruction model in LM Studio.
+- [ ] Configure base URL `http://localhost:1234/v1`.
+- [ ] Refresh models and confirm the loaded LM Studio model appears.
+- [ ] Confirm the configured model can stream a basic response.
+- [ ] Confirm tool calling behavior for a model/template that supports it, or document the server/model limitation.
+
 ## Risks and Mitigations
 
 - Some local models do not support tools reliably.
@@ -254,6 +264,6 @@ Manual validation with llama.cpp, if available:
 ## Open Questions
 
 - Should the settings card be shown in web builds, or only desktop builds with a note that hosted web may depend on CORS?
-- Should there be named presets for Ollama and llama.cpp, or should the first version stay as one generic OpenAI-compatible card with example placeholders?
+- Should there be named presets for Ollama, llama.cpp, and LM Studio, or should the first version stay as one generic OpenAI-compatible card with example placeholders?
 - Should custom provider model refresh be automatic on settings save, or only user-triggered to avoid slow local model startup calls?
 - Should multiple custom OpenAI-compatible providers be supported now, or should v1 support one configured provider only?
