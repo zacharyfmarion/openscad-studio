@@ -303,6 +303,36 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
           }}
         />
 
+        <ApiProviderCard
+          title="OpenAI API Key"
+          description="Required for OpenAI models."
+          placeholder="sk-..."
+          keyLink={{ label: 'Get one from OpenAI', href: 'https://platform.openai.com/api-keys' }}
+          isActive={provider === 'openai'}
+          hasKey={hasOpenAIKey}
+          apiKey={apiKey}
+          showKey={showKey}
+          isLoading={isLoading}
+          onFocus={() => {
+            if (provider !== 'openai') {
+              setProvider('openai');
+              setApiKey('');
+              setShowKey(false);
+            } else {
+              setProvider('openai');
+            }
+          }}
+          onChange={(value) => {
+            setProvider('openai');
+            setApiKey(value);
+          }}
+          onToggleShow={() => setShowKey((prev) => !prev)}
+          onClear={() => {
+            setProvider('openai');
+            handleClear('openai');
+          }}
+        />
+
         <SettingsCard className="ph-no-capture">
           <SettingsCardHeader
             title="OpenAI-compatible Provider"
@@ -435,36 +465,6 @@ export const AiSettings = forwardRef<AiSettingsHandle, AiSettingsProps>(
             </div>
           </SettingsCardSection>
         </SettingsCard>
-
-        <ApiProviderCard
-          title="OpenAI API Key"
-          description="Required for OpenAI models."
-          placeholder="sk-..."
-          keyLink={{ label: 'Get one from OpenAI', href: 'https://platform.openai.com/api-keys' }}
-          isActive={provider === 'openai'}
-          hasKey={hasOpenAIKey}
-          apiKey={apiKey}
-          showKey={showKey}
-          isLoading={isLoading}
-          onFocus={() => {
-            if (provider !== 'openai') {
-              setProvider('openai');
-              setApiKey('');
-              setShowKey(false);
-            } else {
-              setProvider('openai');
-            }
-          }}
-          onChange={(value) => {
-            setProvider('openai');
-            setApiKey(value);
-          }}
-          onToggleShow={() => setShowKey((prev) => !prev)}
-          onClear={() => {
-            setProvider('openai');
-            handleClear('openai');
-          }}
-        />
 
         {error && (
           <SettingsSupportBlock

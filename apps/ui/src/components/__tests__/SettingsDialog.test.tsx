@@ -241,6 +241,25 @@ describe('SettingsDialog privacy copy', () => {
     expect(mockGetDesktopMcpStatus).toHaveBeenCalled();
   });
 
+  it('orders hosted API key cards before the OpenAI-compatible provider', async () => {
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="ai" />
+      </ThemeProvider>
+    );
+
+    const anthropicHeading = await screen.findByText('Anthropic API Key');
+    const openAiHeading = screen.getByText('OpenAI API Key');
+    const compatibleHeading = screen.getByText('OpenAI-compatible Provider');
+
+    expect(
+      anthropicHeading.compareDocumentPosition(openAiHeading) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      openAiHeading.compareDocumentPosition(compatibleHeading) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
   it('saves an OpenAI-compatible provider without requiring an API key', async () => {
     render(
       <ThemeProvider>
