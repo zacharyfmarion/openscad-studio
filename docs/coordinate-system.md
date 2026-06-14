@@ -56,11 +56,11 @@ Use `threeToOpenScadSize` when displaying bounding-box dimensions. Use `threeToO
 | `ThreeViewer.tsx` mesh `rotation` | Internal Three.js ↔ OpenSCAD boundary | Do not change this rotation |
 | `previewFraming.ts` | Three.js world space | Grid, framing, bounding-box math; correct as-is |
 | `previewAxes.ts` | Three.js world space (geometry) / OpenSCAD (tick labels) | Tick label *values* are converted; axis line positions are not |
-| `BBoxPanel.tsx` | OpenSCAD display space | Uses `threeToOpenScadSize` before rendering |
+| `components/three-viewer/panels/BBoxPanel.tsx` | OpenSCAD display space | Uses `threeToOpenScadSize` before rendering |
 | `ThreeViewer.tsx` `BBoxOverlay` | Three.js world space (HTML positions) / OpenSCAD (badge text) | Badge text remapped: Three.js Y face → "Z", Three.js Z face → "Y" |
-| `SectionPlanePanel.tsx` | Three.js world space (axis values) / OpenSCAD (labels) | `value: 'y'` is Three.js Y = OpenSCAD Z, displayed as "Z" |
+| `components/three-viewer/panels/SectionPlanePanel.tsx` | Three.js world space (axis values) / OpenSCAD (labels) | `value: 'y'` is Three.js Y = OpenSCAD Z, displayed as "Z" |
 | `sectionPlaneController.ts` | Three.js world space | No display; correct as-is |
-| `measurementController3d.ts` | Three.js world space | Apply `threeToOpenScadDelta` before displaying measurements |
+| `components/three-viewer/measurementController3d.ts` | Three.js world space | Apply `threeToOpenScadDelta` before displaying measurements |
 
 ## Axis overlay tick labels
 

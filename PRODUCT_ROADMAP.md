@@ -4,7 +4,7 @@
 >
 > OpenSCAD is the engine, not the product. The product is: you describe what you want, it makes it, you print it.
 
-**Current version**: v1.2.2 | **Last updated**: 2026-04-28
+**Current version**: v1.3.0 | **Last updated**: 2026-06-14
 
 This roadmap mixes shipped milestones with future planning. Older sections may describe the implementation assumptions that existed when they were written rather than the current client-side `openscad-wasm` architecture.
 
@@ -20,14 +20,14 @@ This roadmap mixes shipped milestones with future planning. Older sections may d
 
 ---
 
-## What We Have (v1.2.2)
+## What We Have (v1.3.0)
 
 | Area                                                                                  | Status |
 | ------------------------------------------------------------------------------------- | ------ |
-| Monaco editor with OpenSCAD syntax, 27 themes, vim mode, tree-sitter formatting       | ✅     |
+| Monaco editor with OpenSCAD syntax, 22 themes, vim mode, tree-sitter formatting       | ✅     |
 | Live 3D preview (Three.js mesh viewer, orbit controls, wireframe/solid/section tools) | ✅     |
 | 2D SVG mode for laser cutting / engraving                                             | ✅     |
-| AI copilot (Claude + GPT, streaming, tool-calling, diff-based editing, image attachments, auto-rollback) | ✅     |
+| AI copilot (Claude, GPT, OpenAI-compatible local endpoints, streaming, tool-calling, diff-based editing, image attachments, auto-rollback) | ✅     |
 | AI can see the 3D preview (screenshot tool returns base64 PNG to vision models)       | ✅     |
 | Customizer panel (tree-sitter parsed parameters → sliders, dropdowns, vectors)        | ✅     |
 | Share links with remixable web entry and thumbnail support                            | ✅     |
@@ -37,7 +37,7 @@ This roadmap mixes shipped milestones with future planning. Older sections may d
 | Web app via openscad-wasm (zero install, Cloudflare Pages)                            | ✅     |
 | Desktop app (macOS, Homebrew)                                                         | ✅     |
 | Library path management, include/use resolution, BOSL2 support                        | ✅     |
-| Multi-tab editing, undo/redo checkpoints, conversation persistence                    | ✅     |
+| Multi-tab editing, undo/redo checkpoints, and multi-turn AI chat state                | ✅     |
 | E2E test suite (Playwright, ~2700 lines, CI on every PR)                              | ✅     |
 
 ---
@@ -179,10 +179,10 @@ Customizer-first sharing shipped for share links. SEO landing pages remain futur
 
 The AI should understand the full project, not just the active file.
 
-- [ ] Include referenced files (`use`/`include`) in AI system prompt as context
-- [ ] Add `explore_project` AI tool that lists files in the working directory
-- [ ] Limit context to files actually referenced (don't dump entire directories)
-- [ ] AI can suggest creating helper modules and splitting complex designs
+- [x] Provide project-aware tools for render target context, folder listing, file reading, file creation, and render-target changes
+- [x] AI can edit any project file by relative path and suggest splitting complex designs into helper modules
+- [ ] Add automatic referenced-file context for `use`/`include` dependencies without requiring explicit tool calls
+- [ ] Limit automatic context to files actually referenced (don't dump entire directories)
 
 ### 4.2 3D-Printing-Aware AI
 
@@ -203,8 +203,8 @@ Bake domain knowledge into the AI so it produces print-ready designs.
 
 - [ ] Dockview panel listing saved conversations (title, date, message count)
 - [ ] Click to load, delete with confirmation, search across titles
-- [ ] Backend already supports `save_conversation`, `load_conversations`, `delete_conversation`
-- [ ] Frontend just needs the UI
+- [ ] Add persistent conversation storage; the current frontend hook exposes placeholders but no saved-conversation store is wired
+- [ ] Restore saved conversations into the active chat state
 
 ### 4.4 Configurable Edit Size Limit
 
@@ -330,7 +330,7 @@ Don't schedule these as standalone work items. Fix them when they're in the crit
 | ------------------------------------------------ | -------- | --------------------------------------------------------------- |
 | App.tsx is 1189 lines                            | Medium   | When adding a feature that touches App.tsx and it's too painful |
 | Refs-as-state anti-pattern (7+ refs)             | Medium   | When a state bug is traced to this pattern                      |
-| EditorState duplication (frontend + backend)     | Medium   | When AI context or multi-file features need coherent state      |
+| Legacy desktop `EditorState` mirror              | Low      | When history or desktop IPC state needs simplification          |
 | Settings split across localStorage + Tauri store | Low      | When adding new settings gets confusing                         |
 | Error boundary only at top level                 | Low      | When a panel crash takes down the whole app                     |
 | DiffViewer shows same code for old/new           | Low      | When someone actually uses the diff panel                       |
@@ -345,7 +345,7 @@ Don't schedule these as standalone work items. Fix them when they're in the crit
 
 ### Leading Indicators
 
-- Web app weekly active users (Plausible analytics)
+- Web app weekly active users (PostHog product analytics)
 - AI conversations started per session
 - STL exports per session (= user got a result they wanted)
 - Shared design links generated
