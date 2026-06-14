@@ -113,7 +113,7 @@ openscad-studio/
 │   │   │   │   └── webBridge.ts # Web implementation
 │   │   │   ├── services/        # Render services (WASM + native), AI service, OpenSCAD worker
 │   │   │   ├── stores/          # Zustand state (project files, workspace, settings)
-│   │   │   └── themes/          # 27 editor themes
+│   │   │   └── themes/          # 22 editor themes
 │   │   └── src-tauri/           # Rust backend (desktop only)
 │   └── web/                     # Web app entry point (Vite)
 └── packages/
@@ -126,13 +126,18 @@ The AI copilot uses the [Vercel AI SDK](https://sdk.vercel.ai/) with streaming s
 
 1. Open Settings (⌘,)
 2. Navigate to "AI" tab
-3. Enter your Anthropic / OpenAI API key
+3. Enter an Anthropic or OpenAI API key, or configure an OpenAI-compatible local provider
 
 **Supported Providers:**
-All models from the following providers are supported:
 
 - Anthropic
 - OpenAI
+- OpenAI-compatible local or self-hosted endpoints such as Ollama, llama.cpp, and LM Studio
+
+For OpenAI-compatible providers, configure the base URL in Settings > AI. The default is
+`http://127.0.0.1:11434/v1` for Ollama. API keys are optional for local providers and are only
+needed when the configured server requires one. Model discovery uses `/models` when the server
+supports it; browser-based web usage also depends on the local server allowing CORS requests.
 
 The AI can:
 

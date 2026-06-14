@@ -1,6 +1,6 @@
 # OpenSCAD Studio — Engineering Roadmap
 
-> Current app version: **v1.2.2**. This roadmap mixes historical milestone notes with future planning, so older phase sections may reference the version they originally shipped in rather than the current release.
+> Current app version: **v1.3.0**. This roadmap mixes historical milestone notes with future planning, so older phase sections may reference the version they originally shipped in rather than the current release.
 >
 > A modern OpenSCAD editor with live preview and AI copilot capabilities, available as both a web app and a macOS desktop app. The application uses openscad-wasm for rendering and provides a superior editing experience with real-time feedback and AI-assisted code generation.
 
@@ -62,7 +62,7 @@
 - ✅ SSE streaming with incremental text deltas
 - ✅ AiPromptPanel, ModelSelector, DiffViewer UI components
 - ✅ Multi-turn tool calling with automatic execution
-- ✅ Conversation persistence (save/load/delete)
+- ✅ Multi-turn chat state with draft, attachment, and checkpoint restoration support
 - ✅ Checkpoint-based undo with "restore to before this turn"
 - ✅ Multi-provider support (Anthropic + OpenAI)
 
@@ -208,8 +208,8 @@
 - [ ] Click to load a conversation
 - [ ] Delete conversations with confirmation
 - [ ] Search across conversation titles
-- [ ] Backend already supports `save_conversation`, `load_conversations`, `delete_conversation`
-- [ ] Frontend just needs the UI — `loadConversation` already exists in `useAiAgent`
+- [ ] Add persistent conversation storage; `useAiAgent` currently exposes `loadConversation`/`saveConversation` placeholders only
+- [ ] Restore saved conversations into the active chat state
 
 ### ✅ 5.2: Image Input for AI (COMPLETED)
 
@@ -237,7 +237,8 @@
   --- main.scad (active) ---
   [contents]
   ```
-- [ ] Add an `explore_project` AI tool that lists files in the working directory
+- [x] Add project browsing tools (`get_project_context`, `list_folder_contents`, `read_file`) for incremental multi-file context
+- [x] Add project mutation tools (`apply_edit`, `create_file`, `set_render_target`) for multi-file workflows
 - [ ] Limit context to files actually referenced (don't dump entire directories)
 
 ### 5.4: AI Prompt Templates
@@ -257,7 +258,7 @@
 - [ ] Default: 120 lines (current behavior)
 - [ ] Allow increase to 250 or 500 for users who want full-file generation
 - [ ] Setting in `SettingsDialog.tsx` → AI tab
-- [ ] Update `validate_edit()` in `ai_tools.rs` to read from settings
+- [ ] Add frontend validation around `apply_edit` if an edit-size limit returns
 
 **Success criteria:** AI chat renders beautifully. Users can reference images and past conversations. AI understands multi-file projects. Common operations are one-click.
 
@@ -518,9 +519,9 @@ Items to address opportunistically, not as dedicated phases:
 | Issue                                                 | Location                           | Severity | Notes                                                                       |
 | ----------------------------------------------------- | ---------------------------------- | -------- | --------------------------------------------------------------------------- |
 | Refs-as-state anti-pattern                            | `App.tsx` (7+ refs)                | Medium   | Address in 4B.1 decomposition                                               |
-| Settings split across localStorage and Tauri store    | `settingsStore.ts`, `cmd/ai.rs`    | Low      | Consider unifying in platform abstraction                                   |
-| OpenSCAD stderr parsing is regex-based                | `utils/parser.rs`                  | Low      | Works but may miss edge cases. Revisit if OpenSCAD adds JSON output         |
-| `EditorState` duplicated between frontend and backend | `useOpenScad.ts`, `ai_agent.rs`    | Medium   | Backend should be source of truth (4B.3)                                    |
+| Settings split across localStorage and Tauri store    | `settingsStore.ts`, `apiKeyStore.ts` | Low    | Consider unifying in platform abstraction                                   |
+| OpenSCAD stderr parsing is regex-based                | `renderService.ts`                 | Low      | Works but may miss edge cases. Revisit if OpenSCAD adds JSON output         |
+| Legacy desktop `EditorState` mirror                   | `cmd/ai_tools.rs`                  | Low      | Currently limited to history/workspace state helpers                        |
 | No graceful degradation when OpenSCAD is unavailable  | Various                            | Low      | Editor works, just no preview. Could be clearer about what's disabled       |
 | `DiffViewer` panel always shows same code for old/new | `PanelComponents.tsx:58-66`        | Low      | `oldCode={source} newCode={source}` — not actually showing a diff           |
 | Error boundary only at top level                      | `ErrorBoundary.tsx`                | Low      | Per-panel boundaries would improve resilience (see 4B.2 follow-up)          |
@@ -583,6 +584,6 @@ Decisions made during roadmap planning that affect ordering:
 
 ---
 
-**Last Updated:** 2026-04-19
-**Current Phase:** v1.2.1 — web + desktop app shipping with sharing, analytics/privacy controls, formatter coverage, advanced viewer tooling, and desktop MCP support for external agents
+**Last Updated:** 2026-06-14
+**Current Phase:** v1.3.0 — web + desktop app shipping with sharing, analytics/privacy controls, formatter coverage, advanced viewer tooling, desktop MCP support, and OpenAI-compatible local provider support
 **Next Milestone:** Phase 4B.1/4B.3 (App.tsx decomposition, centralized state) or Phase 5 (AI experience) based on user feedback

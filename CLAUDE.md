@@ -257,7 +257,7 @@ pnpm validate:changes   # Run the shared validation helper
 
 ### Adding or Modifying Themes
 
-**Current Themes (27 total):**
+**Current Themes (22 total):**
 
 - Classic: Solarized Dark/Light
 - Popular Dark: Monokai, Dracula, One Dark Pro, GitHub Dark, Tokyo Night, Ayu Dark, Material Palenight, Night Owl
@@ -315,7 +315,7 @@ pnpm validate:changes   # Run the shared validation helper
 
 ## Current Status
 
-### Current Capabilities (v1.2.2)
+### Current Capabilities (v1.3.0)
 
 ✅ Monaco editor with OpenSCAD syntax highlighting
 ✅ Live STL/SVG preview (web: openscad-wasm, desktop: native binary)
@@ -324,13 +324,13 @@ pnpm validate:changes   # Run the shared validation helper
 ✅ Export to STL, OBJ, AMF, 3MF, PNG, SVG, DXF
 ✅ Content-hash caching
 ✅ 2D mode with SVG viewer
-✅ AI copilot with Vercel AI SDK (streaming, tool calls)
+✅ AI copilot with Vercel AI SDK (streaming, tool calls, Anthropic/OpenAI/OpenAI-compatible providers)
 ✅ Diff-based code editing
 ✅ Tool call visualization
 ✅ Multi-turn AI chat with draft and attachment state
 ✅ Customizer panel with interactive parameter controls
 ✅ Tree-sitter based parameter parsing
-✅ 27 editor themes with categorized dropdown
+✅ 22 editor themes with categorized dropdown
 ✅ Vim mode with configurable keybindings
 ✅ Web version (openscad-studio.pages.dev)
 ✅ Platform abstraction (PlatformBridge interface)
@@ -406,5 +406,5 @@ pnpm validate:changes   # Run the shared validation helper
 
 ---
 
-**Last Updated**: 2026-04-28
-**Current Version**: v1.2.2 — Web + Desktop
+**Last Updated**: 2026-06-14
+**Current Version**: v1.3.0 — Web + Desktop
