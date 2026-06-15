@@ -3,6 +3,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { jest } from '@jest/globals';
 import { ThemeProvider } from '../../contexts/ThemeContext';
+import {
+  getAvailableProviders,
+  getOpenAiCompatibleConfig,
+  storeOpenAiCompatibleConfig,
+} from '../../stores/apiKeyStore';
 
 const mockGetPlatform = jest.fn();
 const mockTrack = jest.fn();
@@ -238,6 +243,97 @@ describe('SettingsDialog privacy copy', () => {
     expect(screen.getAllByRole('button', { name: 'Copy' }).length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/http:\/\/127\.0\.0\.1:32123\/mcp/i).length).toBeGreaterThan(0);
     expect(mockGetDesktopMcpStatus).toHaveBeenCalled();
+  });
+
+  it('orders hosted API key cards before the OpenAI-compatible provider', async () => {
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="ai" />
+      </ThemeProvider>
+    );
+
+    expect(
+      await screen.findByText(
+        'Connect hosted API keys or a local OpenAI-compatible server, then choose the model from the chat composer.'
+      )
+    ).toBeTruthy();
+
+    const anthropicHeading = await screen.findByText('Anthropic API Key');
+    const openAiHeading = screen.getByText('OpenAI API Key');
+    const compatibleHeading = screen.getByText('OpenAI-compatible Provider');
+
+    expect(
+      anthropicHeading.compareDocumentPosition(openAiHeading) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      openAiHeading.compareDocumentPosition(compatibleHeading) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it('saves an OpenAI-compatible provider without requiring an API key', async () => {
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="ai" />
+      </ThemeProvider>
+    );
+
+    expect(await screen.findByText('OpenAI-compatible Provider')).toBeTruthy();
+
+    const baseUrlInput = screen.getByPlaceholderText('http://127.0.0.1:11434/v1');
+
+    fireEvent.focus(baseUrlInput);
+    fireEvent.change(baseUrlInput, { target: { value: ' http://localhost:1234/v1/ ' } });
+
+    const saveButton = screen.getByRole('button', { name: 'Save AI Settings' });
+    await waitFor(() => {
+      expect(saveButton).not.toBeDisabled();
+    });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(getAvailableProviders()).toContain('openai-compatible');
+    });
+    expect(getOpenAiCompatibleConfig()).toEqual({
+      baseUrl: 'http://localhost:1234/v1',
+      modelId: '',
+      apiKey: null,
+    });
+    expect(mockTrack).toHaveBeenCalledWith('api key saved', {
+      provider: 'openai-compatible',
+    });
+  });
+
+  it('shows saved OpenAI-compatible settings before the local card is focused', async () => {
+    storeOpenAiCompatibleConfig({
+      baseUrl: 'http://localhost:1234/v1',
+      modelId: '',
+      apiKey: null,
+    });
+
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="ai" />
+      </ThemeProvider>
+    );
+
+    const baseUrlInput = (await screen.findByPlaceholderText(
+      'http://127.0.0.1:11434/v1'
+    )) as HTMLInputElement;
+    expect(baseUrlInput.value).toBe('http://localhost:1234/v1');
+  });
+
+  it('notes that web users must enable CORS on local LLM servers', async () => {
+    platformMock.capabilities.hasFileSystem = false;
+
+    render(
+      <ThemeProvider>
+        <SettingsDialog isOpen onClose={() => {}} initialTab="ai" />
+      </ThemeProvider>
+    );
+
+    expect(
+      await screen.findByText('On the web, your local LLM server must allow browser CORS requests.')
+    ).toBeTruthy();
   });
 
   it('tracks layout selection sources and viewer preference changes', async () => {

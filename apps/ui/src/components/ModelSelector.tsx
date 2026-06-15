@@ -11,17 +11,40 @@ import {
   SelectLabel,
 } from './ui';
 import { notifyError } from '../utils/notifications';
+import { getProviderFromModel, type AiProvider } from '../stores/apiKeyStore';
 
 interface ModelSelectorProps {
   currentModel: string;
-  availableProviders: string[];
-  onChange: (model: string) => void;
+  currentProvider?: AiProvider;
+  availableProviders: AiProvider[];
+  onChange: (model: string, provider: AiProvider) => void;
   disabled?: boolean;
   compact?: boolean;
 }
 
+function encodeModelValue(provider: AiProvider, modelId: string): string {
+  return JSON.stringify([provider, modelId]);
+}
+
+function decodeModelValue(value: string): { provider: AiProvider; modelId: string } {
+  try {
+    const parsed = JSON.parse(value);
+    if (
+      Array.isArray(parsed) &&
+      (parsed[0] === 'anthropic' || parsed[0] === 'openai' || parsed[0] === 'openai-compatible') &&
+      typeof parsed[1] === 'string'
+    ) {
+      return { provider: parsed[0], modelId: parsed[1] };
+    }
+  } catch {
+    // Legacy select values were bare model ids.
+  }
+  return { provider: getProviderFromModel(value), modelId: value };
+}
+
 export function ModelSelector({
   currentModel,
+  currentProvider,
   availableProviders,
   onChange,
   disabled,
@@ -30,8 +53,15 @@ export function ModelSelector({
   const { groupedByProvider, isLoading, error, fromCache, refreshModels } =
     useModels(availableProviders);
 
-  const { anthropic: anthropicModels, openai: openaiModels } = groupedByProvider;
-  const hasModels = anthropicModels.length > 0 || openaiModels.length > 0;
+  const {
+    anthropic: anthropicModels,
+    openai: openaiModels,
+    openaiCompatible: openAiCompatibleModels,
+  } = groupedByProvider;
+  const hasModels =
+    anthropicModels.length > 0 || openaiModels.length > 0 || openAiCompatibleModels.length > 0;
+  const selectedProvider = currentProvider ?? getProviderFromModel(currentModel);
+  const selectedValue = encodeModelValue(selectedProvider, currentModel);
 
   useEffect(() => {
     if (!error) return;
@@ -44,10 +74,24 @@ export function ModelSelector({
     });
   }, [error]);
 
+  useEffect(() => {
+    if (
+      disabled ||
+      isLoading ||
+      selectedProvider !== 'openai-compatible' ||
+      openAiCompatibleModels.length === 0 ||
+      openAiCompatibleModels.some((model) => model.id === currentModel)
+    ) {
+      return;
+    }
+
+    onChange(openAiCompatibleModels[0].id, 'openai-compatible');
+  }, [currentModel, disabled, isLoading, onChange, openAiCompatibleModels, selectedProvider]);
+
   if (!hasModels && !isLoading) {
     return (
       <span className="text-xs" style={{ color: 'var(--text-tertiary)', opacity: 0.5 }}>
-        No API keys
+        No AI provider configured
       </span>
     );
   }
@@ -61,7 +105,14 @@ export function ModelSelector({
         minHeight: compact ? '32px' : undefined,
       }}
     >
-      <Select value={currentModel} onValueChange={onChange} disabled={disabled || isLoading}>
+      <Select
+        value={selectedValue}
+        onValueChange={(value) => {
+          const selection = decodeModelValue(value);
+          onChange(selection.modelId, selection.provider);
+        }}
+        disabled={disabled || isLoading}
+      >
         <SelectTrigger
           size="sm"
           style={{
@@ -76,20 +127,46 @@ export function ModelSelector({
             <SelectGroup>
               <SelectLabel>Anthropic</SelectLabel>
               {anthropicModels.map((model) => (
-                <SelectItem key={model.id} value={model.id}>
+                <SelectItem
+                  key={`${model.provider}:${model.id}`}
+                  value={encodeModelValue(model.provider, model.id)}
+                >
                   {model.display_name}
                 </SelectItem>
               ))}
             </SelectGroup>
           )}
-          {anthropicModels.length > 0 && openaiModels.length > 0 && (
-            <div className="my-1 mx-2 h-px" style={{ backgroundColor: 'var(--border-primary)' }} />
-          )}
+          {anthropicModels.length > 0 &&
+            (openaiModels.length > 0 || openAiCompatibleModels.length > 0) && (
+              <div
+                className="my-1 mx-2 h-px"
+                style={{ backgroundColor: 'var(--border-primary)' }}
+              />
+            )}
           {openaiModels.length > 0 && (
             <SelectGroup>
               <SelectLabel>OpenAI</SelectLabel>
               {openaiModels.map((model) => (
-                <SelectItem key={model.id} value={model.id}>
+                <SelectItem
+                  key={`${model.provider}:${model.id}`}
+                  value={encodeModelValue(model.provider, model.id)}
+                >
+                  {model.display_name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          )}
+          {openaiModels.length > 0 && openAiCompatibleModels.length > 0 && (
+            <div className="my-1 mx-2 h-px" style={{ backgroundColor: 'var(--border-primary)' }} />
+          )}
+          {openAiCompatibleModels.length > 0 && (
+            <SelectGroup>
+              <SelectLabel>OpenAI-compatible</SelectLabel>
+              {openAiCompatibleModels.map((model) => (
+                <SelectItem
+                  key={`${model.provider}:${model.id}`}
+                  value={encodeModelValue(model.provider, model.id)}
+                >
                   {model.display_name}
                 </SelectItem>
               ))}

@@ -5,7 +5,7 @@ import { AiComposer } from './AiComposer';
 import { ModelSelector } from './ModelSelector';
 import { TbFileText, TbFolder, TbFolderOpen } from 'react-icons/tb';
 import { getPlatform } from '../platform';
-import { useHasApiKey } from '../stores/apiKeyStore';
+import { useHasApiKey, type AiProvider } from '../stores/apiKeyStore';
 import type { AiDraft, AttachmentStore } from '../types/aiChat';
 import {
   loadRecentFiles,
@@ -35,9 +35,14 @@ interface WelcomeScreenProps {
   onOpenFolder?: () => void;
   onOpenSettings?: () => void;
   showRecentFiles?: boolean;
+  currentProvider?: AiProvider;
   currentModel?: string;
-  availableProviders?: string[];
-  onModelChange?: (model: string, sourceSurface?: ModelSelectionSurface) => void;
+  availableProviders?: AiProvider[];
+  onModelChange?: (
+    model: string,
+    sourceSurface?: ModelSelectionSurface,
+    provider?: AiProvider
+  ) => void;
   /** Resolved default project directory path (null on web → hidden) */
   projectDirectory?: string | null;
   /** Called when user clicks "Change" to pick a different default project directory */
@@ -72,6 +77,7 @@ export function WelcomeScreen({
   onOpenFolder,
   onOpenSettings,
   showRecentFiles = true,
+  currentProvider,
   currentModel = 'claude-sonnet-4-5',
   availableProviders = [],
   onModelChange,
@@ -177,8 +183,9 @@ export function WelcomeScreen({
                 trailingControls={
                   <ModelSelector
                     currentModel={currentModel}
+                    currentProvider={currentProvider}
                     availableProviders={availableProviders}
-                    onChange={(model) => onModelChange?.(model, 'welcome')}
+                    onChange={(model, provider) => onModelChange?.(model, 'welcome', provider)}
                     compact
                   />
                 }
@@ -234,7 +241,7 @@ export function WelcomeScreen({
                       onStartWithDraft({ text: example, attachmentIds: [] });
                     }}
                     disabled={!hasApiKey}
-                    title={!hasApiKey ? 'Configure an API key in Settings to use AI' : example}
+                    title={!hasApiKey ? 'Configure an AI provider in Settings to use AI' : example}
                   >
                     {example}
                   </Button>
@@ -251,7 +258,7 @@ export function WelcomeScreen({
             }}
           >
             <Text variant="body" className="mb-2">
-              Set up an API key to use the AI assistant
+              Configure an AI provider to use the AI assistant
             </Text>
             <Text variant="caption" color="tertiary">
               <a

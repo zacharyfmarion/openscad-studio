@@ -1,4 +1,4 @@
-export type SupportedModelProvider = 'anthropic' | 'openai';
+export type SupportedModelProvider = 'anthropic' | 'openai' | 'openai-compatible';
 
 export interface KnownModelDefinition {
   id: string;
@@ -9,6 +9,7 @@ export interface KnownModelDefinition {
 export const DEFAULT_MODEL_IDS: Record<SupportedModelProvider, string> = {
   anthropic: 'claude-sonnet-4-5',
   openai: 'gpt-5.4',
+  'openai-compatible': 'gemma4:12b',
 };
 
 export const KNOWN_DISPLAY_NAMES: Record<string, string> = {
@@ -68,18 +69,26 @@ export const DEFAULT_MODEL_CATALOG: KnownModelDefinition[] = [
 ];
 
 const PROVIDER_ORDER: SupportedModelProvider[] = ['anthropic', 'openai'];
+const PROVIDER_ORDER_WITH_CUSTOM: SupportedModelProvider[] = [
+  'anthropic',
+  'openai',
+  'openai-compatible',
+];
 
 export function normalizeProviders(providers: readonly string[]): SupportedModelProvider[] {
-  return PROVIDER_ORDER.filter((provider) => providers.includes(provider));
+  return PROVIDER_ORDER_WITH_CUSTOM.filter((provider) => providers.includes(provider));
 }
 
 export function getPreferredDefaultModel(providers: readonly string[]): string {
-  const normalizedProviders = normalizeProviders(providers);
+  const normalizedProviders = PROVIDER_ORDER.filter((provider) => providers.includes(provider));
   if (normalizedProviders.includes('anthropic')) {
     return DEFAULT_MODEL_IDS.anthropic;
   }
   if (normalizedProviders.includes('openai')) {
     return DEFAULT_MODEL_IDS.openai;
+  }
+  if (providers.includes('openai-compatible')) {
+    return DEFAULT_MODEL_IDS['openai-compatible'];
   }
   return DEFAULT_MODEL_IDS.anthropic;
 }

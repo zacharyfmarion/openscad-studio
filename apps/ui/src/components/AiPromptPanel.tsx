@@ -9,6 +9,7 @@ import { useAnalytics, type ModelSelectionSurface } from '../analytics/runtime';
 import { useHistory } from '../hooks/useHistory';
 import { getPlatform } from '../platform';
 import { useHasApiKey } from '../stores/apiKeyStore';
+import type { AiProvider } from '../stores/apiKeyStore';
 import { notifyError, notifySuccess } from '../utils/notifications';
 import type {
   AiDraft,
@@ -348,9 +349,14 @@ export interface AiPromptPanelProps {
   messages?: Message[];
   onNewConversation?: () => void;
   currentToolCalls?: ToolCall[];
+  currentProvider?: AiProvider;
   currentModel?: string;
-  availableProviders?: string[];
-  onModelChange?: (model: string, sourceSurface?: ModelSelectionSurface) => void;
+  availableProviders?: AiProvider[];
+  onModelChange?: (
+    model: string,
+    sourceSurface?: ModelSelectionSurface,
+    provider?: AiProvider
+  ) => void;
   onRestoreCheckpoint?: (checkpointId: string, truncatedMessages: Message[]) => void;
   onOpenSettings?: () => void;
 }
@@ -379,6 +385,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
       messages = [],
       onNewConversation,
       currentToolCalls = [],
+      currentProvider,
       currentModel = 'claude-sonnet-4-5',
       availableProviders = [],
       onModelChange,
@@ -551,7 +558,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
           ) : (
             <div className="text-center max-w-xs">
               <div className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-                Add an API key to get started
+                Configure an AI provider to get started
               </div>
               <Button type="button" variant="primary" onClick={() => onOpenSettings?.()}>
                 Open Settings
@@ -826,8 +833,9 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
             trailingControls={
               <ModelSelector
                 currentModel={currentModel}
+                currentProvider={currentProvider}
                 availableProviders={availableProviders}
-                onChange={(model) => onModelChange?.(model, 'ai_panel')}
+                onChange={(model, provider) => onModelChange?.(model, 'ai_panel', provider)}
                 disabled={isStreaming}
                 compact
               />
