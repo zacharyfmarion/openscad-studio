@@ -13,6 +13,7 @@ import { replaceParamValue } from '../utils/customizer/replaceParamValue';
 import { isParserReady, onParserReady } from '../utils/formatter/parser';
 import type { CustomizerParam, ParameterProminence } from '../utils/customizer/types';
 import { ParameterControl } from './customizer/ParameterControl';
+import { ALL_FILTER, EDITED_FILTER, CustomizerFilterBar } from './customizer/CustomizerFilterBar';
 import { Button, IconButton, Text, Toggle } from './ui';
 import { TbAdjustmentsHorizontal, TbRefresh, TbSparkles, TbCode, TbDownload } from 'react-icons/tb';
 import { eventBus } from '../platform';
@@ -50,6 +51,19 @@ const COMPACT_HEADER_ACTIONS_BREAKPOINT = 420;
 
 function getParamKey(param: CustomizerParam): string {
   return `${param.line}:${param.name}`;
+}
+
+function paramMatchesQuery(param: CustomizerParam, tabName: string, query: string): boolean {
+  const haystacks = [
+    param.label,
+    param.name,
+    param.name.replace(/[_-]+/g, ' '),
+    param.description,
+    param.group,
+    param.tab ?? tabName,
+    param.unit,
+  ];
+  return haystacks.some((value) => value != null && value.toLowerCase().includes(query));
 }
 
 function groupParams(params: CustomizerParam[], showAdvanced: boolean): GroupedParams[] {
@@ -158,6 +172,8 @@ export function CustomizerPanel({
   isDownloadingSvg = false,
 }: CustomizerPanelProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<string>(ALL_FILTER);
   const [parserReady, setParserReady] = useState(isParserReady);
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [headerWidth, setHeaderWidth] = useState(0);
@@ -242,6 +258,82 @@ export function CustomizerPanel({
   );
   const showTabHeaders =
     groupedTabs.length > 1 || groupedTabs.some((tab) => tab.name !== 'Parameters');
+
+  // Keys of parameters whose value differs from the opened-file baseline. Derived from the
+  // currently visible (advanced-aware) tabs so chip counts match what the user can actually see.
+  const dirtyKeys = useMemo(() => {
+    const keys = new Set<string>();
+    if (!baselineParams.size) return keys;
+    for (const tab of groupedTabs) {
+      for (const group of tab.groups) {
+        for (const param of group.params) {
+          const baseline = baselineParams.get(getParamKey(param));
+          if (baseline !== undefined && param.rawValue !== baseline) {
+            keys.add(getParamKey(param));
+          }
+        }
+      }
+    }
+    return keys;
+  }, [groupedTabs, baselineParams]);
+
+  const categoryChips = useMemo(
+    () => (showTabHeaders ? groupedTabs.map((tab) => tab.name) : []),
+    [groupedTabs, showTabHeaders]
+  );
+  const editedCount = dirtyKeys.size;
+  const totalVisibleParamCount = useMemo(
+    () =>
+      groupedTabs.reduce(
+        (count, tab) => count + tab.groups.reduce((sum, group) => sum + group.params.length, 0),
+        0
+      ),
+    [groupedTabs]
+  );
+
+  const showEditedChip = editedCount > 0 || activeFilter === EDITED_FILTER;
+  const showFilterBar = totalVisibleParamCount > 4 || categoryChips.length > 1;
+
+  // Reset the active chip if its target disappears (e.g. the only edited param was reset, or a
+  // category became empty after toggling advanced controls).
+  const effectiveFilter = useMemo(() => {
+    if (activeFilter === EDITED_FILTER) {
+      return editedCount > 0 ? EDITED_FILTER : ALL_FILTER;
+    }
+    if (activeFilter !== ALL_FILTER && !categoryChips.includes(activeFilter)) {
+      return ALL_FILTER;
+    }
+    return activeFilter;
+  }, [activeFilter, categoryChips, editedCount]);
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const isFiltering = effectiveFilter !== ALL_FILTER || normalizedQuery.length > 0;
+
+  const filteredTabs = useMemo(() => {
+    if (!isFiltering) return groupedTabs;
+    const isCategoryFilter = effectiveFilter !== ALL_FILTER && effectiveFilter !== EDITED_FILTER;
+    return groupedTabs
+      .filter((tab) => !isCategoryFilter || tab.name === effectiveFilter)
+      .map((tab) => ({
+        ...tab,
+        groups: tab.groups
+          .map((group) => ({
+            ...group,
+            params: group.params.filter((param) => {
+              if (effectiveFilter === EDITED_FILTER && !dirtyKeys.has(getParamKey(param))) {
+                return false;
+              }
+              if (normalizedQuery && !paramMatchesQuery(param, tab.name, normalizedQuery)) {
+                return false;
+              }
+              return true;
+            }),
+          }))
+          .filter((group) => group.params.length > 0),
+      }))
+      .filter((tab) => tab.groups.length > 0);
+  }, [groupedTabs, isFiltering, effectiveFilter, normalizedQuery, dirtyKeys]);
+
   const analyticsSummary = useMemo(() => getCustomizerAnalyticsSummary(tabs), [tabs]);
   const useCompactHeaderActions =
     isCustomizerFirstMode && headerWidth > 0 && headerWidth <= COMPACT_HEADER_ACTIONS_BREAKPOINT;
@@ -743,83 +835,117 @@ export function CustomizerPanel({
             </div>
           </div>
         )}
+
+        {showFilterBar && (
+          <div className="border-t px-3 py-2" style={{ borderColor: 'var(--border-primary)' }}>
+            <CustomizerFilterBar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              activeFilter={effectiveFilter}
+              onFilterChange={setActiveFilter}
+              categories={categoryChips}
+              editedCount={editedCount}
+              showEdited={showEditedChip}
+            />
+          </div>
+        )}
       </div>
 
       <div className="p-3 space-y-3">
-        {groupedTabs.map((tab) => (
-          <section key={tab.name} className="space-y-3">
-            {showTabHeaders && (
-              <div className="flex items-center justify-between">
-                <div>
-                  <Text variant="overline">{tab.name}</Text>
+        {filteredTabs.length === 0 ? (
+          <div
+            className="flex flex-col items-center gap-3 px-4 py-10 text-center"
+            data-testid="customizer-no-matches"
+          >
+            <Text variant="caption">No parameters match your filters.</Text>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setSearchQuery('');
+                setActiveFilter(ALL_FILTER);
+              }}
+            >
+              Clear filters
+            </Button>
+          </div>
+        ) : (
+          filteredTabs.map((tab) => (
+            <section key={tab.name} className="space-y-3">
+              {showTabHeaders && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Text variant="overline">{tab.name}</Text>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {tab.groups.map((group) =>
-              (() => {
-                const shouldFlattenGroup =
-                  tab.groups.length === 1 && isRedundantGroupName(tab.name, group.name);
+              {tab.groups.map((group) =>
+                (() => {
+                  const shouldFlattenGroup =
+                    tab.groups.length === 1 && isRedundantGroupName(tab.name, group.name);
 
-                if (shouldFlattenGroup) {
+                  if (shouldFlattenGroup) {
+                    return (
+                      <div key={`${tab.name}-${group.id}`} className="space-y-2">
+                        {group.params.map((param) => {
+                          const baseline = baselineParams.get(getParamKey(param));
+                          const isDirty = baseline !== undefined && param.rawValue !== baseline;
+
+                          return (
+                            <ParameterControl
+                              key={`${param.name}-${param.line}`}
+                              param={param}
+                              onChange={(newValue) => handleParameterChange(param, newValue)}
+                              isDirty={isDirty}
+                              onReset={isDirty ? () => handleResetParameter(param) : undefined}
+                            />
+                          );
+                        })}
+                      </div>
+                    );
+                  }
+
                   return (
-                    <div key={`${tab.name}-${group.id}`} className="space-y-2">
-                      {group.params.map((param) => {
-                        const baseline = baselineParams.get(getParamKey(param));
-                        const isDirty = baseline !== undefined && param.rawValue !== baseline;
+                    <div
+                      key={`${tab.name}-${group.id}`}
+                      className="rounded-xl p-3"
+                      style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                      }}
+                    >
+                      {group.name && !isRedundantGroupName(tab.name, group.name) && (
+                        <div className="mb-2">
+                          <Text variant="overline" weight="medium" className="tracking-[0.08em]">
+                            {group.name}
+                          </Text>
+                        </div>
+                      )}
 
-                        return (
-                          <ParameterControl
-                            key={`${param.name}-${param.line}`}
-                            param={param}
-                            onChange={(newValue) => handleParameterChange(param, newValue)}
-                            isDirty={isDirty}
-                            onReset={isDirty ? () => handleResetParameter(param) : undefined}
-                          />
-                        );
-                      })}
+                      <div className="space-y-2">
+                        {group.params.map((param) => {
+                          const baseline = baselineParams.get(getParamKey(param));
+                          const isDirty = baseline !== undefined && param.rawValue !== baseline;
+
+                          return (
+                            <ParameterControl
+                              key={`${param.name}-${param.line}`}
+                              param={param}
+                              onChange={(newValue) => handleParameterChange(param, newValue)}
+                              isDirty={isDirty}
+                              onReset={isDirty ? () => handleResetParameter(param) : undefined}
+                            />
+                          );
+                        })}
+                      </div>
                     </div>
                   );
-                }
-
-                return (
-                  <div
-                    key={`${tab.name}-${group.id}`}
-                    className="rounded-xl p-3"
-                    style={{
-                      backgroundColor: 'var(--bg-secondary)',
-                    }}
-                  >
-                    {group.name && !isRedundantGroupName(tab.name, group.name) && (
-                      <div className="mb-2">
-                        <Text variant="overline" weight="medium" className="tracking-[0.08em]">
-                          {group.name}
-                        </Text>
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      {group.params.map((param) => {
-                        const baseline = baselineParams.get(getParamKey(param));
-                        const isDirty = baseline !== undefined && param.rawValue !== baseline;
-
-                        return (
-                          <ParameterControl
-                            key={`${param.name}-${param.line}`}
-                            param={param}
-                            onChange={(newValue) => handleParameterChange(param, newValue)}
-                            isDirty={isDirty}
-                            onReset={isDirty ? () => handleResetParameter(param) : undefined}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()
-            )}
-          </section>
-        ))}
+                })()
+              )}
+            </section>
+          ))
+        )}
       </div>
     </div>
   );
