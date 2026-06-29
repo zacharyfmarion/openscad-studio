@@ -66,6 +66,8 @@ export default tseslint.config(
       'src/components/ui/Button.tsx',
       'src/components/ui/IconButton.tsx',
       'src/components/ui/SegmentedControl.tsx',
+      'src/components/ui/FilterChip.tsx',
+      'src/components/ui/SearchInput.tsx',
     ],
     rules: {
       'no-restricted-syntax': [

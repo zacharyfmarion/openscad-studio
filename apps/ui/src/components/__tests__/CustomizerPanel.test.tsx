@@ -459,6 +459,163 @@ describe('CustomizerPanel', () => {
     });
   });
 
+  function multiCategoryTabs(editWidth = false): CustomizerTab[] {
+    return [
+      {
+        name: 'View',
+        params: [
+          {
+            name: 'show_tray',
+            type: 'boolean',
+            value: true,
+            rawValue: 'true',
+            line: 1,
+            tab: 'View',
+            label: 'Show tray',
+          },
+          {
+            name: 'show_top_frame',
+            type: 'boolean',
+            value: true,
+            rawValue: 'true',
+            line: 2,
+            tab: 'View',
+            label: 'Show top frame',
+          },
+          {
+            name: 'render_quality',
+            type: 'number',
+            value: 1,
+            rawValue: '1',
+            line: 3,
+            tab: 'View',
+            label: 'Render quality',
+          },
+        ],
+      },
+      {
+        name: 'Dimensions',
+        params: [
+          {
+            name: 'width',
+            type: 'slider',
+            value: editWidth ? 120 : 60,
+            rawValue: editWidth ? '120' : '60',
+            min: 40,
+            max: 240,
+            step: 1,
+            line: 4,
+            tab: 'Dimensions',
+            label: 'Width',
+            unit: 'mm',
+          },
+          {
+            name: 'depth',
+            type: 'slider',
+            value: 80,
+            rawValue: '80',
+            min: 40,
+            max: 240,
+            step: 1,
+            line: 5,
+            tab: 'Dimensions',
+            label: 'Depth',
+            unit: 'mm',
+          },
+          {
+            name: 'height',
+            type: 'slider',
+            value: 35,
+            rawValue: '35',
+            min: 10,
+            max: 120,
+            step: 1,
+            line: 6,
+            tab: 'Dimensions',
+            label: 'Height',
+            unit: 'mm',
+          },
+        ],
+      },
+    ];
+  }
+
+  it('renders the search field and category chips for multi-category models', () => {
+    mockParseCustomizerParams.mockReturnValue(multiCategoryTabs());
+
+    renderWithProviders(<CustomizerPanel code="//" baselineCode="//" isCustomizerFirstMode />);
+
+    expect(screen.getByPlaceholderText('Search parameters...')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'All' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'View' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Dimensions' })).toBeTruthy();
+  });
+
+  it('filters parameters by free-text search', () => {
+    mockParseCustomizerParams.mockReturnValue(multiCategoryTabs());
+
+    renderWithProviders(<CustomizerPanel code="//" baselineCode="//" isCustomizerFirstMode />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search parameters...'), {
+      target: { value: 'depth' },
+    });
+
+    expect(screen.getByText('Depth')).toBeTruthy();
+    expect(screen.queryByText('Width')).toBeNull();
+    expect(screen.queryByText('Show tray')).toBeNull();
+  });
+
+  it('filters parameters by category chip', () => {
+    mockParseCustomizerParams.mockReturnValue(multiCategoryTabs());
+
+    renderWithProviders(<CustomizerPanel code="//" baselineCode="//" isCustomizerFirstMode />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+
+    expect(screen.getByText('Show tray')).toBeTruthy();
+    expect(screen.queryByText('Width')).toBeNull();
+    expect(screen.queryByText('Depth')).toBeNull();
+  });
+
+  it('filters to edited parameters via the Edited chip', () => {
+    mockParseCustomizerParams.mockImplementation((code: string) =>
+      multiCategoryTabs(code.includes('120'))
+    );
+
+    const { rerender } = renderWithProviders(
+      <CustomizerPanel code="width = 60;" baselineCode="width = 60;" isCustomizerFirstMode />
+    );
+
+    expect(screen.queryByRole('button', { name: /edited/i })).toBeNull();
+
+    rerender(
+      <CustomizerPanel code="width = 120;" baselineCode="width = 60;" isCustomizerFirstMode />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /edited/i }));
+
+    expect(screen.getByText('Width')).toBeTruthy();
+    expect(screen.queryByText('Depth')).toBeNull();
+    expect(screen.queryByText('Show tray')).toBeNull();
+  });
+
+  it('shows a no-matches state and clears filters', () => {
+    mockParseCustomizerParams.mockReturnValue(multiCategoryTabs());
+
+    renderWithProviders(<CustomizerPanel code="//" baselineCode="//" isCustomizerFirstMode />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search parameters...'), {
+      target: { value: 'no-such-parameter' },
+    });
+
+    expect(screen.getByTestId('customizer-no-matches')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+    expect(screen.getByText('Width')).toBeTruthy();
+    expect(screen.getByText('Show tray')).toBeTruthy();
+  });
+
   it('treats slider changes as resettable against the opened-file baseline', () => {
     jest.useFakeTimers();
 
