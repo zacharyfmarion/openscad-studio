@@ -4,6 +4,8 @@ import { TbSearch, TbX } from 'react-icons/tb';
 export interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Called when the inline clear button is pressed. When omitted, no clear button is shown. */
   onClear?: () => void;
+  /** Classes for the wrapping element (e.g. `flex-1` so the field grows to fill its row). */
+  containerClassName?: string;
 }
 
 /**
@@ -12,12 +14,12 @@ export interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> 
  * Styling mirrors the shared `Input` component so it sits naturally inside any theme.
  */
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
-  ({ className = '', value, onClear, disabled, ...props }, ref) => {
+  ({ className = '', containerClassName = '', value, onClear, disabled, ...props }, ref) => {
     const hasValue = value != null && (typeof value === 'string' ? value.length > 0 : true);
     const showClear = Boolean(onClear) && hasValue && !disabled;
 
     return (
-      <div className="relative">
+      <div className={`relative ${containerClassName}`}>
         <span
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
           style={{ color: 'var(--text-tertiary)' }}
