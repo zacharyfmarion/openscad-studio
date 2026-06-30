@@ -56,7 +56,7 @@ export function CustomizerFilterBar({
           spellCheck={false}
           autoComplete="off"
           tabIndex={inputTabbable ? undefined : -1}
-          className="flex-1"
+          containerClassName="flex-1 min-w-0"
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.preventDefault();
