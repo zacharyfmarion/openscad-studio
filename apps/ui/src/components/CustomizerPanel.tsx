@@ -15,7 +15,14 @@ import type { CustomizerParam, ParameterProminence } from '../utils/customizer/t
 import { ParameterControl } from './customizer/ParameterControl';
 import { ALL_FILTER, EDITED_FILTER, CustomizerFilterBar } from './customizer/CustomizerFilterBar';
 import { Button, IconButton, Text, Toggle } from './ui';
-import { TbAdjustmentsHorizontal, TbRefresh, TbSparkles, TbCode, TbDownload } from 'react-icons/tb';
+import {
+  TbAdjustmentsHorizontal,
+  TbRefresh,
+  TbSparkles,
+  TbCode,
+  TbDownload,
+  TbSearch,
+} from 'react-icons/tb';
 import { eventBus } from '../platform';
 import { useSettings } from '../stores/settingsStore';
 
@@ -174,8 +181,11 @@ export function CustomizerPanel({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>(ALL_FILTER);
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const [parserReady, setParserReady] = useState(isParserReady);
   const headerRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const filterRegionRef = useRef<HTMLDivElement | null>(null);
   const [headerWidth, setHeaderWidth] = useState(0);
   const analytics = useAnalytics();
   const [settings] = useSettings();
@@ -333,6 +343,49 @@ export function CustomizerPanel({
       }))
       .filter((tab) => tab.groups.length > 0);
   }, [groupedTabs, isFiltering, effectiveFilter, normalizedQuery, dirtyKeys]);
+
+  const closeSearch = useCallback(() => {
+    setSearchExpanded(false);
+    setSearchQuery('');
+    setActiveFilter(ALL_FILTER);
+  }, []);
+
+  const toggleSearch = useCallback(() => {
+    setSearchExpanded((expanded) => {
+      if (expanded) {
+        setSearchQuery('');
+        setActiveFilter(ALL_FILTER);
+        return false;
+      }
+      return true;
+    });
+  }, []);
+
+  // Collapse the search region if filtering is no longer available.
+  useEffect(() => {
+    if (!showFilterBar && searchExpanded) {
+      setSearchExpanded(false);
+    }
+  }, [showFilterBar, searchExpanded]);
+
+  // Toggle `inert` so the collapsed region is fully removed from tab/focus order while still
+  // animating open and closed.
+  useEffect(() => {
+    const element = filterRegionRef.current;
+    if (!element) return;
+    if (searchExpanded) {
+      element.removeAttribute('inert');
+    } else {
+      element.setAttribute('inert', '');
+    }
+  }, [searchExpanded]);
+
+  // Focus the search field once the region has expanded.
+  useEffect(() => {
+    if (!searchExpanded) return;
+    const id = requestAnimationFrame(() => searchInputRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [searchExpanded]);
 
   const analyticsSummary = useMemo(() => getCustomizerAnalyticsSummary(tabs), [tabs]);
   const useCompactHeaderActions =
@@ -592,6 +645,21 @@ export function CustomizerPanel({
                 </div>
               )}
               <div className="flex items-center gap-1.5 ml-auto">
+                {showFilterBar && (
+                  <IconButton
+                    variant="toolbar"
+                    size={useCompactHeaderActions ? 'md' : 'sm'}
+                    onClick={toggleSearch}
+                    isActive={searchExpanded}
+                    title="Search parameters"
+                    aria-label="Search parameters"
+                    aria-expanded={searchExpanded}
+                    tooltipSide="bottom"
+                    data-testid="customizer-search-toggle"
+                  >
+                    <TbSearch size={useCompactHeaderActions ? 14 : 13} />
+                  </IconButton>
+                )}
                 {useCompactHeaderActions ? (
                   <IconButton
                     variant="toolbar"
@@ -822,6 +890,21 @@ export function CustomizerPanel({
                   <span>Advanced</span>
                 </div>
               )}
+              {showFilterBar && (
+                <IconButton
+                  variant="toolbar"
+                  size="sm"
+                  onClick={toggleSearch}
+                  isActive={searchExpanded}
+                  title="Search parameters"
+                  aria-label="Search parameters"
+                  aria-expanded={searchExpanded}
+                  tooltipSide="bottom"
+                  data-testid="customizer-search-toggle"
+                >
+                  <TbSearch size={14} />
+                </IconButton>
+              )}
               <Button
                 type="button"
                 variant="secondary"
@@ -837,16 +920,29 @@ export function CustomizerPanel({
         )}
 
         {showFilterBar && (
-          <div className="border-t px-3 py-2" style={{ borderColor: 'var(--border-primary)' }}>
-            <CustomizerFilterBar
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              activeFilter={effectiveFilter}
-              onFilterChange={setActiveFilter}
-              categories={categoryChips}
-              editedCount={editedCount}
-              showEdited={showEditedChip}
-            />
+          <div
+            className="grid transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+            style={{
+              gridTemplateRows: searchExpanded ? '1fr' : '0fr',
+              opacity: searchExpanded ? 1 : 0,
+            }}
+          >
+            <div ref={filterRegionRef} className="overflow-hidden">
+              <div className="border-t px-3 py-2" style={{ borderColor: 'var(--border-primary)' }}>
+                <CustomizerFilterBar
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  activeFilter={effectiveFilter}
+                  onFilterChange={setActiveFilter}
+                  categories={categoryChips}
+                  editedCount={editedCount}
+                  showEdited={showEditedChip}
+                  onCollapse={closeSearch}
+                  inputRef={searchInputRef}
+                  inputTabbable={searchExpanded}
+                />
+              </div>
+            </div>
           </div>
         )}
       </div>

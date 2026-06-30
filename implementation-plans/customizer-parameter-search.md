@@ -41,4 +41,20 @@ and one chip per parameter category. Search + chip filters compose.
 - [x] Add "no matches" empty state
 - [x] Add/adjust unit tests
 - [x] Run baseline validation (`format:check`, `lint`, `type-check`, `test:unit` — all pass)
-- [ ] Open draft PR against `main`
+- [x] Open draft PR against `main` ([#150](https://github.com/zacharyfmarion/openscad-studio/pull/150))
+
+## Follow-up refinement (collapsible search)
+
+Per updated mock, the search/filter region is collapsed by default behind a header search
+icon and expands on demand:
+
+- The customizer header shows a search **toggle icon** (active state while open) in both the
+  customizer-first and standard header layouts; it only renders when the filter bar is useful.
+- Clicking the toggle expands the search field + chip row; an external **X button** beside the
+  search field (and the `Escape` key) collapses it and resets the query/active filter.
+- Expand/collapse animates via a CSS `grid-template-rows` `0fr`→`1fr` transition plus opacity
+  (200ms, `cubic-bezier(0.32, 0.72, 0, 1)`), honoring `prefers-reduced-motion`.
+- The collapsed region is `inert` so it stays out of tab/focus order; the field is focused on
+  expand.
+- Chips were made shorter (`h-6`) and the chip scroll row gained vertical padding so the active
+  chip's accent border is no longer clipped by the horizontal scroll container.
