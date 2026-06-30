@@ -22,6 +22,8 @@ import {
   TbCode,
   TbDownload,
   TbSearch,
+  TbChevronDown,
+  TbChevronRight,
 } from 'react-icons/tb';
 import { eventBus } from '../platform';
 import { useSettings } from '../stores/settingsStore';
@@ -182,6 +184,7 @@ export function CustomizerPanel({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>(ALL_FILTER);
   const [searchExpanded, setSearchExpanded] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set());
   const [parserReady, setParserReady] = useState(isParserReady);
   const headerRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -358,6 +361,18 @@ export function CustomizerPanel({
         return false;
       }
       return true;
+    });
+  }, []);
+
+  const toggleSection = useCallback((name: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
     });
   }, []);
 
@@ -967,80 +982,113 @@ export function CustomizerPanel({
             </Button>
           </div>
         ) : (
-          filteredTabs.map((tab) => (
-            <section key={tab.name} className="space-y-3">
-              {showTabHeaders && (
-                <div className="flex items-center justify-between">
-                  <div>
+          filteredTabs.map((tab) => {
+            const sectionParamCount = tab.groups.reduce(
+              (sum, group) => sum + group.params.length,
+              0
+            );
+            // While the user is filtering, keep every section open so matches are
+            // never hidden behind a collapsed header.
+            const isCollapsed = showTabHeaders && !isFiltering && collapsedSections.has(tab.name);
+            const ToggleIcon = isCollapsed ? TbChevronRight : TbChevronDown;
+
+            return (
+              <section key={tab.name} className="space-y-3">
+                {showTabHeaders && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleSection(tab.name)}
+                    aria-expanded={!isCollapsed}
+                    className="w-full h-auto justify-start gap-1.5 px-1 py-0.5 -mx-1 rounded-md"
+                    data-testid={`customizer-section-toggle-${tab.name}`}
+                  >
+                    <ToggleIcon
+                      size={13}
+                      className="flex-shrink-0"
+                      style={{ color: 'var(--text-tertiary)' }}
+                    />
                     <Text variant="overline">{tab.name}</Text>
-                  </div>
-                </div>
-              )}
-
-              {tab.groups.map((group) =>
-                (() => {
-                  const shouldFlattenGroup =
-                    tab.groups.length === 1 && isRedundantGroupName(tab.name, group.name);
-
-                  if (shouldFlattenGroup) {
-                    return (
-                      <div key={`${tab.name}-${group.id}`} className="space-y-2">
-                        {group.params.map((param) => {
-                          const baseline = baselineParams.get(getParamKey(param));
-                          const isDirty = baseline !== undefined && param.rawValue !== baseline;
-
-                          return (
-                            <ParameterControl
-                              key={`${param.name}-${param.line}`}
-                              param={param}
-                              onChange={(newValue) => handleParameterChange(param, newValue)}
-                              isDirty={isDirty}
-                              onReset={isDirty ? () => handleResetParameter(param) : undefined}
-                            />
-                          );
-                        })}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div
-                      key={`${tab.name}-${group.id}`}
-                      className="rounded-xl p-3"
-                      style={{
-                        backgroundColor: 'var(--bg-secondary)',
-                      }}
+                    <span
+                      className="ml-auto text-[11px] tabular-nums"
+                      style={{ color: 'var(--text-muted)' }}
                     >
-                      {group.name && !isRedundantGroupName(tab.name, group.name) && (
-                        <div className="mb-2">
-                          <Text variant="overline" weight="medium" className="tracking-[0.08em]">
-                            {group.name}
-                          </Text>
+                      {sectionParamCount}
+                    </span>
+                  </Button>
+                )}
+
+                {!isCollapsed &&
+                  tab.groups.map((group) =>
+                    (() => {
+                      const shouldFlattenGroup =
+                        tab.groups.length === 1 && isRedundantGroupName(tab.name, group.name);
+
+                      if (shouldFlattenGroup) {
+                        return (
+                          <div key={`${tab.name}-${group.id}`} className="space-y-2">
+                            {group.params.map((param) => {
+                              const baseline = baselineParams.get(getParamKey(param));
+                              const isDirty = baseline !== undefined && param.rawValue !== baseline;
+
+                              return (
+                                <ParameterControl
+                                  key={`${param.name}-${param.line}`}
+                                  param={param}
+                                  onChange={(newValue) => handleParameterChange(param, newValue)}
+                                  isDirty={isDirty}
+                                  onReset={isDirty ? () => handleResetParameter(param) : undefined}
+                                />
+                              );
+                            })}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={`${tab.name}-${group.id}`}
+                          className="rounded-xl p-3"
+                          style={{
+                            backgroundColor: 'var(--bg-secondary)',
+                          }}
+                        >
+                          {group.name && !isRedundantGroupName(tab.name, group.name) && (
+                            <div className="mb-2">
+                              <Text
+                                variant="overline"
+                                weight="medium"
+                                className="tracking-[0.08em]"
+                              >
+                                {group.name}
+                              </Text>
+                            </div>
+                          )}
+
+                          <div className="space-y-2">
+                            {group.params.map((param) => {
+                              const baseline = baselineParams.get(getParamKey(param));
+                              const isDirty = baseline !== undefined && param.rawValue !== baseline;
+
+                              return (
+                                <ParameterControl
+                                  key={`${param.name}-${param.line}`}
+                                  param={param}
+                                  onChange={(newValue) => handleParameterChange(param, newValue)}
+                                  isDirty={isDirty}
+                                  onReset={isDirty ? () => handleResetParameter(param) : undefined}
+                                />
+                              );
+                            })}
+                          </div>
                         </div>
-                      )}
-
-                      <div className="space-y-2">
-                        {group.params.map((param) => {
-                          const baseline = baselineParams.get(getParamKey(param));
-                          const isDirty = baseline !== undefined && param.rawValue !== baseline;
-
-                          return (
-                            <ParameterControl
-                              key={`${param.name}-${param.line}`}
-                              param={param}
-                              onChange={(newValue) => handleParameterChange(param, newValue)}
-                              isDirty={isDirty}
-                              onReset={isDirty ? () => handleResetParameter(param) : undefined}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()
-              )}
-            </section>
-          ))
+                      );
+                    })()
+                  )}
+              </section>
+            );
+          })
         )}
       </div>
     </div>
