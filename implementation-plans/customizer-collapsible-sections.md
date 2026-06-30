@@ -37,4 +37,4 @@ editing.
 - [x] Hide section bodies when collapsed; force expand while filtering
 - [x] Add/extend component tests
 - [x] Run baseline validation
-- [ ] Open draft PR against main
+- [x] Open draft PR against main (#152)
