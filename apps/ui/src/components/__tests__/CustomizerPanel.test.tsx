@@ -670,19 +670,27 @@ describe('CustomizerPanel', () => {
     expect(screen.getByText('Show tray')).toBeTruthy();
   });
 
-  it('forces collapsed sections open while filtering so matches stay visible', () => {
+  it('keeps section collapse state honored while filtering', () => {
     mockParseCustomizerParams.mockReturnValue(multiCategoryTabs());
 
     renderWithProviders(<CustomizerPanel code="//" baselineCode="//" isCustomizerFirstMode />);
 
-    fireEvent.click(screen.getByTestId('customizer-section-toggle-View'));
+    const toggle = screen.getByTestId('customizer-section-toggle-View');
+    fireEvent.click(toggle);
     expect(screen.queryByText('Show tray')).toBeNull();
 
+    // Filtering should not force the collapsed section open.
     fireEvent.click(screen.getByTestId('customizer-search-toggle'));
     fireEvent.change(screen.getByPlaceholderText('Search parameters...'), {
       target: { value: 'show' },
     });
 
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Show tray')).toBeNull();
+
+    // The user can still expand it while the filter is active.
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByText('Show tray')).toBeTruthy();
   });
 

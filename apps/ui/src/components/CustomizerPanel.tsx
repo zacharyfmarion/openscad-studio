@@ -987,13 +987,11 @@ export function CustomizerPanel({
               (sum, group) => sum + group.params.length,
               0
             );
-            // While the user is filtering, keep every section open so matches are
-            // never hidden behind a collapsed header.
-            const isCollapsed = showTabHeaders && !isFiltering && collapsedSections.has(tab.name);
+            const isCollapsed = showTabHeaders && collapsedSections.has(tab.name);
             const ToggleIcon = isCollapsed ? TbChevronRight : TbChevronDown;
 
             return (
-              <section key={tab.name} className="space-y-3">
+              <section key={tab.name}>
                 {showTabHeaders && (
                   <Button
                     type="button"
@@ -1001,7 +999,9 @@ export function CustomizerPanel({
                     size="sm"
                     onClick={() => toggleSection(tab.name)}
                     aria-expanded={!isCollapsed}
-                    className="w-full h-auto justify-start gap-1.5 px-1 py-0.5 -mx-1 rounded-md"
+                    className={`w-full h-auto justify-start gap-1.5 px-1 py-0.5 -mx-1 rounded-md ${
+                      isCollapsed ? '' : 'mb-1.5'
+                    }`}
                     data-testid={`customizer-section-toggle-${tab.name}`}
                   >
                     <ToggleIcon
@@ -1019,73 +1019,82 @@ export function CustomizerPanel({
                   </Button>
                 )}
 
-                {!isCollapsed &&
-                  tab.groups.map((group) =>
-                    (() => {
-                      const shouldFlattenGroup =
-                        tab.groups.length === 1 && isRedundantGroupName(tab.name, group.name);
+                {!isCollapsed && (
+                  <div className="space-y-3">
+                    {tab.groups.map((group) =>
+                      (() => {
+                        const shouldFlattenGroup =
+                          tab.groups.length === 1 && isRedundantGroupName(tab.name, group.name);
 
-                      if (shouldFlattenGroup) {
+                        if (shouldFlattenGroup) {
+                          return (
+                            <div key={`${tab.name}-${group.id}`} className="space-y-2">
+                              {group.params.map((param) => {
+                                const baseline = baselineParams.get(getParamKey(param));
+                                const isDirty =
+                                  baseline !== undefined && param.rawValue !== baseline;
+
+                                return (
+                                  <ParameterControl
+                                    key={`${param.name}-${param.line}`}
+                                    param={param}
+                                    onChange={(newValue) => handleParameterChange(param, newValue)}
+                                    isDirty={isDirty}
+                                    onReset={
+                                      isDirty ? () => handleResetParameter(param) : undefined
+                                    }
+                                  />
+                                );
+                              })}
+                            </div>
+                          );
+                        }
+
                         return (
-                          <div key={`${tab.name}-${group.id}`} className="space-y-2">
-                            {group.params.map((param) => {
-                              const baseline = baselineParams.get(getParamKey(param));
-                              const isDirty = baseline !== undefined && param.rawValue !== baseline;
+                          <div
+                            key={`${tab.name}-${group.id}`}
+                            className="rounded-xl p-3"
+                            style={{
+                              backgroundColor: 'var(--bg-secondary)',
+                            }}
+                          >
+                            {group.name && !isRedundantGroupName(tab.name, group.name) && (
+                              <div className="mb-2">
+                                <Text
+                                  variant="overline"
+                                  weight="medium"
+                                  className="tracking-[0.08em]"
+                                >
+                                  {group.name}
+                                </Text>
+                              </div>
+                            )}
 
-                              return (
-                                <ParameterControl
-                                  key={`${param.name}-${param.line}`}
-                                  param={param}
-                                  onChange={(newValue) => handleParameterChange(param, newValue)}
-                                  isDirty={isDirty}
-                                  onReset={isDirty ? () => handleResetParameter(param) : undefined}
-                                />
-                              );
-                            })}
+                            <div className="space-y-2">
+                              {group.params.map((param) => {
+                                const baseline = baselineParams.get(getParamKey(param));
+                                const isDirty =
+                                  baseline !== undefined && param.rawValue !== baseline;
+
+                                return (
+                                  <ParameterControl
+                                    key={`${param.name}-${param.line}`}
+                                    param={param}
+                                    onChange={(newValue) => handleParameterChange(param, newValue)}
+                                    isDirty={isDirty}
+                                    onReset={
+                                      isDirty ? () => handleResetParameter(param) : undefined
+                                    }
+                                  />
+                                );
+                              })}
+                            </div>
                           </div>
                         );
-                      }
-
-                      return (
-                        <div
-                          key={`${tab.name}-${group.id}`}
-                          className="rounded-xl p-3"
-                          style={{
-                            backgroundColor: 'var(--bg-secondary)',
-                          }}
-                        >
-                          {group.name && !isRedundantGroupName(tab.name, group.name) && (
-                            <div className="mb-2">
-                              <Text
-                                variant="overline"
-                                weight="medium"
-                                className="tracking-[0.08em]"
-                              >
-                                {group.name}
-                              </Text>
-                            </div>
-                          )}
-
-                          <div className="space-y-2">
-                            {group.params.map((param) => {
-                              const baseline = baselineParams.get(getParamKey(param));
-                              const isDirty = baseline !== undefined && param.rawValue !== baseline;
-
-                              return (
-                                <ParameterControl
-                                  key={`${param.name}-${param.line}`}
-                                  param={param}
-                                  onChange={(newValue) => handleParameterChange(param, newValue)}
-                                  isDirty={isDirty}
-                                  onReset={isDirty ? () => handleResetParameter(param) : undefined}
-                                />
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })()
-                  )}
+                      })()
+                    )}
+                  </div>
+                )}
               </section>
             );
           })
