@@ -647,6 +647,45 @@ describe('CustomizerPanel', () => {
     expect(screen.getByText('Width')).toBeTruthy();
   });
 
+  it('collapses and expands a section from its header toggle', () => {
+    mockParseCustomizerParams.mockReturnValue(multiCategoryTabs());
+
+    renderWithProviders(<CustomizerPanel code="//" baselineCode="//" isCustomizerFirstMode />);
+
+    expect(screen.getByText('Show tray')).toBeTruthy();
+
+    const toggle = screen.getByTestId('customizer-section-toggle-View');
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.click(toggle);
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Show tray')).toBeNull();
+    // Other sections stay expanded.
+    expect(screen.getByText('Width')).toBeTruthy();
+
+    fireEvent.click(toggle);
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Show tray')).toBeTruthy();
+  });
+
+  it('forces collapsed sections open while filtering so matches stay visible', () => {
+    mockParseCustomizerParams.mockReturnValue(multiCategoryTabs());
+
+    renderWithProviders(<CustomizerPanel code="//" baselineCode="//" isCustomizerFirstMode />);
+
+    fireEvent.click(screen.getByTestId('customizer-section-toggle-View'));
+    expect(screen.queryByText('Show tray')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('customizer-search-toggle'));
+    fireEvent.change(screen.getByPlaceholderText('Search parameters...'), {
+      target: { value: 'show' },
+    });
+
+    expect(screen.getByText('Show tray')).toBeTruthy();
+  });
+
   it('treats slider changes as resettable against the opened-file baseline', () => {
     jest.useFakeTimers();
 
