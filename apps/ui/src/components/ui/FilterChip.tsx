@@ -32,7 +32,7 @@ export const FilterChip = forwardRef<HTMLButtonElement, FilterChipProps>(
         ref={ref}
         type="button"
         aria-pressed={selected}
-        className={`inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-medium transition-colors focus:outline-none focus:ring-2 ${className}`}
+        className={`inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-medium transition-colors focus:outline-none focus:ring-2 ${className}`}
         style={baseStyle}
         onMouseEnter={(event) => {
           if (!selected) {

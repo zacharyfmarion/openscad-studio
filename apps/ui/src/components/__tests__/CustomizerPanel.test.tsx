@@ -540,11 +540,17 @@ describe('CustomizerPanel', () => {
     ];
   }
 
-  it('renders the search field and category chips for multi-category models', () => {
+  it('expands the search field and category chips from the header toggle', () => {
     mockParseCustomizerParams.mockReturnValue(multiCategoryTabs());
 
     renderWithProviders(<CustomizerPanel code="//" baselineCode="//" isCustomizerFirstMode />);
 
+    const toggle = screen.getByTestId('customizer-search-toggle');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(toggle);
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByPlaceholderText('Search parameters...')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'All' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'View' })).toBeTruthy();
@@ -556,6 +562,7 @@ describe('CustomizerPanel', () => {
 
     renderWithProviders(<CustomizerPanel code="//" baselineCode="//" isCustomizerFirstMode />);
 
+    fireEvent.click(screen.getByTestId('customizer-search-toggle'));
     fireEvent.change(screen.getByPlaceholderText('Search parameters...'), {
       target: { value: 'depth' },
     });
@@ -570,6 +577,7 @@ describe('CustomizerPanel', () => {
 
     renderWithProviders(<CustomizerPanel code="//" baselineCode="//" isCustomizerFirstMode />);
 
+    fireEvent.click(screen.getByTestId('customizer-search-toggle'));
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
 
     expect(screen.getByText('Show tray')).toBeTruthy();
@@ -586,6 +594,7 @@ describe('CustomizerPanel', () => {
       <CustomizerPanel code="width = 60;" baselineCode="width = 60;" isCustomizerFirstMode />
     );
 
+    fireEvent.click(screen.getByTestId('customizer-search-toggle'));
     expect(screen.queryByRole('button', { name: /edited/i })).toBeNull();
 
     rerender(
@@ -604,6 +613,7 @@ describe('CustomizerPanel', () => {
 
     renderWithProviders(<CustomizerPanel code="//" baselineCode="//" isCustomizerFirstMode />);
 
+    fireEvent.click(screen.getByTestId('customizer-search-toggle'));
     fireEvent.change(screen.getByPlaceholderText('Search parameters...'), {
       target: { value: 'no-such-parameter' },
     });
@@ -614,6 +624,27 @@ describe('CustomizerPanel', () => {
 
     expect(screen.getByText('Width')).toBeTruthy();
     expect(screen.getByText('Show tray')).toBeTruthy();
+  });
+
+  it('collapses the search region and resets filters via the close button', () => {
+    mockParseCustomizerParams.mockReturnValue(multiCategoryTabs());
+
+    renderWithProviders(<CustomizerPanel code="//" baselineCode="//" isCustomizerFirstMode />);
+
+    const toggle = screen.getByTestId('customizer-search-toggle');
+    fireEvent.click(toggle);
+
+    const search = screen.getByPlaceholderText('Search parameters...') as HTMLInputElement;
+    fireEvent.change(search, { target: { value: 'depth' } });
+    expect(screen.queryByText('Width')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close search' }));
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect((screen.getByPlaceholderText('Search parameters...') as HTMLInputElement).value).toBe(
+      ''
+    );
+    expect(screen.getByText('Width')).toBeTruthy();
   });
 
   it('treats slider changes as resettable against the opened-file baseline', () => {

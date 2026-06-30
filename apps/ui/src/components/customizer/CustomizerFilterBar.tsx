@@ -1,12 +1,14 @@
 /**
  * Search + filter chip row for the customizer panel.
  *
- * Renders a free-text search field above a horizontally scrollable row of filter chips:
- * "All", an optional "Edited" chip (with a count of overridden parameters), and one chip per
- * parameter category. The chip row sits permanently under the search field.
+ * Renders a free-text search field (with a trailing collapse button) above a horizontally
+ * scrollable row of filter chips: "All", an optional "Edited" chip (with a count of overridden
+ * parameters), and one chip per parameter category.
  */
 
-import { FilterChip, SearchInput } from '../ui';
+import type { Ref } from 'react';
+import { TbX } from 'react-icons/tb';
+import { FilterChip, IconButton, SearchInput } from '../ui';
 
 export const ALL_FILTER = 'all';
 export const EDITED_FILTER = 'edited';
@@ -21,6 +23,11 @@ interface CustomizerFilterBarProps {
   editedCount: number;
   /** Whether to render the "Edited" chip (hidden when there is nothing edited). */
   showEdited: boolean;
+  /** Collapse the search/filter region back to the header search icon. */
+  onCollapse: () => void;
+  inputRef?: Ref<HTMLInputElement>;
+  /** Marks the search field untabbable while the region is collapsed. */
+  inputTabbable?: boolean;
 }
 
 export function CustomizerFilterBar({
@@ -31,24 +38,49 @@ export function CustomizerFilterBar({
   categories,
   editedCount,
   showEdited,
+  onCollapse,
+  inputRef,
+  inputTabbable = true,
 }: CustomizerFilterBarProps) {
   const showChipRow = showEdited || categories.length > 0;
 
   return (
     <div className="space-y-2">
-      <SearchInput
-        value={searchQuery}
-        onChange={(event) => onSearchChange(event.target.value)}
-        onClear={() => onSearchChange('')}
-        placeholder="Search parameters..."
-        aria-label="Search parameters"
-        spellCheck={false}
-        autoComplete="off"
-      />
+      <div className="flex items-center gap-2">
+        <SearchInput
+          ref={inputRef}
+          value={searchQuery}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Search parameters..."
+          aria-label="Search parameters"
+          spellCheck={false}
+          autoComplete="off"
+          tabIndex={inputTabbable ? undefined : -1}
+          className="flex-1"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              onCollapse();
+            }
+          }}
+        />
+        <IconButton
+          variant="toolbar"
+          size="md"
+          onClick={onCollapse}
+          aria-label="Close search"
+          title="Close search"
+          tooltipSide="bottom"
+        >
+          <TbX size={16} />
+        </IconButton>
+      </div>
 
       {showChipRow && (
+        // Vertical padding keeps the active chip's accent border from being clipped by the
+        // horizontal scroll container (overflow-x also clips the cross axis).
         <div
-          className="flex items-center gap-1.5 overflow-x-auto pb-0.5"
+          className="flex items-center gap-1.5 overflow-x-auto px-0.5 py-1"
           role="group"
           aria-label="Filter parameters"
         >
