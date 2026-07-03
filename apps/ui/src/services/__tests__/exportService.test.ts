@@ -74,4 +74,62 @@ describe('exportService', () => {
       }
     );
   });
+
+  it('falls back to CGAL when manifold export crashes with indirect call signature mismatch', async () => {
+    const crashError = new Error(
+      'OpenSCAD crashed: RuntimeError: indirect call signature mismatch'
+    );
+    const exportCgal = jest.fn(async () => new Uint8Array([4, 5, 6]));
+    const exportModel = jest
+      .fn()
+      .mockRejectedValueOnce(crashError)
+      .mockImplementationOnce(exportCgal);
+
+    const result = await exportModelWithContext({
+      format: 'stl',
+      library: { autoDiscoverSystem: false, customPaths: [] },
+      state: createState(),
+      renderService: { exportModel } as never,
+      platform: {
+        getLibraryPaths: jest.fn(async () => []),
+        readDirectoryFiles: jest.fn(async () => ({})),
+        readTextFile: jest.fn(async () => null),
+      } as never,
+    });
+
+    expect(result).toEqual(new Uint8Array([4, 5, 6]));
+    expect(exportModel).toHaveBeenNthCalledWith(
+      1,
+      'use <shared/utils.scad>\ninclude <BOSL2/std.scad>\ncube(size);',
+      'stl',
+      expect.objectContaining({ backend: 'manifold' })
+    );
+    expect(exportModel).toHaveBeenNthCalledWith(
+      2,
+      'use <shared/utils.scad>\ninclude <BOSL2/std.scad>\ncube(size);',
+      'stl',
+      expect.objectContaining({ backend: 'cgal' })
+    );
+  });
+
+  it('re-throws when manifold export crashes with a different error', async () => {
+    const otherError = new Error('Some other crash');
+    const exportModel = jest.fn().mockRejectedValueOnce(otherError);
+
+    await expect(
+      exportModelWithContext({
+        format: 'stl',
+        library: { autoDiscoverSystem: false, customPaths: [] },
+        state: createState(),
+        renderService: { exportModel } as never,
+        platform: {
+          getLibraryPaths: jest.fn(async () => []),
+          readDirectoryFiles: jest.fn(async () => ({})),
+          readTextFile: jest.fn(async () => null),
+        } as never,
+      })
+    ).rejects.toThrow('Some other crash');
+
+    expect(exportModel).toHaveBeenCalledTimes(1);
+  });
 });
