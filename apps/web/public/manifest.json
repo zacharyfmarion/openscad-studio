@@ -1,11 +1,15 @@
 {
   "name": "OpenSCAD Studio",
   "short_name": "OpenSCAD Studio",
-  "description": "A modern OpenSCAD editor with live 3D preview, smart formatting, and AI copilot.",
+  "id": "/",
+  "description": "Modern OpenSCAD editor with live preview, smart formatting, AI copilot, and browser-based modeling.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#002b36",
+  "theme_color": "#002b36",
+  "categories": ["developer", "productivity", "graphics"],
+  "lang": "en-US",
   "icons": [
     {
       "src": "/icon-192.png",
