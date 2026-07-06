@@ -16,6 +16,7 @@ import { WebMenuBar } from './components/WebMenuBar';
 import { FileTreePanel } from './components/FileTree';
 import { isValidDrop } from './utils/isValidDrop';
 import {
+  AnnotationBadge,
   Button,
   IconButton,
   Tooltip,
@@ -2442,6 +2443,7 @@ function App() {
               <span className="inline-flex items-center gap-1.5">
                 <TbShare3 size={14} />
                 <span>Share</span>
+                <AnnotationBadge>New</AnnotationBadge>
               </span>
             </Button>
           )}
