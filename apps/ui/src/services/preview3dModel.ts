@@ -30,7 +30,33 @@ interface MutableGroupData {
   vertexMap: Map<number, number>;
 }
 
-const DEFAULT_CREASE_ANGLE = Math.PI / 3;
+// Edges whose faces meet at less than this angle get their normals averaged
+// and are drawn as a smooth blend.
+//
+// 60 deg (the previous value) sits above the 45 deg at which a standard
+// chamfer meets the face it is cut from, so every chamfer and countersink got
+// smoothed away and parts read as melted rather than machined. It also sits
+// exactly on the 60 deg facet step of a $fn=6 hex, which smeared nut traps.
+//
+// The threshold must also avoid landing ON a facet step. An n-sided prism
+// steps 360/n deg per facet, and toCreasedNormals compares with a strict
+// dot > cos(angle); at exact equality Float32 rounding decides each edge
+// independently, so the same part shades differently depending on where it
+// sits in the model. That rules out 30 (=360/12), 36 (=360/10), 40 (=360/9),
+// 45 (=360/8) and 60 (=360/6).
+//
+// 42 deg is not 360/n for any integer n, and clears the two nearest steps by
+// 3 deg and 2 deg — four orders of magnitude above float error. It keeps
+// 45 deg chamfers and hex flats sharp while smoothing every facet count from
+// n=9 up, including the small default-$fa/$fs holes that a lower value would
+// have faceted.
+//
+// Known and intended: shapes at $fn=8 or below lose smoothing. A 45 deg facet
+// step is geometrically identical to a 45 deg chamfer, so no single global
+// angle can tell them apart. OpenSCAD's OFF export carries no smoothing
+// groups, so this constant is a heuristic either way; it is chosen to never be
+// degenerate.
+const DEFAULT_CREASE_ANGLE = (42 * Math.PI) / 180;
 
 function clamp01(value: number) {
   return Math.min(1, Math.max(0, value));
