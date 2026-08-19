@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://openscad-studio.pages.dev"><img src="https://img.shields.io/badge/Web-Try_Now-brightgreen.svg" alt="Try Now"></a>
   <img src="https://img.shields.io/github/v/release/zacharyfmarion/openscad-studio?display_name=tag" alt="Latest Release">
-  <img src="https://img.shields.io/badge/license-GPL--2.0-blue.svg" alt="License">
+  <img src="https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg" alt="License">
   <img src="https://img.shields.io/badge/Tauri-2.0-24C8DB.svg" alt="Tauri">
   <img src="https://img.shields.io/badge/React-18-61DAFB.svg" alt="React">
 </p>
@@ -92,9 +92,9 @@ For detailed development guidelines, see [CLAUDE.md](CLAUDE.md) and [CONTRIBUTIN
 
 ## 📄 License
 
-This project is licensed under the GNU General Public License v2.0 - see [LICENSE](LICENSE) for details.
+OpenSCAD Studio's original code is licensed under the GNU General Public License, version 2.0 or (at your option) any later version - see [LICENSE](LICENSE) for details.
 
-This license change was made to comply with OpenSCAD's GPL-2.0 license, as the project bundles openscad-wasm (web) and the native OpenSCAD binary (desktop).
+This is compatible with OpenSCAD's GPL-2.0-or-later license, as the project bundles openscad-wasm (web) and the native OpenSCAD binary (desktop). Bundled third-party components remain subject to their own licenses.
 
 ## 🙏 Acknowledgments
 

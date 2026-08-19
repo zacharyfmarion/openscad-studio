@@ -259,7 +259,7 @@ Violations may result in temporary or permanent ban from the project. Report vio
 
 ## ⚖️ License
 
-By contributing, you agree that your contributions will be licensed under the GNU General Public License v2.0 (GPL-2.0).
+By contributing, you agree that your contributions will be licensed under the GNU General Public License, version 2.0 or (at your option) any later version (GPL-2.0-or-later).
 
 ## 🎉 Recognition
 
