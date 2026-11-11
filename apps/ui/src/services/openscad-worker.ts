@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+import type { OpenSCADInstance } from 'openscad-wasm';
 import { createOpenScadInstanceWithBundledFonts } from './openscad-wasm-fonts';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -63,11 +64,55 @@ function getOutputPath(args: string[]): string | null {
 // ============================================================================
 
 /**
- * Each render creates a fresh WASM instance because Emscripten's callMain()
+ * Each render needs a fresh WASM instance because Emscripten's callMain()
  * calls exit() which sets ABORT=true, making the instance unusable for
- * subsequent calls. The browser's WebAssembly compilation cache ensures
- * that re-instantiation is fast (~50-100ms) after the first compile.
+ * subsequent calls. Instantiating one (plus mounting fonts) costs roughly
+ * 50-150ms, which dominates small renders, so a spare instance is prepared
+ * ahead of time — at init and again right after each render — and the next
+ * render simply takes it.
  */
+interface PreparedInstance {
+  instance: OpenSCADInstance;
+  /** stderr lines emitted by this instance; reset when the instance is taken. */
+  stderrLines: string[];
+}
+
+let spareInstance: Promise<PreparedInstance> | null = null;
+
+async function prepareInstance(): Promise<PreparedInstance> {
+  const stderrLines: string[] = [];
+  const instance = await createOpenScadInstanceWithBundledFonts({
+    noInitialRun: true,
+    print: () => {},
+    printErr: (text: string) => {
+      stderrLines.push(text);
+    },
+  });
+  return { instance, stderrLines };
+}
+
+function warmSpareInstance(): Promise<PreparedInstance> {
+  if (!spareInstance) {
+    const pending = prepareInstance();
+    spareInstance = pending;
+    // A failed warm-up must not poison later renders; they will retry.
+    pending.catch(() => {
+      if (spareInstance === pending) {
+        spareInstance = null;
+      }
+    });
+  }
+  return spareInstance;
+}
+
+async function takeInstance(): Promise<PreparedInstance> {
+  const pending = spareInstance ?? prepareInstance();
+  spareInstance = null;
+  const prepared = await pending;
+  prepared.stderrLines.length = 0;
+  return prepared;
+}
+
 function ensureParentDirs(fs: { mkdir(path: string): void }, filePath: string): void {
   const parts = filePath.split('/').filter(Boolean);
   for (let i = 1; i < parts.length; i++) {
@@ -84,15 +129,7 @@ async function handleRender(request: WorkerRenderRequest): Promise<void> {
   const { id, code, args, auxiliaryFiles, inputPath: renderTargetPath } = request;
 
   try {
-    const stderrLines: string[] = [];
-
-    const instance = await createOpenScadInstanceWithBundledFonts({
-      noInitialRun: true,
-      print: () => {},
-      printErr: (text: string) => {
-        stderrLines.push(text);
-      },
-    });
+    const { instance, stderrLines } = await takeInstance();
 
     const wasm = instance.getInstance();
 
@@ -182,13 +219,8 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
       try {
         // Warm up: create one instance to trigger WASM compilation + caching
         // and verify bundled font assets are available before reporting ready.
-        // The instance is discarded; subsequent createOpenSCAD calls will
-        // reuse the browser's compiled module cache.
-        await createOpenScadInstanceWithBundledFonts({
-          noInitialRun: true,
-          print: () => {},
-          printErr: () => {},
-        });
+        // The instance is kept and used by the first render.
+        await warmSpareInstance();
         const response: WorkerReadyResult = { type: 'ready' };
         self.postMessage(response);
       } catch (e) {
@@ -203,6 +235,8 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
     }
     case 'render': {
       await handleRender(request);
+      // Get the next instance ready while the main thread processes the result.
+      void warmSpareInstance().catch(() => {});
       break;
     }
   }

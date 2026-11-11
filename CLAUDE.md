@@ -306,6 +306,9 @@ pnpm bench:viewer       # Run the 3D viewer benchmark (see benchmarks/viewer/REA
 
 - **Debounced rendering**: 300ms debounce on code changes (configurable)
 - **Content-hash caching**: SHA-256 of source + params avoids redundant renders
+- **On-demand 3D rendering**: the viewer `Canvas` uses `frameloop="demand"`. Anything that mutates the Three.js scene imperatively (outside React props) must call `invalidate()` or it will not appear until the next camera move.
+- **Off-thread mesh loading**: large OFF previews are parsed in `previewMeshWorker.ts` (via `offMeshParser.ts`), which also builds a BVH (`three-mesh-bvh`) so hover/measure raycasts stay fast.
+- **Benchmark**: `pnpm bench:viewer` measures render, load and interaction cost on a model corpus; run it before and after viewer/render changes.
 
 ## Testing Strategy
 

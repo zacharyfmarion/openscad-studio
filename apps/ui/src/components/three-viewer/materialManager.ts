@@ -58,8 +58,17 @@ export class ViewerMaterialManager {
         return;
       }
 
+      // Only a change in the *number* of clipping planes or the culling side
+      // needs a new shader program. Moving the plane or toggling the selection
+      // tint are uniform updates, so avoid forcing a recompile for those (this
+      // runs on every step of a section-plane drag).
+      const nextSide = args.clippingPlane ? THREE.DoubleSide : original.side;
+      const hadClippingPlane = (material.clippingPlanes?.length ?? 0) > 0;
+      const needsProgramUpdate =
+        hadClippingPlane !== Boolean(args.clippingPlane) || material.side !== nextSide;
+
       material.clippingPlanes = args.clippingPlane ? [args.clippingPlane] : [];
-      material.side = args.clippingPlane ? THREE.DoubleSide : original.side;
+      material.side = nextSide;
 
       if (material instanceof THREE.MeshStandardMaterial) {
         material.emissive.copy(original.emissive ?? new THREE.Color(0x000000));
@@ -70,7 +79,9 @@ export class ViewerMaterialManager {
         }
       }
 
-      material.needsUpdate = true;
+      if (needsProgramUpdate) {
+        material.needsUpdate = true;
+      }
     });
   }
 
