@@ -11,7 +11,9 @@ concurrency:
 jobs:
   e2e-web-shard:
     name: E2E Tests (Web ${{ matrix.shard }}/4)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which Playwright 1.58 cannot
+    # install browsers on. Unpin once Playwright supports it.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
