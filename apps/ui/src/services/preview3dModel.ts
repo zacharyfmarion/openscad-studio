@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { PreviewSceneStyle } from './previewSceneConfig';
 import { buildModelFrameFromSourceBox, type ModelFrame } from './previewFraming';
+import { perfMeasure, perfNow } from '../utils/perfProbe';
 
 export interface PreviewMeshGroupData {
   key: string;
@@ -305,11 +306,14 @@ export async function loadOffPreviewModelFromUrl(args: {
   }
 
   const content = await response.text();
-  return parseOffPreviewModel({
+  const parseStartedAt = perfNow();
+  const model = parseOffPreviewModel({
     content,
     fallbackColor: args.fallbackColor,
     version: args.version,
   });
+  perfMeasure('preview-parse', parseStartedAt, { bytes: content.length });
+  return model;
 }
 
 export function buildPreview3dObject(args: {

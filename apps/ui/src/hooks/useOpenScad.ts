@@ -17,6 +17,7 @@ import { resolveWorkingDirDeps } from '../utils/resolveWorkingDirDeps';
 import { getProjectState } from '../stores/projectStore';
 import { notifyError } from '../utils/notifications';
 import { hasRenderableOutput } from './renderOutput';
+import { perfMeasure, perfNow } from '../utils/perfProbe';
 export type RenderKind = 'mesh' | 'svg';
 export interface RenderOwner {
   tabId: string;
@@ -192,6 +193,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
       }
 
       const renderStartedAt = performance.now();
+      const perfProbeStartedAt = perfNow();
       const owner = createRenderOwner?.() ?? null;
       let cacheHit = false;
       let resolvedDimension: '2d' | '3d' = dimension;
@@ -395,6 +397,7 @@ export function useOpenScad(options: UseOpenScadOptions = {}) {
         });
       } finally {
         setIsRendering(false);
+        perfMeasure('openscad-render', perfProbeStartedAt, { cacheHit });
         if (settledSnapshot) {
           onRenderSettled?.({
             owner,

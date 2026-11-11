@@ -91,6 +91,7 @@ import {
 } from './viewer-annotation';
 import { notifyError, notifySuccess } from '../utils/notifications';
 import type Konva from 'konva';
+import { isPerfProbeEnabled, perfMeasure, perfNow } from '../utils/perfProbe';
 
 interface ThreeViewerProps {
   preview3dPath: string;
@@ -181,12 +182,14 @@ function Preview3DModel({
 
   useEffect(() => {
     let cancelled = false;
+    const loadStartedAt = perfNow();
     void loadOffPreviewModelFromUrl({
       url,
       fallbackColor: sceneStyle.modelColor,
       version: url,
     })
       .then((model) => {
+        perfMeasure('preview-load', loadStartedAt);
         if (cancelled) {
           model.dispose();
           return;
@@ -223,12 +226,15 @@ function Preview3DModel({
       return null;
     }
 
-    return buildPreview3dObject({
+    const buildStartedAt = perfNow();
+    const built = buildPreview3dObject({
       parsed: parsedModel,
       sceneStyle,
       useModelColors,
       wireframe,
     });
+    perfMeasure('preview-build', buildStartedAt);
+    return built;
   }, [parsedModel, sceneStyle, useModelColors, wireframe]);
 
   useEffect(() => {
@@ -569,7 +575,10 @@ function ViewerInteractionController({
 
     const handlePointerMove = (event: PointerEvent) => {
       if (mode === 'orbit' || mode === 'measure-bbox') {
-        onHoverChange(createSelectionStateFromRaycast(model, resolveRaycast(event)));
+        const raycastStartedAt = perfNow();
+        const hit = resolveRaycast(event);
+        perfMeasure('hover-raycast', raycastStartedAt);
+        onHoverChange(createSelectionStateFromRaycast(model, hit));
         return;
       }
 
@@ -578,7 +587,9 @@ function ViewerInteractionController({
       }
 
       const rect = dom.getBoundingClientRect();
+      const raycastStartedAt = perfNow();
       const hit = resolveRaycast(event);
+      perfMeasure('measure-raycast', raycastStartedAt);
       if (!hit) {
         return;
       }
@@ -1004,6 +1015,44 @@ function ViewerCameraManager({
     publishTestState,
     sceneStyle,
   ]);
+
+  return null;
+}
+
+/**
+ * Exposes render-loop counters to `benchmarks/viewer`. Only mounted when the
+ * perf probe is enabled, so it adds no per-frame work in normal sessions.
+ */
+function ViewerPerfProbe({ model }: { model: LoadedPreviewModel | null }) {
+  const framesRef = useRef(0);
+  const modelRef = useRef(model);
+  modelRef.current = model;
+
+  useFrame(() => {
+    framesRef.current += 1;
+  });
+
+  useEffect(() => {
+    window.__VIEWER_PERF__ = {
+      stats: () => {
+        const current = modelRef.current;
+        let triangles = 0;
+        for (const mesh of current?.meshes ?? []) {
+          const geometry = mesh.geometry;
+          triangles += (geometry.index?.count ?? geometry.attributes.position?.count ?? 0) / 3;
+        }
+        return {
+          frames: framesRef.current,
+          triangles,
+          modelVersion: current?.version ?? null,
+        };
+      },
+    };
+
+    return () => {
+      delete window.__VIEWER_PERF__;
+    };
+  }, []);
 
   return null;
 }
@@ -1899,6 +1948,8 @@ export function ThreeViewer({
                 color={sceneStyle.axis.xColor}
               />
             ) : null}
+
+            {isPerfProbeEnabled() ? <ViewerPerfProbe model={loadedModel} /> : null}
 
             <ViewerInteractionController
               mode={interactionMode}
