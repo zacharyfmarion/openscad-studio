@@ -53,6 +53,9 @@ export function createPreview3dModelFromMesh(
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(group.positions, 3));
     geometry.setAttribute('normal', new THREE.BufferAttribute(group.normals, 3));
+    if (group.colors) {
+      geometry.setAttribute('color', new THREE.BufferAttribute(group.colors, 3, true));
+    }
 
     // The parser already tracked bounds, so skip three's extra passes over
     // every vertex. The sphere is the box's circumsphere: slightly loose, but
@@ -197,13 +200,20 @@ export function buildPreview3dObject(args: {
 
   const materials: THREE.Material[] = [];
   const meshes = parsed.groups.map((group) => {
-    const materialColor = useModelColors ? group.color : new THREE.Color(sceneStyle.modelColor);
+    // Batches that mix several face colors carry them per vertex.
+    const vertexColors = useModelColors && group.geometry.hasAttribute('color');
+    const materialColor = vertexColors
+      ? new THREE.Color(1, 1, 1)
+      : useModelColors
+        ? group.color
+        : new THREE.Color(sceneStyle.modelColor);
     const materialOpacity = useModelColors ? group.opacity : 1;
     const materialTransparent = useModelColors ? group.transparent : false;
     const material = wireframe
       ? new THREE.MeshBasicMaterial({
           color: materialColor,
           wireframe: true,
+          vertexColors,
           transparent: materialTransparent,
           opacity: materialOpacity,
           side: THREE.DoubleSide,
@@ -213,6 +223,7 @@ export function buildPreview3dObject(args: {
           metalness: sceneStyle.material.metalness,
           roughness: sceneStyle.material.roughness,
           envMapIntensity: sceneStyle.material.envMapIntensity,
+          vertexColors,
           transparent: materialTransparent,
           opacity: materialOpacity,
           side: THREE.DoubleSide,
