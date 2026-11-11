@@ -1,6 +1,15 @@
-import { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Component,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { ReactNode } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, invalidate, useFrame, useThree } from '@react-three/fiber';
 import {
   CameraControls,
   ContactShadows,
@@ -119,6 +128,45 @@ const INITIAL_DRAFT: MeasurementDraft3D = {
   snapKind: null,
   axisLock: null,
 };
+
+/**
+ * Hover results change on (almost) every pointer move. Keeping them in a tiny
+ * external store means only the inspector HUD re-renders, instead of the whole
+ * viewer tree (canvas children included).
+ */
+interface HoverStore {
+  get: () => SelectionState;
+  set: (next: SelectionState) => void;
+  subscribe: (listener: () => void) => () => void;
+}
+
+function createHoverStore(): HoverStore {
+  let current = EMPTY_SELECTION;
+  const listeners = new Set<() => void>();
+
+  return {
+    get: () => current,
+    set: (next) => {
+      if (next === current) {
+        return;
+      }
+      current = next;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+/** Frames ContactShadows re-bakes for after the viewer re-renders (e.g. new model). */
+const CONTACT_SHADOW_BAKE_FRAMES = 2;
+
+/** Longest frame delta handed to animations after the render loop was idle. */
+const MAX_FRAME_DELTA_SECONDS = 0.1;
 
 declare global {
   interface Window {
@@ -539,6 +587,7 @@ function ViewerInteractionController({
   model,
   snapEnabled,
   draft,
+  hoverEnabled,
   onHoverChange,
   onSelectionChange,
   onDraftChange,
@@ -548,6 +597,8 @@ function ViewerInteractionController({
   model: LoadedPreviewModel | null;
   snapEnabled: boolean;
   draft: MeasurementDraft3D;
+  /** Whether anything is currently displaying hover results (the inspector HUD). */
+  hoverEnabled: boolean;
   onHoverChange: (selection: SelectionState) => void;
   onSelectionChange: (selection: SelectionState) => void;
   onDraftChange: (draft: MeasurementDraft3D) => void;
@@ -558,10 +609,22 @@ function ViewerInteractionController({
   const pointerDownRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
+    // Hover picking pauses while nothing displays it (e.g. a selection is
+    // pinned); drop the last result so it cannot resurface stale later.
+    if (!hoverEnabled) {
+      onHoverChange(EMPTY_SELECTION);
+    }
+  }, [hoverEnabled, onHoverChange]);
+
+  useEffect(() => {
     const dom = gl.domElement;
     const raycaster = new THREE.Raycaster();
+    // Only the nearest hit is ever used; lets BVH-backed meshes exit early.
+    raycaster.firstHitOnly = true;
+    let pendingMove: { clientX: number; clientY: number; shiftKey: boolean } | null = null;
+    let moveFrame: number | null = null;
 
-    const resolveRaycast = (event: PointerEvent): RaycastResult | null => {
+    const resolveRaycast = (event: { clientX: number; clientY: number }): RaycastResult | null => {
       const rect = dom.getBoundingClientRect();
       return robustRaycastLoadedModel({
         clientX: event.clientX,
@@ -573,16 +636,12 @@ function ViewerInteractionController({
       });
     };
 
-    const handlePointerMove = (event: PointerEvent) => {
+    const processPointerMove = (event: { clientX: number; clientY: number; shiftKey: boolean }) => {
       if (mode === 'orbit' || mode === 'measure-bbox') {
         const raycastStartedAt = perfNow();
         const hit = resolveRaycast(event);
         perfMeasure('hover-raycast', raycastStartedAt);
-        onHoverChange(createSelectionStateFromRaycast(model, hit));
-        return;
-      }
-
-      if (mode !== 'measure-distance') {
+        onHoverChange(hit ? createSelectionStateFromRaycast(model, hit) : EMPTY_SELECTION);
         return;
       }
 
@@ -614,11 +673,48 @@ function ViewerInteractionController({
       });
     };
 
+    const handlePointerMove = (event: PointerEvent) => {
+      if (mode === 'orbit' || mode === 'measure-bbox') {
+        // Hover picking only feeds the inspector HUD. Skip it when nothing shows
+        // the result, and while a button is held (the user is moving the camera).
+        if (!hoverEnabled || event.buttons !== 0) {
+          return;
+        }
+      } else if (mode !== 'measure-distance') {
+        return;
+      }
+
+      // Pointer events can fire several times per frame; raycast at most once
+      // per frame, against the most recent position.
+      pendingMove = { clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey };
+      if (moveFrame === null) {
+        moveFrame = requestAnimationFrame(() => {
+          moveFrame = null;
+          const move = pendingMove;
+          pendingMove = null;
+          if (move) {
+            processPointerMove(move);
+          }
+        });
+      }
+    };
+
+    const flushPendingMove = () => {
+      if (moveFrame !== null) {
+        cancelAnimationFrame(moveFrame);
+        moveFrame = null;
+      }
+      const move = pendingMove;
+      pendingMove = null;
+      return move;
+    };
+
     const handlePointerDown = (event: PointerEvent) => {
       pointerDownRef.current = { x: event.clientX, y: event.clientY };
     };
 
     const handlePointerLeave = () => {
+      flushPendingMove();
       onHoverChange(EMPTY_SELECTION);
     };
 
@@ -637,6 +733,10 @@ function ViewerInteractionController({
       if (moved) {
         return;
       }
+
+      // A queued hover update would otherwise land after (and clobber) the
+      // state change this click is about to make.
+      flushPendingMove();
 
       const hit = resolveRaycast(event);
       if (!hit) {
@@ -719,6 +819,7 @@ function ViewerInteractionController({
     dom.addEventListener('pointerleave', handlePointerLeave);
 
     return () => {
+      flushPendingMove();
       dom.removeEventListener('pointermove', handlePointerMove);
       dom.removeEventListener('pointerdown', handlePointerDown);
       dom.removeEventListener('pointerup', handlePointerUp);
@@ -728,6 +829,7 @@ function ViewerInteractionController({
     camera,
     draft,
     gl.domElement,
+    hoverEnabled,
     mode,
     model,
     onCommitMeasurement,
@@ -952,6 +1054,7 @@ function ViewerCameraManager({
     if (camera instanceof THREE.PerspectiveCamera || camera instanceof THREE.OrthographicCamera) {
       camera.far = framing.cameraFar;
       camera.updateProjectionMatrix();
+      invalidate();
     }
 
     const isFirstFrame = !hasFramedOnceRef.current;
@@ -1067,11 +1170,65 @@ class EnvironmentErrorBoundary extends Component<{ children: ReactNode }, { hasE
   }
 }
 
+/** Requests one frame when mounted (the canvas only renders on demand). */
+function InvalidateOnMount() {
+  const invalidateFrame = useThree((state) => state.invalidate);
+  useEffect(() => {
+    invalidateFrame();
+  }, [invalidateFrame]);
+  return null;
+}
+
 function EnvironmentWithFallback({ preset }: { preset: string }) {
   return (
     <EnvironmentErrorBoundary>
-      <Environment preset={preset as Parameters<typeof Environment>[0]['preset']} />
+      <Suspense fallback={null}>
+        <Environment preset={preset as Parameters<typeof Environment>[0]['preset']} />
+        {/* The environment map loads asynchronously and is applied imperatively. */}
+        <InvalidateOnMount />
+      </Suspense>
     </EnvironmentErrorBoundary>
+  );
+}
+
+function InspectorHud({
+  hoverStore,
+  selection,
+}: {
+  hoverStore: HoverStore;
+  selection: SelectionState;
+}) {
+  const hoverSelection = useSyncExternalStore(hoverStore.subscribe, hoverStore.get, hoverStore.get);
+  const source = selection.objectUuid ? selection : hoverSelection;
+
+  if (!source.point) {
+    return null;
+  }
+
+  return (
+    <div
+      className="absolute right-3 bottom-3 z-20 w-72 rounded-lg p-3 space-y-2"
+      style={{
+        backgroundColor: 'var(--bg-elevated)',
+        border: '1px solid var(--border-primary)',
+        color: 'var(--text-secondary)',
+      }}
+      data-testid="preview-3d-inspector-hud"
+    >
+      <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+        Inspector
+      </div>
+      <div className="text-[11px]">
+        <div>
+          <span style={{ color: 'var(--text-tertiary)' }}>Point:</span>{' '}
+          {formatVector3(threeToOpenScadDelta(source.point))}
+        </div>
+        <div>
+          <span style={{ color: 'var(--text-tertiary)' }}>Normal:</span>{' '}
+          {formatVector3(source.normal ? threeToOpenScadDelta(source.normal) : null)}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1104,7 +1261,7 @@ export function ThreeViewer({
   const [previewSurfaceSize, setPreviewSurfaceSize] = useState({ width: 0, height: 0 });
   const [interactionMode, setInteractionMode] = useState<InteractionMode>('orbit');
   const [selection, setSelection] = useState<SelectionState>(EMPTY_SELECTION);
-  const [hoverSelection, setHoverSelection] = useState<SelectionState>(EMPTY_SELECTION);
+  const hoverStore = useMemo(() => createHoverStore(), []);
   const [draftMeasurement, setDraftMeasurement] = useState<MeasurementDraft3D>(INITIAL_DRAFT);
   const [measurements, setMeasurements] = useState<MeasurementRecord3D[]>([]);
   const [selectedMeasurementId, setSelectedMeasurementId] = useState<string | null>(null);
@@ -1185,7 +1342,7 @@ export function ThreeViewer({
     if (!loadedModel) {
       lastLoadedGeometryVersionRef.current = null;
       setSelection(EMPTY_SELECTION);
-      setHoverSelection(EMPTY_SELECTION);
+      hoverStore.set(EMPTY_SELECTION);
       setMeasurements([]);
       setSelectedMeasurementId(null);
       setDraftMeasurement(INITIAL_DRAFT);
@@ -1201,7 +1358,7 @@ export function ThreeViewer({
     lastLoadedGeometryVersionRef.current = loadedModel.version;
 
     setSelection(EMPTY_SELECTION);
-    setHoverSelection(EMPTY_SELECTION);
+    hoverStore.set(EMPTY_SELECTION);
     setMeasurements([]);
     setSelectedMeasurementId(null);
     setDraftMeasurement((current) => ({
@@ -1211,7 +1368,7 @@ export function ThreeViewer({
     setSectionState(createDefaultSectionPlaneState(loadedModel.bounds));
     resetAnnotationSession();
     setIsAttachingAnnotation(false);
-  }, [loadedModel, resetAnnotationSession]);
+  }, [hoverStore, loadedModel, resetAnnotationSession]);
 
   useEffect(() => {
     if (interactionMode !== 'annotate') {
@@ -1219,8 +1376,8 @@ export function ThreeViewer({
     }
 
     setSelection(EMPTY_SELECTION);
-    setHoverSelection(EMPTY_SELECTION);
-  }, [interactionMode]);
+    hoverStore.set(EMPTY_SELECTION);
+  }, [hoverStore, interactionMode]);
 
   useEffect(() => {
     if (!sectionState || !loadedModel) {
@@ -1245,9 +1402,13 @@ export function ThreeViewer({
       clippingPlane: sectionPlane,
       selected: !!selection.objectUuid,
     });
+    // Materials are mutated imperatively, which the on-demand render loop
+    // cannot observe on its own.
+    invalidate();
 
     return () => {
       manager.restore(root);
+      invalidate();
     };
   }, [loadedModel?.root, sectionPlane, selection.objectUuid]);
 
@@ -1650,7 +1811,7 @@ export function ThreeViewer({
     onVisualReady?.();
   }, [loadedModel, onVisualReady, preview3dPath]);
 
-  const selectionSource = selection.objectUuid ? selection : hoverSelection;
+  const showInspectorHud = showSelectionInfo && interactionMode === 'orbit';
 
   return (
     <div
@@ -1764,35 +1925,7 @@ export function ThreeViewer({
             {liveMessage}
           </div>
 
-          {showSelectionInfo && interactionMode === 'orbit' && selectionSource.point ? (
-            <div
-              className="absolute right-3 bottom-3 z-20 w-72 rounded-lg p-3 space-y-2"
-              style={{
-                backgroundColor: 'var(--bg-elevated)',
-                border: '1px solid var(--border-primary)',
-                color: 'var(--text-secondary)',
-              }}
-              data-testid="preview-3d-inspector-hud"
-            >
-              <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-                Inspector
-              </div>
-              <div className="text-[11px]">
-                <div>
-                  <span style={{ color: 'var(--text-tertiary)' }}>Point:</span>{' '}
-                  {formatVector3(
-                    selectionSource.point ? threeToOpenScadDelta(selectionSource.point) : null
-                  )}
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-tertiary)' }}>Normal:</span>{' '}
-                  {formatVector3(
-                    selectionSource.normal ? threeToOpenScadDelta(selectionSource.normal) : null
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : null}
+          {showInspectorHud ? <InspectorHud hoverStore={hoverStore} selection={selection} /> : null}
 
           {showControlsHint && (
             <div
@@ -1830,10 +1963,17 @@ export function ThreeViewer({
           )}
 
           <Canvas
-            shadows
+            // Render only when something changed (camera motion, new model,
+            // tool overlays…) instead of redrawing a static scene 60×/s.
+            frameloop="demand"
             gl={{ preserveDrawingBuffer: true }}
-            onCreated={({ gl }) => {
+            onCreated={({ gl, clock }) => {
               gl.localClippingEnabled = true;
+              // With on-demand rendering the first frame after an idle period
+              // would otherwise see a multi-second delta and snap camera
+              // transitions straight to their end state.
+              const getDelta = clock.getDelta.bind(clock);
+              clock.getDelta = () => Math.min(getDelta(), MAX_FRAME_DELTA_SECONDS);
             }}
             style={{ width: '100%', height: '100%', background: sceneStyle.backgroundColor }}
           >
@@ -1878,8 +2018,6 @@ export function ThreeViewer({
               color={sceneStyle.directionalLight.color}
               position={sceneStyle.directionalLight.position}
               intensity={sceneStyle.directionalLight.intensity}
-              castShadow
-              shadow-mapSize={sceneStyle.directionalLight.shadowMapSize}
             />
 
             <group name="helpersContainer">
@@ -1911,6 +2049,10 @@ export function ThreeViewer({
                   scale={sceneStyle.contactShadows.scale}
                   blur={sceneStyle.contactShadows.blur}
                   far={sceneStyle.contactShadows.far}
+                  // The shadow only depends on the model, not the camera. Bake
+                  // it once per viewer update instead of re-rendering the whole
+                  // scene into the shadow target on every frame.
+                  frames={CONTACT_SHADOW_BAKE_FRAMES}
                 />
               )}
             </group>
@@ -1956,7 +2098,8 @@ export function ThreeViewer({
               model={loadedModel}
               snapEnabled={snapEnabled}
               draft={draftMeasurement}
-              onHoverChange={setHoverSelection}
+              hoverEnabled={showInspectorHud && !selection.objectUuid}
+              onHoverChange={hoverStore.set}
               onSelectionChange={handleSelectionChange}
               onDraftChange={setDraftMeasurement}
               onCommitMeasurement={handleCommitMeasurement}
@@ -2166,6 +2309,9 @@ function fitCameraToModel({
     const nextDistance = cameraControls.getDistanceToFitSphere(fitSphere.radius);
     const nextPosition = fitSphere.center.clone().addScaledVector(viewDirection, nextDistance);
 
+    // Camera commands are only applied on the next frame, and an untransitioned
+    // move emits no event the on-demand loop could react to.
+    invalidate();
     return cameraControls.setLookAt(
       nextPosition.x,
       nextPosition.y,
@@ -2177,6 +2323,7 @@ function fitCameraToModel({
     );
   }
 
+  invalidate();
   return cameraControls.fitToBox(
     frame.box,
     enableTransition,

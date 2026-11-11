@@ -1,8 +1,15 @@
 import * as THREE from 'three';
-import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh';
 import type { PreviewSceneStyle } from './previewSceneConfig';
 import { buildModelFrameFromSourceBox, type ModelFrame } from './previewFraming';
 import { perfMeasure, perfNow } from '../utils/perfProbe';
+import { parseOffMesh, type OffRgba, type ParsedOffMesh } from './offMeshParser';
+import type { SerializedMeshBvh } from './previewMeshPayload';
+import {
+  isPreviewMeshWorkerAvailable,
+  parseOffMeshInWorker,
+  PreviewMeshWorkerUnavailableError,
+} from './previewMeshWorkerClient';
 
 export interface PreviewMeshGroupData {
   key: string;
@@ -24,265 +31,69 @@ export interface BuiltPreview3dObject {
   dispose: () => void;
 }
 
-interface MutableGroupData {
-  color: [number, number, number, number];
-  positions: number[];
-  indices: number[];
-  vertexMap: Map<number, number>;
+/**
+ * OFF payloads above this size (roughly 15k triangles) are parsed and
+ * BVH-indexed in a worker. Smaller ones parse in a few milliseconds, which is
+ * cheaper than a worker round trip, and raycast quickly without a BVH.
+ */
+const WORKER_PARSE_MIN_BYTES = 512 * 1024;
+
+function toOffRgba(fallbackColor: string): OffRgba {
+  const fallback = new THREE.Color(fallbackColor);
+  return [fallback.r, fallback.g, fallback.b, 1];
 }
 
-const DEFAULT_CREASE_ANGLE = Math.PI / 3;
+/** Wrap parsed mesh buffers (and optional prebuilt BVHs) in Three.js geometry. */
+export function createPreview3dModelFromMesh(
+  mesh: ParsedOffMesh,
+  version: string,
+  bvh?: Array<SerializedMeshBvh | null>
+): ParsedPreview3dModel {
+  const groups = mesh.groups.map((group, index) => {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(group.positions, 3));
+    geometry.setAttribute('normal', new THREE.BufferAttribute(group.normals, 3));
 
-function clamp01(value: number) {
-  return Math.min(1, Math.max(0, value));
-}
-
-function normalizeColorChannel(value: number, isAlpha: boolean) {
-  if (!Number.isFinite(value)) {
-    return isAlpha ? 1 : 0;
-  }
-
-  if (value >= 0 && value <= 1) {
-    return clamp01(value);
-  }
-
-  return clamp01(value / 255);
-}
-
-function parseFaceColor(
-  values: number[],
-  fallbackColor: [number, number, number, number]
-): [number, number, number, number] {
-  if (values.length < 3) {
-    return fallbackColor;
-  }
-
-  // OpenSCAD writes "0 0 0 0" for faces with no assigned color (and emits
-  // "Invalid color in OFF export" warnings). Treat fully-zero RGBA as
-  // "no color" and use the fallback instead of rendering invisible faces.
-  if (
-    values.length >= 4 &&
-    values[0] === 0 &&
-    values[1] === 0 &&
-    values[2] === 0 &&
-    values[3] === 0
-  ) {
-    return fallbackColor;
-  }
-
-  return [
-    normalizeColorChannel(values[0], false),
-    normalizeColorChannel(values[1], false),
-    normalizeColorChannel(values[2], false),
-    normalizeColorChannel(values[3] ?? 1, true),
-  ];
-}
-
-function buildFanTriangles(faceVertices: number[]) {
-  const triangles: Array<[number, number, number]> = [];
-
-  for (let triangleIndex = 1; triangleIndex < faceVertices.length - 1; triangleIndex += 1) {
-    triangles.push([faceVertices[0], faceVertices[triangleIndex], faceVertices[triangleIndex + 1]]);
-  }
-
-  return triangles;
-}
-
-function createProjectionBasis(normal: THREE.Vector3) {
-  const tangentSeed =
-    Math.abs(normal.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
-  const tangent = new THREE.Vector3().crossVectors(tangentSeed, normal).normalize();
-  const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
-  return { tangent, bitangent };
-}
-
-function triangulateFace(
-  faceVertices: number[],
-  vertices: Array<[number, number, number]>
-): Array<[number, number, number]> {
-  if (faceVertices.length <= 3) {
-    return faceVertices.length === 3 ? [[faceVertices[0], faceVertices[1], faceVertices[2]]] : [];
-  }
-
-  const points3d = faceVertices.map((vertexIndex) => {
-    const vertex = vertices[vertexIndex];
-    if (!vertex) {
-      throw new Error(`Invalid OFF preview: face references missing vertex ${vertexIndex}.`);
-    }
-    return new THREE.Vector3(vertex[0], vertex[1], vertex[2]);
-  });
-
-  const faceNormal = new THREE.Vector3();
-  for (let index = 0; index < points3d.length; index += 1) {
-    const current = points3d[index];
-    const next = points3d[(index + 1) % points3d.length];
-    faceNormal.x += (current.y - next.y) * (current.z + next.z);
-    faceNormal.y += (current.z - next.z) * (current.x + next.x);
-    faceNormal.z += (current.x - next.x) * (current.y + next.y);
-  }
-
-  if (faceNormal.lengthSq() <= Number.EPSILON) {
-    return buildFanTriangles(faceVertices);
-  }
-
-  faceNormal.normalize();
-  const origin = points3d[0];
-  const { tangent, bitangent } = createProjectionBasis(faceNormal);
-  const contour = points3d.map((point) => {
-    const relative = point.clone().sub(origin);
-    return new THREE.Vector2(relative.dot(tangent), relative.dot(bitangent));
-  });
-
-  const needsReversal = THREE.ShapeUtils.isClockWise(contour);
-  const orderedContour = needsReversal ? [...contour].reverse() : contour;
-  const orderedVertices = needsReversal ? [...faceVertices].reverse() : faceVertices;
-
-  const triangles = THREE.ShapeUtils.triangulateShape(orderedContour, []);
-  if (triangles.length === 0) {
-    return buildFanTriangles(faceVertices);
-  }
-
-  return triangles.map(([a, b, c]) => [orderedVertices[a], orderedVertices[b], orderedVertices[c]]);
-}
-
-function parseHeaderAndCounts(lines: string[]) {
-  if (lines.length === 0) {
-    throw new Error('OFF preview is empty.');
-  }
-
-  let countsLine = '';
-  let currentLine = 0;
-
-  if (lines[0].match(/^OFF(\s|$)/)) {
-    countsLine = lines[0].slice(3).trim();
-    currentLine = 1;
-  } else if (lines[0] === 'OFF' && lines.length > 1) {
-    countsLine = lines[1].trim();
-    currentLine = 2;
-  } else {
-    throw new Error('Invalid OFF preview: missing OFF header.');
-  }
-
-  const [vertexCount, faceCount] = countsLine.split(/\s+/).map(Number);
-  if (!Number.isFinite(vertexCount) || !Number.isFinite(faceCount)) {
-    throw new Error('Invalid OFF preview: bad vertex or face counts.');
-  }
-
-  return { currentLine, vertexCount, faceCount };
-}
-
-export function parseOffPreviewModel(args: {
-  content: string;
-  fallbackColor: string;
-  version: string;
-}): ParsedPreview3dModel {
-  const lines = args.content
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith('#'));
-  const { currentLine: vertexStart, vertexCount, faceCount } = parseHeaderAndCounts(lines);
-
-  if (vertexStart + vertexCount + faceCount > lines.length) {
-    throw new Error('Invalid OFF preview: file ended before all vertices/faces were read.');
-  }
-
-  const fallback = new THREE.Color(args.fallbackColor);
-  const fallbackColor: [number, number, number, number] = [fallback.r, fallback.g, fallback.b, 1];
-  const vertices: Array<[number, number, number]> = [];
-  const sourceBox = new THREE.Box3();
-
-  for (let i = 0; i < vertexCount; i += 1) {
-    const parts = lines[vertexStart + i].split(/\s+/).map(Number);
-    if (parts.length < 3 || parts.slice(0, 3).some((value) => !Number.isFinite(value))) {
-      throw new Error(`Invalid OFF preview: bad vertex on line ${vertexStart + i + 1}.`);
-    }
-
-    const vertex: [number, number, number] = [parts[0], parts[1], parts[2]];
-    vertices.push(vertex);
-    sourceBox.expandByPoint(new THREE.Vector3(...vertex));
-  }
-
-  const groupedFaces = new Map<string, MutableGroupData>();
-  const faceStart = vertexStart + vertexCount;
-
-  for (let i = 0; i < faceCount; i += 1) {
-    const parts = lines[faceStart + i].split(/\s+/).map(Number);
-    const vertexTotal = parts[0];
-
-    if (!Number.isFinite(vertexTotal) || vertexTotal < 3) {
-      throw new Error(`Invalid OFF preview: bad face on line ${faceStart + i + 1}.`);
-    }
-
-    const faceVertices = parts.slice(1, vertexTotal + 1);
-    const faceColor = parseFaceColor(parts.slice(vertexTotal + 1), fallbackColor);
-    const key = faceColor.map((value) => value.toFixed(4)).join('|');
-    let group = groupedFaces.get(key);
-
-    if (!group) {
-      group = {
-        color: faceColor,
-        positions: [],
-        indices: [],
-        vertexMap: new Map<number, number>(),
-      };
-      groupedFaces.set(key, group);
-    }
-
-    const addVertex = (vertexIndex: number) => {
-      const existing = group.vertexMap.get(vertexIndex);
-      if (existing !== undefined) {
-        return existing;
-      }
-
-      const vertex = vertices[vertexIndex];
-      if (!vertex) {
-        throw new Error(`Invalid OFF preview: face references missing vertex ${vertexIndex}.`);
-      }
-
-      const nextIndex = group.positions.length / 3;
-      group.positions.push(vertex[0], vertex[1], vertex[2]);
-      group.vertexMap.set(vertexIndex, nextIndex);
-      return nextIndex;
-    };
-
-    const triangles = triangulateFace(faceVertices, vertices);
-    for (const [a, b, c] of triangles) {
-      group.indices.push(addVertex(a), addVertex(b), addVertex(c));
-    }
-  }
-
-  const groups = Array.from(groupedFaces.entries()).map(([key, group]) => {
-    const indexedGeometry = new THREE.BufferGeometry();
-    indexedGeometry.setAttribute(
-      'position',
-      new THREE.Float32BufferAttribute(new Float32Array(group.positions), 3)
+    // The parser already tracked bounds, so skip three's extra passes over
+    // every vertex. The sphere is the box's circumsphere: slightly loose, but
+    // valid for frustum culling and raycast early-outs.
+    const boundingBox = new THREE.Box3(
+      new THREE.Vector3(...group.boundsMin),
+      new THREE.Vector3(...group.boundsMax)
     );
-    indexedGeometry.setIndex(
-      group.positions.length / 3 > 65535
-        ? new THREE.Uint32BufferAttribute(new Uint32Array(group.indices), 1)
-        : new THREE.Uint16BufferAttribute(new Uint16Array(group.indices), 1)
-    );
-    indexedGeometry.computeBoundingBox();
+    geometry.boundingBox = boundingBox;
+    geometry.boundingSphere = boundingBox.isEmpty()
+      ? new THREE.Sphere()
+      : boundingBox.getBoundingSphere(new THREE.Sphere());
 
-    const geometry = toCreasedNormals(indexedGeometry, DEFAULT_CREASE_ANGLE);
-    if (geometry !== indexedGeometry) {
-      indexedGeometry.dispose();
+    const serializedBvh = bvh?.[index];
+    if (serializedBvh) {
+      // (three-mesh-bvh's bundled typings predate indirect BVHs, hence the cast.)
+      geometry.boundsTree = MeshBVH.deserialize(
+        {
+          roots: serializedBvh.roots,
+          indirectBuffer: serializedBvh.indirectBuffer,
+          index: null,
+        } as unknown as Parameters<typeof MeshBVH.deserialize>[0],
+        geometry,
+        { setIndex: false }
+      );
     }
-    geometry.computeBoundingBox();
-
-    const color = new THREE.Color(group.color[0], group.color[1], group.color[2]);
-    const opacity = group.color[3];
 
     return {
-      key,
+      key: group.key,
       geometry,
-      color,
-      opacity,
-      transparent: opacity < 1,
+      color: new THREE.Color(group.color[0], group.color[1], group.color[2]),
+      opacity: group.opacity,
+      transparent: group.opacity < 1,
     };
   });
 
-  const frame = buildModelFrameFromSourceBox(sourceBox, args.version);
+  const sourceBox = new THREE.Box3(
+    new THREE.Vector3(...mesh.boundsMin),
+    new THREE.Vector3(...mesh.boundsMax)
+  );
+  const frame = buildModelFrameFromSourceBox(sourceBox, version);
 
   return {
     frame,
@@ -295,24 +106,81 @@ export function parseOffPreviewModel(args: {
   };
 }
 
+export function parseOffPreviewBytes(args: {
+  bytes: Uint8Array;
+  fallbackColor: string;
+  version: string;
+}): ParsedPreview3dModel {
+  return createPreview3dModelFromMesh(
+    parseOffMesh(args.bytes, toOffRgba(args.fallbackColor)),
+    args.version
+  );
+}
+
+export function parseOffPreviewModel(args: {
+  content: string;
+  fallbackColor: string;
+  version: string;
+}): ParsedPreview3dModel {
+  // OFF is plain ASCII, so a direct char-code copy avoids needing TextEncoder
+  // (missing in some test environments). Non-ASCII can only appear in comments.
+  const bytes = new Uint8Array(args.content.length);
+  for (let i = 0; i < bytes.length; i += 1) {
+    bytes[i] = args.content.charCodeAt(i) & 0xff;
+  }
+
+  return parseOffPreviewBytes({
+    bytes,
+    fallbackColor: args.fallbackColor,
+    version: args.version,
+  });
+}
+
+async function fetchPreviewBytes(url: string): Promise<ArrayBuffer> {
+  const response = await fetch(url);
+  if ('ok' in response && response.ok === false) {
+    throw new Error(`Failed to load preview model (${response.status}).`);
+  }
+
+  return response.arrayBuffer();
+}
+
 export async function loadOffPreviewModelFromUrl(args: {
   url: string;
   fallbackColor: string;
   version: string;
 }): Promise<ParsedPreview3dModel> {
-  const response = await fetch(args.url);
-  if ('ok' in response && response.ok === false) {
-    throw new Error(`Failed to load preview model (${response.status}).`);
+  let buffer = await fetchPreviewBytes(args.url);
+  const byteLength = buffer.byteLength;
+  const parseStartedAt = perfNow();
+
+  if (byteLength >= WORKER_PARSE_MIN_BYTES && isPreviewMeshWorkerAvailable()) {
+    try {
+      const parsed = await parseOffMeshInWorker(buffer, toOffRgba(args.fallbackColor));
+      const model = createPreview3dModelFromMesh(parsed.mesh, args.version, parsed.bvh);
+      perfMeasure('preview-parse', parseStartedAt, {
+        bytes: byteLength,
+        worker: true,
+        workerParseMs: parsed.timings.parseMs,
+        workerBvhMs: parsed.timings.bvhMs,
+      });
+      return model;
+    } catch (error) {
+      if (!(error instanceof PreviewMeshWorkerUnavailableError)) {
+        throw error;
+      }
+      // The buffer was transferred to the (now dead) worker; fetch it again and
+      // fall through to the main-thread parser.
+      buffer = await fetchPreviewBytes(args.url);
+    }
   }
 
-  const content = await response.text();
-  const parseStartedAt = perfNow();
-  const model = parseOffPreviewModel({
-    content,
+  const model = parseOffPreviewBytes({
+    bytes: new Uint8Array(buffer),
     fallbackColor: args.fallbackColor,
     version: args.version,
   });
-  perfMeasure('preview-parse', parseStartedAt, { bytes: content.length });
+  perfMeasure('preview-parse', parseStartedAt, { bytes: byteLength, worker: false });
   return model;
 }
 
@@ -353,6 +221,10 @@ export function buildPreview3dObject(args: {
     materials.push(material);
 
     const mesh = new THREE.Mesh(group.geometry, material);
+    if (group.geometry.boundsTree) {
+      // Dense meshes arrive with a prebuilt BVH (see previewMeshWorker).
+      mesh.raycast = acceleratedRaycast;
+    }
     // Keep preview lighting stable with environment/contact shadows only.
     // Shadow-map self-shadowing on thin OpenSCAD solids creates phantom
     // silhouettes that do not match any visible geometry in the viewer.
