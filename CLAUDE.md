@@ -231,6 +231,7 @@ pnpm format             # Format all code
 pnpm test:e2e:web       # Run web Playwright coverage
 pnpm test:scripts       # Run repo workflow helper tests
 pnpm validate:changes   # Run the shared validation helper
+pnpm bench:viewer       # Run the 3D viewer benchmark (see benchmarks/viewer/README.md)
 ```
 
 ### `/create` Workflow
