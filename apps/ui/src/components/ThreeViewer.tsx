@@ -1007,16 +1007,6 @@ function ViewerCameraManager({
   }, [cameraControlsRef, fitModelToView, gl.domElement, publishTestState]);
 
   useEffect(() => {
-    publishTestState(modelFrame);
-
-    return () => {
-      if (isDevRuntime) {
-        delete window.__TEST_PREVIEW__;
-      }
-    };
-  }, [isDevRuntime, modelFrame, publishTestState]);
-
-  useEffect(() => {
     if (!modelFrame) {
       currentFitsRef.current = true;
       publishTestState(null);
@@ -1118,6 +1108,19 @@ function ViewerCameraManager({
     publishTestState,
     sceneStyle,
   ]);
+
+  // Declared after the framing effect on purpose: effects run in declaration
+  // order, and publishing first would expose the previous model's camera far
+  // plane (and fit count) for the new model version.
+  useEffect(() => {
+    publishTestState(modelFrame);
+
+    return () => {
+      if (isDevRuntime) {
+        delete window.__TEST_PREVIEW__;
+      }
+    };
+  }, [isDevRuntime, modelFrame, publishTestState]);
 
   return null;
 }
