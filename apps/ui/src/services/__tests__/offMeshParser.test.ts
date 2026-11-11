@@ -104,6 +104,63 @@ describe('parseOffMesh', () => {
     expect(mesh.groups[1].boundsMax).toEqual([6, 6, 5]);
   });
 
+  it('merges opaque faces of different colors into one batch with vertex colors', () => {
+    const mesh = parse([
+      'OFF 9 4 0',
+      '0 0 0',
+      '1 0 0',
+      '0 1 0',
+      '5 5 5',
+      '6 5 5',
+      '5 6 5',
+      '9 9 9',
+      '10 9 9',
+      '9 10 9',
+      '3 0 1 2 255 0 0',
+      '3 3 4 5 0 255 0',
+      '3 6 7 8 0 0 255 128',
+      '3 0 2 1 255 0 0',
+    ]);
+
+    // One opaque batch (red + green) and one translucent batch (blue).
+    expect(mesh.groups).toHaveLength(2);
+    const [opaque, translucent] = mesh.groups;
+
+    expect(opaque.key).toBe('mixed|1.0000');
+    expect(opaque.opacity).toBe(1);
+    expect(opaque.positions).toHaveLength(27);
+    expect(Array.from(opaque.colors!)).toEqual([
+      ...Array(3).fill([65535, 0, 0]).flat(),
+      ...Array(3).fill([0, 65535, 0]).flat(),
+      ...Array(3).fill([65535, 0, 0]).flat(),
+    ]);
+    expect(opaque.boundsMax).toEqual([6, 6, 5]);
+
+    expect(translucent.colors).toBeNull();
+    expect(translucent.color).toEqual([0, 0, 1]);
+    expect(translucent.opacity).toBeCloseTo(128 / 255, 5);
+  });
+
+  it('does not smooth normals across a color boundary inside a merged batch', () => {
+    // Two coplanar-ish triangles sharing an edge but colored differently.
+    const mesh = parse([
+      'OFF 4 2 0',
+      '0 0 0',
+      '1 0 0',
+      '0.5 1 0.2',
+      '0.5 -1 0.2',
+      '3 0 1 2 255 0 0',
+      '3 1 0 3 0 255 0',
+    ]);
+    const { normals } = mesh.groups[0];
+    const first = new THREE.Vector3().fromArray(normals, 0);
+    const second = new THREE.Vector3().fromArray(normals, 9);
+
+    expect(mesh.groups).toHaveLength(1);
+    expect(Math.abs(first.y)).toBeGreaterThan(0.05);
+    expect(first.y).toBeCloseTo(-second.y, 5);
+  });
+
   it('gives a cube flat per-face normals', () => {
     const mesh = parse(UNIT_CUBE);
     const { positions, normals } = mesh.groups[0];

@@ -14,11 +14,21 @@ import * as THREE from 'three';
 
 export type OffRgba = [number, number, number, number];
 
+/**
+ * One draw batch: every face that shares an opacity level. Opaque faces of any
+ * color end up in a single batch so the viewer draws them with one mesh.
+ */
 export interface ParsedOffGroup {
-  /** Stable identifier derived from the normalized face color. */
+  /** Stable identifier: the normalized face color, or `mixed|<opacity>`. */
   key: string;
+  /** The batch's color when it is uniform (`colors === null`). */
   color: [number, number, number];
   opacity: number;
+  /**
+   * Per-vertex RGB (normalized 16-bit, same color space as `color`) when the
+   * batch mixes several face colors; null when every face shares `color`.
+   */
+  colors: Uint16Array | null;
   /** Non-indexed triangle positions (9 floats per triangle). */
   positions: Float32Array;
   /** Per-vertex normals matching `positions`. */
@@ -535,21 +545,51 @@ export function parseOffMesh(
 
   // --- Emit per-group buffers with creased normals --------------------------
   const creaseDot = Math.cos(creaseAngle);
-  const output = groups.map((group) => ({
-    key: group.key,
-    color: [group.color[0], group.color[1], group.color[2]] as [number, number, number],
-    opacity: group.color[3],
-    positions: new Float32Array(group.triangleCount * 9),
-    normals: new Float32Array(group.triangleCount * 9),
-    boundsMin: [Infinity, Infinity, Infinity] as [number, number, number],
-    boundsMax: [-Infinity, -Infinity, -Infinity] as [number, number, number],
-    cursor: 0,
-  }));
+  // Faces are grouped by exact color for shading (a color change is always a
+  // crease), but emitted as one draw batch per opacity level. A model with
+  // hundreds of distinctly colored parts would otherwise become hundreds of
+  // meshes, materials and draw calls, which is what makes orbiting stutter.
+  const batchIndexByOpacity = new Map<string, number>();
+  const batches: Array<{ opacity: number; groupIndices: number[]; triangleCount: number }> = [];
+  const batchOfGroup = groups.map((group, groupIndex) => {
+    const opacityKey = group.color[3].toFixed(4);
+    let batchIndex = batchIndexByOpacity.get(opacityKey);
+    if (batchIndex === undefined) {
+      batchIndex = batches.length;
+      batches.push({ opacity: group.color[3], groupIndices: [], triangleCount: 0 });
+      batchIndexByOpacity.set(opacityKey, batchIndex);
+    }
+    batches[batchIndex].groupIndices.push(groupIndex);
+    batches[batchIndex].triangleCount += group.triangleCount;
+    return batchIndex;
+  });
+
+  const output = batches.map((batch) => {
+    const first = groups[batch.groupIndices[0]];
+    const mixed = batch.groupIndices.length > 1;
+    return {
+      key: mixed ? `mixed|${batch.opacity.toFixed(4)}` : first.key,
+      color: [first.color[0], first.color[1], first.color[2]] as [number, number, number],
+      opacity: batch.opacity,
+      positions: new Float32Array(batch.triangleCount * 9),
+      normals: new Float32Array(batch.triangleCount * 9),
+      colors: mixed ? new Uint16Array(batch.triangleCount * 9) : null,
+      boundsMin: [Infinity, Infinity, Infinity] as [number, number, number],
+      boundsMax: [-Infinity, -Infinity, -Infinity] as [number, number, number],
+      cursor: 0,
+    };
+  });
+  const groupColor16 = groups.map((group) => [
+    Math.round(group.color[0] * 65535),
+    Math.round(group.color[1] * 65535),
+    Math.round(group.color[2] * 65535),
+  ]);
 
   for (let t = 0; t < triangleCount; t += 1) {
     const groupIndex = triangleGroups[t];
-    const target = output[groupIndex];
-    const { positions, normals, boundsMin, boundsMax } = target;
+    const target = output[batchOfGroup[groupIndex]];
+    const { positions, normals, colors, boundsMin, boundsMax } = target;
+    const color16 = groupColor16[groupIndex];
     const fnx = faceNormals[t * 3];
     const fny = faceNormals[t * 3 + 1];
     const fnz = faceNormals[t * 3 + 2];
@@ -591,6 +631,11 @@ export function parseOffMesh(
       normals[out] = sx;
       normals[out + 1] = sy;
       normals[out + 2] = sz;
+      if (colors) {
+        colors[out] = color16[0];
+        colors[out + 1] = color16[1];
+        colors[out + 2] = color16[2];
+      }
       target.cursor = out + 3;
 
       if (x < boundsMin[0]) boundsMin[0] = x;
@@ -609,6 +654,7 @@ export function parseOffMesh(
       opacity: group.opacity,
       positions: group.positions,
       normals: group.normals,
+      colors: group.colors,
       boundsMin: group.boundsMin,
       boundsMax: group.boundsMax,
     })),

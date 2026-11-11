@@ -107,6 +107,46 @@ describe('parseOffPreviewModel', () => {
 });
 
 describe('buildPreview3dObject', () => {
+  it('draws many opaque colors as a single vertex-colored mesh', () => {
+    const parsed = parseOffPreviewModel({
+      content: [
+        'OFF 6 2 0',
+        '0 0 0',
+        '1 0 0',
+        '0 1 0',
+        '0 0 1',
+        '1 0 1',
+        '0 1 1',
+        '3 0 1 2 255 0 0',
+        '3 3 4 5 0 0 255',
+      ].join('\n'),
+      fallbackColor: FALLBACK_PREVIEW_SCENE_STYLE.modelColor,
+      version: 'merged',
+    });
+
+    expect(parsed.groups).toHaveLength(1);
+    expect(parsed.groups[0].geometry.getAttribute('color').count).toBe(6);
+
+    const colored = buildPreview3dObject({ parsed, sceneStyle: FALLBACK_PREVIEW_SCENE_STYLE });
+    const coloredMaterial = colored.meshes[0].material as THREE.MeshStandardMaterial;
+    expect(colored.meshes).toHaveLength(1);
+    expect(coloredMaterial.vertexColors).toBe(true);
+    expect(coloredMaterial.color.getHexString()).toBe('ffffff');
+
+    const plain = buildPreview3dObject({
+      parsed,
+      sceneStyle: FALLBACK_PREVIEW_SCENE_STYLE,
+      useModelColors: false,
+    });
+    const plainMaterial = plain.meshes[0].material as THREE.MeshStandardMaterial;
+    expect(plainMaterial.vertexColors).toBe(false);
+    expect(plainMaterial.color.getHexString()).toBe('6699cc');
+
+    colored.dispose();
+    plain.dispose();
+    parsed.dispose();
+  });
+
   it('creates a rotated group of meshes and disposes materials without touching geometry', () => {
     const parsed = parseOffPreviewModel({
       content: ['OFF 4 1 0', '0 0 0', '1 0 0', '1 1 0', '0 1 0', '4 0 1 2 3 255 0 0'].join('\n'),

@@ -35,6 +35,9 @@ export function buildPreviewMeshPayload(
 
   const bvh = mesh.groups.map((group) => {
     transfer.push(group.positions.buffer as ArrayBuffer, group.normals.buffer as ArrayBuffer);
+    if (group.colors) {
+      transfer.push(group.colors.buffer as ArrayBuffer);
+    }
     if (group.positions.length / 9 < BVH_MIN_TRIANGLES) {
       return null;
     }
