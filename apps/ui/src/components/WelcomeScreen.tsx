@@ -1,3 +1,4 @@
+import { DEFAULT_MODEL_IDS } from '../utils/aiModels';
 import { useState, useEffect, useMemo } from 'react';
 import type { ModelSelectionSurface } from '../analytics/runtime';
 import { Button, Text } from './ui';
@@ -78,7 +79,7 @@ export function WelcomeScreen({
   onOpenSettings,
   showRecentFiles = true,
   currentProvider,
-  currentModel = 'claude-sonnet-4-5',
+  currentModel = DEFAULT_MODEL_IDS.anthropic,
   availableProviders = [],
   onModelChange,
   projectDirectory,

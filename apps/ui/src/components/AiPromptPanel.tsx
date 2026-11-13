@@ -1,3 +1,4 @@
+import { DEFAULT_MODEL_IDS } from '../utils/aiModels';
 import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { ChatImage, ChatImageGrid } from './ChatImage';
 import { Button } from './ui';
@@ -386,7 +387,7 @@ export const AiPromptPanel = forwardRef<AiPromptPanelRef, AiPromptPanelProps>(
       onNewConversation,
       currentToolCalls = [],
       currentProvider,
-      currentModel = 'claude-sonnet-4-5',
+      currentModel = DEFAULT_MODEL_IDS.anthropic,
       availableProviders = [],
       onModelChange,
       onRestoreCheckpoint,

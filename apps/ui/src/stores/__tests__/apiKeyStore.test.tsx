@@ -54,16 +54,16 @@ describe('apiKeyStore', () => {
   });
 
   it('persists the selected model and infers providers from known model prefixes', () => {
-    expect(getStoredModel()).toBe('claude-sonnet-4-5');
+    expect(getStoredModel()).toBe('claude-sonnet-4-6');
     expect(getStoredModelSelection()).toEqual({
       provider: 'anthropic',
-      modelId: 'claude-sonnet-4-5',
+      modelId: 'claude-sonnet-4-6',
     });
 
     setStoredModel('gpt-5.4');
     expect(getStoredModel()).toBe('gpt-5.4');
     expect(getStoredModelSelection()).toEqual({ provider: 'openai', modelId: 'gpt-5.4' });
-    expect(getProviderFromModel('claude-sonnet-4-5')).toBe('anthropic');
+    expect(getProviderFromModel('claude-sonnet-4-6')).toBe('anthropic');
     expect(getProviderFromModel('gpt-5.4')).toBe('openai');
     expect(getProviderFromModel('chatgpt-4o-latest')).toBe('openai');
     expect(getProviderFromModel('unknown-model')).toBe('anthropic');
@@ -77,11 +77,11 @@ describe('apiKeyStore', () => {
   });
 
   it('migrates legacy bare hosted model ids to provider-aware selections', () => {
-    localStorage.setItem('openscad_studio_ai_model', 'claude-3-5-sonnet-20241022');
+    localStorage.setItem('openscad_studio_ai_model', 'claude-sonnet-4-6');
 
     expect(getStoredModelSelection()).toEqual({
       provider: 'anthropic',
-      modelId: 'claude-3-5-sonnet-20241022',
+      modelId: 'claude-sonnet-4-6',
     });
 
     localStorage.setItem('openscad_studio_ai_model', 'gpt-4o');
@@ -150,6 +150,52 @@ describe('apiKeyStore', () => {
       provider: 'openai-compatible',
       modelId: 'gemma4:12b',
     });
+  });
+
+  describe.each(['legacy', 'provider-aware'] as const)(
+    '%s Sonnet retirement migration',
+    (format) => {
+      it.each([
+        'claude-sonnet-4-5',
+        'claude-sonnet-4-5-20250929',
+        'claude-sonnet-4-0',
+        'claude-sonnet-4-20250514',
+        'claude-3-7-sonnet-latest',
+        'claude-3-7-sonnet-20250219',
+        'claude-3-5-sonnet-latest',
+        'claude-3-5-sonnet-20241022',
+        'claude-3-5-sonnet-20240620',
+      ])('migrates %s and persists both storage formats', (modelId) => {
+        localStorage.setItem('openscad_studio_ai_model', ` ${modelId} `);
+        if (format === 'provider-aware') {
+          localStorage.setItem(
+            'openscad_studio_ai_model_selection',
+            JSON.stringify({
+              provider: 'anthropic',
+              modelId: ` ${modelId} `,
+            })
+          );
+        }
+        const expected = { provider: 'anthropic', modelId: 'claude-sonnet-4-6' };
+        expect(getStoredModelSelection()).toEqual(expected);
+        expect(getStoredModelSelection()).toEqual(expected);
+        expect(localStorage.getItem('openscad_studio_ai_model')).toBe(expected.modelId);
+        expect(JSON.parse(localStorage.getItem('openscad_studio_ai_model_selection')!)).toEqual(
+          expected
+        );
+      });
+    }
+  );
+
+  it.each([
+    { provider: 'openai-compatible' as const, modelId: 'claude-sonnet-4-5' },
+    { provider: 'openai' as const, modelId: 'gpt-5.4' },
+    { provider: 'anthropic' as const, modelId: 'claude-sonnet-4-6' },
+    { provider: 'anthropic' as const, modelId: 'claude-sonnet-5-5' },
+    { provider: 'anthropic' as const, modelId: 'claude-sonnet-4-5-custom' },
+  ])('preserves unrelated selection $provider / $modelId', (selection) => {
+    setStoredModelSelection(selection);
+    expect(getStoredModelSelection()).toEqual(selection);
   });
 
   it('publishes provider availability through useSyncExternalStore hooks', () => {

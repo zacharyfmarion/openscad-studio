@@ -7,13 +7,33 @@ export interface KnownModelDefinition {
 }
 
 export const DEFAULT_MODEL_IDS: Record<SupportedModelProvider, string> = {
-  anthropic: 'claude-sonnet-4-5',
+  anthropic: 'claude-sonnet-4-6',
   openai: 'gpt-5.4',
   'openai-compatible': 'gemma4:12b',
 };
 
+// Explicit IDs only: never rewrite custom/proxy model names by prefix.
+// https://platform.claude.com/docs/en/about-claude/model-deprecations
+// Sonnet 4.5 retires November 30, 2026; earlier Sonnet versions are retired.
+const LEGACY_SONNET_MODEL_IDS = new Set([
+  'claude-sonnet-4-5',
+  'claude-sonnet-4-5-20250929',
+  'claude-sonnet-4-0',
+  'claude-sonnet-4-20250514',
+  'claude-3-7-sonnet-latest',
+  'claude-3-7-sonnet-20250219',
+  'claude-3-5-sonnet-latest',
+  'claude-3-5-sonnet-20241022',
+  'claude-3-5-sonnet-20240620',
+]);
+
+export function isLegacyAnthropicSonnet(provider: string, modelId: string): boolean {
+  return provider === 'anthropic' && LEGACY_SONNET_MODEL_IDS.has(modelId);
+}
+
 export const KNOWN_DISPLAY_NAMES: Record<string, string> = {
-  'claude-sonnet-4-5': 'Claude Sonnet 4.5 (Latest)',
+  'claude-sonnet-4-6': 'Claude Sonnet 4.6',
+  'claude-sonnet-4-5': 'Claude Sonnet 4.5',
   'claude-opus-4': 'Claude Opus 4 (Latest)',
   'claude-haiku-3-5': 'Claude Haiku 3.5 (Latest)',
   'claude-sonnet-4-5-20250929': 'Claude Sonnet 4.5 (Sep 2025)',
@@ -113,6 +133,7 @@ function getModelFreshnessRank(modelId: string): number {
   if (normalized.startsWith('o1')) return 920;
   if (normalized.startsWith('gpt-4o')) return 910;
   if (normalized.startsWith('gpt-4-turbo')) return 900;
+  if (normalized === 'claude-sonnet-4-6') return 860;
   if (normalized.startsWith('claude-sonnet-4-5')) return 850;
   if (normalized.startsWith('claude-opus-4-1')) return 840;
   if (normalized.startsWith('claude-opus-4')) return 830;
