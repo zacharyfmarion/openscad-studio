@@ -1,29 +1,32 @@
-# Migrate deprecated Sonnet selections
+# Generalize model lifecycle migration and update hosted defaults
 
 ## Goal
-Keep new and existing Anthropic copilot users working after Sonnet 4.5 retires on November 30, 2026.
+Keep the copilot usable after provider retirements, use latest Sonnet/Sol defaults, and make future retirement updates data-only changes.
 
 ## Approach
-Use the supported `claude-sonnet-4-6` as a compatibility-focused replacement. Anthropic lists it as active, with retirement no sooner than February 17, 2027. The latest recommended replacement is Sonnet 5.5, but its always-on thinking and conversation-bound thinking changes warrant a separate agent-loop upgrade, rather than expanding this retirement fix.
+- Provider-keyed exact-ID replacement registry shared by saved selections, discovery, and cache invalidation. Each retired model can have its own target; no family-specific migration code.
+- Latest defaults: `claude-sonnet-5-5` and `gpt-6.1-sol`, verified against primary provider documentation. Default changes do not overwrite an explicitly saved, still-active model.
+- Include retired Sonnet, Opus, Haiku, and OpenAI o3-mini entries to exercise the same mechanism across families/providers. Preserve unknown IDs and all OpenAI-compatible selections.
+- Update request options/history handling for latest-model reasoning compatibility, with mocked protocol tests. Do not change unrelated E2E workflows.
 
 References:
 - https://platform.claude.com/docs/en/about-claude/model-deprecations
-- https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5
-
-Migrate only exact known legacy Sonnet IDs on the Anthropic provider, preserve other models and local endpoints, and update both storage formats. Remove these IDs from fetched/cached menus so they cannot be selected again. Centralize component defaults.
+- https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide
+- https://developers.openai.com/api/docs/models/gpt-6.1-sol
+- https://developers.openai.com/api/docs/guides/latest-model
+- https://developers.openai.com/api/docs/deprecations
 
 ## Affected Areas
-- Shared model catalog and model discovery
-- Persisted provider-aware and legacy selections
+- Shared model catalog, discovery, and persistence
+- Copilot request options and conversation history
 - Welcome/chat defaults and regression tests
 
 ## Checklist
-- [x] Verify official retirement and supported replacement
-- [x] Implement provider-scoped migration and shared defaults
-- [x] Add regression coverage and run baseline validation
-- [ ] Open draft PR against main and inspect CI/preview
+- [x] Open initial draft PR #160 and verify preview
+- [x] Verify latest defaults and implement generic replacement registry
+- [x] Validate latest-model protocol compatibility
+- [x] Run full baseline and web build after changes
+- [ ] Update PR #160 and inspect exact-commit CI/preview
 
 ## Validation
-- Baseline passed: formatting (including Rust), lint, type-check, and all 635 tests in 82 suites.
-- Production web build passed (existing bundle-size/browser-data warnings).
-- Live model calls and browser E2E not run; mock provider regression coverage exercises selection and submission.
+Updated revision passed all 676 tests in 86 suites, full baseline checks (formatting, lint, type-check, unit tests), and production web build. Four new suites cover the generic registry and latest-model protocol behavior, including actual installed-SDK request serialization with mocked fetch. No live model calls or quality evaluation performed.

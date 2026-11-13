@@ -10,6 +10,7 @@ import {
 import { requestRender } from '../stores/renderRequestStore';
 import {
   createModel,
+  getModelRequestOptions,
   SYSTEM_PROMPT,
   buildTools,
   type AiToolCallbacks,
@@ -46,7 +47,12 @@ import {
   getReadyAttachmentIds,
   processAttachmentFiles,
 } from '../utils/aiAttachments';
-import { getVisionSupportForModelId, messagesToModelMessages } from '../utils/aiMessages';
+import {
+  getVisionSupportForModelId,
+  messagesToModelMessages,
+  continueModelConversation,
+  type ModelConversationHistory,
+} from '../utils/aiMessages';
 import { getPreferredDefaultModel } from '../utils/aiModels';
 import {
   createActiveTurnState,
@@ -281,6 +287,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeTurnRef = useRef<ActiveTurnState | null>(null);
   const committedMessagesRef = useRef<Message[]>(state.messages);
+  const modelHistoryRef = useRef<ModelConversationHistory | null>(null);
   const activeTurnDraftRef = useRef<{
     submittedDraft: AiDraft;
     submittedReadyIds: string[];
@@ -479,6 +486,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         errorObject?: Error | null;
         restoreDraft?: boolean;
         completionNotice?: string | null;
+        modelHistory?: Omit<ModelConversationHistory, 'displayMessages'>;
       }
     ) => {
       const finalizedTurn = finalizeActiveTurn(activeTurn, {
@@ -521,6 +529,9 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
           : nextConversation.messages;
 
         committedMessagesRef.current = nextMessages;
+        modelHistoryRef.current = options.modelHistory
+          ? { ...options.modelHistory, displayMessages: nextMessages }
+          : null;
         activeTurnRef.current = null;
         activeTurnDraftRef.current = null;
         pendingCheckpointIdRef.current = null;
@@ -819,10 +830,6 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
           provider === 'openai-compatible'
             ? createModelImpl(provider, apiKey, currentState.currentModel, modelOptions)
             : createModelImpl(provider, apiKey, currentState.currentModel);
-        const modelMessages = messagesToModelMessagesImpl(
-          updatedMessages,
-          currentState.attachments
-        );
 
         const measurementUnit = callbacks.getMeasurementUnit();
         const unitLabels: Record<MeasurementUnit, string> = {
@@ -833,7 +840,22 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
         };
         const dynamicSystem = `${SYSTEM_PROMPT}\n\nCurrent measurement unit: ${measurementUnit} (${unitLabels[measurementUnit]}) — all displayed dimensions use this unit`;
 
+        const historyContext = JSON.stringify([
+          provider,
+          currentState.currentModel,
+          apiKey,
+          modelOptions?.baseUrl,
+          dynamicSystem,
+        ]);
+        const modelMessages = continueModelConversation(
+          modelHistoryRef.current,
+          historyContext,
+          updatedMessages,
+          currentState.attachments,
+          messagesToModelMessagesImpl
+        );
         const result = await startAiStreamImpl({
+          ...getModelRequestOptions(provider, currentState.currentModel),
           model,
           system: dynamicSystem,
           messages: modelMessages,
@@ -911,7 +933,16 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
             !streamErrorText && streamFinishReason === 'tool-calls'
               ? `Stopped before the final AI summary because the tool step budget (${MAX_AGENT_STEPS}) was reached.`
               : null;
+          const response = !streamErrorText ? await result.response : undefined;
+          // Cancellation or navigation may happen while response metadata settles.
+          if (abortController.signal.aborted || !activeTurnRef.current) return;
           finalizeStreamTurn(activeTurnRef.current, {
+            modelHistory: response?.messages
+              ? {
+                  context: historyContext,
+                  modelMessages: [...modelMessages, ...response.messages],
+                }
+              : undefined,
             reason: streamErrorText ? 'error' : 'complete',
             errorText: streamErrorText,
             errorObject: streamErrorObject,
@@ -1032,6 +1063,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
     activeTurnRef.current = null;
     activeTurnDraftRef.current = null;
     committedMessagesRef.current = [];
+    modelHistoryRef.current = null;
     pendingCheckpointIdRef.current = null;
     setState((prev) => {
       revokePreviewUrlsForIds(Object.keys(prev.attachments), prev.attachments);
@@ -1062,6 +1094,7 @@ export function useAiAgent(options: UseAiAgentOptions = {}) {
       }
 
       committedMessagesRef.current = truncatedMessages;
+      modelHistoryRef.current = null;
       activeTurnRef.current = null;
       activeTurnDraftRef.current = null;
 

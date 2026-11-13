@@ -26,14 +26,14 @@ function createFetchMock() {
 
     if (url.includes('api.anthropic.com')) {
       return createJsonResponse({
-        data: [{ id: 'claude-sonnet-4-6', display_name: 'Claude Sonnet 4.6' }],
+        data: [{ id: 'claude-sonnet-5-5', display_name: 'Claude Sonnet 5.5' }],
         has_more: false,
       });
     }
 
     if (url.includes('api.openai.com')) {
       return createJsonResponse({
-        data: [{ id: 'gpt-4o' }, { id: 'gpt-5' }, { id: 'gpt-5.4' }],
+        data: [{ id: 'gpt-4o' }, { id: 'gpt-5' }, { id: 'gpt-6.1-sol' }],
       });
     }
 
@@ -101,7 +101,7 @@ describe('useModels', () => {
     );
     render(<UseModelsHarness availableProviders={['anthropic']} />);
     await waitFor(() =>
-      expect(screen.getByTestId('anthropic').textContent).toBe('claude-sonnet-4-6')
+      expect(screen.getByTestId('anthropic').textContent).toBe('claude-sonnet-5-5')
     );
     expect(globalThis.fetch).toHaveBeenCalled();
   });
@@ -112,14 +112,16 @@ describe('useModels', () => {
       createJsonResponse({
         data: [
           { id: 'claude-sonnet-4-5-20250929', display_name: 'Old Sonnet' },
-          { id: 'claude-sonnet-4-6', display_name: 'Sonnet 4.6' },
+          { id: 'claude-opus-4', display_name: 'Retired Opus' },
+          { id: 'claude-3-5-haiku-20241022', display_name: 'Retired Haiku' },
+          { id: 'claude-sonnet-5-5', display_name: 'Sonnet 5.5' },
         ],
         has_more: false,
       }) as never
     );
     render(<UseModelsHarness availableProviders={['anthropic']} />);
     await waitFor(() =>
-      expect(screen.getByTestId('anthropic').textContent).toBe('claude-sonnet-4-6')
+      expect(screen.getByTestId('anthropic').textContent).toBe('claude-sonnet-5-5')
     );
   });
 
@@ -128,8 +130,46 @@ describe('useModels', () => {
     (globalThis.fetch as jest.Mock).mockRejectedValue(new Error('offline') as never);
     render(<UseModelsHarness availableProviders={['anthropic']} />);
     await waitFor(() => {
-      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-4-6');
+      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-5-5');
       expect(screen.getByTestId('anthropic').textContent).not.toContain('claude-sonnet-4-5');
+    });
+  });
+
+  it('applies the same retirement registry to OpenAI discovery and cached models', async () => {
+    storeApiKey('openai', 'test-key');
+    localStorage.setItem(
+      'openscad_studio_models_cache',
+      JSON.stringify({
+        fetchedAt: Date.now(),
+        providers: ['openai'],
+        models: [{ id: 'o3-mini', display_name: 'Old reasoning model', provider: 'openai' }],
+      })
+    );
+    (globalThis.fetch as jest.Mock).mockResolvedValue(
+      createJsonResponse({
+        data: [{ id: 'o3-mini' }, { id: 'o3-mini-2025-01-31' }, { id: 'gpt-6.1-sol' }],
+      }) as never
+    );
+    render(<UseModelsHarness availableProviders={['openai']} />);
+    await waitFor(() => expect(screen.getByTestId('openai').textContent).toBe('gpt-6.1-sol'));
+    expect(globalThis.fetch).toHaveBeenCalled();
+  });
+
+  it('preserves local endpoint IDs that match hosted retired models', async () => {
+    storeOpenAiCompatibleConfig({
+      baseUrl: 'http://127.0.0.1:11434/v1',
+      modelId: 'o3-mini',
+      apiKey: null,
+    });
+    (globalThis.fetch as jest.Mock).mockResolvedValue(
+      createJsonResponse({
+        data: [{ id: 'o3-mini' }, { id: 'claude-sonnet-4-5' }],
+      }) as never
+    );
+    render(<UseModelsHarness availableProviders={['openai-compatible']} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('openai-compatible').textContent).toContain('o3-mini');
+      expect(screen.getByTestId('openai-compatible').textContent).toContain('claude-sonnet-4-5');
     });
   });
 
@@ -142,8 +182,8 @@ describe('useModels', () => {
       JSON.stringify({
         models: [
           {
-            id: 'claude-sonnet-4-6',
-            display_name: 'Claude Sonnet 4.6 (Latest)',
+            id: 'claude-sonnet-5-5',
+            display_name: 'Claude Sonnet 5.5 (Latest)',
             provider: 'anthropic',
             visionSupport: 'yes',
           },
@@ -157,8 +197,8 @@ describe('useModels', () => {
     render(<UseModelsHarness availableProviders={['anthropic', 'openai']} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-4-6');
-      expect(screen.getByTestId('openai').textContent).toContain('gpt-5.4');
+      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-5-5');
+      expect(screen.getByTestId('openai').textContent).toContain('gpt-6.1-sol');
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -178,14 +218,14 @@ describe('useModels', () => {
     const { rerender } = render(<UseModelsHarness availableProviders={['anthropic', 'openai']} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-4-6');
-      expect(screen.getByTestId('openai').textContent).toContain('gpt-5.4');
+      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-5-5');
+      expect(screen.getByTestId('openai').textContent).toContain('gpt-6.1-sol');
     });
 
     rerender(<UseModelsHarness availableProviders={['anthropic']} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-4-6');
+      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-5-5');
       expect(screen.getByTestId('openai').textContent).toBe('');
     });
   });
@@ -196,7 +236,7 @@ describe('useModels', () => {
     render(<UseModelsHarness availableProviders={['openai']} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('openai').textContent).toBe('gpt-5.4,gpt-5,gpt-4o');
+      expect(screen.getByTestId('openai').textContent).toBe('gpt-6.1-sol,gpt-5,gpt-4o');
     });
   });
 

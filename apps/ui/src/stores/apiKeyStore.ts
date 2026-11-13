@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 import {
   DEFAULT_MODEL_IDS,
   getPreferredDefaultModel,
-  isLegacyAnthropicSonnet,
+  getModelReplacement,
 } from '../utils/aiModels';
 
 // ============================================================================
@@ -234,8 +234,9 @@ function getProviderFromKnownModelPrefix(modelId: string): AiProvider | null {
 }
 
 function migrateModelSelection(selection: AiModelSelection): AiModelSelection {
-  if (!isLegacyAnthropicSonnet(selection.provider, selection.modelId)) return selection;
-  const migrated = { provider: selection.provider, modelId: DEFAULT_MODEL_IDS.anthropic };
+  const replacement = getModelReplacement(selection.provider, selection.modelId);
+  if (!replacement) return selection;
+  const migrated = { provider: selection.provider, modelId: replacement };
   setStoredModelSelection(migrated);
   return migrated;
 }

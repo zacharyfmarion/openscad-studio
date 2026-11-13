@@ -54,17 +54,17 @@ describe('apiKeyStore', () => {
   });
 
   it('persists the selected model and infers providers from known model prefixes', () => {
-    expect(getStoredModel()).toBe('claude-sonnet-4-6');
+    expect(getStoredModel()).toBe('claude-sonnet-5-5');
     expect(getStoredModelSelection()).toEqual({
       provider: 'anthropic',
-      modelId: 'claude-sonnet-4-6',
+      modelId: 'claude-sonnet-5-5',
     });
 
-    setStoredModel('gpt-5.4');
-    expect(getStoredModel()).toBe('gpt-5.4');
-    expect(getStoredModelSelection()).toEqual({ provider: 'openai', modelId: 'gpt-5.4' });
-    expect(getProviderFromModel('claude-sonnet-4-6')).toBe('anthropic');
-    expect(getProviderFromModel('gpt-5.4')).toBe('openai');
+    setStoredModel('gpt-6.1-sol');
+    expect(getStoredModel()).toBe('gpt-6.1-sol');
+    expect(getStoredModelSelection()).toEqual({ provider: 'openai', modelId: 'gpt-6.1-sol' });
+    expect(getProviderFromModel('claude-sonnet-5-5')).toBe('anthropic');
+    expect(getProviderFromModel('gpt-6.1-sol')).toBe('openai');
     expect(getProviderFromModel('chatgpt-4o-latest')).toBe('openai');
     expect(getProviderFromModel('unknown-model')).toBe('anthropic');
 
@@ -77,11 +77,11 @@ describe('apiKeyStore', () => {
   });
 
   it('migrates legacy bare hosted model ids to provider-aware selections', () => {
-    localStorage.setItem('openscad_studio_ai_model', 'claude-sonnet-4-6');
+    localStorage.setItem('openscad_studio_ai_model', 'claude-sonnet-5-5');
 
     expect(getStoredModelSelection()).toEqual({
       provider: 'anthropic',
-      modelId: 'claude-sonnet-4-6',
+      modelId: 'claude-sonnet-5-5',
     });
 
     localStorage.setItem('openscad_studio_ai_model', 'gpt-4o');
@@ -91,11 +91,11 @@ describe('apiKeyStore', () => {
       modelId: 'gpt-4o',
     });
 
-    localStorage.setItem('openscad_studio_ai_model', 'o3-mini');
+    localStorage.setItem('openscad_studio_ai_model', 'gpt-5.4');
 
     expect(getStoredModelSelection()).toEqual({
       provider: 'openai',
-      modelId: 'o3-mini',
+      modelId: 'gpt-5.4',
     });
   });
 
@@ -103,13 +103,13 @@ describe('apiKeyStore', () => {
     localStorage.setItem('openscad_studio_ai_model', 'gpt-4o');
     localStorage.setItem(
       'openscad_studio_ai_model_selection',
-      JSON.stringify({ provider: 'anthropic', modelId: 'claude-opus-4' })
+      JSON.stringify({ provider: 'anthropic', modelId: 'claude-opus-4-8' })
     );
 
-    expect(getStoredModel()).toBe('claude-opus-4');
+    expect(getStoredModel()).toBe('claude-opus-4-8');
     expect(getStoredModelSelection()).toEqual({
       provider: 'anthropic',
-      modelId: 'claude-opus-4',
+      modelId: 'claude-opus-4-8',
     });
   });
 
@@ -129,7 +129,7 @@ describe('apiKeyStore', () => {
 
     expect(getStoredModelSelection()).toEqual({
       provider: 'openai',
-      modelId: 'gpt-5.4',
+      modelId: 'gpt-6.1-sol',
     });
   });
 
@@ -176,7 +176,7 @@ describe('apiKeyStore', () => {
             })
           );
         }
-        const expected = { provider: 'anthropic', modelId: 'claude-sonnet-4-6' };
+        const expected = { provider: 'anthropic', modelId: 'claude-sonnet-5-5' };
         expect(getStoredModelSelection()).toEqual(expected);
         expect(getStoredModelSelection()).toEqual(expected);
         expect(localStorage.getItem('openscad_studio_ai_model')).toBe(expected.modelId);
@@ -186,6 +186,30 @@ describe('apiKeyStore', () => {
       });
     }
   );
+
+  describe.each(['legacy', 'provider-aware'] as const)('%s cross-provider migrations', (format) => {
+    it.each([
+      ['anthropic', 'claude-opus-4', 'claude-opus-4-8'],
+      ['anthropic', 'claude-3-5-haiku-20241022', 'claude-haiku-4-5-20251001'],
+      ['openai', 'o3-mini', 'gpt-6.1-sol'],
+      ['openai', 'o3-mini-2025-01-31', 'gpt-6.1-sol'],
+    ] as const)('migrates %s / %s to its configured replacement', (provider, modelId, target) => {
+      localStorage.setItem('openscad_studio_ai_model', modelId);
+      if (format === 'provider-aware') {
+        localStorage.setItem(
+          'openscad_studio_ai_model_selection',
+          JSON.stringify({ provider, modelId })
+        );
+      }
+      const expected = { provider, modelId: target };
+      expect(getStoredModelSelection()).toEqual(expected);
+      expect(getStoredModelSelection()).toEqual(expected);
+      expect(localStorage.getItem('openscad_studio_ai_model')).toBe(target);
+      expect(JSON.parse(localStorage.getItem('openscad_studio_ai_model_selection')!)).toEqual(
+        expected
+      );
+    });
+  });
 
   it.each([
     { provider: 'openai-compatible' as const, modelId: 'claude-sonnet-4-5' },

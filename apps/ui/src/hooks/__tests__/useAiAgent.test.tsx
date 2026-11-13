@@ -71,26 +71,26 @@ describe('useAiAgent', () => {
   });
 
   it('falls back to a preferred provider model when the stored provider is unavailable', async () => {
-    setStoredModel('gpt-5.4');
+    setStoredModel('gpt-6.1-sol');
 
     const hook = createHarness({
       testOverrides: {
         availableProviders: ['anthropic'],
         getVisionSupportForModelId: ((model: string) =>
-          model === 'claude-sonnet-4-6' ? 'yes' : 'no') as never,
+          model === 'claude-sonnet-5-5' ? 'yes' : 'no') as never,
       },
     });
 
     await waitFor(() => {
-      expect(hook.current().currentModel).toBe('claude-sonnet-4-6');
+      expect(hook.current().currentModel).toBe('claude-sonnet-5-5');
     });
 
     expect(hook.current().currentModelVisionSupport).toBe('yes');
     expect(hook.current().currentProvider).toBe('anthropic');
-    expect(getStoredModel()).toBe('claude-sonnet-4-6');
+    expect(getStoredModel()).toBe('claude-sonnet-5-5');
     expect(getStoredModelSelection()).toEqual({
       provider: 'anthropic',
-      modelId: 'claude-sonnet-4-6',
+      modelId: 'claude-sonnet-5-5',
     });
   });
 
@@ -174,7 +174,7 @@ describe('useAiAgent', () => {
 
       await waitFor(() => {
         expect(hook.current().currentProvider).toBe('anthropic');
-        expect(hook.current().currentModel).toBe('claude-sonnet-4-6');
+        expect(hook.current().currentModel).toBe('claude-sonnet-5-5');
       });
 
       await act(async () => {
@@ -188,7 +188,7 @@ describe('useAiAgent', () => {
       expect(createModel).toHaveBeenCalledWith(
         'anthropic',
         'plain-anthropic-key',
-        'claude-sonnet-4-6'
+        'claude-sonnet-5-5'
       );
       expect(localStorage.getItem('openscad_studio_anthropic_api_key')).toMatch(/^obf1:/);
     }
@@ -200,7 +200,7 @@ describe('useAiAgent', () => {
     localStorage.setItem('openscad_studio_ai_model', 'gpt-4o');
     localStorage.setItem(
       'openscad_studio_ai_model_selection',
-      JSON.stringify({ provider: 'anthropic', modelId: 'claude-opus-4' })
+      JSON.stringify({ provider: 'anthropic', modelId: 'claude-opus-4-8' })
     );
 
     const hook = createHarness({
@@ -211,7 +211,7 @@ describe('useAiAgent', () => {
 
     await waitFor(() => {
       expect(hook.current().currentProvider).toBe('anthropic');
-      expect(hook.current().currentModel).toBe('claude-opus-4');
+      expect(hook.current().currentModel).toBe('claude-opus-4-8');
     });
   });
 
@@ -1342,11 +1342,11 @@ describe('useAiAgent', () => {
     });
 
     act(() => {
-      hook.current().setCurrentModel('gpt-5.4', 'settings_dialog');
+      hook.current().setCurrentModel('gpt-6.1-sol', 'settings_dialog');
     });
 
-    expect(hook.current().currentModel).toBe('gpt-5.4');
-    expect(getStoredModel()).toBe('gpt-5.4');
+    expect(hook.current().currentModel).toBe('gpt-6.1-sol');
+    expect(getStoredModel()).toBe('gpt-6.1-sol');
 
     act(() => {
       hook.current().clearError();
@@ -1357,7 +1357,7 @@ describe('useAiAgent', () => {
     expect(hook.current().draft).toEqual({ text: '', attachmentIds: [] });
     expect(analytics.track).toHaveBeenCalledWith(
       'model selected',
-      expect.objectContaining({ model_id: 'gpt-5.4', provider: 'openai' })
+      expect.objectContaining({ model_id: 'gpt-6.1-sol', provider: 'openai' })
     );
     expect(analytics.track).toHaveBeenCalledWith(
       'conversation started',

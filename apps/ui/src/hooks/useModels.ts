@@ -11,7 +11,7 @@ import {
   DEFAULT_MODEL_CATALOG,
   KNOWN_DISPLAY_NAMES,
   normalizeProviders,
-  isLegacyAnthropicSonnet,
+  getModelReplacement,
 } from '../utils/aiModels';
 import type { VisionSupport } from '../types/aiChat';
 
@@ -56,7 +56,7 @@ const DEFAULT_MODELS: ModelInfo[] = DEFAULT_MODEL_CATALOG.map((model) => ({
 function isRelevantOpenAiModel(id: string): boolean {
   if (id.includes('search') || id.includes('chat')) return false;
   const isOSeries = /^o\d/.test(id);
-  return isOSeries || id.startsWith('gpt-5') || id.startsWith('gpt-4o');
+  return isOSeries || id.startsWith('gpt-6') || id.startsWith('gpt-5') || id.startsWith('gpt-4o');
 }
 
 interface AnthropicModel {
@@ -105,7 +105,7 @@ async function fetchAnthropicModels(apiKey: string): Promise<ModelInfo[]> {
     const data: AnthropicModelsResponse = await resp.json();
 
     for (const m of data.data) {
-      if (isLegacyAnthropicSonnet('anthropic', m.id)) continue;
+      if (getModelReplacement('anthropic', m.id)) continue;
       allModels.push({
         id: m.id,
         display_name: KNOWN_DISPLAY_NAMES[m.id] || m.display_name,
@@ -133,7 +133,7 @@ async function fetchOpenAiModels(apiKey: string): Promise<ModelInfo[]> {
   const data: OpenAiModelsResponse = await resp.json();
 
   return data.data
-    .filter((m) => isRelevantOpenAiModel(m.id))
+    .filter((m) => isRelevantOpenAiModel(m.id) && !getModelReplacement('openai', m.id))
     .map((m) => ({
       id: m.id,
       display_name: KNOWN_DISPLAY_NAMES[m.id] || m.id,
@@ -211,7 +211,7 @@ function loadCache(providers: string[]): { models: ModelInfo[]; ageMinutes: numb
     if (age > CACHE_TTL_MS) return null;
     if (!hasCacheCoverage(cached, providers)) return null;
     // Refresh old catalogs so the migrated selection has a matching menu entry.
-    if (cached.models.some((m) => isLegacyAnthropicSonnet(m.provider, m.id))) return null;
+    if (cached.models.some((m) => getModelReplacement(m.provider, m.id))) return null;
     const filtered = cached.models
       .filter((m) => providers.includes(m.provider))
       .map((model) => ({

@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { tool, type streamText } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
@@ -142,6 +142,28 @@ You are an expert OpenSCAD assistant helping users design and modify 3D models. 
 
 export interface CreateModelOptions {
   baseUrl?: string;
+}
+
+export function getModelRequestOptions(
+  provider: AiProvider,
+  modelId: string
+): {
+  providerOptions?: Parameters<typeof streamText>[0]['providerOptions'];
+  maxOutputTokens?: number;
+} {
+  if (provider === 'anthropic' && modelId === 'claude-sonnet-5-5') {
+    // This SDK supports adaptive thinking, but not Sonnet 5.5's between_tools.
+    // Set effort explicitly and leave space for both thinking and the answer.
+    return {
+      providerOptions: { anthropic: { thinking: { type: 'adaptive' }, effort: 'medium' } },
+      maxOutputTokens: 16000,
+    };
+  }
+  if (provider === 'openai' && modelId === 'gpt-6.1-sol') {
+    // Older SDK capability tables do not recognize GPT-6 as reasoning models.
+    return { providerOptions: { openai: { forceReasoning: true, reasoningEffort: 'low' } } };
+  }
+  return {};
 }
 
 export function createModel(

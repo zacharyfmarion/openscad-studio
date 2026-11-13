@@ -34,6 +34,36 @@ export function toolResultToOutput(result: unknown) {
   };
 }
 
+/** In-memory wire history, separate from the display transcript. Signed reasoning
+ * and exact assistant/tool grouping must survive subsequent user turns. */
+export interface ModelConversationHistory {
+  context: string;
+  displayMessages: Message[];
+  modelMessages: ModelMessage[];
+}
+
+export function continueModelConversation(
+  history: ModelConversationHistory | null,
+  context: string,
+  messages: Message[],
+  attachments: AttachmentStore,
+  convert = messagesToModelMessages
+): ModelMessage[] {
+  if (
+    history?.context === context &&
+    history.displayMessages.length < messages.length &&
+    history.displayMessages.every((message, index) => message === messages[index])
+  ) {
+    return [
+      ...history.modelMessages,
+      ...convert(messages.slice(history.displayMessages.length), attachments),
+    ];
+  }
+  // Restores, model/account switches, and changed system instructions start a
+  // fresh wire history without replaying signatures bound to a different prefix.
+  return convert(messages, attachments);
+}
+
 export function messagesToModelMessages(
   messages: Message[],
   attachments: AttachmentStore
@@ -146,6 +176,7 @@ export function getVisionSupportForModelId(modelId: string): VisionSupport {
   if (
     normalized.startsWith('gpt-4o') ||
     normalized.startsWith('gpt-5') ||
+    normalized.startsWith('gpt-6') ||
     normalized.startsWith('o1') ||
     normalized.startsWith('o3')
   ) {
