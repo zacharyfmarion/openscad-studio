@@ -132,6 +132,15 @@ export function Editor({
       }
 
       const uri = monaco.Uri.parse(`file:///${fileId}.scad`);
+      // Check Monaco's global registry before creating — a previous Editor
+      // instance may have been unmounted without disposing the model (e.g.
+      // React concurrent mode remounts), which causes createModel to throw
+      // "Cannot add model because it already exists!" (Sentry OPENSCAD-STUDIO-2B).
+      const globalExisting = monaco.editor.getModel(uri);
+      if (globalExisting && !globalExisting.isDisposed()) {
+        modelsRef.current.set(fileId, { model: globalExisting, viewState: null });
+        return globalExisting;
+      }
       const model = monaco.editor.createModel(content, 'openscad', uri);
       modelsRef.current.set(fileId, { model, viewState: null });
       return model;
