@@ -23,6 +23,7 @@ jest.unstable_mockModule('@/services/aiService', () => ({
   SYSTEM_PROMPT: '',
   buildTools: () => ({}),
   createModel: jest.fn(),
+  getModelRequestOptions: () => ({}),
 }));
 
 jest.unstable_mockModule('@/services/aiStream', () => ({
@@ -49,14 +50,14 @@ function createFetchMock() {
 
     if (url.includes('api.anthropic.com')) {
       return createJsonResponse({
-        data: [{ id: 'claude-sonnet-4-6', display_name: 'Claude Sonnet 4.6' }],
+        data: [{ id: 'claude-sonnet-5-5', display_name: 'Claude Sonnet 5.5' }],
         has_more: false,
       });
     }
 
     if (url.includes('api.openai.com')) {
       return createJsonResponse({
-        data: [{ id: 'gpt-4o' }, { id: 'gpt-5' }, { id: 'gpt-5.4' }],
+        data: [{ id: 'gpt-4o' }, { id: 'gpt-5' }, { id: 'gpt-6.1-sol' }],
       });
     }
 
@@ -137,7 +138,7 @@ describe('ModelSelector provider refresh', () => {
     await screen.findByRole('combobox');
 
     await waitFor(() => {
-      expect(getNativeSelectOptionLabels()).toContain('GPT-5.4');
+      expect(getNativeSelectOptionLabels()).toContain('GPT-6.1 Sol');
     });
     await waitFor(() => {
       expect(screen.queryByText('No AI provider configured')).toBeNull();
@@ -153,7 +154,7 @@ describe('ModelSelector provider refresh', () => {
 
     await screen.findByRole('combobox');
     await waitFor(() => {
-      expect(getNativeSelectOptionLabels()).toContain('Claude Sonnet 4.6');
+      expect(getNativeSelectOptionLabels()).toContain('Claude Sonnet 5.5');
     });
 
     act(() => {
@@ -162,12 +163,12 @@ describe('ModelSelector provider refresh', () => {
 
     await waitFor(() => {
       const labels = getNativeSelectOptionLabels();
-      expect(labels).toContain('GPT-5.4');
-      expect(labels).toContain('Claude Sonnet 4.6');
+      expect(labels).toContain('GPT-6.1 Sol');
+      expect(labels).toContain('Claude Sonnet 5.5');
     });
   });
 
-  it('falls back to GPT-5.4 when the selected Anthropic provider is removed', async () => {
+  it('falls back to GPT-6.1 Sol when the selected Anthropic provider is removed', async () => {
     act(() => {
       storeApiKey('anthropic', 'anthropic-test-key');
       storeApiKey('openai', 'openai-test-key');
@@ -177,7 +178,7 @@ describe('ModelSelector provider refresh', () => {
 
     await screen.findByRole('combobox');
     await waitFor(() => {
-      expect(getNativeSelectOptionLabels()).toContain('GPT-5.4');
+      expect(getNativeSelectOptionLabels()).toContain('GPT-6.1 Sol');
     });
 
     act(() => {
@@ -186,13 +187,13 @@ describe('ModelSelector provider refresh', () => {
 
     await waitFor(() => {
       const labels = getNativeSelectOptionLabels();
-      expect(labels).not.toContain('Claude Sonnet 4.6');
-      expect(labels).toContain('GPT-5.4');
+      expect(labels).not.toContain('Claude Sonnet 5.5');
+      expect(labels).toContain('GPT-6.1 Sol');
     });
 
     const nativeSelect = document.querySelector('select') as HTMLSelectElement | null;
     await waitFor(() => {
-      expect(nativeSelect?.value).toContain('gpt-5.4');
+      expect(nativeSelect?.value).toContain('gpt-6.1-sol');
       expect(nativeSelect?.value).toContain('openai');
     });
   });
