@@ -4,7 +4,7 @@ version = "1.4.0"
 description = "Modern OpenSCAD editor with AI assistance"
 authors = ["OpenSCAD Studio Contributors"]
 edition = "2021"
-license = "GPL-2.0"
+license = "GPL-2.0-or-later"
 
 [lib]
 name = "openscad_studio_lib"
