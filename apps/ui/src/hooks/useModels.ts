@@ -11,6 +11,7 @@ import {
   DEFAULT_MODEL_CATALOG,
   KNOWN_DISPLAY_NAMES,
   normalizeProviders,
+  isLegacyAnthropicSonnet,
 } from '../utils/aiModels';
 import type { VisionSupport } from '../types/aiChat';
 
@@ -104,6 +105,7 @@ async function fetchAnthropicModels(apiKey: string): Promise<ModelInfo[]> {
     const data: AnthropicModelsResponse = await resp.json();
 
     for (const m of data.data) {
+      if (isLegacyAnthropicSonnet('anthropic', m.id)) continue;
       allModels.push({
         id: m.id,
         display_name: KNOWN_DISPLAY_NAMES[m.id] || m.display_name,
@@ -208,6 +210,8 @@ function loadCache(providers: string[]): { models: ModelInfo[]; ageMinutes: numb
     const age = Date.now() - cached.fetchedAt;
     if (age > CACHE_TTL_MS) return null;
     if (!hasCacheCoverage(cached, providers)) return null;
+    // Refresh old catalogs so the migrated selection has a matching menu entry.
+    if (cached.models.some((m) => isLegacyAnthropicSonnet(m.provider, m.id))) return null;
     const filtered = cached.models
       .filter((m) => providers.includes(m.provider))
       .map((model) => ({

@@ -49,7 +49,7 @@ function createFetchMock() {
 
     if (url.includes('api.anthropic.com')) {
       return createJsonResponse({
-        data: [{ id: 'claude-sonnet-4-5', display_name: 'Claude Sonnet 4.5' }],
+        data: [{ id: 'claude-sonnet-4-6', display_name: 'Claude Sonnet 4.6' }],
         has_more: false,
       });
     }
@@ -153,7 +153,7 @@ describe('ModelSelector provider refresh', () => {
 
     await screen.findByRole('combobox');
     await waitFor(() => {
-      expect(getNativeSelectOptionLabels()).toContain('Claude Sonnet 4.5 (Latest)');
+      expect(getNativeSelectOptionLabels()).toContain('Claude Sonnet 4.6');
     });
 
     act(() => {
@@ -163,7 +163,7 @@ describe('ModelSelector provider refresh', () => {
     await waitFor(() => {
       const labels = getNativeSelectOptionLabels();
       expect(labels).toContain('GPT-5.4');
-      expect(labels).toContain('Claude Sonnet 4.5 (Latest)');
+      expect(labels).toContain('Claude Sonnet 4.6');
     });
   });
 
@@ -186,7 +186,7 @@ describe('ModelSelector provider refresh', () => {
 
     await waitFor(() => {
       const labels = getNativeSelectOptionLabels();
-      expect(labels).not.toContain('Claude Sonnet 4.5 (Latest)');
+      expect(labels).not.toContain('Claude Sonnet 4.6');
       expect(labels).toContain('GPT-5.4');
     });
 

@@ -26,7 +26,7 @@ function createFetchMock() {
 
     if (url.includes('api.anthropic.com')) {
       return createJsonResponse({
-        data: [{ id: 'claude-sonnet-4-5', display_name: 'Claude Sonnet 4.5' }],
+        data: [{ id: 'claude-sonnet-4-6', display_name: 'Claude Sonnet 4.6' }],
         has_more: false,
       });
     }
@@ -86,6 +86,53 @@ describe('useModels', () => {
     localStorage.clear();
   });
 
+  it('refreshes cached deprecated Sonnet catalogs', async () => {
+    storeApiKey('anthropic', 'test-key');
+    localStorage.setItem(
+      'openscad_studio_models_cache',
+      JSON.stringify({
+        fetchedAt: Date.now(),
+        providers: ['anthropic'],
+        models: [
+          { id: 'claude-sonnet-4-5', display_name: 'Old Sonnet', provider: 'anthropic' },
+          { id: 'claude-opus-4-6', display_name: 'Opus', provider: 'anthropic' },
+        ],
+      })
+    );
+    render(<UseModelsHarness availableProviders={['anthropic']} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('anthropic').textContent).toBe('claude-sonnet-4-6')
+    );
+    expect(globalThis.fetch).toHaveBeenCalled();
+  });
+
+  it('does not offer deprecated Sonnet IDs returned by discovery', async () => {
+    storeApiKey('anthropic', 'test-key');
+    (globalThis.fetch as jest.Mock).mockResolvedValue(
+      createJsonResponse({
+        data: [
+          { id: 'claude-sonnet-4-5-20250929', display_name: 'Old Sonnet' },
+          { id: 'claude-sonnet-4-6', display_name: 'Sonnet 4.6' },
+        ],
+        has_more: false,
+      }) as never
+    );
+    render(<UseModelsHarness availableProviders={['anthropic']} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('anthropic').textContent).toBe('claude-sonnet-4-6')
+    );
+  });
+
+  it('uses the supported Sonnet fallback when discovery fails', async () => {
+    storeApiKey('anthropic', 'test-key');
+    (globalThis.fetch as jest.Mock).mockRejectedValue(new Error('offline') as never);
+    render(<UseModelsHarness availableProviders={['anthropic']} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-4-6');
+      expect(screen.getByTestId('anthropic').textContent).not.toContain('claude-sonnet-4-5');
+    });
+  });
+
   it('ignores an anthropic-only cache entry when OpenAI is newly enabled', async () => {
     storeApiKey('anthropic', 'anthropic-test-key');
     storeApiKey('openai', 'openai-test-key');
@@ -95,8 +142,8 @@ describe('useModels', () => {
       JSON.stringify({
         models: [
           {
-            id: 'claude-sonnet-4-5',
-            display_name: 'Claude Sonnet 4.5 (Latest)',
+            id: 'claude-sonnet-4-6',
+            display_name: 'Claude Sonnet 4.6 (Latest)',
             provider: 'anthropic',
             visionSupport: 'yes',
           },
@@ -110,7 +157,7 @@ describe('useModels', () => {
     render(<UseModelsHarness availableProviders={['anthropic', 'openai']} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-4-5');
+      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-4-6');
       expect(screen.getByTestId('openai').textContent).toContain('gpt-5.4');
     });
 
@@ -131,14 +178,14 @@ describe('useModels', () => {
     const { rerender } = render(<UseModelsHarness availableProviders={['anthropic', 'openai']} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-4-5');
+      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-4-6');
       expect(screen.getByTestId('openai').textContent).toContain('gpt-5.4');
     });
 
     rerender(<UseModelsHarness availableProviders={['anthropic']} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-4-5');
+      expect(screen.getByTestId('anthropic').textContent).toContain('claude-sonnet-4-6');
       expect(screen.getByTestId('openai').textContent).toBe('');
     });
   });

@@ -1,5 +1,9 @@
 import { useSyncExternalStore } from 'react';
-import { DEFAULT_MODEL_IDS, getPreferredDefaultModel } from '../utils/aiModels';
+import {
+  DEFAULT_MODEL_IDS,
+  getPreferredDefaultModel,
+  isLegacyAnthropicSonnet,
+} from '../utils/aiModels';
 
 // ============================================================================
 // Constants
@@ -229,18 +233,25 @@ function getProviderFromKnownModelPrefix(modelId: string): AiProvider | null {
   return null;
 }
 
+function migrateModelSelection(selection: AiModelSelection): AiModelSelection {
+  if (!isLegacyAnthropicSonnet(selection.provider, selection.modelId)) return selection;
+  const migrated = { provider: selection.provider, modelId: DEFAULT_MODEL_IDS.anthropic };
+  setStoredModelSelection(migrated);
+  return migrated;
+}
+
 export function getStoredModelSelection(): AiModelSelection {
   const storedSelection = parseStoredModelSelection(
     localStorage.getItem(STORAGE_KEYS.modelSelection)
   );
-  if (storedSelection) return storedSelection;
+  if (storedSelection) return migrateModelSelection(storedSelection);
 
   const legacyModel = localStorage.getItem(STORAGE_KEYS.model);
   if (legacyModel?.trim()) {
     const modelId = legacyModel.trim();
     const provider = getProviderFromKnownModelPrefix(modelId);
     if (provider) {
-      return { provider, modelId };
+      return migrateModelSelection({ provider, modelId });
     }
   }
 

@@ -77,20 +77,20 @@ describe('useAiAgent', () => {
       testOverrides: {
         availableProviders: ['anthropic'],
         getVisionSupportForModelId: ((model: string) =>
-          model === 'claude-sonnet-4-5' ? 'yes' : 'no') as never,
+          model === 'claude-sonnet-4-6' ? 'yes' : 'no') as never,
       },
     });
 
     await waitFor(() => {
-      expect(hook.current().currentModel).toBe('claude-sonnet-4-5');
+      expect(hook.current().currentModel).toBe('claude-sonnet-4-6');
     });
 
     expect(hook.current().currentModelVisionSupport).toBe('yes');
     expect(hook.current().currentProvider).toBe('anthropic');
-    expect(getStoredModel()).toBe('claude-sonnet-4-5');
+    expect(getStoredModel()).toBe('claude-sonnet-4-6');
     expect(getStoredModelSelection()).toEqual({
       provider: 'anthropic',
-      modelId: 'claude-sonnet-4-5',
+      modelId: 'claude-sonnet-4-6',
     });
   });
 
@@ -136,51 +136,63 @@ describe('useAiAgent', () => {
     expect(localStorage.getItem('openscad_studio_openai_api_key')).toMatch(/^obf1:/);
   });
 
-  it('routes legacy bare Anthropic model storage through the Anthropic provider', async () => {
-    localStorage.setItem('openscad_studio_anthropic_api_key', 'plain-anthropic-key');
-    localStorage.setItem('openscad_studio_ai_model', 'claude-3-5-sonnet-20241022');
-    const createModel = jest.fn(() => ({ id: 'anthropic-model' }));
-    const startAiStream = jest.fn(async () =>
-      createStreamResult([
-        {
-          type: 'finish',
-          finishReason: 'stop',
-          rawFinishReason: 'stop',
-          totalUsage: {} as never,
+  it.each(['legacy', 'provider-aware'])(
+    'routes migrated %s Sonnet selection through Anthropic',
+    async (format) => {
+      localStorage.setItem('openscad_studio_anthropic_api_key', 'plain-anthropic-key');
+      localStorage.setItem('openscad_studio_ai_model', 'claude-sonnet-4-5');
+      if (format === 'provider-aware') {
+        localStorage.setItem(
+          'openscad_studio_ai_model_selection',
+          JSON.stringify({
+            provider: 'anthropic',
+            modelId: 'claude-sonnet-4-5-20250929',
+          })
+        );
+      }
+      const createModel = jest.fn(() => ({ id: 'anthropic-model' }));
+      const startAiStream = jest.fn(async () =>
+        createStreamResult([
+          {
+            type: 'finish',
+            finishReason: 'stop',
+            rawFinishReason: 'stop',
+            totalUsage: {} as never,
+          },
+        ] satisfies StreamChunk[])
+      );
+
+      const hook = createHarness({
+        testOverrides: {
+          availableProviders: ['anthropic'],
+          createModel: createModel as never,
+          buildTools: (() => ({})) as never,
+          messagesToModelMessages: (() => []) as never,
+          startAiStream: startAiStream as never,
         },
-      ] satisfies StreamChunk[])
-    );
+      });
 
-    const hook = createHarness({
-      testOverrides: {
-        availableProviders: ['anthropic'],
-        createModel: createModel as never,
-        buildTools: (() => ({})) as never,
-        messagesToModelMessages: (() => []) as never,
-        startAiStream: startAiStream as never,
-      },
-    });
+      await waitFor(() => {
+        expect(hook.current().currentProvider).toBe('anthropic');
+        expect(hook.current().currentModel).toBe('claude-sonnet-4-6');
+      });
 
-    await waitFor(() => {
-      expect(hook.current().currentProvider).toBe('anthropic');
-      expect(hook.current().currentModel).toBe('claude-3-5-sonnet-20241022');
-    });
+      await act(async () => {
+        await hook.current().submitPrompt('Use my existing Anthropic model');
+      });
 
-    await act(async () => {
-      await hook.current().submitPrompt('Use my existing Anthropic model');
-    });
+      await waitFor(() => {
+        expect(hook.current().isStreaming).toBe(false);
+      });
 
-    await waitFor(() => {
-      expect(hook.current().isStreaming).toBe(false);
-    });
-
-    expect(createModel).toHaveBeenCalledWith(
-      'anthropic',
-      'plain-anthropic-key',
-      'claude-3-5-sonnet-20241022'
-    );
-    expect(localStorage.getItem('openscad_studio_anthropic_api_key')).toMatch(/^obf1:/);
-  });
+      expect(createModel).toHaveBeenCalledWith(
+        'anthropic',
+        'plain-anthropic-key',
+        'claude-sonnet-4-6'
+      );
+      expect(localStorage.getItem('openscad_studio_anthropic_api_key')).toMatch(/^obf1:/);
+    }
+  );
 
   it('uses provider-aware selection instead of a stale legacy model when both exist', async () => {
     storeApiKey('anthropic', 'anthropic-key');
