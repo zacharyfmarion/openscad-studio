@@ -1,6 +1,9 @@
 export { Button } from './Button';
 export type { ButtonProps } from './Button';
 
+export { AnnotationBadge } from './AnnotationBadge';
+export type { AnnotationBadgeProps } from './AnnotationBadge';
+
 export { Text } from './Text';
 export type { TextProps } from './Text';
 
