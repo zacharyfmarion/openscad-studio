@@ -36,8 +36,18 @@ export async function exportModelWithContext(
     platform: workingDir ? platform : undefined,
   });
 
-  return renderService.exportModel(renderInputs.code, options.format, {
-    backend: 'manifold',
-    ...renderInputs.renderOptions,
-  });
+  try {
+    return await renderService.exportModel(renderInputs.code, options.format, {
+      backend: 'manifold',
+      ...renderInputs.renderOptions,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('indirect call signature mismatch')) {
+      return await renderService.exportModel(renderInputs.code, options.format, {
+        backend: 'cgal',
+        ...renderInputs.renderOptions,
+      });
+    }
+    throw err;
+  }
 }
