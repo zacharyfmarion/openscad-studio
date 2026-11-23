@@ -41,7 +41,16 @@
     "macOS": {
       "minimumSystemVersion": "10.15",
       "entitlements": "entitlements.plist"
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": ["scad"],
+        "name": "OpenSCAD Design",
+        "description": "OpenSCAD source file",
+        "role": "Editor",
+        "mimeType": "text/plain"
+      }
+    ]
   },
   "plugins": {}
 }

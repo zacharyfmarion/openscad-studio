@@ -23,6 +23,7 @@ import {
   type DesktopWindowLaunchIntent,
   type DesktopWindowOpenRequest,
 } from './services/desktopMcp';
+import { maybePromptForDefaultScadHandler, takeStartupOpenFile } from './services/fileAssociation';
 import { openFileInWindow, openWorkspaceFolderInWindow } from './services/windowOpenService';
 import { captureSentryException } from './sentry';
 import { getProjectState, getProjectStore } from './stores/projectStore';
@@ -592,6 +593,24 @@ function BootstrapApp() {
               requestId: launchIntent.kind === 'welcome' ? undefined : launchIntent.request_id,
               reportResult: launchIntent.kind !== 'welcome',
             });
+            return;
+          }
+        }
+
+        // Only the startup window (no launch intent) handles OS file opens and
+        // the default-app prompt.
+        if (platform.capabilities.hasFileSystem && !launchIntent) {
+          void maybePromptForDefaultScadHandler().catch((error) => {
+            console.error('[main] Default .scad app prompt failed:', error);
+          });
+
+          const startupFile = await takeStartupOpenFile().catch((error) => {
+            console.error('[main] Failed to read startup file:', error);
+            return null;
+          });
+          if (startupFile) {
+            setBootDetail(`startup open file: ${startupFile}`);
+            await runOpenRequest({ kind: 'open_file', file_path: startupFile });
             return;
           }
         }

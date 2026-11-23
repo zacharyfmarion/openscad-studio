@@ -601,6 +601,46 @@ fn dispatch_window_open_request(
     )
 }
 
+/// Opens a file requested by the OS (e.g. Finder double-click) in a blank
+/// welcome window when one exists, otherwise in a new window. Blocks until a
+/// reused window reports back, so call it off the main thread.
+pub(crate) fn open_file_from_os(
+    app: &AppHandle,
+    state: &McpServerState,
+    file_path: &str,
+) -> Result<(), String> {
+    let inner = &state.inner;
+    let welcome_window_id = {
+        let locked = inner.lock().unwrap();
+        choose_blank_welcome_window(&locked)
+    };
+
+    if let Some(window_id) = welcome_window_id {
+        if let Some(window) = app.get_webview_window(&window_id) {
+            let _ = window.set_focus();
+        }
+        return dispatch_window_open_request(
+            app,
+            inner,
+            &window_id,
+            WindowOpenRequest::OpenFile {
+                file_path: file_path.to_string(),
+            },
+        )
+        .map(|_| ());
+    }
+
+    create_new_window_with_launch_intent(
+        app,
+        WindowLaunchIntent::OpenFile {
+            request_id: Uuid::new_v4().to_string(),
+            file_path: file_path.to_string(),
+        },
+    )
+    .map(|_| ())
+    .map_err(|error| format!("Failed to create a new OpenSCAD Studio window: {error}"))
+}
+
 fn get_or_create_workspace_response(
     app: &AppHandle,
     inner: &Arc<Mutex<McpStateInner>>,

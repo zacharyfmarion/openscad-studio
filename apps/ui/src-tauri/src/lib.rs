@@ -1,9 +1,11 @@
 mod cmd;
+mod file_association;
 mod history;
 mod mcp;
 mod types;
 
 use cmd::{update_editor_state, update_working_dir, EditorState, OpenScadBinaryState};
+use file_association::{handle_os_open_paths, OsOpenFileState};
 use history::HistoryState;
 use mcp::{
     record_window_startup_phase, remove_window, update_window_focus, McpServerState,
@@ -89,6 +91,7 @@ pub fn run() {
         .manage(history_state)
         .manage(openscad_state)
         .manage(mcp_state.clone())
+        .manage(OsOpenFileState::default())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             update_editor_state,
@@ -112,6 +115,9 @@ pub fn run() {
             mcp::mcp_report_window_startup_phase,
             mcp::report_window_open_result,
             mcp::mcp_update_window_context,
+            file_association::take_startup_open_file,
+            file_association::get_scad_default_handler_status,
+            file_association::set_as_default_scad_handler,
         ])
         .setup(|app| {
             // Create app menu (About, Hide, Quit, etc.)
@@ -189,6 +195,10 @@ pub fn run() {
 
             app.set_menu(menu)?;
 
+            // Windows/Linux pass files opened from the OS as arguments.
+            let args = std::env::args_os().skip(1).map(std::path::PathBuf::from);
+            handle_os_open_paths(app.handle(), args.collect());
+
             Ok(())
         })
         .on_menu_event(move |app, event| match event.id().as_ref() {
@@ -246,6 +256,18 @@ pub fn run() {
             tauri::WindowEvent::CloseRequested { .. } => {}
             _ => {}
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            // macOS delivers files opened from Finder as an Opened event, both
+            // at launch and while the app is running.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = _event {
+                let paths = urls
+                    .iter()
+                    .filter_map(|url| url.to_file_path().ok())
+                    .collect();
+                handle_os_open_paths(_app, paths);
+            }
+        });
 }
