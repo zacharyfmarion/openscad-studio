@@ -43,7 +43,7 @@ export async function maybePromptForDefaultScadHandler(): Promise<void> {
 
   const platform = getPlatform();
   const accepted = await platform.ask(
-    'Do you want to make OpenSCAD Studio the default app for .scad files? Double-clicking a .scad file will open it here instead of OpenSCAD. You can change this later in Settings.',
+    'Open .scad files in OpenSCAD Studio when you double-click them in Finder? You can also do this later in Settings → Project.',
     {
       title: 'Default App for .scad Files',
       kind: 'info',

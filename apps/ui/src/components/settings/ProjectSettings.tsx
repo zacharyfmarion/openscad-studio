@@ -145,12 +145,12 @@ export function ProjectSettings({
             {scadHandler.isDefault ? (
               <Text variant="caption" color="secondary">
                 <TbCheck className="inline mr-1 -mt-0.5" size={14} />
-                OpenSCAD Studio is the default app for .scad files.
+                Double-clicking a .scad file opens it in OpenSCAD Studio.
               </Text>
             ) : (
               <>
                 <Text variant="caption" color="secondary">
-                  Another app currently opens .scad files.
+                  Double-clicking a .scad file opens it in another app.
                 </Text>
                 <Button
                   variant="secondary"
