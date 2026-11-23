@@ -19,6 +19,7 @@ export interface UiSettings {
   hasCompletedNux: boolean;
   defaultLayoutPreset: 'default' | 'ai-first' | 'customizer-first';
   hasDismissedViewerControlsHint: boolean;
+  hasAnsweredDefaultScadHandlerPrompt: boolean;
   fileTreeVisible: boolean;
   fileTreeWidth: number;
 }
@@ -116,6 +117,7 @@ const DEFAULT_SETTINGS: Settings = {
     hasCompletedNux: true,
     defaultLayoutPreset: 'default',
     hasDismissedViewerControlsHint: false,
+    hasAnsweredDefaultScadHandlerPrompt: false,
     fileTreeVisible: true,
     fileTreeWidth: 200,
   },

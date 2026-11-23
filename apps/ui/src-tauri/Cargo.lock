@@ -2726,6 +2726,7 @@ version = "1.4.0"
 dependencies = [
  "axum",
  "chrono",
+ "core-foundation",
  "diffy",
  "futures",
  "rmcp",

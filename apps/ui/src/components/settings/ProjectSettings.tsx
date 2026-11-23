@@ -12,7 +12,13 @@ import {
 import type { Settings, MeasurementUnit } from '../../stores/settingsStore';
 import { SettingsCard, SettingsCardHeader, SettingsCardSection } from './SettingsPrimitives';
 import { getPlatform } from '../../platform';
-import { TbFolder } from 'react-icons/tb';
+import {
+  getScadDefaultHandlerStatus,
+  setAsDefaultScadHandler,
+  type ScadDefaultHandlerStatus,
+} from '../../services/fileAssociation';
+import { notifyError } from '../../utils/notifications';
+import { TbCheck, TbFolder } from 'react-icons/tb';
 
 interface ProjectSettingsProps {
   settings: Settings;
@@ -43,6 +49,30 @@ export function ProjectSettings({
   }, [capabilities.hasFileSystem, settings.project.defaultProjectDirectory]);
 
   const displayPath = settings.project.defaultProjectDirectory || resolvedDefault || '';
+
+  const [scadHandler, setScadHandler] = useState<ScadDefaultHandlerStatus | null>(null);
+
+  useEffect(() => {
+    if (capabilities.hasFileSystem) {
+      void getScadDefaultHandlerStatus()
+        .then(setScadHandler)
+        .catch(() => setScadHandler(null));
+    }
+  }, [capabilities.hasFileSystem]);
+
+  const handleMakeDefaultScadHandler = async () => {
+    try {
+      await setAsDefaultScadHandler();
+      setScadHandler(await getScadDefaultHandlerStatus());
+    } catch (error) {
+      notifyError({
+        operation: 'set-default-scad-handler',
+        error,
+        fallbackMessage: 'Failed to make OpenSCAD Studio the default app for .scad files',
+        toastId: 'set-default-scad-handler-error',
+      });
+    }
+  };
 
   const handlePickDirectory = async () => {
     const platform = getPlatform();
@@ -100,6 +130,36 @@ export function ProjectSettings({
                   Reset to default
                 </a>
               </Text>
+            )}
+          </SettingsCardSection>
+        </SettingsCard>
+      )}
+
+      {scadHandler?.supported && (
+        <SettingsCard>
+          <SettingsCardHeader
+            title="Default App for .scad Files"
+            description="Open .scad files in OpenSCAD Studio when you double-click them in Finder."
+          />
+          <SettingsCardSection className="flex items-center justify-between gap-2">
+            {scadHandler.isDefault ? (
+              <Text variant="caption" color="secondary">
+                <TbCheck className="inline mr-1 -mt-0.5" size={14} />
+                Double-clicking a .scad file opens it in OpenSCAD Studio.
+              </Text>
+            ) : (
+              <>
+                <Text variant="caption" color="secondary">
+                  Double-clicking a .scad file opens it in another app.
+                </Text>
+                <Button
+                  variant="secondary"
+                  onClick={handleMakeDefaultScadHandler}
+                  className="shrink-0 text-sm"
+                >
+                  Make Default
+                </Button>
+              </>
             )}
           </SettingsCardSection>
         </SettingsCard>

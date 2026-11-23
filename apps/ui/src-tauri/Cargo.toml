@@ -31,3 +31,6 @@ tokio-util = { version = "0.7" }
 axum = "0.8"
 schemars = "0.8"
 futures = "0.3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
